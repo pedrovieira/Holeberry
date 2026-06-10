@@ -1,0 +1,409 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		59EA2A3BC6D3F4B04933B0C1 /* PiHoleMenuAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5B4D8CBCA55BC952EBEB06 /* PiHoleMenuAppTests.swift */; };
+		8422B001399861F49232DC0F /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */; };
+		BE943DD20DB4B8E17C4D3299 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */; };
+		F11C911571512492955190BF /* PiHoleMenuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		97FB28568B90FF225E5F904D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 843BC9D1FDEFA0231600B8F1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7F61B2C9FB8C91DABF83CF91;
+			remoteInfo = PiHoleMenuApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		03A739642FAEC5A2B267C3D0 /* PiHoleMenuApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiHoleMenuApp.entitlements; sourceTree = "<group>"; };
+		10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiHoleMenuApp.swift; sourceTree = "<group>"; };
+		4E5B4D8CBCA55BC952EBEB06 /* PiHoleMenuAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiHoleMenuAppTests.swift; sourceTree = "<group>"; };
+		557406A4AB39B319EEEDB440 /* PiHoleMenuAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PiHoleMenuAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBuilder.swift; sourceTree = "<group>"; };
+		7F67A7AAADD041B948BD6AB3 /* PiHoleMenuApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PiHoleMenuApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9E5FAFC3E89D0CD9CB9F3E27 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		5F79142114C84A235343D1CA = {
+			isa = PBXGroup;
+			children = (
+				F8FC45BA584849C49D4C6E35 /* PiHoleMenuApp */,
+				D932A16F1CA4FA32219E3FD5 /* PiHoleMenuAppTests */,
+				C3438AAEF2C9F271253B4DA2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		980A73E8F3FC2EC457D45044 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				03A739642FAEC5A2B267C3D0 /* PiHoleMenuApp.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		C3438AAEF2C9F271253B4DA2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7F67A7AAADD041B948BD6AB3 /* PiHoleMenuApp.app */,
+				557406A4AB39B319EEEDB440 /* PiHoleMenuAppTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D09D8FFE6F265CA07AA936C3 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */,
+				7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D932A16F1CA4FA32219E3FD5 /* PiHoleMenuAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				4E5B4D8CBCA55BC952EBEB06 /* PiHoleMenuAppTests.swift */,
+			);
+			name = PiHoleMenuAppTests;
+			path = Tests/PiHoleMenuAppTests;
+			sourceTree = "<group>";
+		};
+		F8FC45BA584849C49D4C6E35 /* PiHoleMenuApp */ = {
+			isa = PBXGroup;
+			children = (
+				9E5FAFC3E89D0CD9CB9F3E27 /* Info.plist */,
+				30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */,
+				D09D8FFE6F265CA07AA936C3 /* App */,
+				980A73E8F3FC2EC457D45044 /* Resources */,
+			);
+			name = PiHoleMenuApp;
+			path = Sources/PiHoleMenuApp;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7F61B2C9FB8C91DABF83CF91 /* PiHoleMenuApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BF166A234825EF082B2D42FE /* Build configuration list for PBXNativeTarget "PiHoleMenuApp" */;
+			buildPhases = (
+				6B568243CA0A822027A0B2D7 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PiHoleMenuApp;
+			packageProductDependencies = (
+			);
+			productName = PiHoleMenuApp;
+			productReference = 7F67A7AAADD041B948BD6AB3 /* PiHoleMenuApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B560C1168ADB0169DFC0643D /* PiHoleMenuAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6DA46E92CFE0DD9225719FAF /* Build configuration list for PBXNativeTarget "PiHoleMenuAppTests" */;
+			buildPhases = (
+				664F311DBE9C79EDF637456F /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B8D25271A25ED98C3D86E7EB /* PBXTargetDependency */,
+			);
+			name = PiHoleMenuAppTests;
+			packageProductDependencies = (
+			);
+			productName = PiHoleMenuAppTests;
+			productReference = 557406A4AB39B319EEEDB440 /* PiHoleMenuAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		843BC9D1FDEFA0231600B8F1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 4F4F8467CF2AE85E3BA82756 /* Build configuration list for PBXProject "PiHoleMenuApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 5F79142114C84A235343D1CA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C3438AAEF2C9F271253B4DA2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7F61B2C9FB8C91DABF83CF91 /* PiHoleMenuApp */,
+				B560C1168ADB0169DFC0643D /* PiHoleMenuAppTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		664F311DBE9C79EDF637456F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59EA2A3BC6D3F4B04933B0C1 /* PiHoleMenuAppTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6B568243CA0A822027A0B2D7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8422B001399861F49232DC0F /* MenuBarController.swift in Sources */,
+				BE943DD20DB4B8E17C4D3299 /* MenuBuilder.swift in Sources */,
+				F11C911571512492955190BF /* PiHoleMenuApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B8D25271A25ED98C3D86E7EB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7F61B2C9FB8C91DABF83CF91 /* PiHoleMenuApp */;
+			targetProxy = 97FB28568B90FF225E5F904D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1BEA0C525ADDFD5CF1749887 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		3E9D53DE63E281EAB0753956 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pihole.menuapp.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PiHoleMenuApp.app/Contents/MacOS/PiHoleMenuApp";
+			};
+			name = Release;
+		};
+		40E03DA5EE80ADD661EEBE38 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/PiHoleMenuApp/Resources/PiHoleMenuApp.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = Sources/PiHoleMenuApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pihole.menuapp;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		7C4232FBB69211649D20DBAC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/PiHoleMenuApp/Resources/PiHoleMenuApp.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = Sources/PiHoleMenuApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pihole.menuapp;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		BFC44CF27F19FC4B223C25AE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		CE15DF00170E0B0BB484B7C3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pihole.menuapp.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PiHoleMenuApp.app/Contents/MacOS/PiHoleMenuApp";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4F4F8467CF2AE85E3BA82756 /* Build configuration list for PBXProject "PiHoleMenuApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1BEA0C525ADDFD5CF1749887 /* Debug */,
+				BFC44CF27F19FC4B223C25AE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6DA46E92CFE0DD9225719FAF /* Build configuration list for PBXNativeTarget "PiHoleMenuAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE15DF00170E0B0BB484B7C3 /* Debug */,
+				3E9D53DE63E281EAB0753956 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BF166A234825EF082B2D42FE /* Build configuration list for PBXNativeTarget "PiHoleMenuApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7C4232FBB69211649D20DBAC /* Debug */,
+				40E03DA5EE80ADD661EEBE38 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 843BC9D1FDEFA0231600B8F1 /* Project object */;
+}
