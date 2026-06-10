@@ -1,3 +1,5 @@
+import OSLog
+import ServiceManagement
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable {
@@ -24,9 +26,12 @@ struct SettingsView: View {
   @State private var password: String = ""
   @State private var testResultMessage: String = ""
   @State private var showTestResult: Bool = false
+  @State private var isToggling = false
+  @State private var requiresApproval = false
   @State private var selectedTab: SettingsTab = .server
 
   private let keychain = KeychainManager.shared
+  private let logger = Logger(subsystem: "com.pihole.menuapp", category: "settings")
 
   var body: some View {
     NavigationSplitView {
@@ -65,8 +70,28 @@ struct SettingsView: View {
       }
     }
     .frame(width: 580, height: 400)
-    .onAppear(perform: loadPassword)
+    .onAppear {
+      loadPassword()
+      syncLaunchAtLoginFromSystem()
+    }
     .onDisappear(perform: savePassword)
+    .onChange(of: settings.launchAtLogin) { _, newValue in
+      guard !isToggling else { return }
+      isToggling = true
+      defer { isToggling = false }
+      do {
+        if newValue {
+          try SMAppService.mainApp.register()
+        } else {
+          try SMAppService.mainApp.unregister()
+        }
+        requiresApproval = SMAppService.mainApp.status == .requiresApproval
+      } catch {
+        logger.error("Failed to update login item: \(error.localizedDescription, privacy: .public)")
+        settings.launchAtLogin = !newValue
+        requiresApproval = SMAppService.mainApp.status == .requiresApproval
+      }
+    }
     .alert("Connection Test", isPresented: $showTestResult) {
       Button("OK") {}
     } message: {
@@ -117,6 +142,31 @@ struct SettingsView: View {
   private var advancedSection: some View {
     Section("Advanced") {
       Toggle("Trust self-signed certificates", isOn: $settings.trustSelfSigned)
+
+      VStack(alignment: .leading) {
+        Toggle("Launch at login", isOn: $settings.launchAtLogin)
+          .disabled(isToggling)
+
+        Text("Automatically start Pi-hole Menu when you log in to your Mac.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+      }
+
+      if settings.launchAtLogin {
+        HStack(spacing: 4) {
+          if requiresApproval {
+            Text("Approval needed —")
+              .font(.caption)
+              .foregroundColor(.secondary)
+          }
+          Button("System Settings > General > Login Items") {
+            SMAppService.openSystemSettingsLoginItems()
+          }
+          .buttonStyle(.plain)
+          .controlSize(.small)
+          .foregroundColor(.accentColor)
+        }
+      }
     }
   }
 
@@ -140,6 +190,11 @@ struct SettingsView: View {
     } else {
       try? keychain.savePassword(password, for: url)
     }
+  }
+
+  private func syncLaunchAtLoginFromSystem() {
+    settings.launchAtLogin = SMAppService.mainApp.status == .enabled
+    requiresApproval = SMAppService.mainApp.status == .requiresApproval
   }
 
   private func testConnection() {
