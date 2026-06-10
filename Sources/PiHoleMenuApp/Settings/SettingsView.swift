@@ -5,7 +5,6 @@ enum SettingsTab: String, CaseIterable {
   case defaults = "Defaults"
   case advanced = "Advanced"
   case notifications = "Notifications"
-  case appearance = "Appearance"
   case about = "About"
 
   var icon: String {
@@ -14,7 +13,6 @@ enum SettingsTab: String, CaseIterable {
     case .defaults: return "slider.horizontal.3"
     case .advanced: return "gearshape.2"
     case .notifications: return "bell"
-    case .appearance: return "paintbrush"
     case .about: return "info.circle"
     }
   }
@@ -54,13 +52,6 @@ struct SettingsView: View {
         Form {
           Section("Notifications") {
             Label("Notify on block", systemImage: "bell")
-          }
-        }
-        .formStyle(.grouped)
-      case .appearance:
-        Form {
-          Section("Appearance") {
-            Label("Use dark icon", systemImage: "paintbrush")
           }
         }
         .formStyle(.grouped)
