@@ -7,9 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1D4CE7D91F27E486ED15EF56 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7872875694962D49EFAD70A /* SettingsView.swift */; };
+		53D8EE0BBAA1C864978DC42D /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA7117895560662C0E313BB /* KeychainManager.swift */; };
 		59EA2A3BC6D3F4B04933B0C1 /* PiHoleMenuAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5B4D8CBCA55BC952EBEB06 /* PiHoleMenuAppTests.swift */; };
 		8422B001399861F49232DC0F /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */; };
+		9B7436594D0088AD6551D67D /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */; };
+		A514D76A8EA40EA3F5D86984 /* PiholeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BA66B6BE059B7E6945E602 /* PiholeServer.swift */; };
 		BE943DD20DB4B8E17C4D3299 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */; };
+		D264C4CA3B98AC865F15D131 /* SimpleKeychain in Frameworks */ = {isa = PBXBuildFile; productRef = 6D6BFB60232B23353A9BF8E2 /* SimpleKeychain */; };
+		E766C8ABAEA6B3F3E08895FA /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38A03EFE8331CAB83610153 /* MenuContentView.swift */; };
 		F11C911571512492955190BF /* PiHoleMenuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -25,16 +31,48 @@
 
 /* Begin PBXFileReference section */
 		03A739642FAEC5A2B267C3D0 /* PiHoleMenuApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiHoleMenuApp.entitlements; sourceTree = "<group>"; };
+		06BA66B6BE059B7E6945E602 /* PiholeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServer.swift; sourceTree = "<group>"; };
 		10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiHoleMenuApp.swift; sourceTree = "<group>"; };
+		4CA7117895560662C0E313BB /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
 		4E5B4D8CBCA55BC952EBEB06 /* PiHoleMenuAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiHoleMenuAppTests.swift; sourceTree = "<group>"; };
 		557406A4AB39B319EEEDB440 /* PiHoleMenuAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PiHoleMenuAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBuilder.swift; sourceTree = "<group>"; };
 		7F67A7AAADD041B948BD6AB3 /* PiHoleMenuApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PiHoleMenuApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9E5FAFC3E89D0CD9CB9F3E27 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		C7872875694962D49EFAD70A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D38A03EFE8331CAB83610153 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		7B036B8D9161F2B87F262320 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D264C4CA3B98AC865F15D131 /* SimpleKeychain in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		33D1D1B2A6837CBD835D802B /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				06BA66B6BE059B7E6945E602 /* PiholeServer.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		3D3DE15807CA8CEE6784EC0F /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				4CA7117895560662C0E313BB /* KeychainManager.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
 		5F79142114C84A235343D1CA = {
 			isa = PBXGroup;
 			children = (
@@ -66,6 +104,7 @@
 			children = (
 				10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */,
 				7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */,
+				D38A03EFE8331CAB83610153 /* MenuContentView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -79,13 +118,25 @@
 			path = Tests/PiHoleMenuAppTests;
 			sourceTree = "<group>";
 		};
+		E7D65C15528988F36D40A252 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				C7872875694962D49EFAD70A /* SettingsView.swift */,
+				C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 		F8FC45BA584849C49D4C6E35 /* PiHoleMenuApp */ = {
 			isa = PBXGroup;
 			children = (
 				9E5FAFC3E89D0CD9CB9F3E27 /* Info.plist */,
 				30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */,
 				D09D8FFE6F265CA07AA936C3 /* App */,
+				33D1D1B2A6837CBD835D802B /* Models */,
 				980A73E8F3FC2EC457D45044 /* Resources */,
+				E7D65C15528988F36D40A252 /* Settings */,
+				3D3DE15807CA8CEE6784EC0F /* Utils */,
 			);
 			name = PiHoleMenuApp;
 			path = Sources/PiHoleMenuApp;
@@ -98,7 +149,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = BF166A234825EF082B2D42FE /* Build configuration list for PBXNativeTarget "PiHoleMenuApp" */;
 			buildPhases = (
+				F7357A7D609ED174DDE794A0 /* Run SwiftLint */,
+				AC101146CC5C6060BAC78F7D /* Run swift-format lint */,
 				6B568243CA0A822027A0B2D7 /* Sources */,
+				7B036B8D9161F2B87F262320 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -106,6 +160,7 @@
 			);
 			name = PiHoleMenuApp;
 			packageProductDependencies = (
+				6D6BFB60232B23353A9BF8E2 /* SimpleKeychain */,
 			);
 			productName = PiHoleMenuApp;
 			productReference = 7F67A7AAADD041B948BD6AB3 /* PiHoleMenuApp.app */;
@@ -149,6 +204,9 @@
 			);
 			mainGroup = 5F79142114C84A235343D1CA;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				690D71E7E5FABA7145983630 /* XCRemoteSwiftPackageReference "SimpleKeychain" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C3438AAEF2C9F271253B4DA2 /* Products */;
 			projectDirPath = "";
@@ -159,6 +217,45 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AC101146CC5C6060BAC78F7D /* Run swift-format lint */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run swift-format lint";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "FORMAT_BIN=$(xcrun --find swift-format 2>/dev/null)\nif [ -n \"$FORMAT_BIN\" ]; then\n  \"$FORMAT_BIN\" lint --recursive --strict Sources/ Tests/\nelse\n  echo \"warning: swift-format not found in Xcode toolchain\"\nfi\n";
+		};
+		F7357A7D609ED174DDE794A0 /* Run SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run SwiftLint";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if command -v swiftlint >/dev/null 2>&1; then\n  swiftlint\nelse\n  echo \"warning: SwiftLint not installed - install via 'brew install swiftlint'\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		664F311DBE9C79EDF637456F /* Sources */ = {
@@ -173,9 +270,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				53D8EE0BBAA1C864978DC42D /* KeychainManager.swift in Sources */,
 				8422B001399861F49232DC0F /* MenuBarController.swift in Sources */,
 				BE943DD20DB4B8E17C4D3299 /* MenuBuilder.swift in Sources */,
+				E766C8ABAEA6B3F3E08895FA /* MenuContentView.swift in Sources */,
 				F11C911571512492955190BF /* PiHoleMenuApp.swift in Sources */,
+				A514D76A8EA40EA3F5D86984 /* PiholeServer.swift in Sources */,
+				1D4CE7D91F27E486ED15EF56 /* SettingsView.swift in Sources */,
+				9B7436594D0088AD6551D67D /* SettingsWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -404,6 +506,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		690D71E7E5FABA7145983630 /* XCRemoteSwiftPackageReference "SimpleKeychain" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/auth0/SimpleKeychain";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6D6BFB60232B23353A9BF8E2 /* SimpleKeychain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 690D71E7E5FABA7145983630 /* XCRemoteSwiftPackageReference "SimpleKeychain" */;
+			productName = SimpleKeychain;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 843BC9D1FDEFA0231600B8F1 /* Project object */;
 }

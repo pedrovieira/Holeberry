@@ -75,6 +75,8 @@ identifier_name:
     - x
     - y
     - z
+    - v5
+    - v6
 
 indentation_width:
   indentation_width: 2
