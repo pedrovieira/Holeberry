@@ -9,6 +9,11 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
 
+packages:
+  SimpleKeychain:
+    url: https://github.com/auth0/SimpleKeychain
+    from: 1.3.0
+
 targets:
   PiHoleMenuApp:
     type: application
@@ -20,7 +25,8 @@ targets:
         INFOPLIST_FILE: Sources/PiHoleMenuApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/PiHoleMenuApp/Resources/PiHoleMenuApp.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: com.pihole.menuapp
-    dependencies: []
+    dependencies:
+      - package: SimpleKeychain
     preBuildScripts:
       - name: Run SwiftLint
         script: |

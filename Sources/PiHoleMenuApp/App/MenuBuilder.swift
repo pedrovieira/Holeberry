@@ -1,17 +1,18 @@
 import AppKit
+import SwiftUI
 
-class MenuBuilder {
+class MenuBuilder: NSObject {
+  private weak var settingsWindow: NSWindow?
+
   func buildMenu() -> NSMenu {
     let menu = NSMenu()
 
-    // Status row (disabled, informational)
     let statusItem = NSMenuItem(title: "● Pi-hole Status", action: nil, keyEquivalent: "")
     statusItem.isEnabled = false
     menu.addItem(statusItem)
 
     menu.addItem(NSMenuItem.separator())
 
-    // Placeholder items
     let disableItem = NSMenuItem(title: "Disable Blocking", action: nil, keyEquivalent: "")
     disableItem.isEnabled = false
     menu.addItem(disableItem)
@@ -22,12 +23,10 @@ class MenuBuilder {
 
     menu.addItem(NSMenuItem.separator())
 
-    // Settings
     let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ",")
     settingsItem.target = self
     menu.addItem(settingsItem)
 
-    // Quit
     let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     menu.addItem(quitItem)
 
@@ -35,6 +34,31 @@ class MenuBuilder {
   }
 
   @objc private func showSettings() {
-    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    if let existing = settingsWindow {
+      existing.makeKeyAndOrderFront(nil)
+      NSApp.activate(ignoringOtherApps: true)
+      return
+    }
+
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
+      styleMask: [.titled, .closable, .miniaturizable],
+      backing: .buffered,
+      defer: false
+    )
+    window.contentView = NSHostingView(rootView: SettingsView())
+    window.title = "Settings"
+    window.center()
+    window.setFrameAutosaveName("Settings")
+    window.delegate = self
+    settingsWindow = window
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+  }
+}
+
+extension MenuBuilder: NSWindowDelegate {
+  func windowWillClose(_ notification: Notification) {
+    settingsWindow = nil
   }
 }
