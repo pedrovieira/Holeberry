@@ -4,27 +4,24 @@ enum SettingsTab: String, CaseIterable {
   case server = "Server"
   case defaults = "Defaults"
   case advanced = "Advanced"
+  case notifications = "Notifications"
+  case appearance = "Appearance"
+  case about = "About"
 
   var icon: String {
     switch self {
     case .server: return "server.rack"
     case .defaults: return "slider.horizontal.3"
     case .advanced: return "gearshape.2"
+    case .notifications: return "bell"
+    case .appearance: return "paintbrush"
+    case .about: return "info.circle"
     }
   }
 }
 
 struct SettingsView: View {
-  @AppStorage("serverURL")
-  private var serverURL = ""
-  @AppStorage("serverVersion")
-  private var serverVersionRaw = PiholeServer.Version.autoDetect.rawValue
-  @AppStorage("recentBlockedCount")
-  private var recentBlockedCount = 20
-  @AppStorage("maxActiveUnblocks")
-  private var maxActiveUnblocks = 10
-  @AppStorage("trustSelfSigned")
-  private var trustSelfSigned = false
+  @StateObject private var settings = SettingsStore()
 
   @State private var password: String = ""
   @State private var testResultMessage: String = ""
@@ -53,6 +50,27 @@ struct SettingsView: View {
       case .advanced:
         Form { advancedSection }
           .formStyle(.grouped)
+      case .notifications:
+        Form {
+          Section("Notifications") {
+            Label("Notify on block", systemImage: "bell")
+          }
+        }
+        .formStyle(.grouped)
+      case .appearance:
+        Form {
+          Section("Appearance") {
+            Label("Use dark icon", systemImage: "paintbrush")
+          }
+        }
+        .formStyle(.grouped)
+      case .about:
+        Form {
+          Section("About PiHole Menu") {
+            Label("Version 1.0", systemImage: "info.circle")
+          }
+        }
+        .formStyle(.grouped)
       }
     }
     .frame(width: 580, height: 400)
@@ -67,12 +85,12 @@ struct SettingsView: View {
 
   private var serverSection: some View {
     Section("Server") {
-      TextField("URL (e.g. http://192.168.1.100:80)", text: $serverURL)
+      TextField("URL (e.g. http://192.168.1.100:80)", text: $settings.serverURL)
         .textFieldStyle(.roundedBorder)
         .labelsHidden()
         .help("The full URL to your Pi-hole instance including port")
 
-      Picker("Version", selection: $serverVersionRaw) {
+      Picker("Version", selection: $settings.serverVersionRaw) {
         ForEach(PiholeServer.Version.allCases, id: \.rawValue) { version in
           Text(version.displayName).tag(version.rawValue)
         }
@@ -90,7 +108,7 @@ struct SettingsView: View {
       HStack {
         Text("Recent blocked count")
         Spacer()
-        TextField("", value: $recentBlockedCount, format: .number)
+        TextField("", value: $settings.recentBlockedCount, format: .number)
           .textFieldStyle(.roundedBorder)
           .frame(width: 70)
       }
@@ -98,7 +116,7 @@ struct SettingsView: View {
       HStack {
         Text("Max active unblocks")
         Spacer()
-        TextField("", value: $maxActiveUnblocks, format: .number)
+        TextField("", value: $settings.maxActiveUnblocks, format: .number)
           .textFieldStyle(.roundedBorder)
           .frame(width: 70)
       }
@@ -107,25 +125,25 @@ struct SettingsView: View {
 
   private var advancedSection: some View {
     Section("Advanced") {
-      Toggle("Trust self-signed certificates", isOn: $trustSelfSigned)
+      Toggle("Trust self-signed certificates", isOn: $settings.trustSelfSigned)
     }
   }
 
   private var testConnectionSection: some View {
     Section {
       Button("Test Connection", action: testConnection)
-        .disabled(serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .disabled(settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
   }
 
   private func loadPassword() {
-    let url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    let url = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !url.isEmpty else { return }
     password = (try? keychain.readPassword(for: url)) ?? ""
   }
 
   private func savePassword() {
-    let url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    let url = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
     if password.isEmpty {
       try? keychain.deletePassword(for: url)
     } else {
@@ -134,7 +152,7 @@ struct SettingsView: View {
   }
 
   private func testConnection() {
-    let url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    let url = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
 
     guard !url.isEmpty else {
       testResultMessage = "Please enter a server URL first."
@@ -156,7 +174,7 @@ struct SettingsView: View {
 
     savePassword()
 
-    let versionLabel = PiholeServer.Version(rawValue: serverVersionRaw)?.displayName ?? "Auto-detect"
+    let versionLabel = PiholeServer.Version(rawValue: settings.serverVersionRaw)?.displayName ?? "Auto-detect"
     testResultMessage = """
       URL: \(url)
       Version: \(versionLabel)
