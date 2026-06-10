@@ -1,5 +1,19 @@
 import SwiftUI
 
+enum SettingsTab: String, CaseIterable {
+  case server = "Server"
+  case defaults = "Defaults"
+  case advanced = "Advanced"
+
+  var icon: String {
+    switch self {
+    case .server: return "server.rack"
+    case .defaults: return "slider.horizontal.3"
+    case .advanced: return "gearshape.2"
+    }
+  }
+}
+
 struct SettingsView: View {
   @AppStorage("serverURL")
   private var serverURL = ""
@@ -15,19 +29,33 @@ struct SettingsView: View {
   @State private var password: String = ""
   @State private var testResultMessage: String = ""
   @State private var showTestResult: Bool = false
+  @State private var selectedTab: SettingsTab = .server
 
   private let keychain = KeychainManager.shared
 
   var body: some View {
-    Form {
-      serverSection
-      defaultsSection
-      advancedSection
-      testConnectionSection
+    NavigationSplitView {
+      List(SettingsTab.allCases, id: \.self, selection: $selectedTab) { tab in
+        Label(tab.rawValue, systemImage: tab.icon)
+      }
+      .listStyle(.sidebar)
+    } detail: {
+      switch selectedTab {
+      case .server:
+        Form {
+          serverSection
+          testConnectionSection
+        }
+        .formStyle(.grouped)
+      case .defaults:
+        Form { defaultsSection }
+          .formStyle(.grouped)
+      case .advanced:
+        Form { advancedSection }
+          .formStyle(.grouped)
+      }
     }
-    .formStyle(.grouped)
-    .frame(width: 480)
-    .fixedSize()
+    .frame(width: 580, height: 400)
     .onAppear(perform: loadPassword)
     .onDisappear(perform: savePassword)
     .alert("Connection Test", isPresented: $showTestResult) {
