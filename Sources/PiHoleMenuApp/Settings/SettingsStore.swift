@@ -6,4 +6,5 @@ final class SettingsStore: ObservableObject {
   @AppStorage("recentBlockedCount") var recentBlockedCount = 20
   @AppStorage("maxActiveUnblocks") var maxActiveUnblocks = 10
   @AppStorage("trustSelfSigned") var trustSelfSigned = false
+  @AppStorage("launchAtLogin") var launchAtLogin = false
 }
