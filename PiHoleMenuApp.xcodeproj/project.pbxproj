@@ -16,6 +16,7 @@
 		73F27B1D9961CA0708FC47A4 /* PiholeV6Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92BEA8B81FC013394DE37547 /* PiholeV6Service.swift */; };
 		81416453F12B4B639967D0AB /* HTTPMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49560025B59AFC630839F91 /* HTTPMethod.swift */; };
 		8422B001399861F49232DC0F /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */; };
+		8D127B6703F4C450B3D54031 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BC2794D38B601DE5001634C /* Assets.xcassets */; };
 		9B7436594D0088AD6551D67D /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */; };
 		A514D76A8EA40EA3F5D86984 /* PiholeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BA66B6BE059B7E6945E602 /* PiholeServer.swift */; };
 		A5FAA3B79F95F6E4C44EEDA0 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC4C5CD09942C8F57B3BC26 /* SettingsStore.swift */; };
@@ -58,6 +59,7 @@
 		816DAE731EC771959A9F43B3 /* PiholeServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceProtocol.swift; sourceTree = "<group>"; };
 		8D5173186B87671D8390E861 /* PiholeError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeError.swift; sourceTree = "<group>"; };
 		92BEA8B81FC013394DE37547 /* PiholeV6Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV6Service.swift; sourceTree = "<group>"; };
+		9BC2794D38B601DE5001634C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9E5FAFC3E89D0CD9CB9F3E27 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B3A87483ADD4627C31DC999A /* ReachabilityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityMonitor.swift; sourceTree = "<group>"; };
 		B49560025B59AFC630839F91 /* HTTPMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
@@ -115,6 +117,7 @@
 		980A73E8F3FC2EC457D45044 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				9BC2794D38B601DE5001634C /* Assets.xcassets */,
 				03A739642FAEC5A2B267C3D0 /* PiHoleMenuApp.entitlements */,
 			);
 			path = Resources;
@@ -200,6 +203,7 @@
 				F7357A7D609ED174DDE794A0 /* Run SwiftLint */,
 				AC101146CC5C6060BAC78F7D /* Run swift-format lint */,
 				6B568243CA0A822027A0B2D7 /* Sources */,
+				C3D57DD34E7F2AB4BAD8104C /* Resources */,
 				7B036B8D9161F2B87F262320 /* Frameworks */,
 			);
 			buildRules = (
@@ -265,6 +269,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C3D57DD34E7F2AB4BAD8104C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D127B6703F4C450B3D54031 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		A485B7ED263C6882316476AE /* Generate Xcode project with XcodeGen */ = {
