@@ -31,7 +31,7 @@ struct SettingsView: View {
   @State private var selectedTab: SettingsTab = .server
 
   private let keychain = KeychainManager.shared
-  private let logger = Logger(subsystem: "com.pihole.menuapp", category: "settings")
+  private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
   var body: some View {
     NavigationSplitView {
@@ -104,12 +104,6 @@ struct SettingsView: View {
         .textFieldStyle(.roundedBorder)
         .labelsHidden()
         .help("The full URL to your Pi-hole instance including port")
-
-      Picker("Version", selection: $settings.serverVersionRaw) {
-        ForEach(PiholeServer.Version.allCases, id: \.rawValue) { version in
-          Text(version.displayName).tag(version.rawValue)
-        }
-      }
 
       SecureField("Password / API Token", text: $password)
         .textFieldStyle(.roundedBorder)
@@ -300,15 +294,15 @@ struct SettingsView: View {
   }
 
   private func testConnection() {
-    let url = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    let urlString = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    guard !url.isEmpty else {
+    guard !urlString.isEmpty else {
       testResultMessage = "Please enter a server URL first."
       showTestResult = true
       return
     }
 
-    guard URL(string: url) != nil else {
+    guard let url = URL(string: urlString) else {
       testResultMessage = "Invalid URL format. Expected format: http://host:port"
       showTestResult = true
       return
@@ -322,14 +316,35 @@ struct SettingsView: View {
 
     savePassword()
 
-    let versionLabel = PiholeServer.Version(rawValue: settings.serverVersionRaw)?.displayName ?? "Auto-detect"
-    testResultMessage = """
-      URL: \(url)
-      Version: \(versionLabel)
-      Password: Set
+    Task {
+      do {
+        let session: URLSession
+        if settings.trustSelfSigned, let host = url.host {
+          let delegate = CertificateTrustDelegate(trustedHosts: [host])
+          session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        } else {
+          session = URLSession(configuration: .ephemeral)
+        }
+        defer { session.finishTasksAndInvalidate() }
 
-      Full connectivity test will be available after setting up the network layer.
-      """
-    showTestResult = true
+        let version = try await PiholeVersionDetector.detect(baseURL: url, session: session)
+
+        await MainActor.run {
+          testResultMessage = """
+            URL: \(urlString)
+            Detected: \(version.displayName)
+            Password: Set
+
+            Connection successful.
+            """
+          showTestResult = true
+        }
+      } catch {
+        await MainActor.run {
+          testResultMessage = "Connection failed: \(error.localizedDescription)"
+          showTestResult = true
+        }
+      }
+    }
   }
 }

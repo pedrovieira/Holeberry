@@ -1,0 +1,80 @@
+import Foundation
+import OSLog
+
+/// Probes an unauthenticated Pi-hole endpoint to detect v5 vs v6 without knowing the credential.
+///
+/// `GET /admin/api.php?version` returns two mutually exclusive responses:
+///   - **v5:** HTTP 200 with `{"version": ...}`
+///   - **v6:**  HTTP 400 with `{"hint": "...the API is hosted at /api..."}`
+///
+/// Any other response is treated as unreachable.
+enum PiholeVersionDetector {
+  private static let logger = Logger(
+    subsystem: Logger.appSubsystem,
+    category: "version-detector"
+  )
+
+  private static let versionKey = "version"
+  private static let hintKey = "hint"
+  private static let errorKey = "error"
+
+  private static let versionQueryItem = URLQueryItem(name: Self.versionKey, value: nil)
+
+  private static func hint(from json: [String: Any]) -> String? {
+    let errorDict = json[Self.errorKey] as? [String: Any]
+    return (json[Self.hintKey] as? String) ?? errorDict?[Self.hintKey] as? String
+  }
+
+  static func detect(baseURL: URL, session: URLSession) async throws -> PiholeServer.Version {
+    var components = URLComponents(
+      url: baseURL.appendingPathComponent("/admin/api.php"),
+      resolvingAgainstBaseURL: false
+    )
+    components?.queryItems = [Self.versionQueryItem]
+
+    guard let probeURL = components?.url else {
+      throw PiholeError.unknown("Failed to build probe URL")
+    }
+
+    var request = URLRequest(url: probeURL)
+    request.timeoutInterval = 10
+
+    let (data, response): (Data, URLResponse)
+    do {
+      (data, response) = try await session.data(for: request)
+    } catch {
+      throw PiholeError.network(error.localizedDescription)
+    }
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw PiholeError.unknown("Invalid response during version probe")
+    }
+
+    switch httpResponse.statusCode {
+    case 200:
+      if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        json[Self.versionKey] != nil
+      {
+        logger.debug("Detected Pi-hole v5 via /admin/api.php?version")
+        return .v5
+      }
+      throw PiholeError.unknown("Unexpected 200 response from version probe")
+
+    case 400:
+      if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let hint = Self.hint(from: json),
+        hint.contains("/api")
+      {
+        logger.debug("Detected Pi-hole v6 via structured 400 from /admin/api.php?version")
+        return .v6
+      }
+      throw PiholeError.unknown("Unexpected 400 response from version probe")
+
+    default:
+      throw PiholeError.server(
+        httpResponse.statusCode,
+        String(data: data, encoding: .utf8)
+      )
+    }
+  }
+}

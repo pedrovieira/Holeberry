@@ -2,7 +2,6 @@ import SwiftUI
 
 final class SettingsStore: ObservableObject {
   @AppStorage("serverURL") var serverURL = ""
-  @AppStorage("serverVersion") var serverVersionRaw = PiholeServer.Version.autoDetect.rawValue
   @AppStorage("recentBlockedCount") var recentBlockedCount = 20
   @AppStorage("maxActiveUnblocks") var maxActiveUnblocks = 10
   @AppStorage("trustSelfSigned") var trustSelfSigned = false
