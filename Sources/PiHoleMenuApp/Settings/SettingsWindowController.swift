@@ -21,6 +21,7 @@ final class SettingsWindowController: NSWindowController {
 
   private func setupWindow() {
     window?.title = "Settings"
+    window?.identifier = NSUserInterfaceItemIdentifier("Settings")
     window?.contentView = NSHostingView(rootView: SettingsView())
     window?.setFrameAutosaveName("Settings")
   }
