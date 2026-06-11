@@ -28,6 +28,13 @@ targets:
     dependencies:
       - package: SimpleKeychain
     preBuildScripts:
+      - name: Generate Xcode project with XcodeGen
+        script: |
+          if command -v xcodegen >/dev/null 2>&1; then
+            xcodegen generate --project . --quiet
+          else
+            echo "warning: XcodeGen not installed - install via 'brew install xcodegen'"
+          fi
       - name: Run SwiftLint
         script: |
           if command -v swiftlint >/dev/null 2>&1; then

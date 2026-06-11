@@ -20,8 +20,8 @@ final class CertificateTrustDelegate: NSObject, URLSessionDelegate, @unchecked S
   ) {
     let protectionSpace = challenge.protectionSpace
     guard protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-          let host = protectionSpace.host as String?,
-          let serverTrust = protectionSpace.serverTrust
+      let host = protectionSpace.host as String?,
+      let serverTrust = protectionSpace.serverTrust
     else {
       completionHandler(.performDefaultHandling, nil)
       return

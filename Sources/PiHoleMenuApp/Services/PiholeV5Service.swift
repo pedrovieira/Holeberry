@@ -9,7 +9,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
   private let session: URLSession
   private let apiToken: String
   private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.pihole.menuapp", category: "v5-service")
-  private let decoder = JSONDecoder()
+  private static let decoder = JSONDecoder()
 
   init(baseURL: URL, session: URLSession, apiToken: String) {
     self.baseURL = baseURL
@@ -30,7 +30,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
 
     let status: StatusResponse
     do {
-      status = try decoder.decode(StatusResponse.self, from: data)
+      status = try Self.decoder.decode(StatusResponse.self, from: data)
     } catch {
       throw PiholeError.decoding(error.localizedDescription)
     }
@@ -86,7 +86,8 @@ final class PiholeV5Service: PiholeServiceProtocol {
 
   private func fallbackRecentBlocked() async throws -> [String] {
     let queries = try await getRecentQueries(clientIP: nil)
-    return queries
+    return
+      queries
       .filter { $0.status == "blocked" || $0.status == "0" }
       .map { $0.domain }
   }
@@ -117,13 +118,14 @@ final class PiholeV5Service: PiholeServiceProtocol {
       let clientIP = "\(row[3])"
       let status = "\(row[4])"
 
-      queries.append(RecentQuery(
-        timestamp: timestamp,
-        domain: domain,
-        clientIP: clientIP,
-        status: status,
-        dnsType: dnsType
-      ))
+      queries.append(
+        RecentQuery(
+          timestamp: timestamp,
+          domain: domain,
+          clientIP: clientIP,
+          status: status,
+          dnsType: dnsType
+        ))
     }
 
     return queries
@@ -237,7 +239,9 @@ final class PiholeV5Service: PiholeServiceProtocol {
     return regex.stringByReplacingMatches(in: string, range: range, withTemplate: "")
   }
 
-  private func getRequest(path: String, params: [String: String?]) async throws -> (Data, HTTPURLResponse) {
+  private func getRequest(path: String, params: [String: String?], method: HTTPMethod = .get) async throws -> (
+    Data, HTTPURLResponse
+  ) {
     var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)
     var queryItems: [URLQueryItem] = [URLQueryItem(name: "auth", value: apiToken)]
 
@@ -256,6 +260,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
     }
 
     var request = URLRequest(url: url)
+    request.httpMethod = method.rawValue
     request.timeoutInterval = 15
 
     let (data, response): (Data, URLResponse)

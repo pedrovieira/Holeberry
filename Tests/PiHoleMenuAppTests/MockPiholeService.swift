@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import PiHoleMenuApp
 
 /// Configurable mock implementing `PiholeServiceProtocol` with stub injection, call-count tracking, and failure injection.
@@ -19,7 +20,8 @@ final class MockPiholeService: PiholeServiceProtocol {
   var getRecentQueriesStub: Result<[RecentQuery], Error> = .success([])
   var getRecentQueriesCallCount = 0
 
-  var addDomainStub: Result<DomainEntry, Error> = .success(DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil))
+  var addDomainStub: Result<DomainEntry, Error> = .success(
+    DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil))
   var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
