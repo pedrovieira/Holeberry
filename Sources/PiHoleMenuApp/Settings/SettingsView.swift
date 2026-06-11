@@ -75,6 +75,10 @@ struct SettingsView: View {
       syncLaunchAtLoginFromSystem()
     }
     .onDisappear(perform: savePassword)
+    .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
+      guard (notification.object as? NSWindow)?.identifier?.rawValue == "Settings" else { return }
+      syncLaunchAtLoginFromSystem()
+    }
     .onChange(of: settings.launchAtLogin) { _, newValue in
       guard !isToggling else { return }
       isToggling = true
