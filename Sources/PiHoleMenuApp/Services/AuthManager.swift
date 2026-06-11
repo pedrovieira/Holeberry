@@ -5,7 +5,7 @@ import OSLog
 actor AuthManager {
   private let baseURL: URL
   private let session: URLSession
-  private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.pihole.menuapp", category: "auth")
+  private let logger = Logger(subsystem: Logger.appSubsystem, category: "auth")
 
   private static let passwordKey = "password"
   private static let totpKey = "totp"

@@ -8,7 +8,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
   private let baseURL: URL
   private let session: URLSession
   private let apiToken: String
-  private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.pihole.menuapp", category: "v5-service")
+  private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
 
   init(baseURL: URL, session: URLSession, apiToken: String) {

@@ -10,7 +10,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
   private let authManager: AuthManager
   private let password: String
   private static let decoder = JSONDecoder()
-  private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.pihole.menuapp", category: "v6-service")
+  private let logger = Logger(subsystem: Logger.appSubsystem, category: "v6-service")
 
   init(baseURL: URL, session: URLSession, authManager: AuthManager, password: String) {
     self.baseURL = baseURL
