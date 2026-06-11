@@ -61,12 +61,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
       case .about:
-        Form {
-          Section("About PiHole Menu") {
-            Label("Version 1.0", systemImage: "info.circle")
-          }
-        }
-        .formStyle(.grouped)
+        aboutView
       }
     }
     .frame(width: 580, height: 400)
@@ -179,6 +174,98 @@ struct SettingsView: View {
       Button("Test Connection", action: testConnection)
         .disabled(settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
+  }
+
+  @ViewBuilder
+  private var aboutView: some View {
+    Form {
+      Section("About PiHole Menu") {
+        HStack {
+          Label("Version", systemImage: "info.circle")
+          Spacer()
+          Text("1.0")
+            .foregroundStyle(.secondary)
+        }
+      }
+
+      Section {
+        HStack(spacing: 30) {
+          Spacer(minLength: 0)
+          Button {
+            openURL("https://github.com/pedrovieira/pihole-bar")
+          } label: {
+            VStack(spacing: 5) {
+              Image("Github")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 18)
+              Text("GitHub")
+            }
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(PlainButtonStyle())
+          Spacer(minLength: 0)
+        }
+      }
+
+      Section {
+        HStack(spacing: 24) {
+          Spacer()
+          socialButton(icon: "xmark", label: "X", url: "https://x.com/w1tch_")
+          Button {
+            openURL("https://github.com/pedrovieira")
+          } label: {
+            VStack(spacing: 4) {
+              Image("Github")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+              Text("GitHub")
+                .font(.caption2)
+            }
+            .contentShape(Rectangle())
+          }
+          .buttonStyle(PlainButtonStyle())
+          socialButton(icon: "globe", label: "Website", url: "https://pedrovieira.me")
+          Spacer()
+        }
+      } header: {
+        Text("Find me on")
+          .frame(maxWidth: .infinity)
+      }
+
+      Section {
+        Button {
+          openURL("https://ko-fi.com/pedrovieiradev")
+        } label: {
+          Label("Donate on Ko-Fi", systemImage: "cup.and.saucer")
+        }
+      }
+    }
+    .formStyle(.grouped)
+  }
+
+  private func openURL(_ string: String) {
+    guard let url = URL(string: string) else { return }
+    NSWorkspace.shared.open(url)
+  }
+
+  private func socialButton(icon: String, label: String, url: String) -> some View {
+    Button {
+      guard let url = URL(string: url) else { return }
+      NSWorkspace.shared.open(url)
+    } label: {
+      VStack(spacing: 4) {
+        Image(systemName: icon)
+          .resizable()
+          .aspectRatio(contentMode: .fit)
+          .frame(width: 16, height: 16)
+        Text(label)
+          .font(.caption2)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(PlainButtonStyle())
   }
 
   private func loadPassword() {
