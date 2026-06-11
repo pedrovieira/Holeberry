@@ -9,7 +9,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
   private let session: URLSession
   private let authManager: AuthManager
   private let password: String
-  private let decoder = JSONDecoder()
+  private static let decoder = JSONDecoder()
   private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.pihole.menuapp", category: "v6-service")
 
   init(baseURL: URL, session: URLSession, authManager: AuthManager, password: String) {
@@ -33,7 +33,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
 
     let status: BlockingResponse
     do {
-      status = try decoder.decode(BlockingResponse.self, from: data)
+      status = try Self.decoder.decode(BlockingResponse.self, from: data)
     } catch {
       throw PiholeError.decoding(error.localizedDescription)
     }
@@ -69,7 +69,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
 
     let result: RecentBlockedResponse
     do {
-      result = try decoder.decode(RecentBlockedResponse.self, from: data)
+      result = try Self.decoder.decode(RecentBlockedResponse.self, from: data)
     } catch {
       throw PiholeError.decoding(error.localizedDescription)
     }
@@ -95,7 +95,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
 
     let result: QueriesResponse
     do {
-      result = try decoder.decode(QueriesResponse.self, from: data)
+      result = try Self.decoder.decode(QueriesResponse.self, from: data)
     } catch {
       throw PiholeError.decoding(error.localizedDescription)
     }
@@ -119,7 +119,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
     }
 
     do {
-      return try decoder.decode(DomainEntry.self, from: data)
+      return try Self.decoder.decode(DomainEntry.self, from: data)
     } catch {
       throw PiholeError.decoding(error.localizedDescription)
     }
@@ -138,7 +138,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
   func deleteDomain(domain: String) async throws {
     let entries = try await getDomains()
     guard let entry = entries.first(where: { $0.domain == domain }),
-          let entryID = entry.id
+      let entryID = entry.id
     else {
       throw PiholeError.unknown("Domain not found in allowlist: \(domain)")
     }
@@ -153,7 +153,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
     }
 
     do {
-      return try decoder.decode([DomainEntry].self, from: data)
+      return try Self.decoder.decode([DomainEntry].self, from: data)
     } catch {
       throw PiholeError.decoding(error.localizedDescription)
     }
@@ -203,12 +203,6 @@ final class PiholeV6Service: PiholeServiceProtocol {
 
     return (data, httpResponse)
   }
-}
-
-private enum HTTPMethod: String {
-  case get = "GET"
-  case post = "POST"
-  case delete = "DELETE"
 }
 
 private struct SetBlockingBody: Encodable {
