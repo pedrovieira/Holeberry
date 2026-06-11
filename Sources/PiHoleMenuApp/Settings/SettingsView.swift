@@ -234,11 +234,22 @@ struct SettingsView: View {
           .frame(maxWidth: .infinity)
       }
 
+      Section {}
+
       Section {
-        Button {
-          openURL("https://ko-fi.com/pedrovieiradev")
-        } label: {
-          Label("Donate on Ko-Fi", systemImage: "cup.and.saucer")
+        HStack(spacing: 30) {
+          Spacer(minLength: 0)
+          VStack(spacing: 8) {
+            Text("Buy me a coffee! ☕️")
+              .foregroundStyle(.secondary)
+            Button {
+              openURL("https://ko-fi.com/pedrovieiradev")
+            } label: {
+              Text("Donate")
+            }
+            .controlSize(.large)
+          }
+          Spacer(minLength: 0)
         }
       }
     }
