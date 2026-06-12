@@ -22,6 +22,11 @@ struct ConnectionFormView: View {
   @State private var isSaving = false
   @State private var showingCredentialInfo = false
 
+  private var isValidURL: Bool {
+    let trimmed = url.trimmingCharacters(in: .whitespaces)
+    return URL(string: trimmed)?.host?.isEmpty == false
+  }
+
   private var saveEnabled: Bool {
     guard !url.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
     if case .edit(let server) = mode, url == server.url, password == "" {
@@ -51,6 +56,11 @@ struct ConnectionFormView: View {
           .multilineTextAlignment(.leading)
           .labelsHidden()
           .frame(maxWidth: .infinity)
+          .autocorrectionDisabled()
+          .background(
+            RoundedRectangle(cornerRadius: 5)
+              .stroke(!url.isEmpty && !isValidURL ? Color.red : .clear, lineWidth: 1)
+          )
       }
       .frame(maxWidth: .infinity, alignment: .leading)
 
