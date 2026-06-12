@@ -341,4 +341,46 @@ final class PiHoleMenuAppTests: XCTestCase {
     XCTAssertNil(decoded.label)
     XCTAssertNil(decoded.version)
   }
+
+  // MARK: - ServerStorage tests
+
+  func testServerStorageEmpty() {
+    let storage = ServerStorage()
+    XCTAssertTrue(storage.wrappedValue.isEmpty)
+  }
+
+  func testServerStorageSaveAndLoad() {
+    var storage = ServerStorage()
+    let server = PiholeServer(label: "Test", url: "http://test.com")
+    storage.wrappedValue = [server]
+    let loaded = storage.wrappedValue
+    XCTAssertEqual(loaded.count, 1)
+    XCTAssertEqual(loaded[0].id, server.id)
+    XCTAssertEqual(loaded[0].url, "http://test.com")
+  }
+
+  func testServerStorageOverwrite() {
+    var storage = ServerStorage()
+    let s1 = PiholeServer(label: "A", url: "http://a.com")
+    let s2 = PiholeServer(label: "B", url: "http://b.com")
+    storage.wrappedValue = [s1]
+    storage.wrappedValue = [s2]
+    XCTAssertEqual(storage.wrappedValue.count, 1)
+    XCTAssertEqual(storage.wrappedValue[0].id, s2.id)
+  }
+
+  func testServerStorageMultiple() {
+    var storage = ServerStorage()
+    let s1 = PiholeServer(label: "A", url: "http://a.com")
+    let s2 = PiholeServer(label: "B", url: "http://b.com")
+    storage.wrappedValue = [s1, s2]
+    XCTAssertEqual(storage.wrappedValue.count, 2)
+  }
+
+  func testServerStorageCorruptedData() {
+    UserDefaults.standard.set("<bad json>", forKey: "servers")
+    let storage = ServerStorage()
+    XCTAssertTrue(storage.wrappedValue.isEmpty)
+    UserDefaults.standard.removeObject(forKey: "servers")
+  }
 }
