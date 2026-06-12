@@ -21,4 +21,18 @@ final class KeychainManager: Sendable {
   func deletePassword(for serverURL: String) throws {
     try keychain.deleteItem(forKey: serverURL)
   }
+
+  func savePassword(_ password: String, for serverID: UUID) throws {
+    try keychain.set(password, forKey: serverID.uuidString)
+  }
+
+  func readPassword(for serverID: UUID) throws -> String? {
+    let key = serverID.uuidString
+    guard try keychain.hasItem(forKey: key) else { return nil }
+    return try keychain.string(forKey: key)
+  }
+
+  func deletePassword(for serverID: UUID) throws {
+    try keychain.deleteItem(forKey: serverID.uuidString)
+  }
 }
