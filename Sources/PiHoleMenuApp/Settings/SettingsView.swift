@@ -23,6 +23,7 @@ enum SettingsTab: String, CaseIterable {
 struct SettingsView: View {
   @StateObject private var settings = SettingsStore()
 
+  @State private var serverURL: String = ""
   @State private var password: String = ""
   @State private var testResultMessage: String = ""
   @State private var showTestResult: Bool = false
@@ -100,7 +101,7 @@ struct SettingsView: View {
 
   private var serverSection: some View {
     Section("Server") {
-      TextField("URL (e.g. http://192.168.1.100:80)", text: $settings.serverURL)
+      TextField("URL (e.g. http://192.168.1.100:80)", text: $serverURL)
         .textFieldStyle(.roundedBorder)
         .labelsHidden()
         .help("The full URL to your Pi-hole instance including port")
@@ -134,8 +135,6 @@ struct SettingsView: View {
 
   private var advancedSection: some View {
     Section("Advanced") {
-      Toggle("Trust self-signed certificates", isOn: $settings.trustSelfSigned)
-
       VStack(alignment: .leading) {
         Toggle("Launch at login", isOn: $settings.launchAtLogin)
           .disabled(isToggling)
@@ -166,7 +165,7 @@ struct SettingsView: View {
   private var testConnectionSection: some View {
     Section {
       Button("Test Connection", action: testConnection)
-        .disabled(settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .disabled(serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
   }
 
@@ -274,13 +273,13 @@ struct SettingsView: View {
   }
 
   private func loadPassword() {
-    let url = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    let url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !url.isEmpty else { return }
     password = (try? keychain.readPassword(for: url)) ?? ""
   }
 
   private func savePassword() {
-    let url = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    let url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
     if password.isEmpty {
       try? keychain.deletePassword(for: url)
     } else {
@@ -294,7 +293,7 @@ struct SettingsView: View {
   }
 
   private func testConnection() {
-    let urlString = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    let urlString = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
 
     guard !urlString.isEmpty else {
       testResultMessage = "Please enter a server URL first."
@@ -318,13 +317,7 @@ struct SettingsView: View {
 
     Task {
       do {
-        let session: URLSession
-        if settings.trustSelfSigned, let host = url.host {
-          let delegate = CertificateTrustDelegate(trustedHosts: [host])
-          session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
-        } else {
-          session = URLSession(configuration: .ephemeral)
-        }
+        let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }
 
         let version = try await PiholeVersionDetector.detect(baseURL: url, session: session)
