@@ -2,6 +2,7 @@ import XCTest
 
 @testable import PiHoleMenuApp
 
+@MainActor
 final class PiHoleMenuAppTests: XCTestCase {
   // MARK: - BlockingStatus tests
 
@@ -382,5 +383,32 @@ final class PiHoleMenuAppTests: XCTestCase {
     let storage = ServerStorage()
     XCTAssertTrue(storage.wrappedValue.isEmpty)
     UserDefaults.standard.removeObject(forKey: "servers")
+  }
+
+  // MARK: - PiholeServerManager tests
+
+  func testManagerStartsEmpty() {
+    let manager = PiholeServerManager()
+    XCTAssertTrue(manager.servers.isEmpty)
+  }
+
+  func testManagerDeleteServer() {
+    let manager = PiholeServerManager()
+    let server = PiholeServer(label: "Test", url: "http://test.com")
+    manager.servers = [server]
+    let id = manager.servers[0].id
+    manager.deleteServer(id: id)
+    XCTAssertTrue(manager.servers.isEmpty)
+  }
+
+  func testManagerUpdateServer() {
+    let manager = PiholeServerManager()
+    let server = PiholeServer(label: "Old", url: "http://old.com")
+    manager.servers = [server]
+    guard let id = manager.servers.first?.id else { return XCTFail("No server") }
+
+    manager.updateServer(id: id, label: "New", url: "http://new.com", password: nil)
+    XCTAssertEqual(manager.servers[0].label, "New")
+    XCTAssertEqual(manager.servers[0].url, "http://new.com")
   }
 }
