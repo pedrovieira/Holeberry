@@ -35,6 +35,7 @@ struct SettingsView: View {
         Label(tab.rawValue, systemImage: tab.icon)
       }
       .listStyle(.sidebar)
+      .toolbar(removing: .sidebarToggle)
     } detail: {
       switch selectedTab {
       case .server:

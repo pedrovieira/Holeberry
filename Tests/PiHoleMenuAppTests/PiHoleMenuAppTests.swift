@@ -322,7 +322,7 @@ final class PiHoleMenuAppTests: XCTestCase {
     let id = UUID()
     let server1 = PiholeServer(id: id, label: "A", url: "http://a.com")
     let server2 = PiholeServer(id: id, label: "B", url: "http://b.com")
-    XCTAssertEqual(server1, server2) // equal by id
+    XCTAssertEqual(server1, server2)  // equal by id
   }
 
   func testPiholeServerCodableRoundTrip() throws {
