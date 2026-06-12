@@ -30,7 +30,7 @@ final class PiholeServerManager: ObservableObject {
 
         let version = try await testConnection(url: url, password: password)
 
-        var server = PiholeServer(label: label, url: url, version: version)
+        let server = PiholeServer(label: label, url: url, version: version)
         servers.append(server)
         saveServers()
 
@@ -39,11 +39,14 @@ final class PiholeServerManager: ObservableObject {
         logger.info("Added server: \(server.label ?? server.url, privacy: .public)")
     }
 
-    func updateServer(id: UUID, label: String?, url: String, password: String?) {
+    func updateServer(id: UUID, label: String?, url: String, password: String?, version: PiholeServer.Version? = nil) {
         guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
 
         servers[index].label = label
         servers[index].url = url
+        if let version {
+            servers[index].version = version
+        }
 
         if let password, !password.isEmpty {
             try? keychain.savePassword(password, for: id)
@@ -71,6 +74,19 @@ final class PiholeServerManager: ObservableObject {
         defer { session.finishTasksAndInvalidate() }
 
         return try await PiholeVersionDetector.detect(baseURL: url, session: session)
+    }
+
+    func refreshStatuses() async {
+        for i in servers.indices {
+            guard let password = try? keychain.readPassword(for: servers[i].id) else { continue }
+            do {
+                let version = try await testConnection(url: servers[i].url, password: password)
+                servers[i].version = version
+            } catch {
+                servers[i].version = nil
+            }
+        }
+        saveServers()
     }
 
     private func loadServers() {
