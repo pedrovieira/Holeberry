@@ -23,15 +23,15 @@ struct ConnectionListView: View {
                 if editingServerID == server.id {
                     ConnectionFormView(
                         mode: .edit(server),
-                        onSave: { label, url, password in
+                        onSave: { label, url, password, version in
                             manager.updateServer(
                                 id: server.id,
                                 label: label,
                                 url: url,
-                                password: password.isEmpty ? nil : password
+                                password: password.isEmpty ? nil : password,
+                                version: version
                             )
                             editingServerID = nil
-                            return
                         },
                         onCancel: { editingServerID = nil }
                     )
@@ -52,7 +52,7 @@ struct ConnectionListView: View {
             if isAdding {
                 ConnectionFormView(
                     mode: .add,
-                    onSave: { label, url, password in
+                    onSave: { label, url, password, version in
                         try await manager.addServer(label: label, url: url, password: password)
                         isAdding = false
                     },

@@ -7,7 +7,7 @@ struct ConnectionFormView: View {
     }
 
     let mode: Mode
-    let onSave: (_ label: String?, _ url: String, _ password: String) async throws -> Void
+    let onSave: (_ label: String?, _ url: String, _ password: String, _ version: PiholeServer.Version?) async throws -> Void
     let onCancel: () -> Void
 
     @State private var label: String = ""
@@ -134,7 +134,8 @@ struct ConnectionFormView: View {
             try await onSave(
                 trimmedLabel.isEmpty ? nil : trimmedLabel,
                 trimmedURL,
-                password
+                password,
+                detectedVersion
             )
         } catch {
             testError = "Save failed: \(error.localizedDescription)"
