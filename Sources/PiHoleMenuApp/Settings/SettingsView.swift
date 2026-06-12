@@ -268,7 +268,7 @@ struct SettingsView: View {
 
     Task {
       do {
-        try await manager.addServer(label: nil, url: oldURL, password: password)
+        try await manager.addServer(label: nil, url: oldURL, credential: password)
         logger.info("Migrated single-server config to multi-instance format")
       } catch {
         logger.error("Migration failed: \(error.localizedDescription, privacy: .public)")

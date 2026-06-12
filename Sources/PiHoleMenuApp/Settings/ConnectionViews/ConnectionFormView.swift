@@ -64,7 +64,7 @@ struct ConnectionFormView: View {
           .frame(maxWidth: .infinity)
 
         Button(action: { showingCredentialInfo.toggle() }) {
-          Text("ⓘ")
+          Image(systemName: "info.circle")
             .font(.system(size: 14))
             .foregroundColor(.secondary)
         }
@@ -123,7 +123,7 @@ struct ConnectionFormView: View {
 
     do {
       let manager = PiholeServerManager()
-      let version = try await manager.testConnection(url: url, password: password)
+      let version = try await manager.testConnection(url: url, credential: password)
       detectedVersion = version
       testPassed = true
     } catch {
