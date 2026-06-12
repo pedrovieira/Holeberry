@@ -58,7 +58,9 @@ enum PiholeVersionDetector {
         logger.debug("Detected Pi-hole v5 via /admin/api.php?version")
         return .v5
       }
-      throw PiholeError.unknown("Unexpected 200 response from version probe")
+      throw PiholeError.unknown(
+        "Unexpected response from server. Verify the URL points to a Pi-hole instance."
+      )
 
     case 400:
       if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -68,12 +70,13 @@ enum PiholeVersionDetector {
         logger.debug("Detected Pi-hole v6 via structured 400 from /admin/api.php?version")
         return .v6
       }
-      throw PiholeError.unknown("Unexpected 400 response from version probe")
+      throw PiholeError.unknown(
+        "Unexpected response from server. Verify the URL points to a Pi-hole instance."
+      )
 
     default:
-      throw PiholeError.server(
-        httpResponse.statusCode,
-        String(data: data, encoding: .utf8)
+      throw PiholeError.unknown(
+        "Server did not respond as a Pi-hole instance (HTTP \(httpResponse.statusCode))"
       )
     }
   }
