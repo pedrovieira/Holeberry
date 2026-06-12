@@ -96,32 +96,14 @@ final class PiholeServerManager: ObservableObject {
     switch version {
     case .v6:
       let authManager = AuthManager(baseURL: url, session: session)
-      try await authManager.login(password: credential)
+      let service = PiholeV6Service(
+        baseURL: url, session: session, authManager: authManager, password: credential
+      )
+      _ = try await service.checkStatus()
 
     case .v5:
-      var components = URLComponents(
-        url: url.appendingPathComponent("/admin/api.php"),
-        resolvingAgainstBaseURL: false
-      )
-      components?.queryItems = [
-        URLQueryItem(name: "auth", value: credential),
-        URLQueryItem(name: "summary", value: nil)
-      ]
-      guard let testURL = components?.url else {
-        throw PiholeError.unknown("Invalid test URL")
-      }
-      var request = URLRequest(url: testURL)
-      request.timeoutInterval = 10
-      let (data, response) = try await session.data(for: request)
-      guard let httpResponse = response as? HTTPURLResponse else {
-        throw PiholeError.unknown("Invalid response during credential verification")
-      }
-      if httpResponse.statusCode != 200 {
-        throw PiholeError.unauthorized
-      }
-      guard let body = String(data: data, encoding: .utf8), body.hasPrefix("{") else {
-        throw PiholeError.unauthorized
-      }
+      let service = PiholeV5Service(baseURL: url, session: session, apiToken: credential)
+      _ = try await service.checkStatus()
     }
 
     return version
