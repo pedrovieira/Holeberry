@@ -22,6 +22,10 @@ struct ConnectionFormView: View {
   @State private var isSaving = false
   @State private var showingCredentialInfo = false
 
+  private var hasURLError: Bool {
+    !url.isEmpty && !isValidURL
+  }
+
   private var isValidURL: Bool {
     let trimmed = url.trimmingCharacters(in: .whitespaces)
     return URL(string: trimmed)?.host?.isEmpty == false
@@ -59,7 +63,7 @@ struct ConnectionFormView: View {
           .autocorrectionDisabled()
           .background(
             RoundedRectangle(cornerRadius: 5)
-              .stroke(!url.isEmpty && !isValidURL ? Color.red : .clear, lineWidth: 1)
+              .stroke(hasURLError ? Color.red : .clear, lineWidth: 1)
           )
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -96,7 +100,7 @@ struct ConnectionFormView: View {
         Button("Test Connection") {
           Task { await runTest() }
         }
-        .disabled(url.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty || isTesting)
+        .disabled(hasURLError || url.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty || isTesting)
         .font(.system(size: 11))
 
         Button("Save") {
