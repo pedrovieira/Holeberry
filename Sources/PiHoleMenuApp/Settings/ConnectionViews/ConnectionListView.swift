@@ -28,7 +28,7 @@ struct ConnectionListView: View {
                 id: server.id,
                 label: label,
                 url: url,
-                password: password.isEmpty ? nil : password,
+                credential: password.isEmpty ? nil : password,
                 version: version
               )
               editingServerID = nil
@@ -54,7 +54,7 @@ struct ConnectionListView: View {
           mode: .add,
           serverCount: manager.servers.count,
           onSave: { label, url, password, version in
-            try await manager.addServer(label: label, url: url, password: password)
+            try await manager.addServer(label: label, url: url, credential: password)
             isAdding = false
           },
           onCancel: { isAdding = false }

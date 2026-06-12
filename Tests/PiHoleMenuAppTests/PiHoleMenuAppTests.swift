@@ -407,7 +407,7 @@ final class PiHoleMenuAppTests: XCTestCase {
     manager.servers = [server]
     guard let id = manager.servers.first?.id else { return XCTFail("No server") }
 
-    manager.updateServer(id: id, label: "New", url: "http://new.com", password: nil)
+    manager.updateServer(id: id, label: "New", url: "http://new.com", credential: nil)
     XCTAssertEqual(manager.servers[0].label, "New")
     XCTAssertEqual(manager.servers[0].url, "http://new.com")
   }

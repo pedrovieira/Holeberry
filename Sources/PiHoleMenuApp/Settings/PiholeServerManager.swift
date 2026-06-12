@@ -15,7 +15,7 @@ final class PiholeServerManager: ObservableObject {
     loadServers()
   }
 
-  func addServer(label: String?, url: String, password: String) async throws {
+  func addServer(label: String?, url: String, credential: String) async throws {
     guard servers.count < 2 else {
       throw PiholeError.unknown("Maximum of 2 Pi-hole instances allowed")
     }
@@ -24,22 +24,22 @@ final class PiholeServerManager: ObservableObject {
       throw PiholeError.unknown("Invalid URL format")
     }
 
-    guard !password.isEmpty else {
+    guard !credential.isEmpty else {
       throw PiholeError.unknown("Password is required")
     }
 
-    let version = try await testConnection(url: url, password: password)
+    let version = try await testConnection(url: url, credential: credential)
 
     let server = PiholeServer(label: label, url: url, version: version)
     servers.append(server)
     saveServers()
 
-    try keychain.savePassword(password, for: server.id)
+    try keychain.savePassword(credential, for: server.id)
 
     logger.info("Added server: \(server.label ?? server.url, privacy: .public)")
   }
 
-  func updateServer(id: UUID, label: String?, url: String, password: String?, version: PiholeServer.Version? = nil) {
+  func updateServer(id: UUID, label: String?, url: String, credential: String?, version: PiholeServer.Version? = nil) {
     guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
 
     servers[index].label = label
@@ -48,8 +48,8 @@ final class PiholeServerManager: ObservableObject {
       servers[index].version = version
     }
 
-    if let password, !password.isEmpty {
-      try? keychain.savePassword(password, for: id)
+    if let credential, !credential.isEmpty {
+      try? keychain.savePassword(credential, for: id)
     }
 
     saveServers()
@@ -63,7 +63,7 @@ final class PiholeServerManager: ObservableObject {
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
   }
 
-  func testConnection(url: String, password: String) async throws -> PiholeServer.Version {
+  func testConnection(url: String, credential: String) async throws -> PiholeServer.Version {
     guard let url = URL(string: url) else {
       throw PiholeError.unknown("Invalid URL format")
     }
@@ -78,9 +78,9 @@ final class PiholeServerManager: ObservableObject {
 
   func refreshStatuses() async {
     for i in servers.indices {
-      guard let password = try? keychain.readPassword(for: servers[i].id) else { continue }
+      guard let credential = try? keychain.readPassword(for: servers[i].id) else { continue }
       do {
-        let version = try await testConnection(url: servers[i].url, password: password)
+        let version = try await testConnection(url: servers[i].url, credential: credential)
         servers[i].version = version
       } catch {
         servers[i].version = nil
