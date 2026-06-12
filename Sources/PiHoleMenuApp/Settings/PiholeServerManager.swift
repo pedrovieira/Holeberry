@@ -63,6 +63,24 @@ final class PiholeServerManager: ObservableObject {
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
   }
 
+  func addServerAfterTest(label: String?, url: String, version: PiholeServer.Version) throws -> PiholeServer {
+    guard servers.count < 2 else {
+      throw PiholeError.unknown("Maximum of 2 Pi-hole instances allowed")
+    }
+    let server = PiholeServer(label: label, url: url, version: version)
+    servers.append(server)
+    saveServers()
+    logger.info("Added server after test: \(label ?? url, privacy: .public)")
+    return server
+  }
+
+  func revertAddServer(id: UUID) {
+    servers.removeAll { $0.id == id }
+    saveServers()
+    try? keychain.deleteCredential(for: id)
+    logger.info("Reverted server creation: \(id.uuidString, privacy: .public)")
+  }
+
   func testConnection(url: String, credential: String) async throws -> PiholeServer.Version {
     guard let url = URL(string: url) else {
       throw PiholeError.unknown("Invalid URL format")
