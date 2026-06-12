@@ -9,30 +9,30 @@ final class KeychainManager: Sendable {
     self.keychain = SimpleKeychain(service: service)
   }
 
-  func savePassword(_ password: String, for serverURL: String) throws {
-    try keychain.set(password, forKey: serverURL)
+  func saveCredential(_ credential: String, for serverURL: String) throws {
+    try keychain.set(credential, forKey: serverURL)
   }
 
-  func readPassword(for serverURL: String) throws -> String? {
+  func readCredential(for serverURL: String) throws -> String? {
     guard try keychain.hasItem(forKey: serverURL) else { return nil }
     return try keychain.string(forKey: serverURL)
   }
 
-  func deletePassword(for serverURL: String) throws {
+  func deleteCredential(for serverURL: String) throws {
     try keychain.deleteItem(forKey: serverURL)
   }
 
-  func savePassword(_ password: String, for serverID: UUID) throws {
-    try keychain.set(password, forKey: serverID.uuidString)
+  func saveCredential(_ credential: String, for serverID: UUID) throws {
+    try keychain.set(credential, forKey: serverID.uuidString)
   }
 
-  func readPassword(for serverID: UUID) throws -> String? {
+  func readCredential(for serverID: UUID) throws -> String? {
     let key = serverID.uuidString
     guard try keychain.hasItem(forKey: key) else { return nil }
     return try keychain.string(forKey: key)
   }
 
-  func deletePassword(for serverID: UUID) throws {
+  func deleteCredential(for serverID: UUID) throws {
     try keychain.deleteItem(forKey: serverID.uuidString)
   }
 }

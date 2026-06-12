@@ -34,7 +34,7 @@ final class PiholeServerManager: ObservableObject {
     servers.append(server)
     saveServers()
 
-    try keychain.savePassword(credential, for: server.id)
+    try keychain.saveCredential(credential, for: server.id)
 
     logger.info("Added server: \(server.label ?? server.url, privacy: .public)")
   }
@@ -49,7 +49,7 @@ final class PiholeServerManager: ObservableObject {
     }
 
     if let credential, !credential.isEmpty {
-      try? keychain.savePassword(credential, for: id)
+      try? keychain.saveCredential(credential, for: id)
     }
 
     saveServers()
@@ -59,7 +59,7 @@ final class PiholeServerManager: ObservableObject {
   func deleteServer(id: UUID) {
     servers.removeAll { $0.id == id }
     saveServers()
-    try? keychain.deletePassword(for: id)
+    try? keychain.deleteCredential(for: id)
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
   }
 
@@ -78,7 +78,7 @@ final class PiholeServerManager: ObservableObject {
 
   func refreshStatuses() async {
     for i in servers.indices {
-      guard let credential = try? keychain.readPassword(for: servers[i].id) else { continue }
+      guard let credential = try? keychain.readCredential(for: servers[i].id) else { continue }
       do {
         let version = try await testConnection(url: servers[i].url, credential: credential)
         servers[i].version = version
