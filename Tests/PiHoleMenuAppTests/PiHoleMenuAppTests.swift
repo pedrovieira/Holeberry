@@ -294,4 +294,51 @@ final class PiHoleMenuAppTests: XCTestCase {
     try await mock.deleteDomain(domain: "test.com")
     XCTAssertEqual(mock.deleteDomainByNameCallCount, 1)
   }
+
+  // MARK: - PiholeServer tests
+
+  func testPiholeServerDefaults() {
+    let server = PiholeServer(label: nil, url: "http://192.168.1.100:80")
+    XCTAssertFalse(server.id.uuidString.isEmpty)
+    XCTAssertNil(server.label)
+    XCTAssertEqual(server.url, "http://192.168.1.100:80")
+    XCTAssertNil(server.version)
+  }
+
+  func testPiholeServerWithLabel() {
+    let server = PiholeServer(label: "Home", url: "https://pihole.local:443")
+    XCTAssertEqual(server.label, "Home")
+    XCTAssertEqual(server.url, "https://pihole.local:443")
+  }
+
+  func testPiholeServerVersionAfterDetection() {
+    var server = PiholeServer(label: nil, url: "http://192.168.1.100")
+    server.version = .v6
+    XCTAssertEqual(server.version, .v6)
+  }
+
+  func testPiholeServerEquality() {
+    let id = UUID()
+    let server1 = PiholeServer(id: id, label: "A", url: "http://a.com")
+    let server2 = PiholeServer(id: id, label: "B", url: "http://b.com")
+    XCTAssertEqual(server1, server2) // equal by id
+  }
+
+  func testPiholeServerCodableRoundTrip() throws {
+    let server = PiholeServer(label: "Test", url: "http://test.com:8080", version: .v6)
+    let data = try JSONEncoder().encode(server)
+    let decoded = try JSONDecoder().decode(PiholeServer.self, from: data)
+    XCTAssertEqual(server.id, decoded.id)
+    XCTAssertEqual(server.label, decoded.label)
+    XCTAssertEqual(server.url, decoded.url)
+    XCTAssertEqual(server.version, decoded.version)
+  }
+
+  func testPiholeServerCodableNilVersion() throws {
+    let server = PiholeServer(label: nil, url: "http://test.com")
+    let data = try JSONEncoder().encode(server)
+    let decoded = try JSONDecoder().decode(PiholeServer.self, from: data)
+    XCTAssertNil(decoded.label)
+    XCTAssertNil(decoded.version)
+  }
 }
