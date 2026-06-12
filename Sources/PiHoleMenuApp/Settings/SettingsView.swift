@@ -250,35 +250,32 @@ struct SettingsView: View {
 
     let manager = PiholeServerManager()
     guard manager.servers.isEmpty else {
-      clearOldKeys()
+      UserDefaults.standard.removeObject(forKey: "serverURL")
       return
     }
 
     let oldURL = UserDefaults.standard.string(forKey: "serverURL") ?? ""
     guard !oldURL.isEmpty else {
-      clearOldKeys()
+      UserDefaults.standard.removeObject(forKey: "serverURL")
       return
     }
 
     let keychain = KeychainManager.shared
-    guard let password = try? keychain.readPassword(for: oldURL), !password.isEmpty else {
-      clearOldKeys()
+    guard let credential = try? keychain.readCredential(for: oldURL), !credential.isEmpty else {
+      UserDefaults.standard.removeObject(forKey: "serverURL")
       return
     }
 
     Task {
       do {
-        try await manager.addServer(label: nil, url: oldURL, credential: password)
+        try await manager.addServer(label: nil, url: oldURL, credential: credential)
         logger.info("Migrated single-server config to multi-instance format")
       } catch {
         logger.error("Migration failed: \(error.localizedDescription, privacy: .public)")
       }
-      clearOldKeys()
+      UserDefaults.standard.removeObject(forKey: "serverURL")
     }
   }
 
-  private func clearOldKeys() {
-    UserDefaults.standard.removeObject(forKey: "serverURL")
-    UserDefaults.standard.removeObject(forKey: "trustSelfSigned")
-  }
+
 }

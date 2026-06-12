@@ -9,12 +9,12 @@ struct ConnectionFormView: View {
   let mode: Mode
   var serverCount: Int = 0
   let onSave:
-    (_ label: String?, _ url: String, _ password: String, _ version: PiholeServer.Version?) async throws -> Void
+    (_ label: String?, _ url: String, _ credential: String, _ version: PiholeServer.Version?) async throws -> Void
   let onCancel: () -> Void
 
   @State private var label: String = ""
   @State private var url: String = ""
-  @State private var password: String = ""
+  @State private var credential: String = ""
   @State private var isTesting = false
   @State private var testPassed = false
   @State private var testError: String?
@@ -33,7 +33,7 @@ struct ConnectionFormView: View {
 
   private var saveEnabled: Bool {
     guard !url.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
-    if case .edit(let server) = mode, url == server.url, password == "" {
+    if case .edit(let server) = mode, url == server.url, credential == "" {
       return true
     }
     return testPassed && !isSaving
@@ -71,7 +71,7 @@ struct ConnectionFormView: View {
       HStack(spacing: 4) {
         Text("Credential")
           .frame(width: 85, alignment: .trailing)
-        SecureField("", text: $password)
+        SecureField("", text: $credential)
           .textFieldStyle(.roundedBorder)
           .multilineTextAlignment(.leading)
           .labelsHidden()
@@ -100,7 +100,7 @@ struct ConnectionFormView: View {
         Button("Test Connection") {
           Task { await runTest() }
         }
-        .disabled(hasURLError || url.trimmingCharacters(in: .whitespaces).isEmpty || password.isEmpty || isTesting)
+        .disabled(hasURLError || url.trimmingCharacters(in: .whitespaces).isEmpty || credential.isEmpty || isTesting)
         .font(.system(size: 11))
 
         Button("Save") {
@@ -137,7 +137,7 @@ struct ConnectionFormView: View {
 
     do {
       let manager = PiholeServerManager()
-      let version = try await manager.testConnection(url: url, credential: password)
+      let version = try await manager.testConnection(url: url, credential: credential)
       detectedVersion = version
       testPassed = true
     } catch {
@@ -157,7 +157,7 @@ struct ConnectionFormView: View {
       try await onSave(
         trimmedLabel.isEmpty ? nil : trimmedLabel,
         trimmedURL,
-        password,
+        credential,
         detectedVersion
       )
     } catch {
