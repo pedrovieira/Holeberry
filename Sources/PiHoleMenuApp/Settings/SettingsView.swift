@@ -23,15 +23,10 @@ enum SettingsTab: String, CaseIterable {
 struct SettingsView: View {
   @StateObject private var settings = SettingsStore()
 
-  @State private var serverURL: String = ""
-  @State private var password: String = ""
-  @State private var testResultMessage: String = ""
-  @State private var showTestResult: Bool = false
   @State private var isToggling = false
   @State private var requiresApproval = false
   @State private var selectedTab: SettingsTab = .server
 
-  private let keychain = KeychainManager.shared
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
   var body: some View {
@@ -44,8 +39,7 @@ struct SettingsView: View {
       switch selectedTab {
       case .server:
         Form {
-          serverSection
-          testConnectionSection
+          ConnectionListView()
         }
         .formStyle(.grouped)
       case .defaults:
@@ -67,10 +61,9 @@ struct SettingsView: View {
     }
     .frame(width: 580, height: 400)
     .onAppear {
-      loadPassword()
       syncLaunchAtLoginFromSystem()
+      migrateFromSingleServerIfNeeded()
     }
-    .onDisappear(perform: savePassword)
     .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
       guard (notification.object as? NSWindow)?.identifier?.rawValue == "Settings" else { return }
       syncLaunchAtLoginFromSystem()
@@ -91,25 +84,6 @@ struct SettingsView: View {
         settings.launchAtLogin = !newValue
         requiresApproval = SMAppService.mainApp.status == .requiresApproval
       }
-    }
-    .alert("Connection Test", isPresented: $showTestResult) {
-      Button("OK") {}
-    } message: {
-      Text(testResultMessage)
-    }
-  }
-
-  private var serverSection: some View {
-    Section("Server") {
-      TextField("URL (e.g. http://192.168.1.100:80)", text: $serverURL)
-        .textFieldStyle(.roundedBorder)
-        .labelsHidden()
-        .help("The full URL to your Pi-hole instance including port")
-
-      SecureField("Password / API Token", text: $password)
-        .textFieldStyle(.roundedBorder)
-        .labelsHidden()
-        .help("Pi-hole v6 password or v5 API token")
     }
   }
 
@@ -159,13 +133,6 @@ struct SettingsView: View {
           .foregroundColor(.accentColor)
         }
       }
-    }
-  }
-
-  private var testConnectionSection: some View {
-    Section {
-      Button("Test Connection", action: testConnection)
-        .disabled(serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
   }
 
@@ -272,72 +239,45 @@ struct SettingsView: View {
     .buttonStyle(PlainButtonStyle())
   }
 
-  private func loadPassword() {
-    let url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !url.isEmpty else { return }
-    password = (try? keychain.readPassword(for: url)) ?? ""
-  }
-
-  private func savePassword() {
-    let url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-    if password.isEmpty {
-      try? keychain.deletePassword(for: url)
-    } else {
-      try? keychain.savePassword(password, for: url)
-    }
-  }
-
   private func syncLaunchAtLoginFromSystem() {
     settings.launchAtLogin = SMAppService.mainApp.status == .enabled
     requiresApproval = SMAppService.mainApp.status == .requiresApproval
   }
 
-  private func testConnection() {
-    let urlString = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+  private func migrateFromSingleServerIfNeeded() {
+    guard UserDefaults.standard.string(forKey: "serverURL") != nil else { return }
 
-    guard !urlString.isEmpty else {
-      testResultMessage = "Please enter a server URL first."
-      showTestResult = true
+    let manager = PiholeServerManager()
+    guard manager.servers.isEmpty else {
+      clearOldKeys()
       return
     }
 
-    guard let url = URL(string: urlString) else {
-      testResultMessage = "Invalid URL format. Expected format: http://host:port"
-      showTestResult = true
+    let oldURL = UserDefaults.standard.string(forKey: "serverURL") ?? ""
+    guard !oldURL.isEmpty else {
+      clearOldKeys()
       return
     }
 
-    guard !password.isEmpty else {
-      testResultMessage = "Password or API token is required."
-      showTestResult = true
+    let keychain = KeychainManager.shared
+    guard let password = try? keychain.readPassword(for: oldURL), !password.isEmpty else {
+      clearOldKeys()
       return
     }
-
-    savePassword()
 
     Task {
       do {
-        let session = URLSession(configuration: .ephemeral)
-        defer { session.finishTasksAndInvalidate() }
-
-        let version = try await PiholeVersionDetector.detect(baseURL: url, session: session)
-
-        await MainActor.run {
-          testResultMessage = """
-            URL: \(urlString)
-            Detected: \(version.displayName)
-            Password: Set
-
-            Connection successful.
-            """
-          showTestResult = true
-        }
+        try await manager.addServer(label: nil, url: oldURL, password: password)
+        logger.info("Migrated single-server config to multi-instance format")
       } catch {
-        await MainActor.run {
-          testResultMessage = "Connection failed: \(error.localizedDescription)"
-          showTestResult = true
-        }
+        logger.error("Migration failed: \(error.localizedDescription, privacy: .public)")
       }
+      clearOldKeys()
     }
+  }
+
+  private func clearOldKeys() {
+    UserDefaults.standard.removeObject(forKey: "serverURL")
+    UserDefaults.standard.removeObject(forKey: "trustSelfSigned")
   }
 }
