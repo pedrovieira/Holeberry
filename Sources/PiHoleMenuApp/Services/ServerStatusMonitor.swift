@@ -3,7 +3,7 @@ import OSLog
 
 @MainActor
 final class ServerStatusMonitor: ObservableObject {
-  static let shared = ServerStatusMonitor()
+  static let shared = ServerStatusMonitor(manager: PiholeServerManager())
 
   @Published var servers: [PiholeServer] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]
@@ -11,11 +11,13 @@ final class ServerStatusMonitor: ObservableObject {
   @Published var combinedStatus = CombinedStatus()
   @Published var lastPollError: String?
 
-  private let manager = PiholeServerManager()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private var pollingTask: Task<Void, Never>?
 
-  private init() {
+  let manager: PiholeServerManager
+
+  init(manager: PiholeServerManager) {
+    self.manager = manager
     self.servers = manager.servers
   }
 
