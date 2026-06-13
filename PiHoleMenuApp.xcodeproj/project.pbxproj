@@ -39,6 +39,8 @@
 		EDCD56C7FDBC0D9095733C9C /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2C265279462281B4F1948F7 /* AuthManager.swift */; };
 		EFC9892D1269B09F6146FF64 /* PiholeV5Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6622B929130B21854D077CE /* PiholeV5Service.swift */; };
 		F11C911571512492955190BF /* PiHoleMenuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */; };
+		F19CEBCCFF279A2F9E08D081 /* ConnectionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = C09B20D85478A090EEA8264D /* ConnectionStatus.swift */; };
+		F21CCF0DF1B591D5074E31F6 /* ServerStatusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005164E39044FE38D8BF310E /* ServerStatusMonitor.swift */; };
 		F96E1886C7FF8C26B6840C3D /* ConnectionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D99A6ABEDA685F9A5AC561C /* ConnectionListView.swift */; };
 		FF3FC37C287C27B9B79D9594 /* DomainEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0C60BE53F9D97BA58CF9E0 /* DomainEntry.swift */; };
 /* End PBXBuildFile section */
@@ -54,6 +56,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		005164E39044FE38D8BF310E /* ServerStatusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStatusMonitor.swift; sourceTree = "<group>"; };
 		03A739642FAEC5A2B267C3D0 /* PiHoleMenuApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiHoleMenuApp.entitlements; sourceTree = "<group>"; };
 		06BA66B6BE059B7E6945E602 /* PiholeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServer.swift; sourceTree = "<group>"; };
 		0D99A6ABEDA685F9A5AC561C /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
@@ -83,6 +86,7 @@
 		B3A87483ADD4627C31DC999A /* ReachabilityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityMonitor.swift; sourceTree = "<group>"; };
 		B49560025B59AFC630839F91 /* HTTPMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
 		B6622B929130B21854D077CE /* PiholeV5Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV5Service.swift; sourceTree = "<group>"; };
+		C09B20D85478A090EEA8264D /* ConnectionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatus.swift; sourceTree = "<group>"; };
 		C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		C7872875694962D49EFAD70A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D2C265279462281B4F1948F7 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
@@ -109,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				42F6F5753F75BB8776C2625C /* BlockingStatus.swift */,
+				C09B20D85478A090EEA8264D /* ConnectionStatus.swift */,
 				FE0C60BE53F9D97BA58CF9E0 /* DomainEntry.swift */,
 				06BA66B6BE059B7E6945E602 /* PiholeServer.swift */,
 				E31B916904AA499388D77A6E /* RecentQuery.swift */,
@@ -166,6 +171,7 @@
 				92BEA8B81FC013394DE37547 /* PiholeV6Service.swift */,
 				A85DCF5122A78B98F17F6FE3 /* PiholeVersionDetector.swift */,
 				B3A87483ADD4627C31DC999A /* ReachabilityMonitor.swift */,
+				005164E39044FE38D8BF310E /* ServerStatusMonitor.swift */,
 				5B40BC5651FA9B253A7C731E /* TempUnblockManager.swift */,
 				3FE7E54DAE4D975161045659 /* TimerManager.swift */,
 			);
@@ -396,6 +402,7 @@
 				2F51A3D90598F542EB14F5D6 /* ConnectionCardView.swift in Sources */,
 				806331DCB143ACC9502F6BE6 /* ConnectionFormView.swift in Sources */,
 				F96E1886C7FF8C26B6840C3D /* ConnectionListView.swift in Sources */,
+				F19CEBCCFF279A2F9E08D081 /* ConnectionStatus.swift in Sources */,
 				FF3FC37C287C27B9B79D9594 /* DomainEntry.swift in Sources */,
 				81416453F12B4B639967D0AB /* HTTPMethod.swift in Sources */,
 				53D8EE0BBAA1C864978DC42D /* KeychainManager.swift in Sources */,
@@ -413,6 +420,7 @@
 				008605F986B29A2AE2C07E43 /* PiholeVersionDetector.swift in Sources */,
 				1B6C91C0D8A374FC95FA046D /* ReachabilityMonitor.swift in Sources */,
 				AFC16F44E88DCE2AD03583FA /* RecentQuery.swift in Sources */,
+				F21CCF0DF1B591D5074E31F6 /* ServerStatusMonitor.swift in Sources */,
 				E46D84C4932BCEB5351F3EB4 /* ServerStorage.swift in Sources */,
 				A5FAA3B79F95F6E4C44EEDA0 /* SettingsStore.swift in Sources */,
 				1D4CE7D91F27E486ED15EF56 /* SettingsView.swift in Sources */,

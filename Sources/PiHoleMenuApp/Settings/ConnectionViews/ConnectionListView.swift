@@ -1,10 +1,9 @@
 import SwiftUI
 
 struct ConnectionListView: View {
-  @StateObject private var manager = PiholeServerManager()
+  @ObservedObject private var monitor = ServerStatusMonitor.shared
   @State private var isAdding = false
   @State private var editingServerID: UUID?
-  @State private var serverStatuses: [UUID: ConnectionCardView.ConnectionStatus] = [:]
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: PiholeServer?
 
@@ -19,17 +18,16 @@ struct ConnectionListView: View {
       }
       .padding(.bottom, 4)
 
-      ForEach(manager.servers) { server in
+      ForEach(monitor.servers) { server in
         if editingServerID == server.id {
           ConnectionFormView(
             mode: .edit(server),
             onSave: { label, url, password, version in
-              manager.updateServer(
+              await monitor.updateServer(
                 id: server.id,
                 label: label,
                 url: url,
-                credential: password.isEmpty ? nil : password,
-                version: version
+                credential: password.isEmpty ? nil : password
               )
               editingServerID = nil
             },
@@ -39,7 +37,7 @@ struct ConnectionListView: View {
         } else {
           ConnectionCardView(
             server: server,
-            status: serverStatuses[server.id] ?? .unknown,
+            status: monitor.connectionStatuses[server.id] ?? .unknown,
             onEdit: { editingServerID = server.id },
             onDelete: {
               serverToDelete = server
@@ -52,9 +50,9 @@ struct ConnectionListView: View {
       if isAdding {
         ConnectionFormView(
           mode: .add,
-          serverCount: manager.servers.count,
+          serverCount: monitor.servers.count,
           onSave: { label, url, password, version in
-            try await manager.addServer(label: label, url: url, credential: password)
+            try await monitor.addServer(label: label, url: url, credential: password)
             isAdding = false
           },
           onCancel: { isAdding = false }
@@ -62,7 +60,7 @@ struct ConnectionListView: View {
         .padding(.vertical, 4)
       }
 
-      if manager.servers.count < 2 && !isAdding && editingServerID == nil {
+      if monitor.servers.count < 2 && !isAdding && editingServerID == nil {
         Button(action: { isAdding = true }) {
           Label("New Connection", systemImage: "plus.circle")
             .font(.system(size: 12))
@@ -72,7 +70,7 @@ struct ConnectionListView: View {
         .padding(.vertical, 4)
       }
 
-      if manager.servers.count >= 2 {
+      if monitor.servers.count >= 2 {
         Text("Max 2 connections")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
@@ -83,17 +81,14 @@ struct ConnectionListView: View {
     .alert("Delete Connection", isPresented: $showDeleteConfirmation, presenting: serverToDelete) { server in
       Button("Cancel", role: .cancel) { serverToDelete = nil }
       Button("Delete", role: .destructive) {
-        manager.deleteServer(id: server.id)
+        monitor.deleteServer(id: server.id)
         serverToDelete = nil
       }
     } message: { server in
       Text("Delete '\(server.label ?? server.url)'? This will disconnect it from the menu bar.")
     }
     .onAppear {
-      serverStatuses = [:]
-      for server in manager.servers {
-        serverStatuses[server.id] = .unknown
-      }
+      Task { await monitor.pollNow() }
     }
   }
 }

@@ -21,6 +21,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
+    ServerStatusMonitor.shared.startPolling()
     menuBarController = MenuBarController()
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    Task {
+      await ServerStatusMonitor.shared.logoutAll()
+    }
   }
 }
