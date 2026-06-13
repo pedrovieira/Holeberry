@@ -151,24 +151,26 @@ struct ConnectionFormView: View {
     didSaveToKeychain = false
     createdServerID = nil
 
+    let serverURL = normalizedURL(from: url)
+
     let task = Task {
       do {
         try await withThrowingTimeout(seconds: 10) {
           let manager = PiholeServerManager()
-          let version = try await manager.testConnection(url: url, credential: credential)
+          let version = try await manager.testConnection(url: serverURL, credential: credential)
           try Task.checkCancellation()
 
-          let server = PiholeServer(label: label, url: url, version: version)
+          let server = PiholeServer(label: label, url: serverURL, version: version)
           try KeychainManager.shared.saveCredential(credential, for: server.id)
           didSaveToKeychain = true
           createdServerID = server.id
           try Task.checkCancellation()
 
-          _ = try manager.addServerAfterTest(label: label, url: url, version: version)
+          _ = try manager.addServerAfterTest(label: label, url: serverURL, version: version)
 
           try await onSave(
             label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label,
-            url.trimmingCharacters(in: .whitespaces),
+            serverURL,
             credential,
             version
           )
@@ -225,6 +227,17 @@ func withThrowingTimeout<T>(seconds: TimeInterval, operation: @escaping () async
     group.cancelAll()
     return result
   }
+}
+
+func normalizedURL(from urlString: String) -> String {
+  let trimmed = urlString.trimmingCharacters(in: .whitespaces)
+  let suffixes = ["/admin/login/", "/admin/login", "/admin/", "/admin", "/"]
+  var result = trimmed
+  for suffix in suffixes where result.hasSuffix(suffix) {
+    result = String(result.dropLast(suffix.count))
+    break
+  }
+  return result
 }
 
 struct CredentialInfoPopover: View {
