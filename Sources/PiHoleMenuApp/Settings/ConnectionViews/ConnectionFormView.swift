@@ -183,7 +183,7 @@ struct ConnectionFormView: View {
         didSaveToKeychain = false
         createdServerID = nil
         isCreating = false
-      } catch let error as TimeoutError {
+      } catch _ as TimeoutError {
         if didSaveToKeychain, let id = createdServerID {
           let manager = PiholeServerManager()
           manager.revertAddServer(id: id)

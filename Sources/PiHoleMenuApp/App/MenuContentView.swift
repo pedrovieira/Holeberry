@@ -2,17 +2,12 @@ import OSLog
 import SwiftUI
 
 struct MenuContentView: View {
-  @StateObject private var manager = PiholeServerManager()
+  @ObservedObject private var monitor = ServerStatusMonitor.shared
   @EnvironmentObject private var timerManager: TimerManager
-  @State private var statusError: String?
-  @State private var isPolling = false
-
-  private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-content")
-  private let pollInterval: TimeInterval = 30
 
   var body: some View {
     VStack {
-      if manager.servers.isEmpty {
+      if monitor.servers.isEmpty {
         emptyState
       } else {
         statusRow
@@ -23,12 +18,6 @@ struct MenuContentView: View {
         Divider()
         settingsAndQuit
       }
-    }
-    .onAppear {
-      pollStatus()
-    }
-    .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
-      manager.reloadServers()
     }
   }
 
@@ -65,12 +54,12 @@ struct MenuContentView: View {
         Text(statusText)
           .font(.system(size: 12, weight: .medium))
       }
-      if let error = statusError {
+      if let error = monitor.lastPollError {
         Text(error)
           .font(.caption)
           .foregroundColor(.red)
       }
-      Text("\(manager.servers.count) instance(s) configured")
+      Text("\(monitor.servers.count) instance(s) configured")
         .font(.caption)
         .foregroundColor(.secondary)
     }
@@ -78,13 +67,13 @@ struct MenuContentView: View {
   }
 
   private var statusColor: Color {
-    if statusError != nil { return .red }
+    if monitor.lastPollError != nil { return .red }
     if timerManager.isDisabled { return .orange }
     return .green
   }
 
   private var statusText: String {
-    if statusError != nil { return "Connection Error" }
+    if monitor.lastPollError != nil { return "Connection Error" }
     if timerManager.isDisabled { return "Blocking Disabled" }
     return "Blocking Active"
   }
@@ -149,44 +138,40 @@ struct MenuContentView: View {
   // MARK: - Actions
 
   private func disableBlocking(duration: TimeInterval?) {
-    guard let server = manager.servers.first, server.version != nil else {
-      statusError = "No configured Pi-hole instance"
-      clearErrorAfterDelay()
+    guard let server = monitor.servers.first, server.version != nil else {
+      monitor.lastPollError = "No configured Pi-hole instance"
       return
     }
     Task {
       do {
-        try await manager.setBlocking(for: server, enabled: false, duration: duration)
+        try await monitor.setBlocking(for: server, enabled: false, duration: duration)
         await MainActor.run {
           timerManager.startDisable(duration: duration)
-          statusError = nil
+          monitor.lastPollError = nil
         }
       } catch {
         await MainActor.run {
-          statusError = error.localizedDescription
-          clearErrorAfterDelay()
+          monitor.lastPollError = error.localizedDescription
         }
       }
     }
   }
 
   private func enableBlocking() {
-    guard let server = manager.servers.first, server.version != nil else {
-      statusError = "No configured Pi-hole instance"
-      clearErrorAfterDelay()
+    guard let server = monitor.servers.first, server.version != nil else {
+      monitor.lastPollError = "No configured Pi-hole instance"
       return
     }
     Task {
       do {
-        try await manager.setBlocking(for: server, enabled: true, duration: nil)
+        try await monitor.setBlocking(for: server, enabled: true, duration: nil)
         await MainActor.run {
           timerManager.cancelDisable()
-          statusError = nil
+          monitor.lastPollError = nil
         }
       } catch {
         await MainActor.run {
-          statusError = error.localizedDescription
-          clearErrorAfterDelay()
+          monitor.lastPollError = error.localizedDescription
         }
       }
     }
@@ -209,38 +194,6 @@ struct MenuContentView: View {
       let text = textField.stringValue.trimmingCharacters(in: .whitespaces)
       if let seconds = TimeInterval(text), seconds > 0 {
         disableBlocking(duration: seconds)
-      }
-    }
-  }
-
-  // MARK: - Polling
-
-  private func pollStatus() {
-    guard !isPolling, let server = manager.servers.first, server.version != nil else { return }
-    isPolling = true
-    Task {
-      defer { isPolling = false }
-      do {
-        let status = try await manager.getBlockingStatus(for: server)
-        await MainActor.run {
-          timerManager.syncFromRemote(status)
-          statusError = nil
-        }
-      } catch {
-        logger.warning("Status poll failed: \(error.localizedDescription, privacy: .public)")
-        await MainActor.run {
-          statusError = error.localizedDescription
-          clearErrorAfterDelay()
-        }
-      }
-    }
-  }
-
-  private func clearErrorAfterDelay() {
-    Task {
-      try? await Task.sleep(for: .seconds(3))
-      await MainActor.run {
-        statusError = nil
       }
     }
   }
