@@ -14,7 +14,7 @@ enum PiholeError: Error, LocalizedError, Equatable {
   var errorDescription: String? {
     switch self {
     case .unauthorized:
-      return "Authentication failed"
+      return "Authentication failed. Check your credential."
     case .network(let description):
       return "Network error: \(description)"
     case .server(let code, let message):
