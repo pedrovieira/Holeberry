@@ -122,6 +122,10 @@ final class PiholeServerManager: ObservableObject {
     saveServers()
   }
 
+  func reloadServers() {
+    loadServers()
+  }
+
   private func loadServers() {
     let storage = ServerStorage()
     servers = storage.wrappedValue
