@@ -158,6 +158,22 @@ final class PiholeServerManager: ObservableObject {
     }
   }
 
+  func updateServerVersion(id: UUID, version: PiholeServer.Version) {
+    guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
+    servers[index].version = version
+    saveServers()
+  }
+
+  func logoutAll() async {
+    for (_, conn) in connections {
+      if let authManager = conn.authManager {
+        await authManager.logout()
+      }
+      conn.session.invalidateAndCancel()
+    }
+    connections.removeAll()
+  }
+
   func reloadServers() {
     loadServers()
   }
@@ -189,7 +205,7 @@ final class PiholeServerManager: ObservableObject {
     conn.session.invalidateAndCancel()
   }
 
-  private func perform<T>(
+  func perform<T>(
     for server: PiholeServer, operation: (PiholeServiceProtocol) async throws -> T
   ) async throws -> T {
     guard let url = URL(string: server.url) else {
