@@ -171,7 +171,13 @@ final class PiholeV6Service: PiholeServiceProtocol {
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.timeoutInterval = 15
 
-    let headers = try await authManager.authHeaders()
+    let headers: [String: String]
+    do {
+      headers = try await authManager.authHeaders()
+    } catch PiholeError.unauthorized {
+      try await authManager.login(password: password)
+      headers = try await authManager.authHeaders()
+    }
     for (key, value) in headers {
       request.setValue(value, forHTTPHeaderField: key)
     }
