@@ -27,7 +27,7 @@ final class PiholeV6Service: PiholeServiceProtocol {
     }
 
     struct BlockingResponse: Decodable {
-      let blocking: Bool?
+      let blocking: String?
       let timer: TimeInterval?
     }
 
@@ -35,10 +35,14 @@ final class PiholeV6Service: PiholeServiceProtocol {
     do {
       status = try Self.decoder.decode(BlockingResponse.self, from: data)
     } catch {
+      let body = String(data: data, encoding: .utf8) ?? ""
+      self.logger.error(
+        "Blocking status decode failed. Status \(httpResponse.statusCode). Body: \(body, privacy: .public)"
+      )
       throw PiholeError.decoding(error.localizedDescription)
     }
 
-    if status.blocking == true {
+    if status.blocking == "enabled" {
       return .enabled
     }
     return .disabled(remainingSeconds: status.timer)
