@@ -15,15 +15,15 @@ struct ConnectionFormView: View {
   @State private var label: String = ""
   @State private var url: String = ""
   @State private var credential: String = ""
-  @State private var isTesting = false
-  @State private var testPassed = false
-  @State private var testError: String?
-  @State private var detectedVersion: PiholeServer.Version?
-  @State private var isSaving = false
+  @State private var isCreating = false
+  @State private var createError: String?
+  @State private var createTask: Task<Void, Never>?
+  @State private var didSaveToKeychain = false
+  @State private var createdServerID: UUID?
   @State private var showingCredentialInfo = false
 
   private var hasURLError: Bool {
-    !url.isEmpty && !isValidURL
+    !isCreating && !url.isEmpty && !isValidURL
   }
 
   private var isValidURL: Bool {
@@ -31,12 +31,9 @@ struct ConnectionFormView: View {
     return URL(string: trimmed)?.host?.isEmpty == false
   }
 
-  private var saveEnabled: Bool {
-    guard !url.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
-    if case .edit(let server) = mode, url == server.url, credential == "" {
-      return true
-    }
-    return testPassed && !isSaving
+  private var canCreate: Bool {
+    let trimmedURL = url.trimmingCharacters(in: .whitespaces)
+    return !trimmedURL.isEmpty && isValidURL && !credential.isEmpty && !isCreating
   }
 
   var body: some View {
@@ -49,6 +46,7 @@ struct ConnectionFormView: View {
           .multilineTextAlignment(.leading)
           .labelsHidden()
           .frame(maxWidth: .infinity)
+          .disabled(isCreating)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -61,6 +59,7 @@ struct ConnectionFormView: View {
           .labelsHidden()
           .frame(maxWidth: .infinity)
           .autocorrectionDisabled()
+          .disabled(isCreating)
           .background(
             RoundedRectangle(cornerRadius: 5)
               .stroke(hasURLError ? Color.red : .clear, lineWidth: 1)
@@ -76,6 +75,7 @@ struct ConnectionFormView: View {
           .multilineTextAlignment(.leading)
           .labelsHidden()
           .frame(maxWidth: .infinity)
+          .disabled(isCreating)
 
         Button(action: { showingCredentialInfo.toggle() }) {
           Image(systemName: "info.circle")
@@ -89,81 +89,155 @@ struct ConnectionFormView: View {
       }
       .frame(maxWidth: .infinity, alignment: .leading)
 
-      if let error = testError {
-        Text(error)
-          .font(.system(size: 11))
-          .foregroundColor(.red)
-          .frame(maxWidth: .infinity)
+      if let error = createError {
+        HStack(spacing: 4) {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .font(.system(size: 10))
+            .foregroundColor(.red)
+          Text(error)
+            .font(.system(size: 11))
+            .foregroundColor(.red)
+            .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
 
       HStack(spacing: 8) {
-        Button("Test Connection") {
-          Task { await runTest() }
+        Spacer()
+        Button("Cancel", action: handleCancel)
+          .font(.system(size: 12))
+        Button(action: { Task { await createServer() } }) {
+          if isCreating {
+            ProgressView()
+              .controlSize(.small)
+              .scaleEffect(0.8)
+          } else {
+            Text("Create")
+          }
         }
-        .disabled(hasURLError || url.trimmingCharacters(in: .whitespaces).isEmpty || credential.isEmpty || isTesting)
-        .font(.system(size: 11))
-
-        Button("Save") {
-          Task { await save() }
-        }
-        .disabled(!saveEnabled)
-        .font(.system(size: 11))
+        .buttonStyle(.borderedProminent)
+        .font(.system(size: 12))
+        .disabled(!canCreate)
       }
-
-      Button("Cancel", action: onCancel)
-        .buttonStyle(.plain)
-        .font(.system(size: 10))
-        .foregroundColor(.secondary)
-        .frame(maxWidth: .infinity)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .onAppear {
       if case .edit(let server) = mode {
         label = server.label ?? ""
         url = server.url
-        detectedVersion = server.version
-        if server.version != nil {
-          testPassed = true
-        }
       }
     }
   }
 
-  private func runTest() async {
-    isTesting = true
-    testError = nil
-    testPassed = false
-    detectedVersion = nil
-
-    do {
+  private func handleCancel() {
+    if let task = createTask {
+      task.cancel()
+      createTask = nil
+    }
+    if didSaveToKeychain, let id = createdServerID {
       let manager = PiholeServerManager()
-      let version = try await manager.testConnection(url: url, credential: credential)
-      detectedVersion = version
-      testPassed = true
-    } catch {
-      testError = "Connection failed: \(error.localizedDescription)"
+      manager.revertAddServer(id: id)
+      didSaveToKeychain = false
+      createdServerID = nil
     }
-
-    isTesting = false
+    isCreating = false
+    createError = nil
+    onCancel()
   }
 
-  private func save() async {
-    isSaving = true
-    defer { isSaving = false }
+  private func createServer() async {
+    isCreating = true
+    createError = nil
+    didSaveToKeychain = false
+    createdServerID = nil
 
-    do {
-      let trimmedLabel = label.trimmingCharacters(in: .whitespaces)
-      let trimmedURL = url.trimmingCharacters(in: .whitespaces)
-      try await onSave(
-        trimmedLabel.isEmpty ? nil : trimmedLabel,
-        trimmedURL,
-        credential,
-        detectedVersion
-      )
-    } catch {
-      testError = "Save failed: \(error.localizedDescription)"
+    let serverURL = normalizedURL(from: url)
+
+    let task = Task {
+      do {
+        try await withThrowingTimeout(seconds: 10) {
+          let manager = PiholeServerManager()
+          let version = try await manager.testConnection(url: serverURL, credential: credential)
+          try Task.checkCancellation()
+
+          let server = PiholeServer(label: label, url: serverURL, version: version)
+          try KeychainManager.shared.saveCredential(credential, for: server.id)
+          didSaveToKeychain = true
+          createdServerID = server.id
+          try Task.checkCancellation()
+
+          _ = try manager.addServerAfterTest(label: label, url: serverURL, version: version)
+
+          try await onSave(
+            label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label,
+            serverURL,
+            credential,
+            version
+          )
+        }
+      } catch is CancellationError {
+        if didSaveToKeychain, let id = createdServerID {
+          let manager = PiholeServerManager()
+          manager.revertAddServer(id: id)
+        }
+        didSaveToKeychain = false
+        createdServerID = nil
+        isCreating = false
+      } catch let error as TimeoutError {
+        if didSaveToKeychain, let id = createdServerID {
+          let manager = PiholeServerManager()
+          manager.revertAddServer(id: id)
+        }
+        didSaveToKeychain = false
+        createdServerID = nil
+        createError = "Creation failed. Timed out (10s)"
+        isCreating = false
+      } catch {
+        if didSaveToKeychain, let id = createdServerID {
+          let manager = PiholeServerManager()
+          manager.revertAddServer(id: id)
+        }
+        didSaveToKeychain = false
+        createdServerID = nil
+        createError = "Creation failed: \(error.localizedDescription)"
+        isCreating = false
+      }
     }
+    createTask = task
+    await task.value
   }
+}
+
+struct TimeoutError: Error, LocalizedError {
+  var errorDescription: String? { "Timed out" }
+}
+
+func withThrowingTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+  try await withThrowingTaskGroup(of: T.self) { group in
+    group.addTask {
+      try await operation()
+    }
+    group.addTask {
+      try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+      throw TimeoutError()
+    }
+    guard let result = try await group.next() else {
+      throw TimeoutError()
+    }
+    group.cancelAll()
+    return result
+  }
+}
+
+func normalizedURL(from urlString: String) -> String {
+  let trimmed = urlString.trimmingCharacters(in: .whitespaces)
+  let suffixes = ["/admin/login/", "/admin/login", "/admin/", "/admin", "/"]
+  var result = trimmed
+  for suffix in suffixes where result.hasSuffix(suffix) {
+    result = String(result.dropLast(suffix.count))
+    break
+  }
+  return result
 }
 
 struct CredentialInfoPopover: View {
