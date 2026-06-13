@@ -64,6 +64,10 @@ actor AuthManager {
     do {
       authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
     } catch {
+      let body = String(data: data, encoding: .utf8) ?? ""
+      self.logger.error(
+        "Auth response decode failed. Status \(httpResponse.statusCode). Body: \(body, privacy: .public)"
+      )
       throw PiholeError.decoding(error.localizedDescription)
     }
 
