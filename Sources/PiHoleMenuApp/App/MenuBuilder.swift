@@ -5,44 +5,106 @@ import OSLog
 final class MenuBuilder: NSObject {
   private let serverManager: PiholeServerManager
   private let timerManager: TimerManager
+  private let tempUnblockManager: TempUnblockManager
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-builder")
 
-  init(serverManager: PiholeServerManager, timerManager: TimerManager) {
+  var onDisableURL: ((String, TimeInterval) -> Void)?
+  var onReBlockDomain: ((String) -> Void)?
+
+  init(
+    serverManager: PiholeServerManager,
+    timerManager: TimerManager,
+    tempUnblockManager: TempUnblockManager = .shared
+  ) {
     self.serverManager = serverManager
     self.timerManager = timerManager
+    self.tempUnblockManager = tempUnblockManager
   }
 
-  func buildMenu() -> NSMenu {
+  func buildMenu(
+    recentBlocked: [String],
+    error: String?,
+    isConnected: Bool,
+    activeRecords: [TempUnblockRecord],
+    maxUnblocks: Int
+  ) -> NSMenu {
     let menu = NSMenu()
-    menu.addItem(statusItem)
+    addStatusSection(to: menu, error: error, isConnected: isConnected, records: activeRecords)
     menu.addItem(.separator())
-    addBlockingControls(to: menu)
-    menu.addItem(.separator())
-    addRecentBlocked(to: menu)
+    addBlockingControls(to: menu, isConnected: isConnected)
+    addDisableURLSection(
+      to: menu, recentBlocked: recentBlocked, activeRecords: activeRecords,
+      maxUnblocks: maxUnblocks, isConnected: isConnected
+    )
+    addActiveUnblockSection(to: menu, activeRecords: activeRecords, isConnected: isConnected)
     menu.addItem(.separator())
     addSettingsAndQuit(to: menu)
     return menu
   }
 
-  private var statusItem: NSMenuItem {
-    let item: NSMenuItem
-    if serverManager.servers.isEmpty {
-      item = NSMenuItem(title: "No instances configured", action: nil, keyEquivalent: "")
-    } else if timerManager.isDisabled {
-      item = NSMenuItem(title: "Blocking Disabled", action: nil, keyEquivalent: "")
-    } else {
-      item = NSMenuItem(title: "Blocking Active", action: nil, keyEquivalent: "")
+  func updateCountdowns(in menu: NSMenu) {
+    let now = Date()
+    for item in menu.items {
+      guard let identifier = item.identifier?.rawValue, identifier.hasPrefix("unblock-countdown"),
+        let uuid = identifier.split(separator: ":").last.map(String.init)
+      else { continue }
+
+      guard let record = tempUnblockManager.activeRecords.first(where: { $0.uuid == uuid })
+      else { continue }
+
+      let elapsed = now.timeIntervalSince(record.startDateUTC)
+      let remaining = max(0, record.durationSeconds - elapsed)
+      item.title = "\(record.domain)  (\(formattedRemaining(remaining)))"
+
+      if let submenu = item.submenu, submenu.items.count >= 2 {
+        let infoItem = submenu.items[0]
+        infoItem.title = "\(formattedRemaining(remaining)) remaining"
+      }
     }
-    item.isEnabled = false
-    return item
   }
 
-  private func addBlockingControls(to menu: NSMenu) {
+  // MARK: - Status Section
+
+  private func addStatusSection(to menu: NSMenu, error: String?, isConnected: Bool, records: [TempUnblockRecord]) {
+    let statusTitle = buildStatusText(error: error, isConnected: isConnected)
+    let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
+    statusItem.isEnabled = false
+    menu.addItem(statusItem)
+
+    if serverManager.servers.count > 1 {
+      let countItem = NSMenuItem(
+        title: "\(serverManager.servers.count) instances configured", action: nil, keyEquivalent: ""
+      )
+      countItem.isEnabled = false
+      menu.addItem(countItem)
+    }
+  }
+
+  private func buildStatusText(error: String?, isConnected: Bool) -> String {
+    if let error {
+      return "⚠ \(error)"
+    }
+    if !isConnected {
+      return "Disconnected"
+    }
+    if serverManager.servers.isEmpty {
+      return "No instances configured"
+    }
+    if timerManager.isDisabled {
+      return "Blocking Disabled"
+    }
+    return "Blocking Active"
+  }
+
+  // MARK: - Blocking Controls
+
+  private func addBlockingControls(to menu: NSMenu, isConnected: Bool) {
     if timerManager.isDisabled {
       let item = NSMenuItem(
         title: "Re-Enable Blocking", action: #selector(reEnableBlocking), keyEquivalent: ""
       )
       item.target = self
+      item.isEnabled = isConnected && !serverManager.servers.isEmpty
       menu.addItem(item)
     } else {
       let submenu = NSMenu()
@@ -55,19 +117,100 @@ final class MenuBuilder: NSObject {
 
       for item in submenu.items {
         item.target = self
+        item.isEnabled = isConnected
       }
 
       let item = NSMenuItem(title: "Disable Blocking", action: nil, keyEquivalent: "")
+      item.submenu = submenu
+      item.isEnabled = isConnected && !serverManager.servers.isEmpty
+      menu.addItem(item)
+    }
+  }
+
+  // MARK: - Disable Specific URL
+
+  private func addDisableURLSection(
+    to menu: NSMenu, recentBlocked: [String], activeRecords: [TempUnblockRecord], maxUnblocks: Int,
+    isConnected: Bool
+  ) {
+    let atCap = activeRecords.count >= maxUnblocks
+    let deduped = Array(NSOrderedSet(array: recentBlocked)).compactMap { $0 as? String }
+
+    if atCap || deduped.isEmpty {
+      let title = atCap ? "Recently Blocked (limit reached)" : "Recently Blocked"
+      let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+      item.isEnabled = false
+      menu.addItem(item)
+      return
+    }
+
+    let submenu = NSMenu()
+    for domain in deduped {
+      let durationSubmenu = buildDurationSubmenu(for: domain)
+      let domainItem = NSMenuItem(title: domain, action: nil, keyEquivalent: "")
+      domainItem.submenu = durationSubmenu
+      submenu.addItem(domainItem)
+    }
+
+    let item = NSMenuItem(title: "Recently Blocked", action: nil, keyEquivalent: "")
+    item.submenu = submenu
+    item.isEnabled = isConnected
+    menu.addItem(item)
+  }
+
+  private func buildDurationSubmenu(for domain: String) -> NSMenu {
+    let submenu = NSMenu()
+
+    addDurationItem(to: submenu, domain: domain, duration: 30, title: "30 seconds")
+    addDurationItem(to: submenu, domain: domain, duration: 300, title: "5 minutes")
+    addDurationItem(to: submenu, domain: domain, duration: 900, title: "15 minutes")
+    submenu.addItem(.separator())
+
+    let customItem = NSMenuItem(title: "Custom...", action: #selector(disableURLWithCustomTime), keyEquivalent: "")
+    customItem.target = self
+    customItem.representedObject = domain
+    submenu.addItem(customItem)
+
+    return submenu
+  }
+
+  private func addDurationItem(to menu: NSMenu, domain: String, duration: TimeInterval, title: String) {
+    let item = NSMenuItem(title: title, action: #selector(disableURLDurationAction), keyEquivalent: "")
+    item.target = self
+    item.representedObject = ["domain": domain, "duration": duration] as NSDictionary
+    menu.addItem(item)
+  }
+
+  // MARK: - Active Unblock Section
+
+  private func addActiveUnblockSection(to menu: NSMenu, activeRecords: [TempUnblockRecord], isConnected: Bool) {
+    let now = Date()
+
+    for record in activeRecords {
+      let elapsed = now.timeIntervalSince(record.startDateUTC)
+      let remaining = max(0, record.durationSeconds - elapsed)
+      let title = "\(record.domain)  (\(formattedRemaining(remaining)))"
+
+      let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+      item.identifier = NSUserInterfaceItemIdentifier("unblock-countdown:\(record.uuid)")
+
+      let submenu = NSMenu()
+      let infoItem = NSMenuItem(title: "\(formattedRemaining(remaining)) remaining", action: nil, keyEquivalent: "")
+      infoItem.isEnabled = false
+      submenu.addItem(infoItem)
+
+      let reblockItem = NSMenuItem(title: "Re-block now", action: #selector(reblockDomain), keyEquivalent: "")
+      reblockItem.target = self
+      reblockItem.representedObject = record.uuid
+      reblockItem.isEnabled = isConnected
+      submenu.addItem(reblockItem)
+
       item.submenu = submenu
       menu.addItem(item)
     }
   }
 
-  private func addRecentBlocked(to menu: NSMenu) {
-    let item = NSMenuItem(title: "Recent Blocked", action: nil, keyEquivalent: "")
-    item.isEnabled = false
-    menu.addItem(item)
-  }
+  // MARK: - Settings & Quit
 
   private func addSettingsAndQuit(to menu: NSMenu) {
     let settingsItem = NSMenuItem(
@@ -82,7 +225,17 @@ final class MenuBuilder: NSObject {
     menu.addItem(quitItem)
   }
 
-  // MARK: - Actions
+  // MARK: - Helpers
+
+  private func formattedRemaining(_ totalSeconds: TimeInterval) -> String {
+    let seconds = Int(max(0, totalSeconds))
+    if seconds >= 60 {
+      return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+    return "\(seconds)s"
+  }
+
+  // MARK: - Actions: Blocking
 
   @objc private func disableIndefinitely() {
     performBlocking(enabled: false, duration: nil)
@@ -124,9 +277,52 @@ final class MenuBuilder: NSObject {
     performBlocking(enabled: true, duration: nil)
   }
 
+  // MARK: - Actions: Disable Specific URL
+
+  @objc private func disableURLDurationAction(_ sender: NSMenuItem) {
+    guard let dict = sender.representedObject as? NSDictionary,
+      let domain = dict["domain"] as? String,
+      let duration = dict["duration"] as? TimeInterval
+    else { return }
+    onDisableURL?(domain, duration)
+  }
+
+  @objc private func disableURLWithCustomTime(_ sender: NSMenuItem) {
+    guard let domain = sender.representedObject as? String else { return }
+
+    let alert = NSAlert()
+    alert.messageText = "Custom Unblock Duration"
+    alert.informativeText = "Enter the number of seconds to unblock \"\(domain)\"."
+    alert.addButton(withTitle: "Unblock")
+    alert.addButton(withTitle: "Cancel")
+
+    let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+    textField.placeholderString = "e.g. 120"
+    alert.accessoryView = textField
+
+    let response = alert.runModal()
+    if response == .alertFirstButtonReturn {
+      let text = textField.stringValue.trimmingCharacters(in: .whitespaces)
+      if let seconds = TimeInterval(text), seconds > 0 {
+        onDisableURL?(domain, seconds)
+      }
+    }
+  }
+
+  // MARK: - Actions: Re-block
+
+  @objc private func reblockDomain(_ sender: NSMenuItem) {
+    guard let uuid = sender.representedObject as? String else { return }
+    onReBlockDomain?(uuid)
+  }
+
+  // MARK: - Actions: Settings
+
   @objc private func openSettings() {
     SettingsWindowController.shared.showWindow()
   }
+
+  // MARK: - Blocking Execution
 
   private func performBlocking(enabled: Bool, duration: TimeInterval?) {
     guard let server = serverManager.servers.first, server.version != nil else { return }

@@ -128,6 +128,9 @@ final class PiholeV5Service: PiholeServiceProtocol {
         ))
     }
 
+    if let clientIP {
+      return queries.filter { $0.clientIP == clientIP }
+    }
     return queries
   }
 

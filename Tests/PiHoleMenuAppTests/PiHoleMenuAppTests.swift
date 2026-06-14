@@ -17,7 +17,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   // MARK: - PiholeError tests
 
   func testPiholeErrorDescriptions() {
-    XCTAssertEqual(PiholeError.unauthorized.errorDescription, "Authentication failed")
+    XCTAssertEqual(PiholeError.unauthorized.errorDescription, "Authentication failed. Check your credential.")
     XCTAssertEqual(PiholeError.network("timeout").errorDescription, "Network error: timeout")
     XCTAssertEqual(PiholeError.server(500, nil).errorDescription, "Server error (500)")
     XCTAssertEqual(
