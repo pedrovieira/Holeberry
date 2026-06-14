@@ -32,10 +32,12 @@ final class MenuBuilder: NSObject {
     addStatusSection(to: menu, error: error, isConnected: isConnected, records: activeRecords)
     menu.addItem(.separator())
     addBlockingControls(to: menu, isConnected: isConnected)
+    menu.addItem(.separator())
     addDisableURLSection(
       to: menu, recentBlocked: recentBlocked, activeRecords: activeRecords,
       maxUnblocks: maxUnblocks, isConnected: isConnected
     )
+    menu.addItem(.separator())
     addActiveUnblockSection(to: menu, activeRecords: activeRecords, isConnected: isConnected)
     menu.addItem(.separator())
     addSettingsAndQuit(to: menu)
