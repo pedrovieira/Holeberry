@@ -5,7 +5,7 @@ import OSLog
 final class TempUnblockManager {
   static let shared = TempUnblockManager(serverProvider: PiholeServerManager())
 
-  @Published private(set) var activeRecords: [TempUnblockRecord] = []
+  @Published var activeRecords: [TempUnblockRecord] = []
 
   private let serverProvider: ServerProviding
   private var expiryTasks: [String: Task<Void, Never>] = [:]
@@ -178,5 +178,49 @@ final class TempUnblockManager {
       activeRecords.removeAll { $0.uuid == uuid }
       saveRecords()
     }
+  }
+
+  // MARK: - Reconcile
+
+  func reconcileOnLaunch() async {
+    var recordsToRemove: [String] = []
+
+    for record in activeRecords {
+      if await !isPresentOnAnyServer(record) {
+        recordsToRemove.append(record.uuid)
+      } else {
+        startExpiryTask(for: record)
+      }
+    }
+
+    for uuid in recordsToRemove {
+      expiryTasks.removeValue(forKey: uuid)
+      retryTasks.removeValue(forKey: uuid)
+      activeRecords.removeAll { $0.uuid == uuid }
+    }
+    if !recordsToRemove.isEmpty {
+      saveRecords()
+    }
+  }
+
+  private func isPresentOnAnyServer(_ record: TempUnblockRecord) async -> Bool {
+    for server in serverProvider.servers where server.version != nil {
+      do {
+        let domains: [DomainEntry] = try await serverProvider.perform(for: server) { service in
+          try await service.getDomains()
+        }
+        let found = domains.contains { entry in
+          if server.version == .v6 {
+            return entry.comment?.contains(record.uuid) ?? false
+          }
+          return entry.domain == record.domain
+        }
+        if found { return true }
+      } catch {
+        logger.warning("Reconcile getDomains failed for \(server.label ?? server.url, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        continue
+      }
+    }
+    return false
   }
 }
