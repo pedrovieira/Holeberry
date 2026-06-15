@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 @MainActor
-final class PiholeServerManager: ObservableObject {
+final class PiholeServerManager: ObservableObject, ServerProviding {
   @Published var servers: [PiholeServer]
   @Published private(set) var combinedStatus: CombinedStatus
 
@@ -206,7 +206,7 @@ final class PiholeServerManager: ObservableObject {
   }
 
   func perform<T>(
-    for server: PiholeServer, operation: (PiholeServiceProtocol) async throws -> T
+    for server: PiholeServer, block: (PiholeServiceProtocol) async throws -> T
   ) async throws -> T {
     guard let url = URL(string: server.url) else {
       throw PiholeError.unknown("Invalid URL")
@@ -228,10 +228,10 @@ final class PiholeServerManager: ObservableObject {
       let service = PiholeV6Service(
         baseURL: url, session: conn.session, authManager: authManager, password: credential
       )
-      return try await operation(service)
+      return try await block(service)
     case .v5:
       let service = PiholeV5Service(baseURL: url, session: conn.session, apiToken: credential)
-      return try await operation(service)
+      return try await block(service)
     }
   }
 
