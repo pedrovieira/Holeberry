@@ -14,9 +14,7 @@ final class MenuBarController: NSObject {
     builder.onDisableURL = { [weak self] domain, duration in
       self?.performTempUnblock(domain: domain, duration: duration)
     }
-    builder.onReBlockDomain = { [weak self] uuid in
-      self?.performReblock(uuid: uuid)
-    }
+
     return builder
   }()
 
@@ -63,13 +61,11 @@ final class MenuBarController: NSObject {
   @objc private func handleClick() {
     ensureCacheFresh()
 
-    let settings = SettingsStore()
     let menu = menuBuilder.buildMenu(
       recentBlocked: recentBlockedCache,
       error: errorMessage,
       isConnected: reachability.isConnected,
-      activeRecords: tempUnblockManager.activeRecords,
-      maxUnblocks: settings.maxActiveUnblocks
+      activeRecords: tempUnblockManager.activeRecords
     )
     menu.delegate = self
     currentMenu = menu
@@ -180,39 +176,12 @@ final class MenuBarController: NSObject {
   // MARK: - Temp Unblock
 
   private func performTempUnblock(domain: String, duration: TimeInterval) {
-    let cap = SettingsStore().maxActiveUnblocks
-    guard tempUnblockManager.activeRecords.count < cap else {
-      showError("Maximum active unblocks reached (\(cap))")
-      return
-    }
-
     Task {
       do {
-        _ = try await tempUnblockManager.add(domain: domain, duration: duration)
+        try await tempUnblockManager.add(domain: domain, duration: duration)
         setError(nil)
       } catch {
         showError("Failed to unblock \(domain): \(error.localizedDescription)")
-      }
-    }
-  }
-
-  private func performReblock(uuid: String) {
-    guard let record = tempUnblockManager.activeRecords.first(where: { $0.uuid == uuid }) else {
-      return
-    }
-    guard let server = serverManager.servers.first, server.version != nil else {
-      showError("No configured Pi-hole instance")
-      return
-    }
-
-    Task {
-      do {
-        try await serverManager.perform(for: server) { service in
-          try await service.deleteDomain(domain: record.domain)
-        }
-        setError(nil)
-      } catch {
-        showError("Failed to re-block \(record.domain): \(error.localizedDescription)")
       }
     }
   }
