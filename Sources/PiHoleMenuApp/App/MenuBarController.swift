@@ -212,11 +212,7 @@ final class MenuBarController: NSObject {
     Task {
       do {
         try await serverManager.perform(for: server) { service in
-          if let entryId = record.piholeEntryId {
-            try await service.deleteDomain(identifiedBy: entryId)
-          } else {
-            try await service.deleteDomain(domain: record.domain)
-          }
+          try await service.deleteDomain(domain: record.domain)
         }
         tempUnblockManager.remove(record: record)
         setError(nil)
