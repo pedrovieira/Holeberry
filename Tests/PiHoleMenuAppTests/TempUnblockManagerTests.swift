@@ -145,6 +145,99 @@ final class TempUnblockManagerTests: XCTestCase {
     XCTAssertEqual(first.uuid, second.uuid)
   }
 
+  // MARK: - Auto-expiry
+
+  func testAutoExpiryRemovesRecord() async throws {
+    let mock = MockPiholeService()
+    mock.addDomainStub = .success(
+      DomainEntry(id: 42, domain: "test.com", type: 0, comment: "uuid-1")
+    )
+    mock.deleteDomainByNameStub = .success(())
+
+    let provider = MockServerProvider()
+    provider.servers = [
+      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+    ]
+    provider.makeService = { _ in mock }
+
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    _ = try await manager.add(domain: "test.com", duration: 0.1)
+
+    XCTAssertEqual(manager.activeRecords.count, 1)
+    try await Task.sleep(for: .milliseconds(500))
+    XCTAssertTrue(manager.activeRecords.isEmpty)
+    XCTAssertEqual(mock.deleteDomainByNameCallCount, 1)
+  }
+
+  func testAutoExpiryOnMultipleServers() async throws {
+    var callCount = 0
+    let mockA = MockPiholeService()
+    mockA.addDomainStub = .success(DomainEntry(id: 1, domain: "test.com", type: 0, comment: "uuid-1"))
+    mockA.deleteDomainByNameStub = .success(())
+    let mockB = MockPiholeService()
+    mockB.addDomainStub = .success(DomainEntry(id: 2, domain: "test.com", type: 0, comment: "uuid-1"))
+    mockB.deleteDomainByNameStub = .success(())
+
+    let provider = MockServerProvider()
+    provider.servers = [
+      PiholeServer(label: "A", url: "http://192.168.1.100", version: .v6),
+      PiholeServer(label: "B", url: "http://192.168.1.101", version: .v6)
+    ]
+    provider.makeService = { server in
+      server.label == "A" ? mockA : mockB
+    }
+
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    _ = try await manager.add(domain: "test.com", duration: 0.1)
+
+    try await Task.sleep(for: .milliseconds(500))
+    XCTAssertTrue(manager.activeRecords.isEmpty)
+    XCTAssertEqual(mockA.deleteDomainByNameCallCount, 1)
+    XCTAssertEqual(mockB.deleteDomainByNameCallCount, 1)
+  }
+
+  func testAutoExpiryWithDomainAlreadyAbsent() async throws {
+    let mock = MockPiholeService()
+    mock.addDomainStub = .success(DomainEntry(id: 42, domain: "test.com", type: 0, comment: "uuid-1"))
+    mock.deleteDomainByNameStub = .failure(PiholeError.unknown("Domain not found"))
+
+    let provider = MockServerProvider()
+    provider.servers = [
+      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+    ]
+    provider.makeService = { _ in mock }
+
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    _ = try await manager.add(domain: "test.com", duration: 0.1)
+
+    try await Task.sleep(for: .milliseconds(500))
+    XCTAssertTrue(manager.activeRecords.isEmpty)
+  }
+
+  func testAutoExpiryFailureMarksPending() async throws {
+    let mock = MockPiholeService()
+    mock.addDomainStub = .success(DomainEntry(id: 42, domain: "test.com", type: 0, comment: "uuid-1"))
+    mock.deleteDomainByNameStub = .failure(PiholeError.server(500, "Overloaded"))
+
+    let provider = MockServerProvider()
+    provider.servers = [
+      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+    ]
+    provider.makeService = { _ in mock }
+
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    _ = try await manager.add(domain: "test.com", duration: 0.1)
+
+    try await Task.sleep(for: .milliseconds(500))
+    XCTAssertEqual(manager.activeRecords.count, 1)
+    XCTAssertTrue(manager.activeRecords[0].pendingRemoval)
+    XCTAssertEqual(manager.activeRecords[0].retryCount, 1)
+  }
+
   func testAddPersistsToUserDefaults() async throws {
     let mock = MockPiholeService()
     mock.addDomainStub = .success(
