@@ -411,4 +411,36 @@ final class PiHoleMenuAppTests: XCTestCase {
     XCTAssertEqual(manager.servers[0].label, "New")
     XCTAssertEqual(manager.servers[0].url, "http://new.com")
   }
+
+  // MARK: - TempUnblockRecord tests
+
+  func testTempUnblockRecordCodableRoundTrip() throws {
+    let record = TempUnblockRecord(
+      domain: "doubleclick.net",
+      uuid: "pihole-menu-app:test-uuid",
+      startDateUTC: Date(),
+      durationSeconds: 300,
+      pendingRemoval: true,
+      retryCount: 2
+    )
+    let data = try JSONEncoder().encode(record)
+    let decoded = try JSONDecoder().decode(TempUnblockRecord.self, from: data)
+    XCTAssertEqual(decoded.domain, record.domain)
+    XCTAssertEqual(decoded.uuid, record.uuid)
+    XCTAssertEqual(decoded.durationSeconds, record.durationSeconds)
+    XCTAssertEqual(decoded.pendingRemoval, record.pendingRemoval)
+    XCTAssertEqual(decoded.retryCount, record.retryCount)
+    XCTAssertLessThan(abs(decoded.startDateUTC.timeIntervalSince(record.startDateUTC)), 0.001)
+  }
+
+  func testTempUnblockRecordDefaults() {
+    let record = TempUnblockRecord(
+      domain: "ads.com",
+      uuid: "pihole-menu-app:uuid-2",
+      startDateUTC: Date(),
+      durationSeconds: 60
+    )
+    XCTAssertFalse(record.pendingRemoval)
+    XCTAssertEqual(record.retryCount, 0)
+  }
 }
