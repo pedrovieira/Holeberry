@@ -183,16 +183,9 @@ final class MenuBarController: NSObject {
       return
     }
 
-    guard let server = serverManager.servers.first, server.version != nil else {
-      showError("No configured Pi-hole instance")
-      return
-    }
-
     Task {
       do {
-        try await serverManager.perform(for: server) { service in
-          try await tempUnblockManager.add(domain: domain, duration: duration, service: service)
-        }
+        _ = try await tempUnblockManager.add(domain: domain, duration: duration)
         setError(nil)
       } catch {
         showError("Failed to unblock \(domain): \(error.localizedDescription)")
@@ -214,7 +207,6 @@ final class MenuBarController: NSObject {
         try await serverManager.perform(for: server) { service in
           try await service.deleteDomain(domain: record.domain)
         }
-        tempUnblockManager.remove(record: record)
         setError(nil)
       } catch {
         showError("Failed to re-block \(record.domain): \(error.localizedDescription)")
