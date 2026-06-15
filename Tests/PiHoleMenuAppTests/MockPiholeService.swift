@@ -85,3 +85,18 @@ final class MockPiholeService: PiholeServiceProtocol {
     return try getDomainsStub.get()
   }
 }
+
+final class MockServerProvider: ServerProviding {
+  var servers: [PiholeServer] = []
+  var makeService: ((PiholeServer) -> PiholeServiceProtocol)?
+
+  private(set) var performCallCount = 0
+  private(set) var lastServer: PiholeServer?
+
+  func perform<T>(for server: PiholeServer, block: (PiholeServiceProtocol) async throws -> T) async throws -> T {
+    performCallCount += 1
+    lastServer = server
+    let service = makeService?(server) ?? MockPiholeService()
+    return try await block(service)
+  }
+}
