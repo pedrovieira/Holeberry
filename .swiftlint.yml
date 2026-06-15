@@ -93,6 +93,10 @@ multiline_arguments:
 private_over_fileprivate:
   validate_extensions: true
 
+type_body_length:
+  warning: 400
+  error: 500
+
 trailing_whitespace:
   ignores_empty_lines: false
   ignores_comments: true

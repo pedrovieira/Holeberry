@@ -19,15 +19,13 @@ final class TempUnblockManager {
   func add(domain: String, duration: TimeInterval, service: PiholeServiceProtocol) async throws -> TempUnblockRecord {
     let uuid = "pihole-menu-app:\(UUID().uuidString)"
 
-    let entry = try await service.addDomain(domain, to: .allow, comment: uuid)
+    try await service.addDomain(domain, to: .allow, comment: uuid)
 
     let record = TempUnblockRecord(
       domain: domain,
       uuid: uuid,
       startDateUTC: Date(),
-      durationSeconds: duration,
-      piholeEntryId: entry.id,
-      piHoleVersion: service.piHoleVersion
+      durationSeconds: duration
     )
 
     activeRecords.append(record)
