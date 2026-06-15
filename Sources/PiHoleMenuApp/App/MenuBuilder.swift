@@ -9,7 +9,6 @@ final class MenuBuilder: NSObject {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-builder")
 
   var onDisableURL: ((String, TimeInterval) -> Void)?
-  var onReBlockDomain: ((String) -> Void)?
 
   init(
     serverManager: PiholeServerManager,
@@ -25,8 +24,7 @@ final class MenuBuilder: NSObject {
     recentBlocked: [String],
     error: String?,
     isConnected: Bool,
-    activeRecords: [TempUnblockRecord],
-    maxUnblocks: Int
+    activeRecords: [TempUnblockRecord]
   ) -> NSMenu {
     let menu = NSMenu()
     addStatusSection(to: menu, error: error, isConnected: isConnected, records: activeRecords)
@@ -34,11 +32,10 @@ final class MenuBuilder: NSObject {
     addBlockingControls(to: menu, isConnected: isConnected)
     menu.addItem(.separator())
     addDisableURLSection(
-      to: menu, recentBlocked: recentBlocked, activeRecords: activeRecords,
-      maxUnblocks: maxUnblocks, isConnected: isConnected
+      to: menu, recentBlocked: recentBlocked, isConnected: isConnected
     )
     menu.addItem(.separator())
-    addActiveUnblockSection(to: menu, activeRecords: activeRecords, isConnected: isConnected)
+    addActiveUnblockSection(to: menu, activeRecords: activeRecords)
     menu.addItem(.separator())
     addSettingsAndQuit(to: menu)
     return menu
@@ -132,15 +129,13 @@ final class MenuBuilder: NSObject {
   // MARK: - Disable Specific URL
 
   private func addDisableURLSection(
-    to menu: NSMenu, recentBlocked: [String], activeRecords: [TempUnblockRecord], maxUnblocks: Int,
+    to menu: NSMenu, recentBlocked: [String],
     isConnected: Bool
   ) {
-    let atCap = activeRecords.count >= maxUnblocks
     let deduped = Array(NSOrderedSet(array: recentBlocked)).compactMap { $0 as? String }
 
-    if atCap || deduped.isEmpty {
-      let title = atCap ? "Recently Blocked (limit reached)" : "Recently Blocked"
-      let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    if deduped.isEmpty {
+      let item = NSMenuItem(title: "Recently Blocked", action: nil, keyEquivalent: "")
       item.isEnabled = false
       menu.addItem(item)
       return
@@ -185,7 +180,7 @@ final class MenuBuilder: NSObject {
 
   // MARK: - Active Unblock Section
 
-  private func addActiveUnblockSection(to menu: NSMenu, activeRecords: [TempUnblockRecord], isConnected: Bool) {
+  private func addActiveUnblockSection(to menu: NSMenu, activeRecords: [TempUnblockRecord]) {
     let now = Date()
 
     for record in activeRecords {
@@ -195,19 +190,6 @@ final class MenuBuilder: NSObject {
 
       let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
       item.identifier = NSUserInterfaceItemIdentifier("unblock-countdown:\(record.uuid)")
-
-      let submenu = NSMenu()
-      let infoItem = NSMenuItem(title: "\(formattedRemaining(remaining)) remaining", action: nil, keyEquivalent: "")
-      infoItem.isEnabled = false
-      submenu.addItem(infoItem)
-
-      let reblockItem = NSMenuItem(title: "Re-block now", action: #selector(reblockDomain), keyEquivalent: "")
-      reblockItem.target = self
-      reblockItem.representedObject = record.uuid
-      reblockItem.isEnabled = isConnected
-      submenu.addItem(reblockItem)
-
-      item.submenu = submenu
       menu.addItem(item)
     }
   }
@@ -309,13 +291,6 @@ final class MenuBuilder: NSObject {
         onDisableURL?(domain, seconds)
       }
     }
-  }
-
-  // MARK: - Actions: Re-block
-
-  @objc private func reblockDomain(_ sender: NSMenuItem) {
-    guard let uuid = sender.representedObject as? String else { return }
-    onReBlockDomain?(uuid)
   }
 
   // MARK: - Actions: Settings
