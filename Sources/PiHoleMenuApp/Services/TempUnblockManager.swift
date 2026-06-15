@@ -99,6 +99,84 @@ final class TempUnblockManager {
   }
 
   private func removeExpired(uuid: String) async {
-    // Will be implemented in Task 4
+    guard let record = activeRecords.first(where: { $0.uuid == uuid }) else { return }
+
+    let servers = serverProvider.servers.filter { $0.version != nil }
+    var anyFailure = false
+
+    for server in servers {
+      do {
+        try await serverProvider.perform(for: server) { service in
+          try await service.deleteDomain(domain: record.domain)
+        }
+      } catch PiholeError.unknown {
+        continue
+      } catch {
+        anyFailure = true
+        logger.warning("Expiry cleanup failed for \(record.domain, privacy: .public) on \(server.label ?? server.url): \(error.localizedDescription, privacy: .public)")
+      }
+    }
+
+    if anyFailure {
+      if let idx = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
+        activeRecords[idx].pendingRemoval = true
+        activeRecords[idx].retryCount += 1
+        saveRecords()
+        scheduleRetry(uuid: uuid)
+      }
+    } else {
+      expiryTasks.removeValue(forKey: uuid)
+      retryTasks.removeValue(forKey: uuid)
+      activeRecords.removeAll { $0.uuid == uuid }
+      saveRecords()
+    }
+  }
+
+  private func scheduleRetry(uuid: String) {
+    retryTasks[uuid] = Task { [weak self] in
+      guard let self else { return }
+      let retryCount = self.activeRecords.first { $0.uuid == uuid }?.retryCount ?? 0
+      let backoff = self.backoffIntervals[
+        min(retryCount, self.backoffIntervals.count - 1)
+      ]
+      try? await Task.sleep(for: .seconds(backoff))
+      await self.retryRemoval(uuid: uuid)
+    }
+  }
+
+  private func retryRemoval(uuid: String) async {
+    guard
+      let record = activeRecords.first(where: { $0.uuid == uuid }),
+      record.pendingRemoval
+    else { return }
+
+    let servers = serverProvider.servers.filter { $0.version != nil }
+    var anyFailure = false
+
+    for server in servers {
+      do {
+        try await serverProvider.perform(for: server) { service in
+          try await service.deleteDomain(domain: record.domain)
+        }
+      } catch PiholeError.unknown {
+        continue
+      } catch {
+        anyFailure = true
+        logger.warning("Retry removal failed for \(record.domain, privacy: .public): \(error.localizedDescription, privacy: .public)")
+      }
+    }
+
+    if anyFailure {
+      if let idx = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
+        activeRecords[idx].retryCount += 1
+        saveRecords()
+        scheduleRetry(uuid: uuid)
+      }
+    } else {
+      retryTasks.removeValue(forKey: uuid)
+      expiryTasks.removeValue(forKey: uuid)
+      activeRecords.removeAll { $0.uuid == uuid }
+      saveRecords()
+    }
   }
 }
