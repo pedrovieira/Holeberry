@@ -261,4 +261,95 @@ final class TempUnblockManagerTests: XCTestCase {
     XCTAssertEqual(domain, "persist.com")
     XCTAssertEqual(duration, 300)
   }
+
+  // MARK: - reconcileOnLaunch
+
+  func testReconcileActiveRecordRestored() async throws {
+    let mock = MockPiholeService()
+    mock.getDomainsStub = .success([
+      DomainEntry(id: 42, domain: "active.com", type: 0, comment: "pihole-menu-app:existing-uuid")
+    ])
+
+    let provider = MockServerProvider()
+    provider.servers = [
+      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+    ]
+    provider.makeService = { _ in mock }
+
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let active = TempUnblockRecord(
+      domain: "active.com",
+      uuid: "pihole-menu-app:existing-uuid",
+      startDateUTC: Date(),
+      durationSeconds: 3600
+    )
+    manager.activeRecords = [active]
+    manager.saveRecords()
+
+    let manager2 = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    await manager2.reconcileOnLaunch()
+
+    XCTAssertEqual(manager2.activeRecords.count, 1)
+    XCTAssertEqual(manager2.activeRecords[0].domain, "active.com")
+  }
+
+  func testReconcileOrphanRemoved() async throws {
+    let mock = MockPiholeService()
+    mock.getDomainsStub = .success([])
+
+    let provider = MockServerProvider()
+    provider.servers = [
+      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+    ]
+    provider.makeService = { _ in mock }
+
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let orphan = TempUnblockRecord(
+      domain: "orphan.com",
+      uuid: "pihole-menu-app:orphan-uuid",
+      startDateUTC: Date(),
+      durationSeconds: 3600
+    )
+    manager.activeRecords = [orphan]
+    manager.saveRecords()
+
+    let manager2 = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    await manager2.reconcileOnLaunch()
+
+    XCTAssertTrue(manager2.activeRecords.isEmpty)
+  }
+
+  func testReconcileMultipleServersOrphanCheck() async throws {
+    let mock1 = MockPiholeService()
+    mock1.getDomainsStub = .success([])
+    let mock2 = MockPiholeService()
+    mock2.getDomainsStub = .success([])
+
+    let provider = MockServerProvider()
+    provider.servers = [
+      PiholeServer(label: "A", url: "http://192.168.1.100", version: .v6),
+      PiholeServer(label: "B", url: "http://192.168.1.101", version: .v6)
+    ]
+    provider.makeService = { server in
+      server.label == "A" ? mock1 : mock2
+    }
+
+    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let orphan = TempUnblockRecord(
+      domain: "orphan.com",
+      uuid: "pihole-menu-app:orphan-uuid",
+      startDateUTC: Date(),
+      durationSeconds: 3600
+    )
+    manager.activeRecords = [orphan]
+    manager.saveRecords()
+
+    let manager2 = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    await manager2.reconcileOnLaunch()
+
+    XCTAssertTrue(manager2.activeRecords.isEmpty)
+  }
 }

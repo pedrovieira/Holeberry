@@ -46,6 +46,9 @@ final class MenuBarController: NSObject {
     listenForSettingsChanges()
     setupReachability()
     prewarmRecentBlockedCache()
+    Task {
+      await tempUnblockManager.reconcileOnLaunch()
+    }
   }
 
   // MARK: - Status Item
