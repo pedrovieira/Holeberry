@@ -81,7 +81,7 @@ final class TempUnblockManager {
       logger.warning("Failed to decode temp unblock records")
       return []
     }
-    return records.filter { $0.startDateUTC.addingTimeInterval($0.durationSeconds) > Date() }
+    return records
   }
 
   func saveRecords() {
@@ -196,8 +196,16 @@ final class TempUnblockManager {
 
   func reconcileOnLaunch() async {
     var recordsToRemove: [String] = []
+    let now = Date()
 
     for record in activeRecords {
+      // Expired records: attempt Pi-hole deletion, mark pendingRemoval with retry on failure
+      if record.startDateUTC.addingTimeInterval(record.durationSeconds) <= now {
+        await removeExpired(uuid: record.uuid)
+        continue
+      }
+
+      // Active records: cross-reference against Pi-hole allowlist
       if await !isPresentOnAnyServer(record) {
         recordsToRemove.append(record.uuid)
       } else {
