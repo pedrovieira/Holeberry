@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 
 struct PiholeServer: Codable, Identifiable, Equatable {
@@ -29,3 +30,5 @@ struct PiholeServer: Codable, Identifiable, Equatable {
     lhs.id == rhs.id
   }
 }
+
+extension PiholeServer: Defaults.Serializable {}

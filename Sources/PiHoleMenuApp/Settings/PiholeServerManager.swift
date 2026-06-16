@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 import OSLog
 
@@ -236,13 +237,11 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
   }
 
   private func loadServers() {
-    let storage = ServerStorage()
-    servers = storage.wrappedValue
+    servers = Defaults[.servers]
   }
 
   private func saveServers() {
-    var storage = ServerStorage()
-    storage.wrappedValue = servers
+    Defaults[.servers] = servers
   }
 }
 

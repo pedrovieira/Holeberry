@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 import OSLog
 
@@ -12,18 +13,14 @@ final class TempUnblockManager {
   private var retryTasks: [String: Task<Void, Never>] = [:]
   private let backoffIntervals: [TimeInterval]
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "temp-unblock")
-  private let defaults: UserDefaults
-  private let storageKey = "tempUnblocks"
 
   init(
     serverProvider: ServerProviding,
-    backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
-    userDefaults: UserDefaults = .standard
+    backoffIntervals: [TimeInterval] = [10, 30, 120, 600]
   ) {
     self.serverProvider = serverProvider
     self.backoffIntervals = backoffIntervals
-    self.defaults = userDefaults
-    self.activeRecords = restoreFromUserDefaults()
+    self.activeRecords = restoreFromDefaults()
   }
 
   func add(domain: String, duration: TimeInterval) async throws -> TempUnblockRecord {
@@ -75,22 +72,12 @@ final class TempUnblockManager {
 
   // MARK: - Persistence
 
-  func restoreFromUserDefaults() -> [TempUnblockRecord] {
-    guard let data = defaults.data(forKey: storageKey) else { return [] }
-    guard let records = try? JSONDecoder().decode([TempUnblockRecord].self, from: data) else {
-      logger.warning("Failed to decode temp unblock records")
-      return []
-    }
-    return records
+  func restoreFromDefaults() -> [TempUnblockRecord] {
+    Defaults[.tempUnblocks]
   }
 
   func saveRecords() {
-    do {
-      let data = try JSONEncoder().encode(activeRecords)
-      defaults.set(data, forKey: storageKey)
-    } catch {
-      logger.error("Failed to save temp unblock records: \(error.localizedDescription, privacy: .public)")
-    }
+    Defaults[.tempUnblocks] = activeRecords
   }
 
   // MARK: - Expiry

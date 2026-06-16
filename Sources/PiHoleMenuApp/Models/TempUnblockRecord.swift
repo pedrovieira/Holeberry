@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 
 struct TempUnblockRecord: Codable, Identifiable {
@@ -10,3 +11,5 @@ struct TempUnblockRecord: Codable, Identifiable {
 
   var id: String { uuid }
 }
+
+extension TempUnblockRecord: Defaults.Serializable {}

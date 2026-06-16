@@ -1,3 +1,4 @@
+import Defaults
 import OSLog
 import ServiceManagement
 import SwiftUI
@@ -21,7 +22,8 @@ enum SettingsTab: String, CaseIterable {
 }
 
 struct SettingsView: View {
-  @StateObject private var settings = SettingsStore()
+  @Default(.recentBlockedCount) var recentBlockedCount
+  @Default(.launchAtLogin) var launchAtLogin
 
   @State private var isToggling = false
   @State private var requiresApproval = false
@@ -69,7 +71,7 @@ struct SettingsView: View {
       guard (notification.object as? NSWindow)?.identifier?.rawValue == "Settings" else { return }
       syncLaunchAtLoginFromSystem()
     }
-    .onChange(of: settings.launchAtLogin) { _, newValue in
+    .onChange(of: launchAtLogin) { _, newValue in
       guard !isToggling else { return }
       isToggling = true
       defer { isToggling = false }
@@ -82,7 +84,7 @@ struct SettingsView: View {
         requiresApproval = SMAppService.mainApp.status == .requiresApproval
       } catch {
         logger.error("Failed to update login item: \(error.localizedDescription, privacy: .public)")
-        settings.launchAtLogin = !newValue
+        launchAtLogin = !newValue
         requiresApproval = SMAppService.mainApp.status == .requiresApproval
       }
     }
@@ -93,15 +95,7 @@ struct SettingsView: View {
       HStack {
         Text("Recent blocked count")
         Spacer()
-        TextField("", value: $settings.recentBlockedCount, format: .number)
-          .textFieldStyle(.roundedBorder)
-          .frame(width: 70)
-      }
-
-      HStack {
-        Text("Max active unblocks")
-        Spacer()
-        TextField("", value: $settings.maxActiveUnblocks, format: .number)
+        TextField("", value: $recentBlockedCount, format: .number)
           .textFieldStyle(.roundedBorder)
           .frame(width: 70)
       }
@@ -111,7 +105,7 @@ struct SettingsView: View {
   private var advancedSection: some View {
     Section("Advanced") {
       VStack(alignment: .leading) {
-        Toggle("Launch at login", isOn: $settings.launchAtLogin)
+        Toggle("Launch at login", isOn: $launchAtLogin)
           .disabled(isToggling)
 
         Text("Automatically start Pi-hole Menu when you log in to your Mac.")
@@ -119,7 +113,7 @@ struct SettingsView: View {
           .foregroundColor(.secondary)
       }
 
-      if settings.launchAtLogin {
+      if launchAtLogin {
         HStack(spacing: 4) {
           if requiresApproval {
             Text("Approval needed —")
@@ -241,7 +235,7 @@ struct SettingsView: View {
   }
 
   private func syncLaunchAtLoginFromSystem() {
-    settings.launchAtLogin = SMAppService.mainApp.status == .enabled
+    launchAtLogin = SMAppService.mainApp.status == .enabled
     requiresApproval = SMAppService.mainApp.status == .requiresApproval
   }
 
