@@ -60,34 +60,68 @@ final class PiholeV6Service: PiholeServiceProtocol {
     }
   }
 
-  func getRecentBlocked() async throws -> [String] {
-    let (data, httpResponse) = try await authenticatedRequest(path: "/api/stats/recent_blocked")
+  // MARK: - Constants
+
+  private static let blockedStatus = "GRAVITY"
+
+  func getRecentBlocked(count: Int) async throws -> [String] {
+    let clientIP = localIPAddress()
+
+    guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+      throw PiholeError.unknown("Invalid base URL")
+    }
+    components.path = "/api/queries"
+    var queryItems: [URLQueryItem] = [
+      URLQueryItem(name: "status", value: Self.blockedStatus),
+      URLQueryItem(name: "length", value: String(count))
+    ]
+    if let clientIP {
+      queryItems.append(URLQueryItem(name: "client_ip", value: clientIP))
+    }
+    components.queryItems = queryItems
+    guard let url = components.url else {
+      throw PiholeError.unknown("Invalid URL for /api/queries")
+    }
+
+    let (data, httpResponse) = try await authenticatedRequest(url: url)
 
     guard httpResponse.statusCode == 200 else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    struct RecentBlockedResponse: Decodable {
-      let blocked: [String]
+    struct QueriesResponse: Decodable {
+      let queries: [QueryEntry]
     }
 
-    let result: RecentBlockedResponse
+    struct QueryEntry: Decodable {
+      let domain: String
+    }
+
+    let result: QueriesResponse
     do {
-      result = try Self.decoder.decode(RecentBlockedResponse.self, from: data)
+      result = try Self.decoder.decode(QueriesResponse.self, from: data)
     } catch {
       throw PiholeError.decoding(error.localizedDescription)
     }
 
-    return result.blocked
+    return result.queries.map(\.domain)
   }
 
   func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {
-    var path = "/api/queries?length=100"
+    guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+      throw PiholeError.unknown("Invalid base URL")
+    }
+    components.path = "/api/queries"
+    var queryItems: [URLQueryItem] = [URLQueryItem(name: "length", value: "100")]
     if let clientIP {
-      path += "&client=\(clientIP)"
+      queryItems.append(URLQueryItem(name: "client", value: clientIP))
+    }
+    components.queryItems = queryItems
+    guard let url = components.url else {
+      throw PiholeError.unknown("Invalid URL for /api/queries")
     }
 
-    let (data, httpResponse) = try await authenticatedRequest(path: path)
+    let (data, httpResponse) = try await authenticatedRequest(url: url)
 
     guard httpResponse.statusCode == 200 else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
@@ -170,6 +204,15 @@ final class PiholeV6Service: PiholeServiceProtocol {
     retryCount: Int = 0
   ) async throws -> (Data, HTTPURLResponse) {
     let url = baseURL.appendingPathComponent(path)
+    return try await authenticatedRequest(url: url, method: method, bodyData: bodyData, retryCount: retryCount)
+  }
+
+  private func authenticatedRequest(
+    url: URL,
+    method: HTTPMethod = .get,
+    bodyData: Data? = nil,
+    retryCount: Int = 0
+  ) async throws -> (Data, HTTPURLResponse) {
     var request = URLRequest(url: url)
     request.httpMethod = method.rawValue
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -198,17 +241,17 @@ final class PiholeV6Service: PiholeServiceProtocol {
     }
 
     guard let httpResponse = response as? HTTPURLResponse else {
-      throw PiholeError.unknown("Invalid response for \(path)")
+      throw PiholeError.unknown("Invalid response for \(url.absoluteString)")
     }
 
     if httpResponse.statusCode == 401, retryCount < 1 {
-      logger.debug("Got 401 on \(path, privacy: .public); re-authenticating and retrying")
+      logger.debug("Got 401 on \(url.absoluteString, privacy: .public); re-authenticating and retrying")
       do {
         try await authManager.reauthenticate(password: password)
       } catch {
         throw PiholeError.unauthorized
       }
-      return try await authenticatedRequest(path: path, method: method, bodyData: bodyData, retryCount: retryCount + 1)
+      return try await authenticatedRequest(url: url, method: method, bodyData: bodyData, retryCount: retryCount + 1)
     }
 
     return (data, httpResponse)
