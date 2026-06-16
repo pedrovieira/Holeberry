@@ -48,7 +48,11 @@ final class TempUnblockManager {
         anySuccess = true
       } catch {
         lastError = error
-        logger.warning("Failed to add unblock on \(server.label ?? server.url): \(error.localizedDescription, privacy: .public)")
+        logger.warning(
+          """
+          Failed to add unblock on \(server.label ?? server.url, privacy: .public): \
+          \(error.localizedDescription, privacy: .public)
+          """)
       }
     }
 
@@ -113,7 +117,11 @@ final class TempUnblockManager {
         continue
       } catch {
         anyFailure = true
-        logger.warning("Expiry cleanup failed for \(record.domain, privacy: .public) on \(server.label ?? server.url): \(error.localizedDescription, privacy: .public)")
+        logger.warning(
+          """
+          Expiry cleanup failed for \(record.domain, privacy: .public) on \
+          \(server.label ?? server.url, privacy: .public): \(error.localizedDescription, privacy: .public)
+          """)
       }
     }
 
@@ -162,7 +170,11 @@ final class TempUnblockManager {
         continue
       } catch {
         anyFailure = true
-        logger.warning("Retry removal failed for \(record.domain, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        logger.warning(
+          """
+          Retry removal failed for \(record.domain, privacy: .public): \
+          \(error.localizedDescription, privacy: .public)
+          """)
       }
     }
 
@@ -217,7 +229,11 @@ final class TempUnblockManager {
         }
         if found { return true }
       } catch {
-        logger.warning("Reconcile getDomains failed for \(server.label ?? server.url, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        logger.warning(
+          """
+          Reconcile getDomains failed for \(server.label ?? server.url, privacy: .public): \
+          \(error.localizedDescription, privacy: .public)
+          """)
         continue
       }
     }

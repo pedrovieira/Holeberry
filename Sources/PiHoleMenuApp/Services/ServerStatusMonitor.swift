@@ -88,8 +88,9 @@ final class ServerStatusMonitor: ObservableObject {
   // MARK: - On-Demand Fetching
 
   func fetchRecentBlocked(for server: PiholeServer) async throws -> [String] {
-    try await manager.perform(for: server) { service in
-      try await service.getRecentBlocked()
+    let length = max(UserDefaults.standard.integer(forKey: "recentBlockedCount"), 20)
+    return try await manager.perform(for: server) { service in
+      try await service.getRecentBlocked(count: length)
     }
   }
 

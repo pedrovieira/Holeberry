@@ -52,7 +52,7 @@ final class MockPiholeService: PiholeServiceProtocol {
     try setBlockingStub.get()
   }
 
-  func getRecentBlocked() async throws -> [String] {
+  func getRecentBlocked(count: Int) async throws -> [String] {
     getRecentBlockedCallCount += 1
     return try getRecentBlockedStub.get()
   }

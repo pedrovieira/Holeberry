@@ -162,8 +162,9 @@ final class MenuBarController: NSObject {
     }
     Task {
       do {
+        let length = max(UserDefaults.standard.integer(forKey: "recentBlockedCount"), 20)
         let blocked = try await serverManager.perform(for: server) { service in
-          try await service.getRecentBlocked()
+          try await service.getRecentBlocked(count: length)
         }
         recentBlockedCache = blocked
         lastCacheRefresh = Date()

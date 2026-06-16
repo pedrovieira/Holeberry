@@ -1,6 +1,16 @@
 import Foundation
 import OSLog
 
+private enum V5QueryStatus: String, CaseIterable {
+  case gravity = "1"
+  case wildcard = "4"
+  case exactBlacklist = "5"
+  case regexBlacklist = "6"
+
+  /// Status codes that indicate a query was blocked.
+  static let blocked: Set<String> = Set(V5QueryStatus.allCases.map(\.rawValue))
+}
+
 /// Pi-hole v5 API implementation using static token auth and query-string endpoints. HTML parsing for domain lists.
 final class PiholeV5Service: PiholeServiceProtocol {
   let piHoleVersion = 5
@@ -60,36 +70,33 @@ final class PiholeV5Service: PiholeServiceProtocol {
     }
   }
 
-  func getRecentBlocked() async throws -> [String] {
+  func getRecentBlocked(count: Int) async throws -> [String] {
+    let clientIP = localIPAddress()
+
+    // v5 doesn't support server-side status filtering, so over-fetch and filter client-side
+    var params: [String: String?] = ["getAllQueries": String(max(count, 1000))]
+    if let clientIP {
+      params["client"] = clientIP
+    }
+
     let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["recentBlocked": nil]
+      path: "/admin/api.php", params: params
     )
 
     guard httpResponse.statusCode == 200 else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    guard let text = String(data: data, encoding: .utf8) else {
+    guard let rows = try JSONSerialization.jsonObject(with: data) as? [[Any]] else {
       return []
     }
 
-    let lines = text.components(separatedBy: .newlines)
-      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-      .filter { !$0.isEmpty }
-
-    if !lines.isEmpty {
-      return lines
-    }
-
-    return try await fallbackRecentBlocked()
-  }
-
-  private func fallbackRecentBlocked() async throws -> [String] {
-    let queries = try await getRecentQueries(clientIP: nil)
-    return
-      queries
-      .filter { $0.status == "blocked" || $0.status == "0" }
-      .map { $0.domain }
+    return rows.compactMap { row -> String? in
+      guard row.count >= 5 else { return nil }
+      let status = "\(row[4])"
+      guard V5QueryStatus.blocked.contains(status) else { return nil }
+      return "\(row[2])"
+    }.prefix(count).map { $0 }
   }
 
   func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {
