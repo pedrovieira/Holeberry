@@ -16,13 +16,14 @@ struct PiHoleMenuApp: App {
   }
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
   private var menuBarController: MenuBarController?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
     ServerStatusMonitor.shared.startPolling()
-    menuBarController = MenuBarController()
+    menuBarController = MenuBarController(tempUnblockManager: .shared)
   }
 
   func applicationWillTerminate(_ notification: Notification) {

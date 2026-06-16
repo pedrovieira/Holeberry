@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 protocol ServerProviding: AnyObject {
   var servers: [PiholeServer] { get }
   func perform<T>(

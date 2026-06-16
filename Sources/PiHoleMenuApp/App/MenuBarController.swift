@@ -10,7 +10,11 @@ final class MenuBarController: NSObject {
   private let reachability = ReachabilityMonitor()
   private let tempUnblockManager: TempUnblockManager
   private lazy var menuBuilder: MenuBuilder = {
-    let builder = MenuBuilder(serverManager: serverManager, timerManager: timerManager)
+    let builder = MenuBuilder(
+      serverManager: serverManager,
+      timerManager: timerManager,
+      tempUnblockManager: tempUnblockManager
+    )
     builder.onDisableURL = { [weak self] domain, duration in
       self?.performTempUnblock(domain: domain, duration: duration)
     }
@@ -34,7 +38,7 @@ final class MenuBarController: NSObject {
   private var errorMessage: String?
   private var errorClearTask: Task<Void, Never>?
 
-  init(tempUnblockManager: TempUnblockManager = .shared) {
+  init(tempUnblockManager: TempUnblockManager) {
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     self.tempUnblockManager = tempUnblockManager
     super.init()
@@ -179,7 +183,7 @@ final class MenuBarController: NSObject {
   private func performTempUnblock(domain: String, duration: TimeInterval) {
     Task {
       do {
-        try await tempUnblockManager.add(domain: domain, duration: duration)
+        _ = try await tempUnblockManager.add(domain: domain, duration: duration)
         setError(nil)
       } catch {
         showError("Failed to unblock \(domain): \(error.localizedDescription)")
@@ -207,8 +211,10 @@ final class MenuBarController: NSObject {
   private func startCountdownTimer() {
     stopCountdownTimer()
     countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-      guard let self, let menu = self.currentMenu else { return }
-      self.menuBuilder.updateCountdowns(in: menu)
+      Task { @MainActor [weak self] in
+        guard let self, let menu = self.currentMenu else { return }
+        self.menuBuilder.updateCountdowns(in: menu)
+      }
     }
     if let countdownTimer { RunLoop.current.add(countdownTimer, forMode: .common) }
   }
