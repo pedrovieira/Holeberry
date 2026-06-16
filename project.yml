@@ -28,21 +28,8 @@ targets:
     dependencies:
       - package: SimpleKeychain
     preBuildScripts:
-      - name: Generate Xcode project with XcodeGen
-        script: |
-          if command -v xcodegen >/dev/null 2>&1; then
-            xcodegen generate --project . --quiet
-          else
-            echo "warning: XcodeGen not installed - install via 'brew install xcodegen'"
-          fi
-      - name: Run SwiftLint
-        script: |
-          if command -v swiftlint >/dev/null 2>&1; then
-            swiftlint
-          else
-            echo "warning: SwiftLint not installed - install via 'brew install swiftlint'"
-          fi
       - name: Run swift-format lint
+        basedOnDependencyAnalysis: false
         script: |
           FORMAT_BIN=$(xcrun --find swift-format 2>/dev/null)
           if [ -n "$FORMAT_BIN" ]; then

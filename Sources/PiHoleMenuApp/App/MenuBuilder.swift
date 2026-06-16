@@ -13,7 +13,7 @@ final class MenuBuilder: NSObject {
   init(
     serverManager: PiholeServerManager,
     timerManager: TimerManager,
-    tempUnblockManager: TempUnblockManager = .shared
+    tempUnblockManager: TempUnblockManager
   ) {
     self.serverManager = serverManager
     self.timerManager = timerManager
