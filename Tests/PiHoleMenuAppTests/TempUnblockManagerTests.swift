@@ -1,12 +1,16 @@
+import Defaults
 import XCTest
 @testable import PiHoleMenuApp
 
 @MainActor
 final class TempUnblockManagerTests: XCTestCase {
-  private let defaults = UserDefaults(suiteName: "TempUnblockManagerTests")!
+  override func setUp() {
+    super.setUp()
+    Defaults[.tempUnblocks] = []
+  }
 
   override func tearDown() {
-    defaults.removePersistentDomain(forName: "TempUnblockManagerTests")
+    Defaults[.tempUnblocks] = []
     super.tearDown()
   }
 
@@ -23,7 +27,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     let record = try await manager.add(domain: "doubleclick.net", duration: 300)
 
     XCTAssertEqual(mock.addDomainCallCount, 1)
@@ -57,7 +61,7 @@ final class TempUnblockManagerTests: XCTestCase {
       return callCount == 0 ? mock1 : mock2
     }
 
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     let record = try await manager.add(domain: "doubleclick.net", duration: 300)
 
     XCTAssertEqual(mock1.addDomainCallCount, 1)
@@ -69,7 +73,7 @@ final class TempUnblockManagerTests: XCTestCase {
     let provider = MockServerProvider()
     provider.servers = []
 
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     do {
       _ = try await manager.add(domain: "test.com", duration: 60)
       XCTFail("Expected error")
@@ -98,7 +102,7 @@ final class TempUnblockManagerTests: XCTestCase {
       return callCount == 0 ? goodMock : badMock
     }
 
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     let record = try await manager.add(domain: "test.com", duration: 300)
 
     XCTAssertEqual(manager.activeRecords.count, 1)
@@ -115,7 +119,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     do {
       _ = try await manager.add(domain: "test.com", duration: 60)
       XCTFail("Expected error")
@@ -137,7 +141,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     let first = try await manager.add(domain: "doubleclick.net", duration: 300)
     let second = try await manager.add(domain: "doubleclick.net", duration: 300)
 
@@ -160,8 +164,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     _ = try await manager.add(domain: "test.com", duration: 0.1)
 
     XCTAssertEqual(manager.activeRecords.count, 1)
@@ -188,8 +191,7 @@ final class TempUnblockManagerTests: XCTestCase {
       server.label == "A" ? mockA : mockB
     }
 
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     _ = try await manager.add(domain: "test.com", duration: 0.1)
 
     try await Task.sleep(for: .milliseconds(500))
@@ -209,8 +211,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     _ = try await manager.add(domain: "test.com", duration: 0.1)
 
     try await Task.sleep(for: .milliseconds(500))
@@ -228,8 +229,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     _ = try await manager.add(domain: "test.com", duration: 0.1)
 
     try await Task.sleep(for: .milliseconds(500))
@@ -250,10 +250,10 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     _ = try await manager.add(domain: "persist.com", duration: 300)
 
-    let manager2 = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager2 = TempUnblockManager(serverProvider: provider)
     let count = manager2.activeRecords.count
     let domain = manager2.activeRecords.first?.domain
     let duration = manager2.activeRecords.first?.durationSeconds
@@ -276,8 +276,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     let active = TempUnblockRecord(
       domain: "active.com",
       uuid: "pihole-menu-app:existing-uuid",
@@ -287,7 +286,7 @@ final class TempUnblockManagerTests: XCTestCase {
     manager.activeRecords = [active]
     manager.saveRecords()
 
-    let manager2 = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager2 = TempUnblockManager(serverProvider: provider)
     await manager2.reconcileOnLaunch()
 
     XCTAssertEqual(manager2.activeRecords.count, 1)
@@ -304,8 +303,7 @@ final class TempUnblockManagerTests: XCTestCase {
     ]
     provider.makeService = { _ in mock }
 
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     let orphan = TempUnblockRecord(
       domain: "orphan.com",
       uuid: "pihole-menu-app:orphan-uuid",
@@ -315,7 +313,7 @@ final class TempUnblockManagerTests: XCTestCase {
     manager.activeRecords = [orphan]
     manager.saveRecords()
 
-    let manager2 = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager2 = TempUnblockManager(serverProvider: provider)
     await manager2.reconcileOnLaunch()
 
     XCTAssertTrue(manager2.activeRecords.isEmpty)
@@ -336,8 +334,7 @@ final class TempUnblockManagerTests: XCTestCase {
       server.label == "A" ? mock1 : mock2
     }
 
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
-    let manager = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager = TempUnblockManager(serverProvider: provider)
     let orphan = TempUnblockRecord(
       domain: "orphan.com",
       uuid: "pihole-menu-app:orphan-uuid",
@@ -347,7 +344,7 @@ final class TempUnblockManagerTests: XCTestCase {
     manager.activeRecords = [orphan]
     manager.saveRecords()
 
-    let manager2 = TempUnblockManager(serverProvider: provider, userDefaults: defaults)
+    let manager2 = TempUnblockManager(serverProvider: provider)
     await manager2.reconcileOnLaunch()
 
     XCTAssertTrue(manager2.activeRecords.isEmpty)
