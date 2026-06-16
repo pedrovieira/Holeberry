@@ -13,6 +13,9 @@ packages:
   SimpleKeychain:
     url: https://github.com/auth0/SimpleKeychain
     from: 1.3.0
+  Defaults:
+    url: https://github.com/sindresorhus/Defaults
+    from: 9.0.0
 
 targets:
   PiHoleMenuApp:
@@ -27,6 +30,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.pihole.menuapp
     dependencies:
       - package: SimpleKeychain
+      - package: Defaults
     preBuildScripts:
       - name: Run swift-format lint
         basedOnDependencyAnalysis: false

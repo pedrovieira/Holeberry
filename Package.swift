@@ -8,12 +8,13 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/auth0/SimpleKeychain", from: "1.3.0"),
-    .package(url: "https://github.com/realm/SwiftLint", from: "0.55.0")
+    .package(url: "https://github.com/realm/SwiftLint", from: "0.55.0"),
+    .package(url: "https://github.com/sindresorhus/Defaults", from: "9.0.0")
   ],
   targets: [
     .executableTarget(
       name: "PiHoleMenuApp",
-      dependencies: ["SimpleKeychain"],
+      dependencies: ["SimpleKeychain", "Defaults"],
       exclude: ["Info.plist", "Resources"],
       plugins: [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLint")]
     ),

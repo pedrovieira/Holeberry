@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Defaults
 import OSLog
 
 @MainActor
@@ -129,7 +130,7 @@ final class MenuBarController: NSObject {
   // MARK: - Settings Changes
 
   private func listenForSettingsChanges() {
-    NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+    Defaults.publisher(.servers)
       .receive(on: DispatchQueue.main)
       .sink { [weak self] _ in
         self?.serverManager.reloadServers()
@@ -166,7 +167,7 @@ final class MenuBarController: NSObject {
     }
     Task {
       do {
-        let length = max(UserDefaults.standard.integer(forKey: "recentBlockedCount"), 20)
+        let length = max(Defaults[.recentBlockedCount], 20)
         let blocked = try await serverManager.perform(for: server) { service in
           try await service.getRecentBlocked(count: length)
         }
