@@ -98,6 +98,14 @@ final class ServerStatusMonitor: ObservableObject {
   // MARK: - Polling Implementation
 
   private func performPoll() async {
+    guard !servers.isEmpty else {
+      connectionStatuses = [:]
+      blockingStatuses = [:]
+      combinedStatus = CombinedStatus()
+      lastPollError = nil
+      return
+    }
+
     logger.debug("Polling all servers...")
     var connectedCount = 0
     var anyError: String?
