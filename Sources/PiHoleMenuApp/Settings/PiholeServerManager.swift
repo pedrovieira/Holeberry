@@ -190,7 +190,7 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     let delegate = CertificateTrustDelegate(trustedHosts: hosts)
     let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
 
-    var authManager: AuthManager? = nil
+    var authManager: AuthManager?
     if server.version == .v6, let url = URL(string: server.url) {
       authManager = AuthManager(baseURL: url, session: session)
     }
