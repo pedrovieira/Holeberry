@@ -18,6 +18,7 @@ actor AuthManager {
   private var loginDate: Date?
   private var isAuthenticated = false
   private var refreshTask: Task<Void, Never>?
+  private var loginTask: Task<Void, Error>?
 
   init(baseURL: URL, session: URLSession) {
     self.baseURL = baseURL
@@ -27,6 +28,20 @@ actor AuthManager {
   var isLoggedIn: Bool { isAuthenticated }
 
   func login(password: String, totp: String? = nil) async throws {
+    if isAuthenticated { return }
+    if let existingTask = loginTask {
+      return try await existingTask.value
+    }
+    let task = Task { [weak self] in
+      guard let self else { throw PiholeError.unknown("AuthManager deallocated") }
+      try await self.performLogin(password: password, totp: totp)
+    }
+    loginTask = task
+    defer { loginTask = nil }
+    try await task.value
+  }
+
+  private func performLogin(password: String, totp: String? = nil) async throws {
     cancelRefresh()
 
     let url = baseURL.appendingPathComponent("/api/auth")
@@ -118,7 +133,7 @@ actor AuthManager {
 
   func reauthenticate(password: String, totp: String? = nil) async throws {
     logger.debug("Re-authenticating (proactive refresh)")
-    try await login(password: password, totp: totp)
+    try await performLogin(password: password, totp: totp)
   }
 
   private func scheduleRefresh(password: String, totp: String?) {

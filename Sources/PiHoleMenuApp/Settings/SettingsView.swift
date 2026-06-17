@@ -29,6 +29,8 @@ struct SettingsView: View {
   @State private var requiresApproval = false
   @State private var selectedTab: SettingsTab = .server
 
+  let serverManager: PiholeServerManager
+
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
   var body: some View {
@@ -260,7 +262,7 @@ struct SettingsView: View {
   private func migrateFromSingleServerIfNeeded() {
     guard UserDefaults.standard.string(forKey: "serverURL") != nil else { return }
 
-    let manager = PiholeServerManager()
+    let manager = serverManager
     guard manager.servers.isEmpty else {
       UserDefaults.standard.removeObject(forKey: "serverURL")
       return

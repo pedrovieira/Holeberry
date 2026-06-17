@@ -4,6 +4,8 @@ import OSLog
 
 @MainActor
 final class PiholeServerManager: ObservableObject, ServerProviding {
+  static let shared = PiholeServerManager()
+
   @Published var servers: [PiholeServer]
   @Published private(set) var combinedStatus: CombinedStatus
 

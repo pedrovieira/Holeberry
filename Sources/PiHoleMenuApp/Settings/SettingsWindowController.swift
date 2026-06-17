@@ -25,7 +25,7 @@ final class SettingsWindowController: NSWindowController {
     window?.titlebarAppearsTransparent = false
     window?.titleVisibility = .visible
     window?.toolbarStyle = .unified
-    window?.contentView = NSHostingView(rootView: SettingsView())
+    window?.contentView = NSHostingView(rootView: SettingsView(serverManager: .shared))
     window?.setFrameAutosaveName("Settings")
     window?.delegate = self
   }
