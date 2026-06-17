@@ -139,8 +139,10 @@ struct SettingsView: View {
     } header: {
       Text("Global Shortcuts")
     } footer: {
-      Text("Shortcuts work globally even when the app is in the background. Press Escape in a recorder to clear a shortcut.")
-        .foregroundStyle(.secondary)
+      Text(
+        "Shortcuts work globally even when the app is in the background. Press Escape in a recorder to clear a shortcut."
+      )
+      .foregroundStyle(.secondary)
     }
   }
 
@@ -312,6 +314,4 @@ struct SettingsView: View {
       UserDefaults.standard.removeObject(forKey: "serverURL")
     }
   }
-
-
 }

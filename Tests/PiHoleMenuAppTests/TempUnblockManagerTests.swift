@@ -1,5 +1,6 @@
 import Defaults
 import XCTest
+
 @testable import PiHoleMenuApp
 
 @MainActor

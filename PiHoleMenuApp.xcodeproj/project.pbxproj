@@ -10,7 +10,9 @@
 		008605F986B29A2AE2C07E43 /* PiholeVersionDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85DCF5122A78B98F17F6FE3 /* PiholeVersionDetector.swift */; };
 		12D50ACDE0686F329948296A /* PiholeServerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4843B539B754AC665F8121 /* PiholeServerManager.swift */; };
 		1B6C91C0D8A374FC95FA046D /* ReachabilityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A87483ADD4627C31DC999A /* ReachabilityMonitor.swift */; };
+		1BE0E1637A0E0AA9C348598C /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5EDB230CBB552ED52D73F07 /* ShortcutController.swift */; };
 		1D4CE7D91F27E486ED15EF56 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7872875694962D49EFAD70A /* SettingsView.swift */; };
+		2A6F75B890257B7429777677 /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687CE73EA346A3EF0A09C0A9 /* ShortcutNames.swift */; };
 		2F51A3D90598F542EB14F5D6 /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967DB92892E8E62E0706D9AD /* ConnectionCardView.swift */; };
 		368F178366A8078E58002D4E /* TempUnblockManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54AC406B058539963AE1B9F3 /* TempUnblockManagerTests.swift */; };
 		48D31172334469C83AB28A6C /* ServerProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17EB9CF85B8FD552EB0D8B68 /* ServerProviding.swift */; };
@@ -29,6 +31,7 @@
 		8D127B6703F4C450B3D54031 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BC2794D38B601DE5001634C /* Assets.xcassets */; };
 		9B7436594D0088AD6551D67D /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */; };
 		A514D76A8EA40EA3F5D86984 /* PiholeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BA66B6BE059B7E6945E602 /* PiholeServer.swift */; };
+		AD940E467B7853C5CC22FB5C /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 80261A79BC8719AF99961E54 /* KeyboardShortcuts */; };
 		AF88ADC963167B285ADAB1EE /* CertificateTrustDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DF7021721A80B4D4A9B9E9 /* CertificateTrustDelegate.swift */; };
 		AFC16F44E88DCE2AD03583FA /* RecentQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = E31B916904AA499388D77A6E /* RecentQuery.swift */; };
 		BE943DD20DB4B8E17C4D3299 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */; };
@@ -75,6 +78,7 @@
 		54AC406B058539963AE1B9F3 /* TempUnblockManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockManagerTests.swift; sourceTree = "<group>"; };
 		557406A4AB39B319EEEDB440 /* PiHoleMenuAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PiHoleMenuAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B40BC5651FA9B253A7C731E /* TempUnblockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockManager.swift; sourceTree = "<group>"; };
+		687CE73EA346A3EF0A09C0A9 /* ShortcutNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutNames.swift; sourceTree = "<group>"; };
 		6C4843B539B754AC665F8121 /* PiholeServerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServerManager.swift; sourceTree = "<group>"; };
 		75DF7021721A80B4D4A9B9E9 /* CertificateTrustDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateTrustDelegate.swift; sourceTree = "<group>"; };
 		791F34ED91F343C173A2145A /* TempUnblockRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockRecord.swift; sourceTree = "<group>"; };
@@ -93,6 +97,7 @@
 		B49560025B59AFC630839F91 /* HTTPMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
 		B6622B929130B21854D077CE /* PiholeV5Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV5Service.swift; sourceTree = "<group>"; };
 		C09B20D85478A090EEA8264D /* ConnectionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatus.swift; sourceTree = "<group>"; };
+		C5EDB230CBB552ED52D73F07 /* ShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutController.swift; sourceTree = "<group>"; };
 		C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		C7872875694962D49EFAD70A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D2C265279462281B4F1948F7 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
@@ -109,6 +114,7 @@
 			files = (
 				D264C4CA3B98AC865F15D131 /* SimpleKeychain in Frameworks */,
 				585C89F23928B7B4CEF0D94E /* Defaults in Frameworks */,
+				AD940E467B7853C5CC22FB5C /* KeyboardShortcuts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -136,6 +142,7 @@
 				4CA7117895560662C0E313BB /* KeychainManager.swift */,
 				33F04B8112E11046E5EE2499 /* Logger+Subsystem.swift */,
 				797A206AF58C445F627883E9 /* NetworkInterface.swift */,
+				687CE73EA346A3EF0A09C0A9 /* ShortcutNames.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -202,6 +209,7 @@
 				10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */,
 				7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */,
 				D38A03EFE8331CAB83610153 /* MenuContentView.swift */,
+				C5EDB230CBB552ED52D73F07 /* ShortcutController.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -251,6 +259,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = BF166A234825EF082B2D42FE /* Build configuration list for PBXNativeTarget "PiHoleMenuApp" */;
 			buildPhases = (
+				F7357A7D609ED174DDE794A0 /* Run SwiftLint */,
 				AC101146CC5C6060BAC78F7D /* Run swift-format lint */,
 				6B568243CA0A822027A0B2D7 /* Sources */,
 				C3D57DD34E7F2AB4BAD8104C /* Resources */,
@@ -264,6 +273,7 @@
 			packageProductDependencies = (
 				6D6BFB60232B23353A9BF8E2 /* SimpleKeychain */,
 				C00722972AFEFA070DD45C87 /* Defaults */,
+				80261A79BC8719AF99961E54 /* KeyboardShortcuts */,
 			);
 			productName = PiHoleMenuApp;
 			productReference = 7F67A7AAADD041B948BD6AB3 /* PiHoleMenuApp.app */;
@@ -309,6 +319,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				5AE2DD92AEE7508982AEB756 /* XCRemoteSwiftPackageReference "Defaults" */,
+				D2D7CDA715E2BAB589F980AC /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				690D71E7E5FABA7145983630 /* XCRemoteSwiftPackageReference "SimpleKeychain" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -352,6 +363,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "FORMAT_BIN=$(xcrun --find swift-format 2>/dev/null)\nif [ -n \"$FORMAT_BIN\" ]; then\n  \"$FORMAT_BIN\" lint --recursive --strict Sources/ Tests/\nelse\n  echo \"warning: swift-format not found in Xcode toolchain\"\nfi\n";
+		};
+		F7357A7D609ED174DDE794A0 /* Run SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run SwiftLint";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "LINT_BIN=$(xcrun --find swiftlint 2>/dev/null)\nif [ -n \"$LINT_BIN\" ]; then\n  \"$LINT_BIN\" --strict\nelse\n  echo \"warning: swiftlint not found\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -400,6 +430,8 @@
 				F21CCF0DF1B591D5074E31F6 /* ServerStatusMonitor.swift in Sources */,
 				1D4CE7D91F27E486ED15EF56 /* SettingsView.swift in Sources */,
 				9B7436594D0088AD6551D67D /* SettingsWindowController.swift in Sources */,
+				1BE0E1637A0E0AA9C348598C /* ShortcutController.swift in Sources */,
+				2A6F75B890257B7429777677 /* ShortcutNames.swift in Sources */,
 				533212534D1EF6B323E75160 /* TempUnblockManager.swift in Sources */,
 				CDDA9E71674DDB19074AE42C /* TempUnblockRecord.swift in Sources */,
 				690EEB1EE238C53CAFCF40CA /* TimerManager.swift in Sources */,
@@ -651,6 +683,14 @@
 				minimumVersion = 1.3.0;
 			};
 		};
+		D2D7CDA715E2BAB589F980AC /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -658,6 +698,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 690D71E7E5FABA7145983630 /* XCRemoteSwiftPackageReference "SimpleKeychain" */;
 			productName = SimpleKeychain;
+		};
+		80261A79BC8719AF99961E54 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D2D7CDA715E2BAB589F980AC /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
 		};
 		C00722972AFEFA070DD45C87 /* Defaults */ = {
 			isa = XCSwiftPackageProductDependency;
