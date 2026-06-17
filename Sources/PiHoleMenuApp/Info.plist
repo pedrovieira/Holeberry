@@ -2,9 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>LSUIElement</key>
-    <true/>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>PiHoleMenuApp needs local network access to connect to your Pi-hole instance.</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>PiHoleMenuApp needs local network access to connect to your Pi-hole instances.</string>
 </dict>
 </plist>
