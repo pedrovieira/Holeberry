@@ -28,7 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     NSApp.setActivationPolicy(.accessory)
 
     // Request notification authorization for shortcut error alerts
-    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in
       if let error {
         self.logger.warning("Notification authorization denied: \(error.localizedDescription, privacy: .public)")
       }

@@ -16,6 +16,9 @@ packages:
   Defaults:
     url: https://github.com/sindresorhus/Defaults
     from: 9.0.0
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 2.4.0
 
 targets:
   PiHoleMenuApp:
@@ -23,15 +26,29 @@ targets:
     platform: macOS
     sources:
       - path: Sources/PiHoleMenuApp
+    info:
+      path: Sources/PiHoleMenuApp/Info.plist
+      properties:
+        LSUIElement: true
+        NSLocalNetworkUsageDescription: PiHoleMenuApp needs local network access to connect to your Pi-hole instances.
     settings:
       base:
-        INFOPLIST_FILE: Sources/PiHoleMenuApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/PiHoleMenuApp/Resources/PiHoleMenuApp.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: com.pihole.menuapp
     dependencies:
       - package: SimpleKeychain
       - package: Defaults
+      - package: KeyboardShortcuts
     preBuildScripts:
+      - name: Run SwiftLint
+        basedOnDependencyAnalysis: false
+        script: |
+          LINT_BIN=$(xcrun --find swiftlint 2>/dev/null)
+          if [ -n "$LINT_BIN" ]; then
+            "$LINT_BIN" --strict
+          else
+            echo "warning: swiftlint not found"
+          fi
       - name: Run swift-format lint
         basedOnDependencyAnalysis: false
         script: |
