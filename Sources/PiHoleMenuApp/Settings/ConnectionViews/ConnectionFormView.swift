@@ -22,6 +22,8 @@ struct ConnectionFormView: View {
   @State private var createdServerID: UUID?
   @State private var showingCredentialInfo = false
 
+  let serverManager: PiholeServerManager
+
   private var hasURLError: Bool {
     !isCreating && !url.isEmpty && !isValidURL
   }
@@ -135,8 +137,7 @@ struct ConnectionFormView: View {
       createTask = nil
     }
     if didSaveToKeychain, let id = createdServerID {
-      let manager = PiholeServerManager()
-      manager.revertAddServer(id: id)
+      serverManager.revertAddServer(id: id)
       didSaveToKeychain = false
       createdServerID = nil
     }
@@ -156,8 +157,7 @@ struct ConnectionFormView: View {
     let task = Task {
       do {
         try await withThrowingTimeout(seconds: 10) {
-          let manager = PiholeServerManager()
-          let version = try await manager.testConnection(url: serverURL, credential: credential)
+          let version = try await serverManager.testConnection(url: serverURL, credential: credential)
           try Task.checkCancellation()
 
           let server = PiholeServer(label: label, url: serverURL, version: version)
@@ -166,7 +166,7 @@ struct ConnectionFormView: View {
           createdServerID = server.id
           try Task.checkCancellation()
 
-          _ = try manager.addServerAfterTest(label: label, url: serverURL, version: version)
+          _ = try serverManager.addServerAfterTest(label: label, url: serverURL, version: version)
 
           try await onSave(
             label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label,
@@ -177,16 +177,14 @@ struct ConnectionFormView: View {
         }
       } catch is CancellationError {
         if didSaveToKeychain, let id = createdServerID {
-          let manager = PiholeServerManager()
-          manager.revertAddServer(id: id)
+          serverManager.revertAddServer(id: id)
         }
         didSaveToKeychain = false
         createdServerID = nil
         isCreating = false
       } catch _ as TimeoutError {
         if didSaveToKeychain, let id = createdServerID {
-          let manager = PiholeServerManager()
-          manager.revertAddServer(id: id)
+          serverManager.revertAddServer(id: id)
         }
         didSaveToKeychain = false
         createdServerID = nil
@@ -194,8 +192,7 @@ struct ConnectionFormView: View {
         isCreating = false
       } catch {
         if didSaveToKeychain, let id = createdServerID {
-          let manager = PiholeServerManager()
-          manager.revertAddServer(id: id)
+          serverManager.revertAddServer(id: id)
         }
         didSaveToKeychain = false
         createdServerID = nil

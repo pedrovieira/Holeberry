@@ -4,7 +4,7 @@ import OSLog
 
 @MainActor
 final class TempUnblockManager {
-  static let shared = TempUnblockManager(serverProvider: PiholeServerManager())
+  static let shared = TempUnblockManager(serverProvider: PiholeServerManager.shared)
 
   @Published var activeRecords: [TempUnblockRecord] = []
 

@@ -31,7 +31,8 @@ struct ConnectionListView: View {
               )
               editingServerID = nil
             },
-            onCancel: { editingServerID = nil }
+            onCancel: { editingServerID = nil },
+            serverManager: .shared
           )
           .padding(.vertical, 4)
         } else {
@@ -55,7 +56,8 @@ struct ConnectionListView: View {
             try await monitor.addServer(label: label, url: url, credential: password)
             isAdding = false
           },
-          onCancel: { isAdding = false }
+          onCancel: { isAdding = false },
+          serverManager: .shared
         )
         .padding(.vertical, 4)
       }
