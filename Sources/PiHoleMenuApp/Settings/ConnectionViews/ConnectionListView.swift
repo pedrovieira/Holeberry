@@ -22,7 +22,7 @@ struct ConnectionListView: View {
         if editingServerID == server.id {
           ConnectionFormView(
             mode: .edit(server),
-            onSave: { label, url, password, version in
+            onSave: { label, url, password, _ in
               await monitor.updateServer(
                 id: server.id,
                 label: label,
@@ -52,7 +52,7 @@ struct ConnectionListView: View {
         ConnectionFormView(
           mode: .add,
           serverCount: monitor.servers.count,
-          onSave: { label, url, password, version in
+          onSave: { label, url, password, _ in
             try await monitor.addServer(label: label, url: url, credential: password)
             isAdding = false
           },
