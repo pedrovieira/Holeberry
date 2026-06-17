@@ -7,7 +7,7 @@ import OSLog
 final class MenuBarController: NSObject {
   private let statusItem: NSStatusItem
   private let timerManager = TimerManager()
-  private let serverManager = PiholeServerManager()
+  private let serverManager = PiholeServerManager.shared
   private let reachability = ReachabilityMonitor()
   private let tempUnblockManager: TempUnblockManager
   private lazy var menuBuilder: MenuBuilder = {
