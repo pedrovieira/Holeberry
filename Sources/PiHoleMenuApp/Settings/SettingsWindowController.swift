@@ -7,7 +7,7 @@ final class SettingsWindowController: NSWindowController {
   private init() {
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 580, height: 400),
-      styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+      styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
       backing: .buffered,
       defer: false
     )
@@ -22,8 +22,12 @@ final class SettingsWindowController: NSWindowController {
   private func setupWindow() {
     window?.title = "Settings"
     window?.identifier = NSUserInterfaceItemIdentifier("Settings")
+    window?.titlebarAppearsTransparent = false
+    window?.titleVisibility = .visible
+    window?.toolbarStyle = .unified
     window?.contentView = NSHostingView(rootView: SettingsView())
     window?.setFrameAutosaveName("Settings")
+    window?.delegate = self
   }
 
   func showWindow() {
@@ -35,5 +39,15 @@ final class SettingsWindowController: NSWindowController {
     window?.center()
     window?.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
+  }
+}
+
+extension SettingsWindowController: NSWindowDelegate {
+  func windowDidBecomeKey(_ notification: Notification) {
+    NSApp.setActivationPolicy(.regular)
+  }
+
+  func windowWillClose(_ notification: Notification) {
+    NSApp.setActivationPolicy(.accessory)
   }
 }
