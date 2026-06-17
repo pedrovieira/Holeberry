@@ -1,4 +1,5 @@
 import Defaults
+import KeyboardShortcuts
 import OSLog
 import ServiceManagement
 import SwiftUI
@@ -6,6 +7,7 @@ import SwiftUI
 enum SettingsTab: String, CaseIterable {
   case server = "Server"
   case defaults = "Defaults"
+  case shortcuts = "Shortcuts"
   case advanced = "Advanced"
   case notifications = "Notifications"
   case about = "About"
@@ -14,6 +16,7 @@ enum SettingsTab: String, CaseIterable {
     switch self {
     case .server: return "server.rack"
     case .defaults: return "slider.horizontal.3"
+    case .shortcuts: return "keyboard"
     case .advanced: return "gearshape.2"
     case .notifications: return "bell"
     case .about: return "info.circle"
@@ -51,6 +54,9 @@ struct SettingsView: View {
         .formStyle(.grouped)
       case .defaults:
         Form { defaultsSection }
+          .formStyle(.grouped)
+      case .shortcuts:
+        Form { shortcutsSection }
           .formStyle(.grouped)
       case .advanced:
         Form { advancedSection }
@@ -119,6 +125,22 @@ struct SettingsView: View {
           .textFieldStyle(.roundedBorder)
           .frame(width: 70)
       }
+    }
+  }
+
+  private var shortcutsSection: some View {
+    Section {
+      KeyboardShortcuts.Recorder("Disable Indefinitely:", name: .disableIndefinitely)
+      KeyboardShortcuts.Recorder("Disable 10 seconds:", name: .disable10s)
+      KeyboardShortcuts.Recorder("Disable 30 seconds:", name: .disable30s)
+      KeyboardShortcuts.Recorder("Disable 5 minutes:", name: .disable5m)
+      KeyboardShortcuts.Recorder("Custom duration...:", name: .disableCustom)
+      KeyboardShortcuts.Recorder("Re-enable Blocking:", name: .reEnableBlocking)
+    } header: {
+      Text("Global Shortcuts")
+    } footer: {
+      Text("Shortcuts work globally even when the app is in the background. Press Escape in a recorder to clear a shortcut.")
+        .foregroundStyle(.secondary)
     }
   }
 
