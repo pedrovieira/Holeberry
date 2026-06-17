@@ -4,7 +4,7 @@ import OSLog
 
 @MainActor
 final class ServerStatusMonitor: ObservableObject {
-  static let shared = ServerStatusMonitor(manager: PiholeServerManager())
+  static let shared = ServerStatusMonitor(manager: .shared)
 
   @Published var servers: [PiholeServer] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]

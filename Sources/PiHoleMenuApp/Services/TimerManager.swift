@@ -59,8 +59,9 @@ final class TimerManager: ObservableObject {
     countdownTask = Task { [weak self] in
       while !Task.isCancelled {
         try? await Task.sleep(for: .seconds(1))
-        await MainActor.run {
-          guard let self, let endTime = self.endTime else { return }
+        guard let self else { return }
+        await MainActor.run { [self] in
+          guard let endTime = self.endTime else { return }
           let now = ContinuousClock.now
           if endTime > now {
             self.remainingSeconds = (endTime - now) / .seconds(1)
