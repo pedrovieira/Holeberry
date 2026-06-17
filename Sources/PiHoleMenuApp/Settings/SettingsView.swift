@@ -37,7 +37,9 @@ struct SettingsView: View {
         Label(tab.rawValue, systemImage: tab.icon)
       }
       .listStyle(.sidebar)
-      .toolbar(removing: .sidebarToggle)
+      .frame(minWidth: 145)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .navigationSplitViewColumnWidth(min: 140, ideal: 160, max: 160)
     } detail: {
       switch selectedTab {
       case .server:
@@ -61,6 +63,22 @@ struct SettingsView: View {
       case .about:
         aboutView
       }
+    }
+    .navigationSplitViewStyle(.balanced)
+    .toolbar {
+      ToolbarItem(placement: .primaryAction) {
+        Button("Quit App") {
+          NSApplication.shared.terminate(nil)
+        }
+      }
+    }
+    .background {
+      ZStack {
+        Color(NSColor.windowBackgroundColor)
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+          .fill(.ultraThinMaterial)
+      }
+      .ignoresSafeArea()
     }
     .frame(width: 580, height: 400)
     .onAppear {
