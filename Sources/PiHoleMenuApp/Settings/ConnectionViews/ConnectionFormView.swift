@@ -21,6 +21,7 @@ struct ConnectionFormView: View {
   @State private var didSaveToKeychain = false
   @State private var createdServerID: UUID?
   @State private var showingCredentialInfo = false
+  @State private var isTotpError = false
 
   let serverManager: PiholeServerManager
 
@@ -66,6 +67,12 @@ struct ConnectionFormView: View {
             RoundedRectangle(cornerRadius: 5)
               .stroke(hasURLError ? Color.red : .clear, lineWidth: 1)
           )
+          .onChange(of: url) { _ in
+            if isTotpError {
+              isTotpError = false
+              createError = nil
+            }
+          }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -78,12 +85,18 @@ struct ConnectionFormView: View {
           .labelsHidden()
           .frame(maxWidth: .infinity)
           .disabled(isCreating)
+          .onChange(of: credential) { _ in
+            if isTotpError {
+              isTotpError = false
+              createError = nil
+            }
+          }
 
-        Button(action: { showingCredentialInfo.toggle() }) {
+        Button(action: { showingCredentialInfo.toggle() }, label: {
           Image(systemName: "info.circle")
             .font(.system(size: 14))
             .foregroundColor(.secondary)
-        }
+        })
         .buttonStyle(.plain)
         .popover(isPresented: $showingCredentialInfo) {
           CredentialInfoPopover()
@@ -105,21 +118,33 @@ struct ConnectionFormView: View {
       }
 
       HStack(spacing: 8) {
-        Spacer()
-        Button("Cancel", action: handleCancel)
-          .font(.system(size: 12))
-        Button(action: { Task { await createServer() } }) {
-          if isCreating {
-            ProgressView()
-              .controlSize(.small)
-              .scaleEffect(0.8)
-          } else {
-            Text("Create")
+        if isTotpError {
+          Spacer()
+          Button("Open Pi-hole Web UI") {
+            let webURL = normalizedURL(from: url).trimmingCharacters(in: .whitespaces)
+            if let nsURL = URL(string: webURL + "/admin") {
+              NSWorkspace.shared.open(nsURL)
+            }
           }
+          Button("Cancel", action: handleCancel)
+            .font(.system(size: 12))
+        } else {
+          Spacer()
+          Button("Cancel", action: handleCancel)
+            .font(.system(size: 12))
+          Button(action: { Task { await createServer() } }, label: {
+            if isCreating {
+              ProgressView()
+                .controlSize(.small)
+                .scaleEffect(0.8)
+            } else {
+              Text("Create")
+            }
+          })
+          .buttonStyle(.borderedProminent)
+          .font(.system(size: 12))
+          .disabled(!canCreate)
         }
-        .buttonStyle(.borderedProminent)
-        .font(.system(size: 12))
-        .disabled(!canCreate)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -189,6 +214,15 @@ struct ConnectionFormView: View {
         didSaveToKeychain = false
         createdServerID = nil
         createError = "Creation failed. Timed out (10s)"
+        isCreating = false
+      } catch PiholeError.totpRequired {
+        if didSaveToKeychain, let id = createdServerID {
+          serverManager.revertAddServer(id: id)
+        }
+        didSaveToKeychain = false
+        createdServerID = nil
+        createError = "Your Pi-hole uses TOTP. Create an Application Password in the web UI and use it here."
+        isTotpError = true
         isCreating = false
       } catch {
         if didSaveToKeychain, let id = createdServerID {
