@@ -12,7 +12,8 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
   @Published var servers: [PiholeServer]
   @Published private(set) var combinedStatus: CombinedStatus
 
-  private let keychain = KeychainManager.shared
+  private let keychain: KeychainManager
+  private let serviceFactory: PiholeServiceFactory
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
 
   private struct ServerConnection {
@@ -22,7 +23,9 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
 
   private var connections: [UUID: ServerConnection] = [:]
 
-  init() {
+  init(keychain: KeychainManager = .shared, serviceFactory: PiholeServiceFactory = .shared) {
+    self.keychain = keychain
+    self.serviceFactory = serviceFactory
     self.servers = []
     self.combinedStatus = CombinedStatus()
     loadServers()
@@ -266,20 +269,10 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     }
 
     let conn = connection(for: server)
-
-    switch version {
-    case .v6:
-      guard let authManager = conn.authManager else {
-        throw PiholeError.unknown("Auth manager not available")
-      }
-      let service = PiholeV6Service(
-        baseURL: url, session: conn.session, authManager: authManager, password: credential
-      )
-      return try await block(service)
-    case .v5:
-      let service = PiholeV5Service(baseURL: url, session: conn.session, apiToken: credential)
-      return try await block(service)
-    }
+    let service = serviceFactory.buildService(
+      version: version, url: url, credential: credential, session: conn.session
+    )
+    return try await block(service)
   }
 
   private func loadServers() {
