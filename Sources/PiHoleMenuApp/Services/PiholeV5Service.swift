@@ -21,6 +21,45 @@ final class PiholeV5Service: PiholeServiceProtocol {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
 
+  private static let maxRetries = 3
+  private static let backoffSeconds: [TimeInterval] = [1, 2, 4]
+
+  private func shouldRetry(_ error: Error) -> Bool {
+    if let piholeError = error as? PiholeError {
+      switch piholeError {
+      case .network:
+        return true
+      case .server(let code, _):
+        return (500...599).contains(code)
+      default:
+        return false
+      }
+    }
+    return false
+  }
+
+  private func getRequestWithRetry(
+    path: String,
+    params: [String: String?],
+    method: HTTPMethod = .get
+  ) async throws -> (Data, HTTPURLResponse) {
+    var lastError: Error?
+    for attempt in 0..<Self.maxRetries {
+      do {
+        return try await getRequest(path: path, params: params, method: method)
+      } catch {
+        lastError = error
+        guard shouldRetry(error), attempt < Self.maxRetries - 1 else { throw error }
+        logger.debug(
+          "Retrying \(path) after error (attempt \(attempt + 1)/\(Self.maxRetries)): "
+            + "\(error.localizedDescription, privacy: .public)"
+        )
+        try? await Task.sleep(for: .seconds(Self.backoffSeconds[attempt]))
+      }
+    }
+    throw lastError ?? PiholeError.unknown("Retry exhausted")
+  }
+
   init(baseURL: URL, session: URLSession, apiToken: String) {
     self.baseURL = baseURL
     self.session = session
@@ -53,7 +92,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
 
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
     if enabled {
-      let (data, httpResponse) = try await getRequest(
+      let (data, httpResponse) = try await getRequestWithRetry(
         path: "/admin/api.php", params: ["enable": nil]
       )
       guard httpResponse.statusCode == 200 else {
@@ -61,7 +100,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
       }
     } else {
       let seconds = duration.map { Int($0) } ?? 0
-      let (data, httpResponse) = try await getRequest(
+      let (data, httpResponse) = try await getRequestWithRetry(
         path: "/admin/api.php", params: ["disable": String(seconds)]
       )
       guard httpResponse.statusCode == 200 else {
@@ -143,7 +182,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
 
   func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
     let listName = list == .allow ? "white" : "black"
-    let (data, httpResponse) = try await getRequest(
+    let (data, httpResponse) = try await getRequestWithRetry(
       path: "/admin/api.php", params: ["list": listName, "add": domain]
     )
 
@@ -161,7 +200,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
   func deleteDomain(domain: String) async throws {
     let entries = try await getDomains()
     let listName = entries.contains { $0.domain == domain } ? "white" : "black"
-    let (data, httpResponse) = try await getRequest(
+    let (data, httpResponse) = try await getRequestWithRetry(
       path: "/admin/api.php", params: ["list": listName, "sub": domain]
     )
 

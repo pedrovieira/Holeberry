@@ -53,7 +53,9 @@ final class MenuBuilder: NSObject {
 
       let elapsed = now.timeIntervalSince(record.startDateUTC)
       let remaining = max(0, record.durationSeconds - elapsed)
-      item.title = "\(record.domain)  (\(formattedRemaining(remaining)))"
+      let formatted = formattedRemaining(remaining)
+      item.title = "\(record.domain)  (\(formatted))"
+      item.accessibilityLabel = "\(record.domain), \(formatted) remaining"
 
       if let submenu = item.submenu, submenu.items.count >= 2 {
         let infoItem = submenu.items[0]
@@ -152,6 +154,7 @@ final class MenuBuilder: NSObject {
     let item = NSMenuItem(title: "Recently Blocked", action: nil, keyEquivalent: "")
     item.submenu = submenu
     item.isEnabled = isConnected
+    item.accessibilityLabel = "Recently blocked domains"
     menu.addItem(item)
   }
 
@@ -190,6 +193,7 @@ final class MenuBuilder: NSObject {
 
       let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
       item.identifier = NSUserInterfaceItemIdentifier("unblock-countdown:\(record.uuid)")
+      item.accessibilityLabel = "\(record.domain), \(formattedRemaining(remaining)) remaining"
       menu.addItem(item)
     }
   }
@@ -246,6 +250,7 @@ final class MenuBuilder: NSObject {
 
     let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
     textField.placeholderString = "e.g. 120"
+    textField.setAccessibilityLabel("Custom disable duration in seconds")
     alert.accessoryView = textField
 
     let response = alert.runModal()
@@ -282,6 +287,7 @@ final class MenuBuilder: NSObject {
 
     let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
     textField.placeholderString = "e.g. 120"
+    textField.setAccessibilityLabel("Custom unblock duration in seconds")
     alert.accessoryView = textField
 
     let response = alert.runModal()
