@@ -4,6 +4,8 @@ import OSLog
 
 @MainActor
 final class PiholeServerManager: ObservableObject, ServerProviding {
+  private static let maxServers = 2
+  
   static let shared = PiholeServerManager()
 
   @Published var servers: [PiholeServer]
@@ -32,8 +34,8 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
   }
 
   func addServer(label: String?, url: String, credential: String) async throws {
-    guard servers.count < 2 else {
-      throw PiholeError.unknown("Maximum of 2 Pi-hole instances allowed")
+    guard servers.count < Self.maxServers else {
+      throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
 
     guard URL(string: url) != nil else {
@@ -90,8 +92,8 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
   }
 
   func addServerAfterTest(label: String?, url: String, version: PiholeServer.Version) throws -> PiholeServer {
-    guard servers.count < 2 else {
-      throw PiholeError.unknown("Maximum of 2 Pi-hole instances allowed")
+    guard servers.count < Self.maxServers else {
+      throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
     let server = PiholeServer(label: label, url: url, version: version)
     servers.append(server)
