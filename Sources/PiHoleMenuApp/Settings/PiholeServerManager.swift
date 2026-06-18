@@ -5,7 +5,8 @@ import OSLog
 @MainActor
 final class PiholeServerManager: ObservableObject, ServerProviding {
   private static let maxServers = 2
-  
+  private static let jsonEncoder = JSONEncoder()
+
   static let shared = PiholeServerManager()
 
   @Published var servers: [PiholeServer]
@@ -43,7 +44,7 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     }
 
     guard !credential.isEmpty else {
-      throw PiholeError.unknown("Password is required")
+      throw PiholeError.unknown("Credential is required")
     }
 
     let version = try await testConnection(url: url, credential: credential)
@@ -126,7 +127,7 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     authRequest.httpMethod = "POST"
     authRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
     authRequest.timeoutInterval = 15
-    authRequest.httpBody = try JSONEncoder().encode(["password": credential])
+    authRequest.httpBody = try Self.jsonEncoder.encode(["password": credential])
 
     let (authData, authResponse): (Data, URLResponse)
     do {
