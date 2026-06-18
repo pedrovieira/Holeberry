@@ -1,6 +1,10 @@
 import Foundation
 import OSLog
 
+extension Notification.Name {
+  static let authManagerTotpRequired = Notification.Name("authManagerTotpRequired")
+}
+
 /// Manages Pi-hole v6 session lifecycle: login, proactive refresh before expiry, and reactive 401 retry.
 actor AuthManager {
   private let baseURL: URL
@@ -145,10 +149,19 @@ actor AuthManager {
         try await Task.sleep(nanoseconds: UInt64(refreshIn * 1_000_000_000))
         guard !Task.isCancelled else { return }
         try await self?.reauthenticate(password: password, totp: totp)
-      } catch {
-        if !(error is CancellationError) {
-          self?.logger.warning("Proactive auth refresh failed: \(error.localizedDescription, privacy: .public)")
+      } catch is CancellationError {
+        return
+      } catch PiholeError.totpRequired {
+        await MainActor.run {
+          NotificationCenter.default.post(
+            name: .authManagerTotpRequired,
+            object: nil,
+            userInfo: ["serverURL": self?.baseURL.absoluteString ?? ""]
+          )
         }
+        self?.logger.warning("Proactive auth refresh requires TOTP — user should use an application password")
+      } catch {
+        self?.logger.warning("Proactive auth refresh failed: \(error.localizedDescription, privacy: .public)")
       }
     }
   }
