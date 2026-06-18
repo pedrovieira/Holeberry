@@ -104,14 +104,17 @@ final class MenuBarController: NSObject {
       button.image = NSImage(
         systemSymbolName: "shield.slash.fill", accessibilityDescription: "Pi-hole Disabled"
       )
+      button.accessibilityLabel = "Pi-hole disabled, \(timerManager.formattedTime) remaining"
     } else if isDisabled {
       button.title = "∞"
       button.image = NSImage(
         systemSymbolName: "shield.slash.fill", accessibilityDescription: "Pi-hole Disabled Indefinitely"
       )
+      button.accessibilityLabel = "Pi-hole disabled indefinitely"
     } else {
       button.title = ""
       button.image = NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Pi-hole Active")
+      button.accessibilityLabel = "Pi-hole blocking active"
     }
   }
 
