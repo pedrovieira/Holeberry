@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import Defaults
 import OSLog
+import UserNotifications
 
 @MainActor
 final class MenuBarController: NSObject {
@@ -48,6 +49,7 @@ final class MenuBarController: NSObject {
     pollInitialStatus()
     listenForSettingsChanges()
     setupReachability()
+    observeTotpNotifications()
     prewarmRecentBlockedCache()
     Task {
       await tempUnblockManager.reconcileOnLaunch()
@@ -146,6 +148,46 @@ final class MenuBarController: NSObject {
     }
   }
 
+  // MARK: - TOTP Notifications
+
+  private func observeTotpNotifications() {
+    NotificationCenter.default.addObserver(
+      forName: .authManagerTotpRequired,
+      object: nil,
+      queue: .main
+    ) { [weak self] notification in
+      guard let self else { return }
+      let serverHost: String
+      if let serverURL = notification.userInfo?["serverURL"] as? String,
+         let host = URL(string: serverURL)?.host {
+        serverHost = host
+      } else {
+        serverHost = "your Pi-hole"
+      }
+      self.showError("TOTP required — update credential in Settings", persistent: true)
+      self.sendTotpUserNotification(host: serverHost)
+    }
+  }
+
+  private func sendTotpUserNotification(host: String) {
+    let content = UNMutableNotificationContent()
+    content.title = "Pi-hole Menu Bar"
+    content.body = "TOTP is required for \(host). Open Settings and use an Application Password."
+    content.sound = .default
+    content.categoryIdentifier = "SHORTCUT_ERROR"
+
+    let request = UNNotificationRequest(
+      identifier: "totp-required-\(host)",
+      content: content,
+      trigger: nil
+    )
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error {
+        self.logger.warning("Failed to deliver TOTP notification: \(error.localizedDescription, privacy: .public)")
+      }
+    }
+  }
+
   // MARK: - Recent Blocked Cache
 
   private func prewarmRecentBlockedCache() {
@@ -194,17 +236,19 @@ final class MenuBarController: NSObject {
 
   // MARK: - Inline Error
 
-  private func showError(_ message: String) {
-    setError(message)
-    errorClearTask?.cancel()
-    errorClearTask = Task { [weak self] in
-      try? await Task.sleep(for: .seconds(3))
-      self?.setError(nil)
-    }
+  private func showError(_ message: String, persistent: Bool = false) {
+    setError(message, persistent: persistent)
   }
 
-  private func setError(_ message: String?) {
+  private func setError(_ message: String?, persistent: Bool = false) {
     errorMessage = message
+    errorClearTask?.cancel()
+    if !persistent, message != nil {
+      errorClearTask = Task { [weak self] in
+        try? await Task.sleep(for: .seconds(3))
+        self?.setError(nil)
+      }
+    }
   }
 
   // MARK: - Countdown Timer
