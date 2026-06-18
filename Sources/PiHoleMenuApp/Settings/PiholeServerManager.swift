@@ -108,8 +108,8 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     logger.info("Reverted server creation: \(id.uuidString, privacy: .public)")
   }
 
-  func testConnection(url: String, credential: String) async throws -> PiholeServer.Version {
-    guard let url = URL(string: url) else {
+  func testConnection(url urlString: String, credential: String) async throws -> PiholeServer.Version {
+    guard let url = URL(string: urlString) else {
       throw PiholeError.unknown("Invalid URL format")
     }
 
@@ -118,21 +118,62 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
     defer { session.finishTasksAndInvalidate() }
 
-    let version = try await PiholeVersionDetector.detect(baseURL: url, session: session)
+    // 1. Try v6 auth first
+    let authURL = url.appendingPathComponent("/api/auth")
+    var authRequest = URLRequest(url: authURL)
+    authRequest.httpMethod = "POST"
+    authRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    authRequest.timeoutInterval = 15
+    authRequest.httpBody = try JSONEncoder().encode(["password": credential])
 
-    switch version {
-    case .v6:
+    let (authData, authResponse): (Data, URLResponse)
+    do {
+      (authData, authResponse) = try await session.data(for: authRequest)
+    } catch {
+      // Network error during auth attempt — fall through to v5 probe
+      return try await detectV5Fallback(url: url, session: session)
+    }
+
+    guard let authHTTP = authResponse as? HTTPURLResponse else {
+      return try await detectV5Fallback(url: url, session: session)
+    }
+
+    switch authHTTP.statusCode {
+    case 200:
+      // v6 confirmed — verify credential works
       let authManager = AuthManager(baseURL: url, session: session)
       let service = PiholeV6Service(
         baseURL: url, session: session, authManager: authManager, password: credential
       )
       _ = try await service.checkStatus()
+      return .v6
 
-    case .v5:
-      let service = PiholeV5Service(baseURL: url, session: session, apiToken: credential)
-      _ = try await service.checkStatus()
+    case 400:
+      // Pi-hole returns 400 when TOTP is required but not provided in the body
+      if let json = try? JSONSerialization.jsonObject(with: authData) as? [String: Any],
+         let errorObj = json["error"] as? [String: Any],
+         let message = errorObj["message"] as? String,
+         message.localizedCaseInsensitiveContains("2fa") {
+        throw PiholeError.totpRequired
+      }
+      // Other 400 — not a v6 auth endpoint, fall through to v5 probe
+      return try await detectV5Fallback(url: url, session: session)
+
+    case 401:
+      // Wrong password or invalid TOTP — either way, unauthorized
+      throw PiholeError.unauthorized
+
+    case 404:
+      // No /api/auth endpoint — fall back to v5 probe
+      return try await detectV5Fallback(url: url, session: session)
+
+    default:
+      return try await detectV5Fallback(url: url, session: session)
     }
+  }
 
+  private func detectV5Fallback(url: URL, session: URLSession) async throws -> PiholeServer.Version {
+    let version = try await PiholeVersionDetector.detect(baseURL: url, session: session)
     return version
   }
 

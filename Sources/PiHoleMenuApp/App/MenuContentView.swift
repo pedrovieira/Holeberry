@@ -186,6 +186,7 @@ struct MenuContentView: View {
 
     let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
     textField.placeholderString = "e.g. 120"
+    textField.setAccessibilityLabel("Custom disable duration in seconds")
     alert.accessoryView = textField
     textField.becomeFirstResponder()
 
