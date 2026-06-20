@@ -5,7 +5,8 @@ import UserNotifications
 
 @main
 struct PiHoleMenuApp: App {
-  @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+  @NSApplicationDelegateAdaptor(AppDelegate.self)
+  var appDelegate
 
   var body: some Scene {
     WindowGroup(id: "hidden") {
