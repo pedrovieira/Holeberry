@@ -3,13 +3,12 @@ import SwiftUI
 struct ConnectionFormView: View {
   enum Mode {
     case add
-    case edit(PiholeServer)
+    case edit(ServerConfig)
   }
 
   let mode: Mode
   var serverCount: Int = 0
-  let onSave:
-    (_ label: String?, _ url: String, _ credential: String, _ version: PiholeServer.Version?) async throws -> Void
+  let onSave: (_ label: String?, _ url: String, _ credential: String, _ version: ServerVersion) async throws -> Void
   let onCancel: () -> Void
 
   @State private var label: String = ""
@@ -92,11 +91,14 @@ struct ConnectionFormView: View {
             }
           }
 
-        Button(action: { showingCredentialInfo.toggle() }, label: {
-          Image(systemName: "info.circle")
-            .font(.system(size: 14))
-            .foregroundColor(.secondary)
-        })
+        Button(
+          action: { showingCredentialInfo.toggle() },
+          label: {
+            Image(systemName: "info.circle")
+              .font(.system(size: 14))
+              .foregroundColor(.secondary)
+          }
+        )
         .buttonStyle(.plain)
         .popover(isPresented: $showingCredentialInfo) {
           CredentialInfoPopover()
@@ -132,15 +134,18 @@ struct ConnectionFormView: View {
           Spacer()
           Button("Cancel", action: handleCancel)
             .font(.system(size: 12))
-          Button(action: { Task { await createServer() } }, label: {
-            if isCreating {
-              ProgressView()
-                .controlSize(.small)
-                .scaleEffect(0.8)
-            } else {
-              Text("Create")
+          Button(
+            action: { Task { await createServer() } },
+            label: {
+              if isCreating {
+                ProgressView()
+                  .controlSize(.small)
+                  .scaleEffect(0.8)
+              } else {
+                Text("Create")
+              }
             }
-          })
+          )
           .buttonStyle(.borderedProminent)
           .font(.system(size: 12))
           .disabled(!canCreate)
@@ -149,9 +154,9 @@ struct ConnectionFormView: View {
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .onAppear {
-      if case .edit(let server) = mode {
-        label = server.label ?? ""
-        url = server.url
+      if case .edit(let config) = mode {
+        label = config.label ?? ""
+        url = config.url
       }
     }
   }
@@ -185,13 +190,11 @@ struct ConnectionFormView: View {
           let version = try await serverManager.testConnection(url: serverURL, credential: credential)
           try Task.checkCancellation()
 
-          let server = PiholeServer(label: label, url: serverURL, version: version)
-          try KeychainManager.shared.saveCredential(credential, for: server.id)
+          let config = try serverManager.addServerAfterTest(
+            label: label, url: serverURL, version: version, credential: credential
+          )
           didSaveToKeychain = true
-          createdServerID = server.id
-          try Task.checkCancellation()
-
-          _ = try serverManager.addServerAfterTest(label: label, url: serverURL, version: version)
+          createdServerID = config.id
 
           try await onSave(
             label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label,

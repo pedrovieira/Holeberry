@@ -3,20 +3,53 @@ import OSLog
 
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
 final class PiholeV6Service: PiholeServiceProtocol {
-  let piHoleVersion = 6
+  // MARK: - Identity & Config
+  let id: UUID
+  var label: String?
+  var url: String
+  var version: ServerVersion
 
-  private let baseURL: URL
-  private let session: URLSession
-  private let authManager: AuthManager
+  // MARK: - API
+  private var baseURL: URL
+  private var session: URLSession
+  private var authManager: AuthManager
   private let password: String
   private static let decoder = JSONDecoder()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v6-service")
 
-  init(baseURL: URL, session: URLSession, authManager: AuthManager, password: String) {
+  init(
+    id: UUID,
+    label: String?,
+    url: String,
+    version: ServerVersion,
+    baseURL: URL,
+    session: URLSession,
+    authManager: AuthManager,
+    password: String
+  ) {
+    self.id = id
+    self.label = label
+    self.url = url
+    self.version = version
     self.baseURL = baseURL
     self.session = session
     self.authManager = authManager
     self.password = password
+  }
+
+  func refreshSession(from urlString: String) {
+    guard let newURL = URL(string: urlString) else { return }
+    self.url = urlString
+    self.baseURL = newURL
+    session.invalidateAndCancel()
+    let delegate = CertificateTrustDelegate(trustedHosts: [newURL.host].compactMap { $0 })
+    self.session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    self.authManager = AuthManager(baseURL: newURL, session: self.session)
+  }
+
+  func logout() async {
+    await authManager.logout()
+    session.invalidateAndCancel()
   }
 
   func checkStatus() async throws -> BlockingStatus {

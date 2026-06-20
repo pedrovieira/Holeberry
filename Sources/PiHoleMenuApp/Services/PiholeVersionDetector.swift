@@ -25,7 +25,7 @@ enum PiholeVersionDetector {
     return (json[Self.hintKey] as? String) ?? errorDict?[Self.hintKey] as? String
   }
 
-  static func detect(baseURL: URL, session: URLSession) async throws -> PiholeServer.Version {
+  static func detect(baseURL: URL, session: URLSession) async throws -> ServerVersion {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("/admin/api.php"),
       resolvingAgainstBaseURL: false
@@ -52,27 +52,29 @@ enum PiholeVersionDetector {
 
     switch httpResponse.statusCode {
     case 200:
-      if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      guard
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
         json[Self.versionKey] != nil
-      {
-        logger.debug("Detected Pi-hole v5 via /admin/api.php?version")
-        return .v5
+      else {
+        throw PiholeError.unknown(
+          "Unexpected response from server. Verify the URL points to a Pi-hole instance."
+        )
       }
-      throw PiholeError.unknown(
-        "Unexpected response from server. Verify the URL points to a Pi-hole instance."
-      )
+      logger.debug("Detected Pi-hole v5 via /admin/api.php?version")
+      return .v5
 
     case 400:
-      if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      guard
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
         let hint = Self.hint(from: json),
         hint.contains("/api")
-      {
-        logger.debug("Detected Pi-hole v6 via structured 400 from /admin/api.php?version")
-        return .v6
+      else {
+        throw PiholeError.unknown(
+          "Unexpected response from server. Verify the URL points to a Pi-hole instance."
+        )
       }
-      throw PiholeError.unknown(
-        "Unexpected response from server. Verify the URL points to a Pi-hole instance."
-      )
+      logger.debug("Detected Pi-hole v6 via structured 400 from /admin/api.php?version")
+      return .v6
 
     default:
       throw PiholeError.unknown(

@@ -37,9 +37,9 @@ final class TempUnblockManager {
     var anySuccess = false
     var lastError: Error?
 
-    for server in serverProvider.servers where server.version != nil {
+    for config in serverProvider.servers {
       do {
-        try await serverProvider.perform(for: server) { service in
+        try await serverProvider.perform(for: config.id) { service in
           _ = try await service.addDomain(domain, to: .allow, comment: uuid)
         }
         anySuccess = true
@@ -47,7 +47,7 @@ final class TempUnblockManager {
         lastError = error
         logger.warning(
           """
-          Failed to add unblock on \(server.label ?? server.url, privacy: .public): \
+          Failed to add unblock on \(config.label ?? config.url, privacy: .public): \
           \(error.localizedDescription, privacy: .public)
           """)
       }
@@ -92,12 +92,12 @@ final class TempUnblockManager {
   private func removeExpired(uuid: String) async {
     guard let record = activeRecords.first(where: { $0.uuid == uuid }) else { return }
 
-    let servers = serverProvider.servers.filter { $0.version != nil }
+    let configs = serverProvider.servers
     var anyFailure = false
 
-    for server in servers {
+    for config in configs {
       do {
-        try await serverProvider.perform(for: server) { service in
+        try await serverProvider.perform(for: config.id) { service in
           try await service.deleteDomain(domain: record.domain)
         }
       } catch PiholeError.unknown {
@@ -107,7 +107,7 @@ final class TempUnblockManager {
         logger.warning(
           """
           Expiry cleanup failed for \(record.domain, privacy: .public) on \
-          \(server.label ?? server.url, privacy: .public): \(error.localizedDescription, privacy: .public)
+          \(config.label ?? config.url, privacy: .public): \(error.localizedDescription, privacy: .public)
           """)
       }
     }
@@ -145,12 +145,12 @@ final class TempUnblockManager {
       record.pendingRemoval
     else { return }
 
-    let servers = serverProvider.servers.filter { $0.version != nil }
+    let configs = serverProvider.servers
     var anyFailure = false
 
-    for server in servers {
+    for config in configs {
       do {
-        try await serverProvider.perform(for: server) { service in
+        try await serverProvider.perform(for: config.id) { service in
           try await service.deleteDomain(domain: record.domain)
         }
       } catch PiholeError.unknown {
@@ -211,13 +211,13 @@ final class TempUnblockManager {
   }
 
   private func isPresentOnAnyServer(_ record: TempUnblockRecord) async -> Bool {
-    for server in serverProvider.servers where server.version != nil {
+    for config in serverProvider.servers {
       do {
-        let domains: [DomainEntry] = try await serverProvider.perform(for: server) { service in
+        let domains: [DomainEntry] = try await serverProvider.perform(for: config.id) { service in
           try await service.getDomains()
         }
         let found = domains.contains { entry in
-          if server.version == .v6 {
+          if config.version == .v6 {
             return entry.comment?.contains(record.uuid) ?? false
           }
           return entry.domain == record.domain
@@ -226,7 +226,7 @@ final class TempUnblockManager {
       } catch {
         logger.warning(
           """
-          Reconcile getDomains failed for \(server.label ?? server.url, privacy: .public): \
+          Reconcile getDomains failed for \(config.label ?? config.url, privacy: .public): \
           \(error.localizedDescription, privacy: .public)
           """)
         continue
