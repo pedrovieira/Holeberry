@@ -4,8 +4,8 @@ import OSLog
 private enum V5QueryStatus: String, CaseIterable {
   case gravity = "1"
   case wildcard = "4"
-  case exactBlacklist = "5"
-  case regexBlacklist = "6"
+  case exactBlocklist = "5"
+  case regexBlocklist = "6"
 
   /// Status codes that indicate a query was blocked.
   static let blocked: Set<String> = Set(V5QueryStatus.allCases.map(\.rawValue))
@@ -13,16 +13,53 @@ private enum V5QueryStatus: String, CaseIterable {
 
 /// Pi-hole v5 API implementation using static token auth and query-string endpoints. HTML parsing for domain lists.
 final class PiholeV5Service: PiholeServiceProtocol {
-  let piHoleVersion = 5
+  // MARK: - Identity & Config
+  let id: UUID
+  var label: String?
+  var url: String
+  var version: ServerVersion
 
-  private let baseURL: URL
-  private let session: URLSession
+  // MARK: - API
+  private var baseURL: URL
+  private var session: URLSession
   private let apiToken: String
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
 
   private static let maxRetries = 3
   private static let backoffSeconds: [TimeInterval] = [1, 2, 4]
+
+  init(
+    id: UUID,
+    label: String?,
+    url: String,
+    version: ServerVersion,
+    baseURL: URL,
+    session: URLSession,
+    apiToken: String
+  ) {
+    self.id = id
+    self.label = label
+    self.url = url
+    self.version = version
+    self.baseURL = baseURL
+    self.session = session
+    self.apiToken = apiToken
+  }
+
+  func refreshSession(from urlString: String) {
+    guard let newURL = URL(string: urlString) else { return }
+    self.url = urlString
+    self.baseURL = newURL
+    session.invalidateAndCancel()
+    let delegate = CertificateTrustDelegate(trustedHosts: [newURL.host].compactMap { $0 })
+    self.session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+  }
+
+  func logout() async {
+    // v5 has no session-based auth — just tear down the session
+    session.invalidateAndCancel()
+  }
 
   private func shouldRetry(_ error: Error) -> Bool {
     if let piholeError = error as? PiholeError {
@@ -58,12 +95,6 @@ final class PiholeV5Service: PiholeServiceProtocol {
       }
     }
     throw lastError ?? PiholeError.unknown("Retry exhausted")
-  }
-
-  init(baseURL: URL, session: URLSession, apiToken: String) {
-    self.baseURL = baseURL
-    self.session = session
-    self.apiToken = apiToken
   }
 
   func checkStatus() async throws -> BlockingStatus {
@@ -130,12 +161,13 @@ final class PiholeV5Service: PiholeServiceProtocol {
       return []
     }
 
-    return rows.compactMap { row -> String? in
+    let blocked = rows.compactMap { row -> String? in
       guard row.count >= 5 else { return nil }
       let status = "\(row[4])"
       guard V5QueryStatus.blocked.contains(status) else { return nil }
       return "\(row[2])"
-    }.prefix(count).map { $0 }
+    }
+    return Array(blocked.prefix(count))
   }
 
   func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {

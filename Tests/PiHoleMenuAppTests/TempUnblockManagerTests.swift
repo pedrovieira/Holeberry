@@ -24,7 +24,7 @@ final class TempUnblockManagerTests: XCTestCase {
     )
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -54,8 +54,8 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "A", url: "http://192.168.1.100", version: .v6),
-      PiholeServer(label: "B", url: "http://192.168.1.101", version: .v6)
+      ServerConfig(label: "A", url: "http://192.168.1.100", version: .v6),
+      ServerConfig(label: "B", url: "http://192.168.1.101", version: .v6)
     ]
     provider.makeService = { _ in
       defer { callCount += 1 }
@@ -95,8 +95,8 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "A", url: "http://192.168.1.100", version: .v6),
-      PiholeServer(label: "B", url: "http://192.168.1.101", version: .v6)
+      ServerConfig(label: "A", url: "http://192.168.1.100", version: .v6),
+      ServerConfig(label: "B", url: "http://192.168.1.101", version: .v6)
     ]
     provider.makeService = { _ in
       defer { callCount += 1 }
@@ -116,7 +116,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "A", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "A", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -138,7 +138,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -161,7 +161,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -185,8 +185,8 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "A", url: "http://192.168.1.100", version: .v6),
-      PiholeServer(label: "B", url: "http://192.168.1.101", version: .v6)
+      ServerConfig(label: "A", url: "http://192.168.1.100", version: .v6),
+      ServerConfig(label: "B", url: "http://192.168.1.101", version: .v6)
     ]
     provider.makeService = { server in
       server.label == "A" ? mockA : mockB
@@ -208,7 +208,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -226,7 +226,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -247,7 +247,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -273,7 +273,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -300,7 +300,7 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "Main", url: "http://192.168.1.100", version: .v6)
+      ServerConfig(label: "Main", url: "http://192.168.1.100", version: .v6)
     ]
     provider.makeService = { _ in mock }
 
@@ -328,8 +328,8 @@ final class TempUnblockManagerTests: XCTestCase {
 
     let provider = MockServerProvider()
     provider.servers = [
-      PiholeServer(label: "A", url: "http://192.168.1.100", version: .v6),
-      PiholeServer(label: "B", url: "http://192.168.1.101", version: .v6)
+      ServerConfig(label: "A", url: "http://192.168.1.100", version: .v6),
+      ServerConfig(label: "B", url: "http://192.168.1.101", version: .v6)
     ]
     provider.makeService = { server in
       server.label == "A" ? mock1 : mock2

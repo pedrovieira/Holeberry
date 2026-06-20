@@ -25,7 +25,7 @@ func localIPAddress() -> String? {
     guard (flags & UInt32(IFF_UP)) != 0, (flags & UInt32(IFF_RUNNING)) != 0 else { continue }
 
     var addr = ifaAddr.pointee
-    let ip = withUnsafePointer(to: &addr) {
+    let ipAddr = withUnsafePointer(to: &addr) {
       $0.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { sin -> String? in
         var address = sin.pointee.sin_addr
         let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: Int(INET_ADDRSTRLEN))
@@ -36,7 +36,7 @@ func localIPAddress() -> String? {
         return String(cString: buffer)
       }
     }
-    if let ip { return ip }  // keep looking if inet_ntop failed
+    if let ipAddr { return ipAddr }  // keep looking if inet_ntop failed
   }
   return nil
 }

@@ -162,7 +162,8 @@ final class MenuBarController: NSObject {
       guard let self else { return }
       let serverHost: String
       if let serverURL = notification.userInfo?["serverURL"] as? String,
-         let host = URL(string: serverURL)?.host {
+        let host = URL(string: serverURL)?.host
+      {
         serverHost = host
       } else {
         serverHost = "your Pi-hole"

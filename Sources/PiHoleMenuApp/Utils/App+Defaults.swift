@@ -4,7 +4,7 @@ import Foundation
 // MARK: - Defaults Keys
 //
 // All persistent storage keys in one place. Usage:
-//   Defaults[.servers]            // get/set [PiholeServer]
+//   Defaults[.servers]            // get/set [ServerConfig]
 //   Defaults[.recentBlockedCount] // get/set Int
 //   @Default(.launchAtLogin) var launchAtLogin: Bool
 //
@@ -13,7 +13,7 @@ import Foundation
 
 extension Defaults.Keys {
   /// JSON-encoded list of configured Pi-hole instances.
-  static let servers = Defaults.Key<[PiholeServer]>("servers", default: [])
+  static let servers = Defaults.Key<[ServerConfig]>("servers", default: [])
 
   /// How many recent blocked queries to fetch (persisted slider value).
   static let recentBlockedCount = Defaults.Key<Int>("recentBlockedCount", default: 20)

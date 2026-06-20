@@ -3,6 +3,8 @@ import XCTest
 
 @testable import PiHoleMenuApp
 
+// swiftlint:disable file_length
+
 @MainActor
 final class PiHoleMenuAppTests: XCTestCase {
   // MARK: - BlockingStatus tests
@@ -22,7 +24,8 @@ final class PiHoleMenuAppTests: XCTestCase {
     XCTAssertEqual(PiholeError.network("timeout").errorDescription, "Network error: timeout")
     XCTAssertEqual(PiholeError.server(500, nil).errorDescription, "Server error (500)")
     XCTAssertEqual(
-      PiholeError.server(500, "Internal Server Error").errorDescription, "Server error (500): Internal Server Error")
+      PiholeError.server(500, "Internal Server Error").errorDescription,
+      "Server error (500): Internal Server Error")
     XCTAssertEqual(PiholeError.tlsUntrusted.errorDescription, "Untrusted TLS certificate")
     XCTAssertEqual(PiholeError.duplicateDomain.errorDescription, "Domain is already in the list")
     XCTAssertEqual(PiholeError.decoding("bad JSON").errorDescription, "Failed to parse response: bad JSON")
@@ -41,9 +44,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   // MARK: - v6 response decoding tests
 
   func testV6CheckStatusEnabledDecoding() throws {
-    let json = """
-      {"blocking": true}
-      """
+    let json = "{\"blocking\": true}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     struct Response: Decodable {
       let blocking: Bool?
@@ -55,9 +56,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV6CheckStatusDisabledWithTimerDecoding() throws {
-    let json = """
-      {"blocking": false, "timer": 180.0}
-      """
+    let json = "{\"blocking\": false, \"timer\": 180.0}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     struct Response: Decodable {
       let blocking: Bool?
@@ -69,9 +68,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV6RecentBlockedDecoding() throws {
-    let json = """
-      {"blocked": ["doubleclick.net", "ads.com", "tracker.example.com"]}
-      """
+    let json = "{\"blocked\": [\"doubleclick.net\", \"ads.com\", \"tracker.example.com\"]}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     struct Response: Decodable {
       let blocked: [String]
@@ -83,9 +80,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV6AddDomainResponseDecoding() throws {
-    let json = """
-      {"id": 42, "domain": "example.com", "type": 0, "comment": "pihole-menu-app:test-uuid"}
-      """
+    let json = "{\"id\": 42, \"domain\": \"example.com\", \"type\": 0, \"comment\": \"pihole-menu-app:test-uuid\"}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     let entry = try JSONDecoder().decode(DomainEntry.self, from: data)
     XCTAssertEqual(entry.id, 42)
@@ -95,12 +90,9 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV6DomainsResponseDecoding() throws {
-    let json = """
-      [
-        {"id": 1, "domain": "allowed.com", "type": 0, "comment": ""},
-        {"id": 2, "domain": "blocked.com", "type": 1, "comment": "manual block"}
-      ]
-      """
+    let json =
+      "[{\"id\": 1, \"domain\": \"allowed.com\", \"type\": 0, \"comment\": \"\"}, "
+      + "{\"id\": 2, \"domain\": \"blocked.com\", \"type\": 1, \"comment\": \"manual block\"}]"
     let data = try XCTUnwrap(json.data(using: .utf8))
     let entries = try JSONDecoder().decode([DomainEntry].self, from: data)
     XCTAssertEqual(entries.count, 2)
@@ -114,9 +106,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   // MARK: - v5 response decoding tests
 
   func testV5CheckStatusEnabledDecoding() throws {
-    let json = """
-      {"status": "enabled"}
-      """
+    let json = "{\"status\": \"enabled\"}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     struct StatusResponse: Decodable {
       let status: String?
@@ -126,9 +116,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV5CheckStatusDisabledDecoding() throws {
-    let json = """
-      {"status": "disabled"}
-      """
+    let json = "{\"status\": \"disabled\"}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     struct StatusResponse: Decodable {
       let status: String?
@@ -138,13 +126,10 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV5GetAllQueriesDecoding() throws {
-    let json = """
-      [
-        ["2024-01-15 10:30:00", "A", "example.com", "192.168.1.5", "2", "OK", "0"],
-        ["2024-01-15 10:31:00", "AAAA", "blocked.com", "192.168.1.10", "0", "Blocked", "1"],
-        ["2024-01-15 10:32:00", "A", "tracker.net", "192.168.1.5", "0", "Blocked", "1"]
-      ]
-      """
+    let json =
+      "[[\"2024-01-15 10:30:00\", \"A\", \"example.com\", \"192.168.1.5\", \"2\", \"OK\", \"0\"], "
+      + "[\"2024-01-15 10:31:00\", \"AAAA\", \"blocked.com\", \"192.168.1.10\", \"0\", \"Blocked\", \"1\"], "
+      + "[\"2024-01-15 10:32:00\", \"A\", \"tracker.net\", \"192.168.1.5\", \"0\", \"Blocked\", \"1\"]]"
     let data = try XCTUnwrap(json.data(using: .utf8))
     guard let rawJSON = try JSONSerialization.jsonObject(with: data) as? [[Any]] else {
       XCTFail("Expected array of arrays")
@@ -184,15 +169,12 @@ final class PiHoleMenuAppTests: XCTestCase {
   // MARK: - v5 HTML parsing tests
 
   func testV5ParseDomainsFromValidHTML() throws {
-    let html = """
-      <html><body>
-      <table>
-        <tr><th>Domain</th><th>Action</th></tr>
-        <tr><td>doubleclick.net</td><td>Delete</td></tr>
-        <tr><td>tracker.example.com</td><td>Delete</td></tr>
-      </table>
-      </body></html>
-      """
+    let html =
+      "<html><body><table>"
+      + "<tr><th>Domain</th><th>Action</th></tr>"
+      + "<tr><td>doubleclick.net</td><td>Delete</td></tr>"
+      + "<tr><td>tracker.example.com</td><td>Delete</td></tr>"
+      + "</table></body></html>"
     let entries = PiholeV5Service.parseDomainsFromHTML(html, type: 0)
     XCTAssertEqual(entries.count, 2)
     XCTAssertEqual(entries[0].domain, "doubleclick.net")
@@ -202,18 +184,11 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV5ParseDomainsFromHTMLWithNestedTags() throws {
-    let html = """
-      <table>
-        <tr>
-          <td><strong>ads.example.com</strong></td>
-          <td><a href="#">Delete</a></td>
-        </tr>
-        <tr>
-          <td><span class="domain">spy.net</span></td>
-          <td><a href="#">Delete</a></td>
-        </tr>
-      </table>
-      """
+    let html =
+      "<table>"
+      + "<tr><td><strong>ads.example.com</strong></td><td><a href=\"#\">Delete</a></td></tr>"
+      + "<tr><td><span class=\"domain\">spy.net</span></td><td><a href=\"#\">Delete</a></td></tr>"
+      + "</table>"
     let entries = PiholeV5Service.parseDomainsFromHTML(html, type: 0)
     XCTAssertEqual(entries.count, 2)
     XCTAssertEqual(entries[0].domain, "ads.example.com")
@@ -232,12 +207,11 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV5ParseDomainsFiltersHeaderRow() throws {
-    let html = """
-      <table>
-        <tr><td>Domain</td><td>Delete</td></tr>
-        <tr><td>real-domain.com</td><td>Delete</td></tr>
-      </table>
-      """
+    let html =
+      "<table>"
+      + "<tr><td>Domain</td><td>Delete</td></tr>"
+      + "<tr><td>real-domain.com</td><td>Delete</td></tr>"
+      + "</table>"
     let entries = PiholeV5Service.parseDomainsFromHTML(html, type: 1)
     XCTAssertEqual(entries.count, 1)
     XCTAssertEqual(entries[0].domain, "real-domain.com")
@@ -297,51 +271,51 @@ final class PiHoleMenuAppTests: XCTestCase {
     XCTAssertEqual(mock.deleteDomainByNameCallCount, 1)
   }
 
-  // MARK: - PiholeServer tests
+  // MARK: - ServerConfig tests
 
-  func testPiholeServerDefaults() {
-    let server = PiholeServer(label: nil, url: "http://192.168.1.100:80")
+  func testServerConfigDefaults() {
+    let server = ServerConfig(label: nil, url: "http://192.168.1.100:80", version: .v6)
     XCTAssertFalse(server.id.uuidString.isEmpty)
     XCTAssertNil(server.label)
     XCTAssertEqual(server.url, "http://192.168.1.100:80")
-    XCTAssertNil(server.version)
+    XCTAssertEqual(server.version, .v6)
   }
 
-  func testPiholeServerWithLabel() {
-    let server = PiholeServer(label: "Home", url: "https://pihole.local:443")
+  func testServerConfigWithLabel() {
+    let server = ServerConfig(label: "Home", url: "https://pihole.local:443", version: .v6)
     XCTAssertEqual(server.label, "Home")
     XCTAssertEqual(server.url, "https://pihole.local:443")
   }
 
-  func testPiholeServerVersionAfterDetection() {
-    var server = PiholeServer(label: nil, url: "http://192.168.1.100")
+  func testServerConfigVersionAfterDetection() {
+    var server = ServerConfig(label: nil, url: "http://192.168.1.100", version: .v5)
     server.version = .v6
     XCTAssertEqual(server.version, .v6)
   }
 
-  func testPiholeServerEquality() {
+  func testServerConfigEquality() {
     let id = UUID()
-    let server1 = PiholeServer(id: id, label: "A", url: "http://a.com")
-    let server2 = PiholeServer(id: id, label: "B", url: "http://b.com")
+    let server1 = ServerConfig(id: id, label: "A", url: "http://a.com", version: .v6)
+    let server2 = ServerConfig(id: id, label: "B", url: "http://b.com", version: .v6)
     XCTAssertEqual(server1, server2)  // equal by id
   }
 
-  func testPiholeServerCodableRoundTrip() throws {
-    let server = PiholeServer(label: "Test", url: "http://test.com:8080", version: .v6)
+  func testServerConfigCodableRoundTrip() throws {
+    let server = ServerConfig(label: "Test", url: "http://test.com:8080", version: .v6)
     let data = try JSONEncoder().encode(server)
-    let decoded = try JSONDecoder().decode(PiholeServer.self, from: data)
+    let decoded = try JSONDecoder().decode(ServerConfig.self, from: data)
     XCTAssertEqual(server.id, decoded.id)
     XCTAssertEqual(server.label, decoded.label)
     XCTAssertEqual(server.url, decoded.url)
     XCTAssertEqual(server.version, decoded.version)
   }
 
-  func testPiholeServerCodableNilVersion() throws {
-    let server = PiholeServer(label: nil, url: "http://test.com")
+  func testServerConfigCodableNilLabel() throws {
+    let server = ServerConfig(label: nil, url: "http://test.com", version: .v5)
     let data = try JSONEncoder().encode(server)
-    let decoded = try JSONDecoder().decode(PiholeServer.self, from: data)
+    let decoded = try JSONDecoder().decode(ServerConfig.self, from: data)
     XCTAssertNil(decoded.label)
-    XCTAssertNil(decoded.version)
+    XCTAssertEqual(decoded.version, .v5)
   }
 
   // MARK: - Defaults persistence tests
@@ -352,7 +326,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testDefaultsServersSaveAndLoad() {
-    let server = PiholeServer(label: "Test", url: "http://test.com")
+    let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     Defaults[.servers] = [server]
     let loaded = Defaults[.servers]
     XCTAssertEqual(loaded.count, 1)
@@ -361,18 +335,18 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testDefaultsServersOverwrite() {
-    let s1 = PiholeServer(label: "A", url: "http://a.com")
-    let s2 = PiholeServer(label: "B", url: "http://b.com")
-    Defaults[.servers] = [s1]
-    Defaults[.servers] = [s2]
+    let server1 = ServerConfig(label: "A", url: "http://a.com", version: .v6)
+    let server2 = ServerConfig(label: "B", url: "http://b.com", version: .v6)
+    Defaults[.servers] = [server1]
+    Defaults[.servers] = [server2]
     XCTAssertEqual(Defaults[.servers].count, 1)
-    XCTAssertEqual(Defaults[.servers][0].id, s2.id)
+    XCTAssertEqual(Defaults[.servers][0].id, server2.id)
   }
 
   func testDefaultsServersMultiple() {
-    let s1 = PiholeServer(label: "A", url: "http://a.com")
-    let s2 = PiholeServer(label: "B", url: "http://b.com")
-    Defaults[.servers] = [s1, s2]
+    let server1 = ServerConfig(label: "A", url: "http://a.com", version: .v6)
+    let server2 = ServerConfig(label: "B", url: "http://b.com", version: .v6)
+    Defaults[.servers] = [server1, server2]
     XCTAssertEqual(Defaults[.servers].count, 2)
   }
 
@@ -391,7 +365,7 @@ final class PiHoleMenuAppTests: XCTestCase {
 
   func testManagerDeleteServer() {
     let manager = PiholeServerManager()
-    let server = PiholeServer(label: "Test", url: "http://test.com")
+    let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     manager.servers = [server]
     let id = manager.servers[0].id
     manager.deleteServer(id: id)
@@ -400,7 +374,7 @@ final class PiHoleMenuAppTests: XCTestCase {
 
   func testManagerUpdateServer() {
     let manager = PiholeServerManager()
-    let server = PiholeServer(label: "Old", url: "http://old.com")
+    let server = ServerConfig(label: "Old", url: "http://old.com", version: .v6)
     manager.servers = [server]
     guard let id = manager.servers.first?.id else { return XCTFail("No server") }
 

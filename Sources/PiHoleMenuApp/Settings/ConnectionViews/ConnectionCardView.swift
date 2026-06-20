@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ConnectionCardView: View {
-  let server: PiholeServer
+  let config: ServerConfig
   let status: ConnectionStatus
   let onEdit: () -> Void
   let onDelete: () -> Void
@@ -9,9 +9,9 @@ struct ConnectionCardView: View {
   var body: some View {
     HStack(alignment: .top) {
       VStack(alignment: .leading, spacing: 2) {
-        Text(server.label ?? "Instance \(server.url)")
+        Text(config.label ?? "Instance \(config.url)")
           .font(.system(size: 12, weight: .semibold))
-        Text("\(server.url) · \(server.version?.displayName ?? "Not detected")")
+        Text("\(config.url) · \(config.version.displayName)")
           .font(.system(size: 10))
           .foregroundColor(.secondary)
       }
