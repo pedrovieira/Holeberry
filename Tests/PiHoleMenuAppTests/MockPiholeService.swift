@@ -4,7 +4,10 @@ import Foundation
 
 /// Configurable mock implementing `PiholeServiceProtocol` with stub injection, call-count tracking, and failure injection.
 final class MockPiholeService: PiholeServiceProtocol {
-  let piHoleVersion: Int
+  let id: UUID
+  var label: String?
+  var url: String
+  var version: ServerVersion
 
   var checkStatusStub: Result<BlockingStatus, Error> = .success(.enabled)
   var checkStatusCallCount = 0
@@ -36,8 +39,16 @@ final class MockPiholeService: PiholeServiceProtocol {
   var getDomainsStub: Result<[DomainEntry], Error> = .success([])
   var getDomainsCallCount = 0
 
-  init(piHoleVersion: Int = 6) {
-    self.piHoleVersion = piHoleVersion
+  var refreshSessionCallCount = 0
+  var refreshSessionLastURL: String?
+
+  var logoutCallCount = 0
+
+  init(id: UUID = UUID(), label: String? = nil, url: String = "http://test.local", version: ServerVersion = .v6) {
+    self.id = id
+    self.label = label
+    self.url = url
+    self.version = version
   }
 
   func checkStatus() async throws -> BlockingStatus {
@@ -84,19 +95,32 @@ final class MockPiholeService: PiholeServiceProtocol {
     getDomainsCallCount += 1
     return try getDomainsStub.get()
   }
+
+  func refreshSession(from urlString: String) {
+    refreshSessionCallCount += 1
+    refreshSessionLastURL = urlString
+    self.url = urlString
+  }
+
+  func logout() async {
+    logoutCallCount += 1
+  }
 }
 
 final class MockServerProvider: ServerProviding {
-  var servers: [PiholeServer] = []
-  var makeService: ((PiholeServer) -> PiholeServiceProtocol)?
+  var servers: [ServerConfig] = []
+  var makeService: ((ServerConfig) -> PiholeServiceProtocol)?
 
   private(set) var performCallCount = 0
-  private(set) var lastServer: PiholeServer?
+  private(set) var lastServerID: UUID?
 
-  func perform<T>(for server: PiholeServer, block: (PiholeServiceProtocol) async throws -> T) async throws -> T {
+  func perform<T>(for id: UUID, block: (PiholeServiceProtocol) async throws -> T) async throws -> T {
     performCallCount += 1
-    lastServer = server
-    let service = makeService?(server) ?? MockPiholeService()
+    lastServerID = id
+    guard let config = servers.first(where: { $0.id == id }) else {
+      throw PiholeError.unknown("Server not found in mock")
+    }
+    let service = makeService?(config) ?? MockPiholeService()
     return try await block(service)
   }
 }

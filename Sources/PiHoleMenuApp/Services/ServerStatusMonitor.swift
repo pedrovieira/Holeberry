@@ -6,7 +6,7 @@ import OSLog
 final class ServerStatusMonitor: ObservableObject {
   static let shared = ServerStatusMonitor(manager: .shared)
 
-  @Published var servers: [PiholeServer] = []
+  @Published var servers: [ServerConfig] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]
   @Published var blockingStatuses: [UUID: BlockingStatus] = [:]
   @Published var combinedStatus = CombinedStatus()
@@ -82,15 +82,15 @@ final class ServerStatusMonitor: ObservableObject {
 
   // MARK: - Blocking Controls
 
-  func setBlocking(for server: PiholeServer, enabled: Bool, duration: TimeInterval?) async throws {
-    try await manager.setBlocking(for: server, enabled: enabled, duration: duration)
+  func setBlocking(for id: UUID, enabled: Bool, duration: TimeInterval?) async throws {
+    try await manager.setBlocking(for: id, enabled: enabled, duration: duration)
   }
 
   // MARK: - On-Demand Fetching
 
-  func fetchRecentBlocked(for server: PiholeServer) async throws -> [String] {
+  func fetchRecentBlocked(for id: UUID) async throws -> [String] {
     let length = max(Defaults[.recentBlockedCount], 20)
-    return try await manager.perform(for: server) { service in
+    return try await manager.perform(for: id) { service in
       try await service.getRecentBlocked(count: length)
     }
   }
@@ -110,28 +110,26 @@ final class ServerStatusMonitor: ObservableObject {
     var connectedCount = 0
     var anyError: String?
 
-    for server in servers {
-      guard let credential = try? KeychainManager.shared.readCredential(for: server.id) else {
-        connectionStatuses[server.id] = .disconnected
-        blockingStatuses.removeValue(forKey: server.id)
-        anyError = anyError ?? "Missing credentials for \(server.label ?? server.url)"
+    for config in servers {
+      guard let credential = try? KeychainManager.shared.readCredential(for: config.id) else {
+        connectionStatuses[config.id] = .disconnected
+        blockingStatuses.removeValue(forKey: config.id)
+        anyError = anyError ?? "Missing credentials for \(config.label ?? config.url)"
         continue
       }
 
       do {
-        if server.version == nil {
-          let version = try await manager.testConnection(url: server.url, credential: credential)
-          manager.updateServerVersion(id: server.id, version: version)
-        }
+        let version = try await manager.testConnection(url: config.url, credential: credential)
+        manager.updateServerVersion(id: config.id, version: version)
 
-        let blocking = try await manager.getBlockingStatus(for: server)
-        connectionStatuses[server.id] = .connected
-        blockingStatuses[server.id] = blocking
+        let blocking = try await manager.getBlockingStatus(for: config.id)
+        connectionStatuses[config.id] = .connected
+        blockingStatuses[config.id] = blocking
         connectedCount += 1
       } catch {
-        logger.warning("Poll failed for \(server.label ?? server.url): \(error.localizedDescription, privacy: .public)")
-        connectionStatuses[server.id] = .disconnected
-        blockingStatuses.removeValue(forKey: server.id)
+        logger.warning("Poll failed for \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)")
+        connectionStatuses[config.id] = .disconnected
+        blockingStatuses.removeValue(forKey: config.id)
         anyError = anyError ?? error.localizedDescription
       }
     }

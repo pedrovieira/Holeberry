@@ -63,10 +63,10 @@ struct ConnectionListView: View {
       }
 
       if monitor.servers.count < 2 && !isAdding && editingServerID == nil {
-        Button(action: { isAdding = true }) {
+        Button(action: { isAdding = true }, label: {
           Label("New Connection", systemImage: "plus.circle")
             .font(.system(size: 12))
-        }
+        })
         .buttonStyle(.plain)
         .foregroundColor(.accentColor)
         .padding(.vertical, 4)
