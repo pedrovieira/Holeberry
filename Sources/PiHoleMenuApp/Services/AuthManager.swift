@@ -143,6 +143,7 @@ actor AuthManager {
   private func scheduleRefresh(password: String, totp: String?) {
     guard let validity else { return }
     let refreshIn = max(validity - 50, 10)
+    let capturedBaseURL = baseURL
 
     refreshTask = Task { [weak self] in
       do {
@@ -156,7 +157,7 @@ actor AuthManager {
           NotificationCenter.default.post(
             name: .authManagerTotpRequired,
             object: nil,
-            userInfo: ["serverURL": self?.baseURL.absoluteString ?? ""]
+            userInfo: ["serverURL": capturedBaseURL.absoluteString]
           )
         }
         self?.logger.warning("Proactive auth refresh requires TOTP — user should use an application password")
