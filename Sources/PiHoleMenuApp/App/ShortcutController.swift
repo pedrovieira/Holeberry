@@ -48,10 +48,13 @@ final class ShortcutController {
     var firstError: String?
     for server in servers {
       do {
-        try await monitor.setBlocking(for: server, enabled: enabled, duration: duration)
+        try await monitor.setBlocking(for: server.id, enabled: enabled, duration: duration)
       } catch {
         logger.warning(
-          "Shortcut setBlocking failed for \(server.label ?? server.url): \(error.localizedDescription, privacy: .public)"
+          """
+          Shortcut setBlocking failed for \(server.label ?? server.url): \
+          \(error.localizedDescription, privacy: .public)
+          """
         )
         if firstError == nil {
           firstError = error.localizedDescription

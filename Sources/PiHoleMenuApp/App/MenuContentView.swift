@@ -144,7 +144,7 @@ struct MenuContentView: View {
     }
     Task {
       do {
-        try await monitor.setBlocking(for: server, enabled: false, duration: duration)
+        try await monitor.setBlocking(for: server.id, enabled: false, duration: duration)
         await MainActor.run {
           timerManager.startDisable(duration: duration)
           monitor.lastPollError = nil
@@ -164,7 +164,7 @@ struct MenuContentView: View {
     }
     Task {
       do {
-        try await monitor.setBlocking(for: server, enabled: true, duration: nil)
+        try await monitor.setBlocking(for: server.id, enabled: true, duration: nil)
         await MainActor.run {
           timerManager.cancelDisable()
           monitor.lastPollError = nil

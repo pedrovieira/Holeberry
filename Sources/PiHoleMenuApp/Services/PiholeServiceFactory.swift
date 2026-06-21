@@ -7,7 +7,7 @@ struct PiholeServiceFactory {
     guard let url = URL(string: config.url) else {
       fatalError("Invalid URL in ServerConfig: \(config.url)")
     }
-    let delegate = CertificateTrustDelegate(trustedHosts: [url.host].compactMap { $0 })
+    let delegate = CertificateTrustDelegate(trustedHosts: Set([url.host].compactMap { $0 }))
     let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
 
     switch config.version {
