@@ -25,8 +25,10 @@ enum SettingsTab: String, CaseIterable {
 }
 
 struct SettingsView: View {
-  @Default(.recentBlockedCount) var recentBlockedCount
-  @Default(.launchAtLogin) var launchAtLogin
+  @Default(.recentBlockedCount)
+  var recentBlockedCount
+  @Default(.launchAtLogin)
+  var launchAtLogin
 
   @State private var isToggling = false
   @State private var requiresApproval = false
@@ -140,7 +142,10 @@ struct SettingsView: View {
       Text("Global Shortcuts")
     } footer: {
       Text(
-        "Shortcuts work globally even when the app is in the background. Press Escape in a recorder to clear a shortcut."
+        """
+        Shortcuts work globally even when the app is in the background. \
+        Press Escape in a recorder to clear a shortcut.
+        """
       )
       .foregroundStyle(.secondary)
     }
@@ -175,8 +180,7 @@ struct SettingsView: View {
     }
   }
 
-  @ViewBuilder
-  private var aboutView: some View {
+  @ViewBuilder private var aboutView: some View {
     Form {
       Section("About PiHole Menu") {
         HStack {

@@ -55,7 +55,7 @@ final class MenuBuilder: NSObject {
       let remaining = max(0, record.durationSeconds - elapsed)
       let formatted = formattedRemaining(remaining)
       item.title = "\(record.domain)  (\(formatted))"
-      item.accessibilityLabel = "\(record.domain), \(formatted) remaining"
+      item.setAccessibilityLabel("\(record.domain), \(formatted) remaining")
 
       if let submenu = item.submenu, submenu.items.count >= 2 {
         let infoItem = submenu.items[0]
@@ -131,7 +131,8 @@ final class MenuBuilder: NSObject {
   // MARK: - Disable Specific URL
 
   private func addDisableURLSection(
-    to menu: NSMenu, recentBlocked: [String],
+    to menu: NSMenu,
+    recentBlocked: [String],
     isConnected: Bool
   ) {
     let deduped = Array(NSOrderedSet(array: recentBlocked)).compactMap { $0 as? String }
@@ -154,7 +155,7 @@ final class MenuBuilder: NSObject {
     let item = NSMenuItem(title: "Recently Blocked", action: nil, keyEquivalent: "")
     item.submenu = submenu
     item.isEnabled = isConnected
-    item.accessibilityLabel = "Recently blocked domains"
+    item.setAccessibilityLabel("Recently blocked domains")
     menu.addItem(item)
   }
 
@@ -193,7 +194,7 @@ final class MenuBuilder: NSObject {
 
       let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
       item.identifier = NSUserInterfaceItemIdentifier("unblock-countdown:\(record.uuid)")
-      item.accessibilityLabel = "\(record.domain), \(formattedRemaining(remaining)) remaining"
+      item.setAccessibilityLabel("\(record.domain), \(formattedRemaining(remaining)) remaining")
       menu.addItem(item)
     }
   }
@@ -311,7 +312,7 @@ final class MenuBuilder: NSObject {
     guard let server = serverManager.servers.first, server.version != nil else { return }
     Task {
       do {
-        try await serverManager.setBlocking(for: server, enabled: enabled, duration: duration)
+        try await serverManager.setBlocking(for: server.id, enabled: enabled, duration: duration)
         if enabled {
           timerManager.cancelDisable()
         } else {
