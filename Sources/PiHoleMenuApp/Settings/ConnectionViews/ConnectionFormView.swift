@@ -66,7 +66,7 @@ struct ConnectionFormView: View {
             RoundedRectangle(cornerRadius: 5)
               .stroke(hasURLError ? Color.red : .clear, lineWidth: 1)
           )
-          .onChange(of: url) { _ in
+          .onChange(of: url) {
             if isTotpError {
               isTotpError = false
               createError = nil
@@ -84,7 +84,7 @@ struct ConnectionFormView: View {
           .labelsHidden()
           .frame(maxWidth: .infinity)
           .disabled(isCreating)
-          .onChange(of: credential) { _ in
+          .onChange(of: credential) {
             if isTotpError {
               isTotpError = false
               createError = nil
