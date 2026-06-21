@@ -309,7 +309,7 @@ final class MenuBuilder: NSObject {
   // MARK: - Blocking Execution
 
   private func performBlocking(enabled: Bool, duration: TimeInterval?) {
-    guard let server = serverManager.servers.first, server.version != nil else { return }
+    guard let server = serverManager.servers.first else { return }
     Task {
       do {
         try await serverManager.setBlocking(for: server.id, enabled: enabled, duration: duration)

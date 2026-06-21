@@ -138,7 +138,7 @@ struct MenuContentView: View {
   // MARK: - Actions
 
   private func disableBlocking(duration: TimeInterval?) {
-    guard let server = monitor.servers.first, server.version != nil else {
+    guard let server = monitor.servers.first else {
       monitor.lastPollError = "No configured Pi-hole instance"
       return
     }
@@ -158,7 +158,7 @@ struct MenuContentView: View {
   }
 
   private func enableBlocking() {
-    guard let server = monitor.servers.first, server.version != nil else {
+    guard let server = monitor.servers.first else {
       monitor.lastPollError = "No configured Pi-hole instance"
       return
     }
