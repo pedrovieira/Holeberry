@@ -52,7 +52,7 @@ final class PiholeV5Service: PiholeServiceProtocol {
     self.url = urlString
     self.baseURL = newURL
     session.invalidateAndCancel()
-    let delegate = CertificateTrustDelegate(trustedHosts: [newURL.host].compactMap { $0 })
+    let delegate = CertificateTrustDelegate(trustedHosts: Set([newURL.host].compactMap { $0 }))
     self.session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
   }
 
@@ -88,8 +88,10 @@ final class PiholeV5Service: PiholeServiceProtocol {
         lastError = error
         guard shouldRetry(error), attempt < Self.maxRetries - 1 else { throw error }
         logger.debug(
-          "Retrying \(path) after error (attempt \(attempt + 1)/\(Self.maxRetries)): "
-            + "\(error.localizedDescription, privacy: .public)"
+          """
+          Retrying \(path) after error (attempt \(attempt + 1)/\(Self.maxRetries)): \
+          \(error.localizedDescription, privacy: .public)
+          """
         )
         try? await Task.sleep(for: .seconds(Self.backoffSeconds[attempt]))
       }
