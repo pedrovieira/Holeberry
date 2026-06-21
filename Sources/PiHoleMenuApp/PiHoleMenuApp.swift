@@ -50,7 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 // MARK: - UNUserNotificationCenterDelegate
 
-extension AppDelegate: UNUserNotificationCenterDelegate {
+extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,

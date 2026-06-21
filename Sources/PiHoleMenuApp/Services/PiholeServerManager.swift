@@ -205,8 +205,7 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
         service.version = version
       } catch {
         logger.warning(
-          "refreshStatuses failed for \(service.label ?? service.url): "
-            + "\(error.localizedDescription, privacy: .public)"
+          "refreshStatuses failed for \(service.label ?? service.url): \(error.localizedDescription, privacy: .public)"
         )
       }
     }

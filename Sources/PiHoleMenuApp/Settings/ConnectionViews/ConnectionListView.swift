@@ -5,7 +5,7 @@ struct ConnectionListView: View {
   @State private var isAdding = false
   @State private var editingServerID: UUID?
   @State private var showDeleteConfirmation = false
-  @State private var serverToDelete: PiholeServer?
+  @State private var serverToDelete: ServerConfig?
 
   var body: some View {
     Section {
@@ -37,7 +37,7 @@ struct ConnectionListView: View {
           .padding(.vertical, 4)
         } else {
           ConnectionCardView(
-            server: server,
+            config: server,
             status: monitor.connectionStatuses[server.id] ?? .unknown,
             onEdit: { editingServerID = server.id },
             onDelete: {
@@ -63,10 +63,13 @@ struct ConnectionListView: View {
       }
 
       if monitor.servers.count < 2 && !isAdding && editingServerID == nil {
-        Button(action: { isAdding = true }, label: {
-          Label("New Connection", systemImage: "plus.circle")
-            .font(.system(size: 12))
-        })
+        Button(
+          action: { isAdding = true },
+          label: {
+            Label("New Connection", systemImage: "plus.circle")
+              .font(.system(size: 12))
+          }
+        )
         .buttonStyle(.plain)
         .foregroundColor(.accentColor)
         .padding(.vertical, 4)

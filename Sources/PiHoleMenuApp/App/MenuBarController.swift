@@ -104,27 +104,27 @@ final class MenuBarController: NSObject {
       button.image = NSImage(
         systemSymbolName: "shield.slash.fill", accessibilityDescription: "Pi-hole Disabled"
       )
-      button.accessibilityLabel = "Pi-hole disabled, \(timerManager.formattedTime) remaining"
+      button.setAccessibilityLabel("Pi-hole disabled, \(timerManager.formattedTime) remaining")
     } else if isDisabled {
       button.title = "∞"
       button.image = NSImage(
         systemSymbolName: "shield.slash.fill", accessibilityDescription: "Pi-hole Disabled Indefinitely"
       )
-      button.accessibilityLabel = "Pi-hole disabled indefinitely"
+      button.setAccessibilityLabel("Pi-hole disabled indefinitely")
     } else {
       button.title = ""
       button.image = NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Pi-hole Active")
-      button.accessibilityLabel = "Pi-hole blocking active"
+      button.setAccessibilityLabel("Pi-hole blocking active")
     }
   }
 
   // MARK: - Initial Status
 
   private func pollInitialStatus() {
-    guard let server = serverManager.servers.first, server.version != nil else { return }
+    guard let server = serverManager.servers.first else { return }
     Task {
       do {
-        let status = try await serverManager.getBlockingStatus(for: server)
+        let status = try await serverManager.getBlockingStatus(for: server.id)
         timerManager.syncFromRemote(status)
       } catch {
         logger.warning("Initial status poll failed: \(error.localizedDescription, privacy: .public)")
@@ -161,15 +161,17 @@ final class MenuBarController: NSObject {
     ) { [weak self] notification in
       guard let self else { return }
       let serverHost: String
-      if let serverURL = notification.userInfo?["serverURL"] as? String,
-        let host = URL(string: serverURL)?.host
-      {
-        serverHost = host
+      let serverURL = notification.userInfo?["serverURL"] as? String
+      let extractedHost = serverURL.flatMap { URL(string: $0)?.host }
+      if let extractedHost {
+        serverHost = extractedHost
       } else {
         serverHost = "your Pi-hole"
       }
-      self.showError("TOTP required — update credential in Settings", persistent: true)
-      self.sendTotpUserNotification(host: serverHost)
+      Task { @MainActor in
+        self.showError("TOTP required — update credential in Settings", persistent: true)
+        self.sendTotpUserNotification(host: serverHost)
+      }
     }
   }
 
@@ -206,7 +208,7 @@ final class MenuBarController: NSObject {
   }
 
   private func refreshRecentBlockedCache() {
-    guard let server = serverManager.servers.first, server.version != nil else {
+    guard let server = serverManager.servers.first else {
       recentBlockedCache = []
       lastCacheRefresh = Date()
       return
@@ -214,7 +216,7 @@ final class MenuBarController: NSObject {
     Task {
       do {
         let length = max(Defaults[.recentBlockedCount], 20)
-        let blocked = try await serverManager.perform(for: server) { service in
+        let blocked = try await serverManager.perform(for: server.id) { service in
           try await service.getRecentBlocked(count: length)
         }
         recentBlockedCache = blocked

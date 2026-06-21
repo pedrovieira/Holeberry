@@ -43,11 +43,11 @@ targets:
       - name: Run SwiftLint
         basedOnDependencyAnalysis: false
         script: |
-          LINT_BIN=$(xcrun --find swiftlint 2>/dev/null)
-          if [ -n "$LINT_BIN" ]; then
-            "$LINT_BIN" --strict
+          export PATH="$PATH:/opt/homebrew/bin"
+          if which swiftlint > /dev/null; then
+            swiftlint --strict
           else
-            echo "warning: swiftlint not found"
+            echo "warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint"
           fi
       - name: Run swift-format lint
         basedOnDependencyAnalysis: false

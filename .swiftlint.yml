@@ -1,17 +1,16 @@
 excluded:
-  - ${PWD}/Carthage
-  - ${PWD}/Pods
-  - ${PWD}/DerivedData
   - .build
+  - DerivedData
+
+strict: true
 
 disabled_rules:
   - discarded_notification_center_observer
   - notification_center_detachment
+  - opening_brace
   - orphaned_doc_comment
+  - pattern_matching_keywords
   - todo
-
-analyzer_rules:
-  - unused_import
 
 opt_in_rules:
   - array_init
@@ -41,7 +40,6 @@ opt_in_rules:
   - multiline_parameters_brackets
   - operator_usage_whitespace
   - overridden_super_call
-  - pattern_matching_keywords
   - prefer_self_type_over_type_of_self
   - redundant_nil_coalescing
   - redundant_type_annotation
