@@ -93,7 +93,6 @@ struct SettingsView: View {
     .frame(width: 580, height: 400)
     .onAppear {
       syncLaunchAtLoginFromSystem()
-      migrateFromSingleServerIfNeeded()
     }
     .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
       guard (notification.object as? NSWindow)?.identifier?.rawValue == "Settings" else { return }
@@ -186,8 +185,10 @@ struct SettingsView: View {
         HStack {
           Label("Version", systemImage: "info.circle")
           Spacer()
-          Text("1.0")
-            .foregroundStyle(.secondary)
+          if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            Text(version)
+              .foregroundStyle(.secondary)
+          }
         }
       }
 
@@ -285,37 +286,5 @@ struct SettingsView: View {
   private func syncLaunchAtLoginFromSystem() {
     launchAtLogin = SMAppService.mainApp.status == .enabled
     requiresApproval = SMAppService.mainApp.status == .requiresApproval
-  }
-
-  private func migrateFromSingleServerIfNeeded() {
-    guard UserDefaults.standard.string(forKey: "serverURL") != nil else { return }
-
-    let manager = serverManager
-    guard manager.servers.isEmpty else {
-      UserDefaults.standard.removeObject(forKey: "serverURL")
-      return
-    }
-
-    let oldURL = UserDefaults.standard.string(forKey: "serverURL") ?? ""
-    guard !oldURL.isEmpty else {
-      UserDefaults.standard.removeObject(forKey: "serverURL")
-      return
-    }
-
-    let keychain = KeychainManager.shared
-    guard let credential = try? keychain.readCredential(for: oldURL), !credential.isEmpty else {
-      UserDefaults.standard.removeObject(forKey: "serverURL")
-      return
-    }
-
-    Task {
-      do {
-        try await manager.addServer(label: nil, url: oldURL, credential: credential)
-        logger.info("Migrated single-server config to multi-instance format")
-      } catch {
-        logger.error("Migration failed: \(error.localizedDescription, privacy: .public)")
-      }
-      UserDefaults.standard.removeObject(forKey: "serverURL")
-    }
   }
 }
