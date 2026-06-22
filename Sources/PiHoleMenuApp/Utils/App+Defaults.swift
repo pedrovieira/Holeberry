@@ -12,7 +12,7 @@ import Foundation
 // Defaults handles Codable types automatically.
 
 extension Defaults.Keys {
-  /// JSON-encoded list of configured Pi-hole instances.
+  /// List of configured Pi-hole instances.
   static let servers = Defaults.Key<[ServerConfig]>("servers", default: [])
 
   /// How many recent blocked queries to fetch (persisted slider value).
@@ -21,7 +21,7 @@ extension Defaults.Keys {
   /// Whether the app should launch at login.
   static let launchAtLogin = Defaults.Key<Bool>("launchAtLogin", default: false)
 
-  /// JSON-encoded list of active temp-unblock records.
+  /// List of active temp-unblock records.
   static let tempUnblocks = Defaults.Key<[TempUnblockRecord]>(
     "tempUnblocks", default: [])
 }
