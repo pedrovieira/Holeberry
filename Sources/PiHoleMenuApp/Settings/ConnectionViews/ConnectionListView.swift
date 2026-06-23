@@ -9,15 +9,6 @@ struct ConnectionListView: View {
 
   var body: some View {
     Section {
-      VStack(alignment: .leading, spacing: 8) {
-        Text("Your Pi-hole Connections")
-          .font(.system(size: 13, weight: .semibold))
-        Text("Add and manage Pi-hole instances. Max 2 connections.")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-      }
-      .padding(.bottom, 4)
-
       ForEach(monitor.servers) { server in
         if editingServerID == server.id {
           ConnectionFormView(
@@ -82,6 +73,16 @@ struct ConnectionListView: View {
           .frame(maxWidth: .infinity)
           .padding(.top, 4)
       }
+    } header: {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("Your Pi-hole connections")
+          .font(.headline)
+        Text("Add and manage Pi-hole instances. Max 2 connections.")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+      }
+      .textCase(nil)  // stops the default small-caps/uppercase header style
+      .padding(.bottom, 4)
     }
     .alert("Delete Connection", isPresented: $showDeleteConfirmation, presenting: serverToDelete) { server in
       Button("Cancel", role: .cancel) { serverToDelete = nil }

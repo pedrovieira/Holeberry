@@ -10,6 +10,7 @@ final class MenuBarController: NSObject {
   private let timerManager = TimerManager()
   private let serverManager = PiholeServerManager.shared
   private let reachability = ReachabilityMonitor()
+  private let statusMonitor = ServerStatusMonitor.shared
   private let tempUnblockManager: TempUnblockManager
   private lazy var menuBuilder: MenuBuilder = {
     let builder = MenuBuilder(
@@ -19,6 +20,9 @@ final class MenuBarController: NSObject {
     )
     builder.onDisableURL = { [weak self] domain, duration in
       self?.performTempUnblock(domain: domain, duration: duration)
+    }
+    builder.onAddToAllowlist = { [weak self] domain in
+      self?.addToAllowlist(domain: domain)
     }
 
     return builder
@@ -72,7 +76,11 @@ final class MenuBarController: NSObject {
       recentBlocked: recentBlockedCache,
       error: errorMessage,
       isConnected: reachability.isConnected,
-      activeRecords: tempUnblockManager.activeRecords
+      activeRecords: tempUnblockManager.activeRecords,
+      combinedStatus: statusMonitor.combinedStatus,
+      connectionStatuses: statusMonitor.connectionStatuses,
+      blockingStatuses: statusMonitor.blockingStatuses,
+      servers: statusMonitor.servers
     )
     menu.delegate = self
     currentMenu = menu
@@ -236,6 +244,52 @@ final class MenuBarController: NSObject {
         setError(nil)
       } catch {
         showError("Failed to unblock \(domain): \(error.localizedDescription)")
+      }
+    }
+  }
+
+  // MARK: - Add to Allowlist
+
+  private func addToAllowlist(domain: String) {
+    let servers = serverManager.servers
+    guard !servers.isEmpty else { return }
+
+    Task {
+      var successCount = 0
+      let total = servers.count
+
+      for config in servers {
+        do {
+          _ = try await serverManager.perform(for: config.id) { service in
+            try await service.addDomain(domain, to: .allow, comment: nil)
+          }
+          successCount += 1
+        } catch {
+          logger.warning("Allowlist failed: \(error.localizedDescription, privacy: .public)")
+        }
+      }
+
+      if successCount < total {
+        let content = UNMutableNotificationContent()
+        content.sound = .default
+        if successCount == 0 {
+          content.title = "Failed to add to allowlist"
+          content.body = "Could not add \"\(domain)\" to the allowlist on any instance."
+        } else {
+          content.title = "Partially added to allowlist"
+          content.body = "Added \"\(domain)\" to allowlist on \(successCount)/\(total) instances."
+        }
+        let request = UNNotificationRequest(
+          identifier: "allowlist-fail-\(domain)-\(Date().timeIntervalSince1970)",
+          content: content,
+          trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request) { [weak self] error in
+          if let error {
+            self?.logger.warning(
+              "Failed to deliver allowlist notification: \(error.localizedDescription, privacy: .public)")
+          }
+        }
       }
     }
   }
