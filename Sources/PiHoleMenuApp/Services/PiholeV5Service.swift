@@ -109,7 +109,6 @@ final class PiholeV5Service: PiholeServiceProtocol {
     struct StatusResponse: Decodable {
       let status: String?
     }
-
     let status: StatusResponse
     do {
       status = try Self.decoder.decode(StatusResponse.self, from: data)
@@ -121,6 +120,30 @@ final class PiholeV5Service: PiholeServiceProtocol {
       return .enabled
     }
     return .disabled(remainingSeconds: nil)
+  }
+  // MARK: - Summary
+
+  func getQuerySummary() async throws -> QuerySummary {
+    let (data, httpResponse) = try await getRequest(
+      path: "/admin/api.php", params: ["summaryRaw": nil]
+    )
+
+    guard httpResponse.statusCode == 200 else {
+      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+    }
+
+    // v5 returns numbers as strings in JSON with snake_case keys
+    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let queriesTotalStr = json["queries_total"] as? String,
+      let adsBlockedStr = json["ads_blocked_today"] as? String,
+      let totalQueries = Int(queriesTotalStr),
+      let totalBlocked = Int(adsBlockedStr)
+    else {
+      let body = String(data: data, encoding: .utf8) ?? ""
+      throw PiholeError.decoding("Unexpected summary format: \(body)")
+    }
+
+    return QuerySummary(totalQueries: totalQueries, totalBlocked: totalBlocked)
   }
 
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
@@ -356,7 +379,6 @@ final class PiholeV5Service: PiholeServiceProtocol {
     guard let httpResponse = response as? HTTPURLResponse else {
       throw PiholeError.unknown("Invalid response for \(path)")
     }
-
     return (data, httpResponse)
   }
 }

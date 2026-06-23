@@ -215,7 +215,7 @@ struct SettingsView: View {
       Section {
         HStack(spacing: 24) {
           Spacer()
-          socialButton(icon: "xmark", label: "X", url: "https://x.com/w1tch_")
+          socialButton(icon: Image("X"), label: "X", url: "https://x.com/w1tch_")
           Button {
             openURL("https://github.com/pedrovieira")
           } label: {
@@ -230,7 +230,7 @@ struct SettingsView: View {
             .contentShape(Rectangle())
           }
           .buttonStyle(PlainButtonStyle())
-          socialButton(icon: "globe", label: "Website", url: "https://pedrovieira.me")
+          socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://pedrovieira.me")
           Spacer()
         }
       } header: {
@@ -265,13 +265,12 @@ struct SettingsView: View {
     NSWorkspace.shared.open(url)
   }
 
-  private func socialButton(icon: String, label: String, url: String) -> some View {
+  private func socialButton(icon: Image, label: String, url: String) -> some View {
     Button {
-      guard let url = URL(string: url) else { return }
-      NSWorkspace.shared.open(url)
+      openURL(url)
     } label: {
       VStack(spacing: 4) {
-        Image(systemName: icon)
+        icon
           .resizable()
           .aspectRatio(contentMode: .fit)
           .frame(width: 16, height: 16)

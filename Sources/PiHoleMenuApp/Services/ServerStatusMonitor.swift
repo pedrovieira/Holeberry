@@ -108,6 +108,8 @@ final class ServerStatusMonitor: ObservableObject {
 
     logger.debug("Polling all servers...")
     var connectedCount = 0
+    var totalQueries = 0
+    var totalBlocked = 0
     var anyError: String?
 
     for config in servers {
@@ -126,6 +128,19 @@ final class ServerStatusMonitor: ObservableObject {
         connectionStatuses[config.id] = .connected
         blockingStatuses[config.id] = blocking
         connectedCount += 1
+
+        // Aggregate query summary stats
+        do {
+          let summary = try await manager.perform(for: config.id) { service in
+            try await service.getQuerySummary()
+          }
+          totalQueries += summary.totalQueries
+          totalBlocked += summary.totalBlocked
+        } catch {
+          logger.warning(
+            "Query summary failed for \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)")
+          // Non-fatal: stats just won't include this instance this cycle
+        }
       } catch {
         logger.warning("Poll failed for \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)")
         connectionStatuses[config.id] = .disconnected
@@ -145,5 +160,8 @@ final class ServerStatusMonitor: ObservableObject {
         return false
       }
     lastPollError = anyError
+
+    combinedStatus.totalQueries = totalQueries
+    combinedStatus.totalBlocked = totalBlocked
   }
 }

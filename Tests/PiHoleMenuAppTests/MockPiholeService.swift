@@ -23,6 +23,9 @@ final class MockPiholeService: PiholeServiceProtocol {
   var getRecentQueriesStub: Result<[RecentQuery], Error> = .success([])
   var getRecentQueriesCallCount = 0
 
+  var getQuerySummaryStub: Result<QuerySummary, Error> = .success(QuerySummary(totalQueries: 0, totalBlocked: 0))
+  var getQuerySummaryCallCount = 0
+
   var addDomainStub: Result<DomainEntry, Error> = .success(
     DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil))
   var addDomainCallCount = 0
@@ -71,6 +74,11 @@ final class MockPiholeService: PiholeServiceProtocol {
   func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {
     getRecentQueriesCallCount += 1
     return try getRecentQueriesStub.get()
+  }
+
+  func getQuerySummary() async throws -> QuerySummary {
+    getQuerySummaryCallCount += 1
+    return try getQuerySummaryStub.get()
   }
 
   func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {

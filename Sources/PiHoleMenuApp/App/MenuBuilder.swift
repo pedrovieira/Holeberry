@@ -9,6 +9,7 @@ final class MenuBuilder: NSObject {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-builder")
 
   var onDisableURL: ((String, TimeInterval) -> Void)?
+  var onAddToAllowlist: ((String) -> Void)?
 
   init(
     serverManager: PiholeServerManager,
@@ -20,14 +21,34 @@ final class MenuBuilder: NSObject {
     self.tempUnblockManager = tempUnblockManager
   }
 
+  // swiftlint:disable:next function_parameter_count
   func buildMenu(
     recentBlocked: [String],
     error: String?,
     isConnected: Bool,
-    activeRecords: [TempUnblockRecord]
+    activeRecords: [TempUnblockRecord],
+    combinedStatus: CombinedStatus,
+    connectionStatuses: [UUID: ConnectionStatus],
+    blockingStatuses: [UUID: BlockingStatus],
+    servers: [ServerConfig]
   ) -> NSMenu {
     let menu = NSMenu()
-    addStatusSection(to: menu, error: error, isConnected: isConnected, records: activeRecords)
+    addStatusSection(
+      to: menu,
+      error: error,
+      isConnected: isConnected,
+      combinedStatus: combinedStatus,
+      connectionStatuses: connectionStatuses,
+      blockingStatuses: blockingStatuses,
+      servers: servers
+    )
+    menu.addItem(.separator())
+    addInstancesSection(
+      to: menu,
+      connectionStatuses: connectionStatuses,
+      blockingStatuses: blockingStatuses,
+      servers: servers
+    )
     menu.addItem(.separator())
     addBlockingControls(to: menu, isConnected: isConnected)
     menu.addItem(.separator())
@@ -64,40 +85,110 @@ final class MenuBuilder: NSObject {
     }
   }
 
-  // MARK: - Status Section
-
-  private func addStatusSection(to menu: NSMenu, error: String?, isConnected: Bool, records: [TempUnblockRecord]) {
-    let statusTitle = buildStatusText(error: error, isConnected: isConnected)
-    let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
-    statusItem.isEnabled = false
-    menu.addItem(statusItem)
-
-    if serverManager.servers.count > 1 {
-      let countItem = NSMenuItem(
-        title: "\(serverManager.servers.count) instances configured", action: nil, keyEquivalent: ""
-      )
-      countItem.isEnabled = false
-      menu.addItem(countItem)
-    }
-  }
-
-  private func buildStatusText(error: String?, isConnected: Bool) -> String {
+  // swiftlint:disable:next function_parameter_count
+  private func addStatusSection(
+    to menu: NSMenu,
+    error: String?,
+    isConnected: Bool,
+    combinedStatus: CombinedStatus,
+    connectionStatuses: [UUID: ConnectionStatus],
+    blockingStatuses: [UUID: BlockingStatus],
+    servers: [ServerConfig]
+  ) {
     if let error {
-      return "⚠ \(error)"
+      let item = NSMenuItem()
+      item.attributedTitle = MenuItemFactory.statusLine(
+        dotColor: .systemRed,
+        text: "⚠ \(error)"
+      )
+      item.isEnabled = false
+      menu.addItem(item)
+    } else if !isConnected {
+      let item = NSMenuItem(title: "Disconnected", action: nil, keyEquivalent: "")
+      item.isEnabled = false
+      menu.addItem(item)
+    } else if servers.isEmpty {
+      let item = NSMenuItem(title: "No instances configured", action: nil, keyEquivalent: "")
+      item.isEnabled = false
+      menu.addItem(item)
+    } else {
+      let (dotColor, statusText) = resolveStatusColor(
+        connectionStatuses: connectionStatuses,
+        blockingStatuses: blockingStatuses,
+        servers: servers
+      )
+      let statusItem = NSMenuItem()
+      statusItem.attributedTitle = MenuItemFactory.statusLine(
+        dotColor: dotColor,
+        text: statusText
+      )
+      statusItem.isEnabled = false
+      menu.addItem(statusItem)
+
+      let statsItem = NSMenuItem()
+      statsItem.attributedTitle = MenuItemFactory.statsLine(
+        totalQueries: combinedStatus.totalQueries,
+        totalBlocked: combinedStatus.totalBlocked
+      )
+      statsItem.isEnabled = false
+      menu.addItem(statsItem)
     }
-    if !isConnected {
-      return "Disconnected"
-    }
-    if serverManager.servers.isEmpty {
-      return "No instances configured"
-    }
-    if timerManager.isDisabled {
-      return "Blocking Disabled"
-    }
-    return "Blocking Active"
   }
 
-  // MARK: - Blocking Controls
+  private func resolveStatusColor(
+    connectionStatuses: [UUID: ConnectionStatus],
+    blockingStatuses: [UUID: BlockingStatus],
+    servers: [ServerConfig]
+  ) -> (dotColor: NSColor, statusText: String) {
+    if timerManager.isDisabled {
+      return (.systemRed, "Blocking Disabled")
+    }
+    let connectedIDs = servers.compactMap { config in
+      connectionStatuses[config.id] == .connected ? config.id : nil
+    }
+    if connectedIDs.isEmpty {
+      return (.systemRed, "Blocking Disabled")
+    }
+    let blockingConnectedIDs = connectedIDs.filter { id in
+      if case .enabled = blockingStatuses[id] { return true }
+      return false
+    }
+    if blockingConnectedIDs.count == connectedIDs.count {
+      return (.systemGreen, "Blocking Active")
+    } else if !blockingConnectedIDs.isEmpty {
+      return (.systemYellow, "Blocking Partially Active")
+    } else {
+      return (.systemRed, "Blocking Disabled")
+    }
+  }
+
+  private func addInstancesSection(
+    to menu: NSMenu,
+    connectionStatuses: [UUID: ConnectionStatus],
+    blockingStatuses: [UUID: BlockingStatus],
+    servers: [ServerConfig]
+  ) {
+    guard !servers.isEmpty else { return }
+
+    let groupItem = NSMenuItem()
+    groupItem.attributedTitle = MenuItemFactory.instancesGroupLabel()
+    groupItem.isEnabled = false
+    menu.addItem(groupItem)
+
+    for config in servers {
+      let connected = connectionStatuses[config.id] == .connected
+      let blocking = if case .enabled = blockingStatuses[config.id] { true } else { false }
+      let dotColor: NSColor = (connected && blocking) ? .systemGreen : .systemRed
+
+      let item = NSMenuItem()
+      item.attributedTitle = MenuItemFactory.instanceLine(
+        dotColor: dotColor,
+        label: config.label ?? config.url
+      )
+      item.isEnabled = false
+      menu.addItem(item)
+    }
+  }
 
   private func addBlockingControls(to menu: NSMenu, isConnected: Bool) {
     if timerManager.isDisabled {
@@ -127,8 +218,6 @@ final class MenuBuilder: NSObject {
       menu.addItem(item)
     }
   }
-
-  // MARK: - Disable Specific URL
 
   private func addDisableURLSection(
     to menu: NSMenu,
@@ -167,6 +256,15 @@ final class MenuBuilder: NSObject {
     addDurationItem(to: submenu, domain: domain, duration: 900, title: "15 minutes")
     submenu.addItem(.separator())
 
+    let allowlistItem = NSMenuItem(
+      title: "Add to allowlist",
+      action: #selector(addToAllowlistAction),
+      keyEquivalent: ""
+    )
+    allowlistItem.target = self
+    allowlistItem.representedObject = domain
+    submenu.addItem(allowlistItem)
+
     let customItem = NSMenuItem(title: "Custom...", action: #selector(disableURLWithCustomTime), keyEquivalent: "")
     customItem.target = self
     customItem.representedObject = domain
@@ -181,8 +279,6 @@ final class MenuBuilder: NSObject {
     item.representedObject = ["domain": domain, "duration": duration] as NSDictionary
     menu.addItem(item)
   }
-
-  // MARK: - Active Unblock Section
 
   private func addActiveUnblockSection(to menu: NSMenu, activeRecords: [TempUnblockRecord]) {
     let now = Date()
@@ -199,8 +295,6 @@ final class MenuBuilder: NSObject {
     }
   }
 
-  // MARK: - Settings & Quit
-
   private func addSettingsAndQuit(to menu: NSMenu) {
     let settingsItem = NSMenuItem(
       title: "Settings...", action: #selector(openSettings), keyEquivalent: ","
@@ -214,8 +308,6 @@ final class MenuBuilder: NSObject {
     menu.addItem(quitItem)
   }
 
-  // MARK: - Helpers
-
   private func formattedRemaining(_ totalSeconds: TimeInterval) -> String {
     let seconds = Int(max(0, totalSeconds))
     if seconds >= 60 {
@@ -224,23 +316,10 @@ final class MenuBuilder: NSObject {
     return "\(seconds)s"
   }
 
-  // MARK: - Actions: Blocking
-
-  @objc private func disableIndefinitely() {
-    performBlocking(enabled: false, duration: nil)
-  }
-
-  @objc private func disable10s() {
-    performBlocking(enabled: false, duration: 10)
-  }
-
-  @objc private func disable30s() {
-    performBlocking(enabled: false, duration: 30)
-  }
-
-  @objc private func disable5m() {
-    performBlocking(enabled: false, duration: 300)
-  }
+  @objc private func disableIndefinitely() { performBlocking(enabled: false, duration: nil) }
+  @objc private func disable10s() { performBlocking(enabled: false, duration: 10) }
+  @objc private func disable30s() { performBlocking(enabled: false, duration: 30) }
+  @objc private func disable5m() { performBlocking(enabled: false, duration: 300) }
 
   @objc private func disableCustom() {
     let alert = NSAlert()
@@ -263,11 +342,7 @@ final class MenuBuilder: NSObject {
     }
   }
 
-  @objc private func reEnableBlocking() {
-    performBlocking(enabled: true, duration: nil)
-  }
-
-  // MARK: - Actions: Disable Specific URL
+  @objc private func reEnableBlocking() { performBlocking(enabled: true, duration: nil) }
 
   @objc private func disableURLDurationAction(_ sender: NSMenuItem) {
     guard let dict = sender.representedObject as? NSDictionary,
@@ -300,13 +375,12 @@ final class MenuBuilder: NSObject {
     }
   }
 
-  // MARK: - Actions: Settings
-
-  @objc private func openSettings() {
-    SettingsWindowController.shared.showWindow()
+  @objc private func addToAllowlistAction(_ sender: NSMenuItem) {
+    guard let domain = sender.representedObject as? String else { return }
+    onAddToAllowlist?(domain)
   }
 
-  // MARK: - Blocking Execution
+  @objc private func openSettings() { SettingsWindowController.shared.showWindow() }
 
   private func performBlocking(enabled: Bool, duration: TimeInterval?) {
     guard let server = serverManager.servers.first else { return }

@@ -1,5 +1,10 @@
 import Foundation
 
+struct QuerySummary {
+  let totalQueries: Int
+  let totalBlocked: Int
+}
+
 /// Abstract interface for Pi-hole API operations. Implemented separately for v5 and v6.
 protocol PiholeServiceProtocol: AnyObject {
   /// Stable server identity.
@@ -14,6 +19,7 @@ protocol PiholeServiceProtocol: AnyObject {
   // MARK: - API
 
   func checkStatus() async throws -> BlockingStatus
+  func getQuerySummary() async throws -> QuerySummary
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws
   func getRecentBlocked(count: Int) async throws -> [String]
   func getRecentQueries(clientIP: String?) async throws -> [RecentQuery]
