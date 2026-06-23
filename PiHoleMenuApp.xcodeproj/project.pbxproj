@@ -15,6 +15,7 @@
 		2A6F75B890257B7429777677 /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687CE73EA346A3EF0A09C0A9 /* ShortcutNames.swift */; };
 		2F51A3D90598F542EB14F5D6 /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967DB92892E8E62E0706D9AD /* ConnectionCardView.swift */; };
 		368F178366A8078E58002D4E /* TempUnblockManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54AC406B058539963AE1B9F3 /* TempUnblockManagerTests.swift */; };
+		3D89B96CB624AAEE7C076073 /* MenuItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7C4FD297B1B5FAD281563D /* MenuItemFactory.swift */; };
 		42E1D6699C0B8E708983BECC /* PiholeServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31B000A46C8AAB408A7AB1C /* PiholeServiceFactory.swift */; };
 		48D31172334469C83AB28A6C /* ServerProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17EB9CF85B8FD552EB0D8B68 /* ServerProviding.swift */; };
 		533212534D1EF6B323E75160 /* TempUnblockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B40BC5651FA9B253A7C731E /* TempUnblockManager.swift */; };
@@ -41,7 +42,6 @@
 		D264C4CA3B98AC865F15D131 /* SimpleKeychain in Frameworks */ = {isa = PBXBuildFile; productRef = 6D6BFB60232B23353A9BF8E2 /* SimpleKeychain */; };
 		D434D65CE323013DE10872DA /* App+Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = B21E35104CDA92E333EEF583 /* App+Defaults.swift */; };
 		E248D68C10E9949A0FF2D97F /* MockPiholeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39E2AA4D00BCAEF32D6F0868 /* MockPiholeService.swift */; };
-		E766C8ABAEA6B3F3E08895FA /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38A03EFE8331CAB83610153 /* MenuContentView.swift */; };
 		EDCD56C7FDBC0D9095733C9C /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2C265279462281B4F1948F7 /* AuthManager.swift */; };
 		EFC9892D1269B09F6146FF64 /* PiholeV5Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6622B929130B21854D077CE /* PiholeV5Service.swift */; };
 		F11C911571512492955190BF /* PiHoleMenuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F76AC1512A7B1EF5C60939 /* PiHoleMenuApp.swift */; };
@@ -80,6 +80,7 @@
 		557406A4AB39B319EEEDB440 /* PiHoleMenuAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PiHoleMenuAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B40BC5651FA9B253A7C731E /* TempUnblockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockManager.swift; sourceTree = "<group>"; };
 		687CE73EA346A3EF0A09C0A9 /* ShortcutNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutNames.swift; sourceTree = "<group>"; };
+		6A7C4FD297B1B5FAD281563D /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		75DF7021721A80B4D4A9B9E9 /* CertificateTrustDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateTrustDelegate.swift; sourceTree = "<group>"; };
 		791F34ED91F343C173A2145A /* TempUnblockRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockRecord.swift; sourceTree = "<group>"; };
 		797A206AF58C445F627883E9 /* NetworkInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInterface.swift; sourceTree = "<group>"; };
@@ -103,7 +104,6 @@
 		C6CE536A192B4286DA9BB704 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		C7872875694962D49EFAD70A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D2C265279462281B4F1948F7 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
-		D38A03EFE8331CAB83610153 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		E31B916904AA499388D77A6E /* RecentQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentQuery.swift; sourceTree = "<group>"; };
 		E6E4525F96C5A7743DC12289 /* ConnectionFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionFormView.swift; sourceTree = "<group>"; };
 		FE0C60BE53F9D97BA58CF9E0 /* DomainEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainEntry.swift; sourceTree = "<group>"; };
@@ -143,6 +143,7 @@
 				B49560025B59AFC630839F91 /* HTTPMethod.swift */,
 				4CA7117895560662C0E313BB /* KeychainManager.swift */,
 				33F04B8112E11046E5EE2499 /* Logger+Subsystem.swift */,
+				6A7C4FD297B1B5FAD281563D /* MenuItemFactory.swift */,
 				797A206AF58C445F627883E9 /* NetworkInterface.swift */,
 				687CE73EA346A3EF0A09C0A9 /* ShortcutNames.swift */,
 			);
@@ -212,7 +213,6 @@
 			children = (
 				10E6A7A648A8A7D28E4C4449 /* MenuBarController.swift */,
 				7C08FC451CCCA7EF83753F22 /* MenuBuilder.swift */,
-				D38A03EFE8331CAB83610153 /* MenuContentView.swift */,
 				C5EDB230CBB552ED52D73F07 /* ShortcutController.swift */,
 			);
 			path = App;
@@ -417,7 +417,7 @@
 				54CA6E27055330EC260F9AFE /* Logger+Subsystem.swift in Sources */,
 				8422B001399861F49232DC0F /* MenuBarController.swift in Sources */,
 				BE943DD20DB4B8E17C4D3299 /* MenuBuilder.swift in Sources */,
-				E766C8ABAEA6B3F3E08895FA /* MenuContentView.swift in Sources */,
+				3D89B96CB624AAEE7C076073 /* MenuItemFactory.swift in Sources */,
 				FFBF1A9F876FFA71F5E6A7C1 /* NetworkInterface.swift in Sources */,
 				F11C911571512492955190BF /* PiHoleMenuApp.swift in Sources */,
 				C86BD908489ED3001C3C7666 /* PiholeError.swift in Sources */,

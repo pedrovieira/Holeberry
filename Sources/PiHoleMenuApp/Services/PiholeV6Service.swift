@@ -140,6 +140,31 @@ final class PiholeV6Service: PiholeServiceProtocol {
     return result.queries.map(\.domain)
   }
 
+  // MARK: - Summary
+
+  func getQuerySummary() async throws -> QuerySummary {
+    let (data, httpResponse) = try await authenticatedRequest(path: "/api/stats/summary")
+
+    guard httpResponse.statusCode == 200 else {
+      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+    }
+
+    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let queries = json["queries"] as? [String: Any],
+      let totalQueries = queries["total"] as? Int,
+      let totalBlocked = queries["blocked"] as? Int
+    else {
+      let body = String(data: data, encoding: .utf8) ?? ""
+      logger.error("Query summary decode failed. Body: \(body, privacy: .public)")
+      throw PiholeError.decoding("Unexpected summary format")
+    }
+
+    return QuerySummary(
+      totalQueries: totalQueries,
+      totalBlocked: totalBlocked
+    )
+  }
+
   func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {
     guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
       throw PiholeError.unknown("Invalid base URL")
