@@ -62,16 +62,22 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
   }
 
   func updateServer(id: UUID, label: String?, url: String, credential: String?, version: ServerVersion? = nil) {
-    guard let service = services[id] else { return }
+    guard let idx = servers.firstIndex(where: { $0.id == id }) else { return }
 
-    let oldURL = service.url
+    if let service = services[id] {
+      let oldURL = service.url
 
-    if let label { service.label = label }
-    service.url = url
-    if let version { service.version = version }
+      if let label { service.label = label }
+      service.url = url
+      if let version { service.version = version }
 
-    if url != oldURL {
-      service.refreshSession(from: url)
+      if url != oldURL {
+        service.refreshSession(from: url)
+      }
+    } else {
+      if let label { servers[idx].label = label }
+      servers[idx].url = url
+      if let version { servers[idx].version = version }
     }
 
     if let credential, !credential.isEmpty {
@@ -84,11 +90,12 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
   }
 
   func deleteServer(id: UUID) {
-    guard let service = services.removeValue(forKey: id) else { return }
     servers.removeAll { $0.id == id }
     saveServers()
     try? keychain.deleteCredential(for: id)
-    Task { await service.logout() }
+    if let service = services.removeValue(forKey: id) {
+      Task { await service.logout() }
+    }
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
   }
 
