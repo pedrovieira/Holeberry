@@ -1,15 +1,40 @@
 import SwiftUI
 
-struct ConnectionFormView: View {
-  enum Mode {
-    case add
-    case edit(ServerConfig)
+// MARK: - Sheet Mode
+
+enum SheetMode: Identifiable {
+  case add(prefillURL: String? = nil)
+  case edit(ServerConfig)
+
+  var id: String {
+    switch self {
+    case .add: return "add"
+    case .edit: return "edit"
+    }
   }
 
-  let mode: Mode
+  var prefillURL: String {
+    switch self {
+    case .add(let prefill): return prefill ?? ""
+    case .edit(let config): return config.url
+    }
+  }
+
+  var existingLabel: String? {
+    if case .edit(let config) = self { return config.label }
+    return nil
+  }
+}
+
+// MARK: - Connection Sheet
+
+struct ConnectionSheet: View {
+  let mode: SheetMode
   var serverCount: Int = 0
   let onSave: (_ label: String?, _ url: String, _ credential: String, _ version: ServerVersion) async throws -> Void
   let onCancel: () -> Void
+
+  let serverManager: PiholeServerManager
 
   @State private var label: String = ""
   @State private var url: String = ""
@@ -21,8 +46,7 @@ struct ConnectionFormView: View {
   @State private var createdServerID: UUID?
   @State private var showingCredentialInfo = false
   @State private var isTotpError = false
-
-  let serverManager: PiholeServerManager
+  @State private var shakeTrigger: Int = 0
 
   private var hasURLError: Bool {
     !isCreating && !url.isEmpty && !isValidURL
@@ -39,72 +63,77 @@ struct ConnectionFormView: View {
   }
 
   var body: some View {
-    VStack(spacing: 8) {
-      HStack(spacing: 4) {
-        Text("Label")
-          .frame(width: 85, alignment: .trailing)
-        TextField("", text: $label, prompt: Text("Instance \(serverCount + 1)"))
-          .textFieldStyle(.roundedBorder)
-          .multilineTextAlignment(.leading)
-          .labelsHidden()
-          .frame(maxWidth: .infinity)
-          .disabled(isCreating)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
+    VStack(spacing: 12) {
+      Text(isAdd ? "New Connection" : "Edit Connection")
+        .font(.headline)
 
-      HStack(spacing: 4) {
-        Text("Instance URL")
-          .frame(width: 85, alignment: .trailing)
-        TextField("", text: $url)
-          .textFieldStyle(.roundedBorder)
-          .multilineTextAlignment(.leading)
-          .labelsHidden()
-          .frame(maxWidth: .infinity)
-          .autocorrectionDisabled()
-          .disabled(isCreating)
-          .background(
-            RoundedRectangle(cornerRadius: 5)
-              .stroke(hasURLError ? Color.red : .clear, lineWidth: 1)
-          )
-          .onChange(of: url) {
-            if isTotpError {
-              isTotpError = false
-              createError = nil
+      Divider()
+
+      VStack(spacing: 8) {
+        HStack(spacing: 4) {
+          Text("Label")
+            .frame(width: 85, alignment: .trailing)
+          TextField("", text: $label, prompt: Text("Instance \(serverCount + 1)"))
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.leading)
+            .labelsHidden()
+            .frame(maxWidth: .infinity)
+            .disabled(isCreating)
+        }
+
+        HStack(spacing: 4) {
+          Text("Instance URL")
+            .frame(width: 85, alignment: .trailing)
+          TextField("", text: $url)
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.leading)
+            .labelsHidden()
+            .frame(maxWidth: .infinity)
+            .autocorrectionDisabled()
+            .textContentType(.URL)
+            .disabled(isCreating)
+            .background(
+              RoundedRectangle(cornerRadius: 5)
+                .stroke(hasURLError ? Color.red : .clear, lineWidth: 1)
+            )
+            .onChange(of: url) {
+              if isTotpError {
+                isTotpError = false
+                createError = nil
+              }
             }
-          }
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
+        }
 
-      HStack(spacing: 4) {
-        Text("Credential")
-          .frame(width: 85, alignment: .trailing)
-        SecureField("", text: $credential)
-          .textFieldStyle(.roundedBorder)
-          .multilineTextAlignment(.leading)
-          .labelsHidden()
-          .frame(maxWidth: .infinity)
-          .disabled(isCreating)
-          .onChange(of: credential) {
-            if isTotpError {
-              isTotpError = false
-              createError = nil
+        HStack(spacing: 4) {
+          Text("Credential")
+            .frame(width: 85, alignment: .trailing)
+          SecureField("", text: $credential)
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.leading)
+            .labelsHidden()
+            .frame(maxWidth: .infinity)
+            .textContentType(.password)
+            .disabled(isCreating)
+            .onChange(of: credential) {
+              if isTotpError {
+                isTotpError = false
+                createError = nil
+              }
             }
-          }
 
-        Button(
-          action: { showingCredentialInfo.toggle() },
-          label: {
+          Button {
+            showingCredentialInfo.toggle()
+          } label: {
             Image(systemName: "info.circle")
               .font(.system(size: 14))
               .foregroundColor(.secondary)
           }
-        )
-        .buttonStyle(.plain)
-        .popover(isPresented: $showingCredentialInfo) {
-          CredentialInfoPopover()
+          .buttonStyle(.plain)
+          .popover(isPresented: $showingCredentialInfo) {
+            CredentialInfoPopover()
+          }
         }
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
 
       if let error = createError {
         HStack(spacing: 4) {
@@ -118,6 +147,8 @@ struct ConnectionFormView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
       }
+
+      Divider()
 
       HStack(spacing: 8) {
         if isTotpError {
@@ -134,31 +165,44 @@ struct ConnectionFormView: View {
           Spacer()
           Button("Cancel", action: handleCancel)
             .font(.system(size: 12))
-          Button(
-            action: { Task { await createServer() } },
-            label: {
-              if isCreating {
-                ProgressView()
-                  .controlSize(.small)
-                  .scaleEffect(0.8)
-              } else {
-                Text("Create")
-              }
+          Button {
+            Task { await createServer() }
+          } label: {
+            if isCreating {
+              ProgressView()
+                .controlSize(.small)
+                .scaleEffect(0.8)
+            } else {
+              Text("Create")
             }
-          )
+          }
           .buttonStyle(.borderedProminent)
           .font(.system(size: 12))
           .disabled(!canCreate)
         }
       }
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(20)
+    .frame(width: 420)
+    .phaseAnimator(
+      [0, -10, 10, -6, 6, -3, 3, 0],
+      trigger: shakeTrigger
+    ) { content, offset in
+      content.offset(x: offset)
+    } animation: { _ in
+      .linear(duration: 0.4)
+    }
     .onAppear {
-      if case .edit(let config) = mode {
-        label = config.label ?? ""
-        url = config.url
+      url = mode.prefillURL
+      if let existingLabel = mode.existingLabel {
+        label = existingLabel
       }
     }
+  }
+
+  private var isAdd: Bool {
+    if case .add = mode { return true }
+    return false
   }
 
   private func handleCancel() {
@@ -166,11 +210,7 @@ struct ConnectionFormView: View {
       task.cancel()
       createTask = nil
     }
-    if didSaveToKeychain, let id = createdServerID {
-      serverManager.revertAddServer(id: id)
-      didSaveToKeychain = false
-      createdServerID = nil
-    }
+    revertKeychain()
     isCreating = false
     createError = nil
     onCancel()
@@ -204,43 +244,46 @@ struct ConnectionFormView: View {
           )
         }
       } catch is CancellationError {
-        if didSaveToKeychain, let id = createdServerID {
-          serverManager.revertAddServer(id: id)
-        }
-        didSaveToKeychain = false
-        createdServerID = nil
+        revertKeychain()
         isCreating = false
       } catch _ as TimeoutError {
-        if didSaveToKeychain, let id = createdServerID {
-          serverManager.revertAddServer(id: id)
-        }
-        didSaveToKeychain = false
-        createdServerID = nil
+        revertKeychain()
         createError = "Creation failed. Timed out (10s)"
+        triggerShake()
         isCreating = false
       } catch PiholeError.totpRequired {
-        if didSaveToKeychain, let id = createdServerID {
-          serverManager.revertAddServer(id: id)
-        }
-        didSaveToKeychain = false
-        createdServerID = nil
+        revertKeychain()
         createError = "Your Pi-hole uses TOTP. Create an Application Password in the web UI and use it here."
         isTotpError = true
+        triggerShake()
         isCreating = false
       } catch {
-        if didSaveToKeychain, let id = createdServerID {
-          serverManager.revertAddServer(id: id)
-        }
-        didSaveToKeychain = false
-        createdServerID = nil
+        revertKeychain()
         createError = "Creation failed: \(error.localizedDescription)"
+        triggerShake()
         isCreating = false
       }
     }
     createTask = task
     await task.value
   }
+
+  private func revertKeychain() {
+    if didSaveToKeychain, let id = createdServerID {
+      serverManager.revertAddServer(id: id)
+    }
+    didSaveToKeychain = false
+    createdServerID = nil
+  }
+
+  private func triggerShake() {
+    withAnimation {
+      shakeTrigger += 1
+    }
+  }
 }
+
+// MARK: - Helpers (moved from ConnectionFormView)
 
 struct TimeoutError: Error, LocalizedError {
   var errorDescription: String? { "Timed out" }

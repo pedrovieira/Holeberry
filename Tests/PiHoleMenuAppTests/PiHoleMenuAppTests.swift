@@ -7,6 +7,18 @@ import XCTest
 
 @MainActor
 final class PiHoleMenuAppTests: XCTestCase {
+  override func setUp() {
+    super.setUp()
+    Defaults[.servers] = []
+    Defaults[.tempUnblocks] = []
+  }
+
+  override func tearDown() {
+    Defaults[.servers] = []
+    Defaults[.tempUnblocks] = []
+    super.tearDown()
+  }
+
   // MARK: - BlockingStatus tests
 
   func testBlockingStatusEquality() {
