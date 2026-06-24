@@ -42,7 +42,7 @@ struct ConnectionListView: View {
         )
       }
 
-      if monitor.servers.count < 2 && sheetMode == nil {
+      if monitor.servers.count < 2 {
         Button {
           sheetMode = .add(prefillURL: nil)
         } label: {
