@@ -82,7 +82,7 @@ struct ConnectionListView: View {
             .foregroundColor(.secondary)
           Spacer()
           ProgressView()
-            .scaleEffect(0.7)
+            .controlSize(.small)
         }
       } else if !isScanning && filteredInstances.isEmpty && connectedCount < 2 {
         Text("No Pi-hole instances found on your network")
@@ -108,7 +108,7 @@ struct ConnectionListView: View {
         Spacer()
         if isScanning {
           ProgressView()
-            .scaleEffect(0.7)
+            .controlSize(.small)
         }
       }
       .textCase(nil)
