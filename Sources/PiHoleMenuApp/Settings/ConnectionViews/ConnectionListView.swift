@@ -189,6 +189,7 @@ private struct DiscoveredRow: View {
       }
       .buttonStyle(.plain)
       .foregroundColor(.secondary)
+      .help("Open in your default browser")
     }
     .padding(.horizontal, 2)
     .frame(height: 30)
