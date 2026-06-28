@@ -50,10 +50,14 @@ struct SettingsView: View {
     } detail: {
       switch selectedTab {
       case .server:
-        Form {
-          ConnectionListView()
+        VStack(spacing: 12) {
+          Form {
+            ConnectionListView()
+          }
+          .formStyle(.grouped)
+          InstancesFoundSectionView()
+            .padding(.horizontal, 12)
         }
-        .formStyle(.grouped)
       case .defaults:
         Form { defaultsSection }
           .formStyle(.grouped)
