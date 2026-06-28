@@ -154,10 +154,6 @@ struct InstancesFoundSectionView: View {
         }
       }
       .padding(.vertical, 4)
-      .background(
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-          .fill(Color(nsColor: .controlBackgroundColor).opacity(0.6))
-      )
 
       // Footer
       Text("Scans your local network when you visit this tab.")
