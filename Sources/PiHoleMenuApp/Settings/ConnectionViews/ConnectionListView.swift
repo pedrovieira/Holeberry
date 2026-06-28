@@ -6,16 +6,12 @@ struct ConnectionListView: View {
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: ServerConfig?
 
-  // Scanner state
-  @State private var discoveredInstances: [PiHoleScanner.DiscoveredInstance] = []
-  @State private var isScanning = false
-
   private var connectedCount: Int {
     monitor.connectionStatuses.values.filter { $0 == .connected }.count
   }
 
   private var filteredInstances: [PiHoleScanner.DiscoveredInstance] {
-    discoveredInstances.filter { instance in
+    monitor.discoveredInstances.filter { instance in
       !monitor.servers.contains { server in
         guard let components = URLComponents(string: server.url),
           let host = components.host
@@ -75,16 +71,11 @@ struct ConnectionListView: View {
 
     // --- Section 2: Instances Found ---
     Section {
-      if isScanning && filteredInstances.isEmpty {
-        HStack {
-          Text("Scanning your network...")
-            .font(.system(size: 11))
-            .foregroundColor(.secondary)
-          Spacer()
-          ProgressView()
-            .controlSize(.small)
-        }
-      } else if !isScanning && filteredInstances.isEmpty && connectedCount < 2 {
+      if monitor.isScanning && filteredInstances.isEmpty {
+        Text("Scanning your network...")
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+      } else if !monitor.isScanning && filteredInstances.isEmpty && connectedCount < 2 {
         Text("No Pi-hole instances found on your network")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
@@ -106,7 +97,7 @@ struct ConnectionListView: View {
         Text("Instances Found")
           .font(.headline)
         Spacer()
-        if isScanning {
+        if monitor.isScanning {
           ProgressView()
             .controlSize(.small)
         }
@@ -157,25 +148,11 @@ struct ConnectionListView: View {
     // --- Lifecycle ---
     .task {
       await monitor.pollNow()
-      await runScanIfNeeded()
+      await monitor.runScanIfNeeded()
     }
     .onChange(of: monitor.servers.count) { _ in
-      Task { await runScanIfNeeded() }
+      Task { await monitor.runScanIfNeeded() }
     }
-  }
-
-  // MARK: - Scanning
-
-  private func runScanIfNeeded() async {
-    guard connectedCount < 2 else {
-      discoveredInstances = []
-      isScanning = false
-      return
-    }
-
-    isScanning = true
-    discoveredInstances = await PiHoleScanner.scan()
-    isScanning = false
   }
 }
 
@@ -192,18 +169,15 @@ private struct DiscoveredRow: View {
       Image(systemName: "shield.lefthalf.filled")
         .foregroundStyle(.green)
         .font(.system(size: 14))
-
       Text(instance.addr)
         .font(.system(size: 12, design: .monospaced))
-
       Spacer()
-
-      if isHovering {
-        Button("Add") { onAdd() }
-          .buttonStyle(.bordered)
-          .controlSize(.small)
-      }
-
+      Button("Add") { onAdd() }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .frame(height: 24)
+        .opacity(isHovering ? 1 : 0)
+        .disabled(!isHovering)
       Button {
         NSWorkspace.shared.open(instance.adminURL)
       } label: {
@@ -213,11 +187,10 @@ private struct DiscoveredRow: View {
       .buttonStyle(.plain)
       .foregroundColor(.secondary)
     }
-    .padding(.vertical, 2)
-    .onHover { hovering in
-      withAnimation(.easeInOut(duration: 0.15)) {
-        isHovering = hovering
-      }
-    }
+    .padding(.horizontal, 2)
+    .frame(height: 30)
+    .contentShape(Rectangle())
+    .onHover { isHovering = $0 }
+    .listRowInsets(EdgeInsets())
   }
 }

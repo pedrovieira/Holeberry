@@ -12,6 +12,10 @@ final class ServerStatusMonitor: ObservableObject {
   @Published var combinedStatus = CombinedStatus()
   @Published var lastPollError: String?
 
+  // Scanner state (persists across tab switches)
+  @Published var discoveredInstances: [PiHoleScanner.DiscoveredInstance] = []
+  @Published var isScanning = false
+
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private var pollingTask: Task<Void, Never>?
 
@@ -78,6 +82,24 @@ final class ServerStatusMonitor: ObservableObject {
 
   func logoutAll() async {
     await manager.logoutAll()
+  }
+
+  // MARK: - Scanning
+
+  private var connectedCount: Int {
+    connectionStatuses.values.filter { $0 == .connected }.count
+  }
+
+  func runScanIfNeeded() async {
+    guard connectedCount < 2 else {
+      discoveredInstances = []
+      isScanning = false
+      return
+    }
+
+    isScanning = true
+    discoveredInstances = await PiHoleScanner.scan()
+    isScanning = false
   }
 
   // MARK: - Blocking Controls
