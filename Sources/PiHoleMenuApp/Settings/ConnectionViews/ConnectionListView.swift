@@ -75,16 +75,19 @@ struct ConnectionListView: View {
         Text("Scanning your network...")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
+          .frame(height: 30)
       } else if !monitor.isScanning && filteredInstances.isEmpty && connectedCount < 2 {
         Text("No Pi-hole instances found on your network")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
+          .frame(height: 30)
       }
 
       if connectedCount >= 2 {
         Text("All connection slots filled")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
+          .frame(height: 30)
       } else {
         ForEach(filteredInstances) { instance in
           DiscoveredRow(instance: instance) {
