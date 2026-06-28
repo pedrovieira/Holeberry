@@ -6,7 +6,25 @@ struct ConnectionListView: View {
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: ServerConfig?
 
+  private var connectedCount: Int {
+    monitor.connectionStatuses.values.filter { $0 == .connected }.count
+  }
+
+  private var filteredInstances: [PiHoleScanner.DiscoveredInstance] {
+    monitor.discoveredInstances.filter { instance in
+      !monitor.servers.contains { server in
+        guard let components = URLComponents(string: server.url),
+          let host = components.host
+        else {
+          return server.url.contains(instance.addr)
+        }
+        return host == instance.addr
+      }
+    }
+  }
+
   var body: some View {
+    // --- Section 1: Existing connections ---
     Section {
       ForEach(monitor.servers) { server in
         ConnectionCardView(
@@ -49,6 +67,47 @@ struct ConnectionListView: View {
       }
       .textCase(nil)
       .padding(.bottom, 4)
+    }
+
+    // --- Section 2: Instances Found ---
+    Section {
+      if monitor.isScanning && filteredInstances.isEmpty {
+        Text("Scanning your network...")
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+      } else if !monitor.isScanning && filteredInstances.isEmpty && connectedCount < 2 {
+        Text("No Pi-hole instances found on your network")
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+      }
+
+      if connectedCount >= 2 {
+        Text("All connection slots filled")
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+      } else {
+        ForEach(filteredInstances) { instance in
+          DiscoveredRow(instance: instance) {
+            sheetMode = .add(prefillURL: "http://\(instance.addr)")
+          }
+        }
+      }
+    } header: {
+      HStack {
+        Text("Instances Found")
+          .font(.headline)
+        Spacer()
+        if monitor.isScanning {
+          ProgressView()
+            .controlSize(.small)
+        }
+      }
+      .textCase(nil)
+    } footer: {
+      Text("Scans your local network when you visit this tab.")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .textCase(nil)
     }
 
     // --- Modals ---
@@ -97,97 +156,6 @@ struct ConnectionListView: View {
   }
 }
 
-// MARK: - Instances Found Section
-
-struct InstancesFoundSectionView: View {
-  @ObservedObject private var monitor = ServerStatusMonitor.shared
-  @State private var sheetMode: SheetMode?
-
-  private var connectedCount: Int {
-    monitor.connectionStatuses.values.filter { $0 == .connected }.count
-  }
-
-  private var filteredInstances: [PiHoleScanner.DiscoveredInstance] {
-    monitor.discoveredInstances.filter { instance in
-      !monitor.servers.contains { server in
-        guard let components = URLComponents(string: server.url),
-          let host = components.host
-        else {
-          return server.url.contains(instance.addr)
-        }
-        return host == instance.addr
-      }
-    }
-  }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      // Header
-      HStack {
-        Text("Instances Found")
-          .font(.headline)
-        Spacer()
-        if monitor.isScanning {
-          ProgressView()
-            .controlSize(.small)
-        }
-      }
-
-      // Content card
-      VStack(spacing: 0) {
-        if monitor.isScanning && filteredInstances.isEmpty {
-          statusRow("Scanning your network...")
-        } else if !monitor.isScanning && filteredInstances.isEmpty && connectedCount < 2 {
-          statusRow("No Pi-hole instances found on your network")
-        } else if connectedCount >= 2 {
-          statusRow("All connection slots filled")
-        } else {
-          ForEach(Array(filteredInstances.enumerated()), id: \.element.id) { index, instance in
-            DiscoveredRow(instance: instance) {
-              sheetMode = .add(prefillURL: "http://\(instance.addr)")
-            }
-            if index < filteredInstances.count - 1 {
-              Divider()
-                .padding(.leading, 32)
-            }
-          }
-        }
-      }
-      .padding(.vertical, 4)
-
-      // Footer
-      Text("Scans your local network when you visit this tab.")
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-    }
-    .sheet(item: $sheetMode) { mode in
-      ConnectionSheet(
-        mode: mode,
-        serverCount: monitor.servers.count,
-        onSave: { label, url, password, _ in
-          switch mode {
-          case .add:
-            try await monitor.addServer(label: label, url: url, credential: password)
-          case .edit:
-            break
-          }
-          sheetMode = nil
-        },
-        onCancel: { sheetMode = nil },
-        serverManager: .shared
-      )
-    }
-  }
-
-  private func statusRow(_ text: String) -> some View {
-    Text(text)
-      .font(.system(size: 11))
-      .foregroundColor(.secondary)
-      .padding(.horizontal, 12)
-      .padding(.vertical, 8)
-  }
-}
-
 // MARK: - Discovered Row
 
 private struct DiscoveredRow: View {
@@ -201,19 +169,15 @@ private struct DiscoveredRow: View {
       Image(systemName: "shield.lefthalf.filled")
         .foregroundStyle(.green)
         .font(.system(size: 14))
-
       Text(instance.addr)
         .font(.system(size: 12, design: .monospaced))
-
       Spacer()
-
       Button("Add") { onAdd() }
         .buttonStyle(.bordered)
         .controlSize(.small)
         .frame(height: 24)
         .opacity(isHovering ? 1 : 0)
         .disabled(!isHovering)
-
       Button {
         NSWorkspace.shared.open(instance.adminURL)
       } label: {
@@ -223,13 +187,10 @@ private struct DiscoveredRow: View {
       .buttonStyle(.plain)
       .foregroundColor(.secondary)
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
+    .padding(.horizontal, 2)
+    .frame(height: 30)
     .contentShape(Rectangle())
-    .onHover { hovering in
-      withAnimation(.easeInOut(duration: 0.15)) {
-        isHovering = hovering
-      }
-    }
+    .onHover { isHovering = $0 }
+    .listRowInsets(EdgeInsets())
   }
 }
