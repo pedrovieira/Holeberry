@@ -55,6 +55,7 @@ struct SettingsView: View {
             ConnectionListView()
           }
           .formStyle(.grouped)
+          .fixedSize(horizontal: false, vertical: true)
           InstancesFoundSectionView()
             .padding(.horizontal, 20)
         }
