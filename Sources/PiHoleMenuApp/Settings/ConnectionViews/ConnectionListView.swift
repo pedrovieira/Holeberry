@@ -200,9 +200,8 @@ private struct DiscoveredRow: View {
 
       if isHovering {
         Button("Add") { onAdd() }
-          .buttonStyle(.plain)
-          .foregroundColor(.accentColor)
-          .font(.system(size: 11))
+          .buttonStyle(.bordered)
+          .controlSize(.small)
       }
 
       Button {
