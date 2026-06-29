@@ -1,6 +1,6 @@
-name: PiHoleMenuApp
+name: Holeberry
 options:
-  bundleIdPrefix: com.pihole.menuapp
+  bundleIdPrefix: me.pedrovieira
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -21,20 +21,20 @@ packages:
     from: 2.4.0
 
 targets:
-  PiHoleMenuApp:
+  Holeberry:
     type: application
     platform: macOS
     sources:
-      - path: Sources/PiHoleMenuApp
+      - path: Sources/Holeberry
     info:
-      path: Sources/PiHoleMenuApp/Info.plist
+      path: Sources/Holeberry/Info.plist
       properties:
         LSUIElement: true
-        NSLocalNetworkUsageDescription: PiHoleMenuApp needs local network access to connect to your Pi-hole instances.
+        NSLocalNetworkUsageDescription: Holeberry needs local network access to connect to your Pi-hole instances.
     settings:
       base:
-        CODE_SIGN_ENTITLEMENTS: Sources/PiHoleMenuApp/Resources/PiHoleMenuApp.entitlements
-        PRODUCT_BUNDLE_IDENTIFIER: com.pihole.menuapp
+        CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Resources/Holeberry.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry
     dependencies:
       - package: SimpleKeychain
       - package: Defaults
@@ -59,14 +59,14 @@ targets:
             echo "warning: swift-format not found in Xcode toolchain"
           fi
 
-  PiHoleMenuAppTests:
+  HoleberryTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: Tests/PiHoleMenuAppTests
+      - path: Tests/HoleberryTests
     dependencies:
-      - target: PiHoleMenuApp
+      - target: Holeberry
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.pihole.menuapp.tests
+        PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry.tests
         GENERATE_INFOPLIST_FILE: YES

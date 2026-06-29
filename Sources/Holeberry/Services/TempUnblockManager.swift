@@ -33,7 +33,7 @@ final class TempUnblockManager {
       throw PiholeError.unknown("No configured Pi-hole instance")
     }
 
-    let uuid = "pihole-menu-app:\(UUID().uuidString)"
+    let uuid = "holeberry:\(UUID().uuidString)"
     var anySuccess = false
     var lastError: Error?
 

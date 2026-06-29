@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import PiHoleMenuApp
+@testable import Holeberry
 
 @MainActor
 final class PiHoleScannerTests: XCTestCase {

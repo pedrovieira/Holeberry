@@ -1,12 +1,12 @@
 import Defaults
 import XCTest
 
-@testable import PiHoleMenuApp
+@testable import Holeberry
 
 // swiftlint:disable file_length
 
 @MainActor
-final class PiHoleMenuAppTests: XCTestCase {
+final class HoleberryTests: XCTestCase {
   override func setUp() {
     super.setUp()
     Defaults[.servers] = []
@@ -92,13 +92,13 @@ final class PiHoleMenuAppTests: XCTestCase {
   }
 
   func testV6AddDomainResponseDecoding() throws {
-    let json = "{\"id\": 42, \"domain\": \"example.com\", \"type\": 0, \"comment\": \"pihole-menu-app:test-uuid\"}"
+    let json = "{\"id\": 42, \"domain\": \"example.com\", \"type\": 0, \"comment\": \"holeberry:test-uuid\"}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     let entry = try JSONDecoder().decode(DomainEntry.self, from: data)
     XCTAssertEqual(entry.id, 42)
     XCTAssertEqual(entry.domain, "example.com")
     XCTAssertEqual(entry.type, 0)
-    XCTAssertEqual(entry.comment, "pihole-menu-app:test-uuid")
+    XCTAssertEqual(entry.comment, "holeberry:test-uuid")
   }
 
   func testV6DomainsResponseDecoding() throws {
@@ -400,7 +400,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   func testTempUnblockRecordCodableRoundTrip() throws {
     let record = TempUnblockRecord(
       domain: "doubleclick.net",
-      uuid: "pihole-menu-app:test-uuid",
+      uuid: "holeberry:test-uuid",
       startDateUTC: Date(),
       durationSeconds: 300,
       pendingRemoval: true,
@@ -419,7 +419,7 @@ final class PiHoleMenuAppTests: XCTestCase {
   func testTempUnblockRecordDefaults() {
     let record = TempUnblockRecord(
       domain: "ads.com",
-      uuid: "pihole-menu-app:uuid-2",
+      uuid: "holeberry:uuid-2",
       startDateUTC: Date(),
       durationSeconds: 60
     )
