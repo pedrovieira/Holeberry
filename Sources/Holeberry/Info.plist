@@ -21,6 +21,6 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>PiHoleMenuApp needs local network access to connect to your Pi-hole instances.</string>
+	<string>Holeberry needs local network access to connect to your Pi-hole instances.</string>
 </dict>
 </plist>

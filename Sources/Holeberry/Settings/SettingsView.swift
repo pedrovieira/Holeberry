@@ -156,7 +156,7 @@ struct SettingsView: View {
         Toggle("Launch at login", isOn: $launchAtLogin)
           .disabled(isToggling)
 
-        Text("Automatically start Pi-hole Menu when you log in to your Mac.")
+        Text("Automatically start Holeberry when you log in to your Mac.")
           .font(.callout)
           .foregroundColor(.secondary)
       }
@@ -181,7 +181,7 @@ struct SettingsView: View {
 
   @ViewBuilder private var aboutView: some View {
     Form {
-      Section("About PiHole Menu") {
+      Section("About Holeberry") {
         HStack {
           Label("Version", systemImage: "info.circle")
           Spacer()

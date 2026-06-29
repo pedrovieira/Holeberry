@@ -185,7 +185,7 @@ final class MenuBarController: NSObject {
 
   private func sendTotpUserNotification(host: String) {
     let content = UNMutableNotificationContent()
-    content.title = "Pi-hole Menu Bar"
+    content.title = "Holeberry"
     content.body = "TOTP is required for \(host). Open Settings and use an Application Password."
     content.sound = .default
     content.categoryIdentifier = "SHORTCUT_ERROR"
