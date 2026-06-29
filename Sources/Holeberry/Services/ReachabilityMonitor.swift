@@ -7,7 +7,7 @@ final class ReachabilityMonitor: ObservableObject {
   @Published var isConnected = true
 
   private let monitor = NWPathMonitor()
-  private let queue = DispatchQueue(label: "com.pihole.menuapp.reachability", qos: .background)
+  private let queue = DispatchQueue(label: "me.pedrovieira.holeberry.reachability", qos: .background)
 
   var onConnect: (() -> Void)?
 

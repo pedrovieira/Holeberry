@@ -105,7 +105,7 @@ final class ShortcutController {
 
   private func postErrorNotification(action: String, error: String) async {
     let content = UNMutableNotificationContent()
-    content.title = "Pi-hole Menu Bar"
+    content.title = "Holeberry"
     content.body = "Failed to \(action) blocking: \(error)"
     content.categoryIdentifier = "SHORTCUT_ERROR"
     content.sound = .default

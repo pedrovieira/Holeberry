@@ -4,7 +4,7 @@ import SwiftUI
 import UserNotifications
 
 @main
-struct PiHoleMenuApp: App {
+struct Holeberry: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self)
   var appDelegate
 

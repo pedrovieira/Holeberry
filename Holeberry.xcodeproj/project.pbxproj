@@ -1,0 +1,727 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		087B6C336453AE3AADB2C84D /* PiHoleScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2E683DDE9E5051C9E0D687 /* PiHoleScannerTests.swift */; };
+		190DDC489CC23486BD2C7290 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F937B463F6A990098878357C /* KeyboardShortcuts */; };
+		1C679E3674EA0D48615599F3 /* PiholeVersionDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3CA987B28094B70335ED14 /* PiholeVersionDetector.swift */; };
+		1CA9613D75CEDCA3D3F5EBF6 /* SimpleKeychain in Frameworks */ = {isa = PBXBuildFile; productRef = 851DA79BC13691B98158A0F6 /* SimpleKeychain */; };
+		1D48F5DE87DD5075BB010741 /* PiholeServerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B7E22A89202908454F32B61 /* PiholeServerManager.swift */; };
+		1DE30D02710B910B83AC8548 /* PiholeServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6DF9213C6E6E08CBB7C131 /* PiholeServiceProtocol.swift */; };
+		228A3C5590D806C88BE2C624 /* PiholeV5Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = B03C5D43567908E4F5F4F05C /* PiholeV5Service.swift */; };
+		27F79CC75823E965D1A83E5B /* NetworkInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 742006E19BC8359536F89BED /* NetworkInterface.swift */; };
+		317812DE6DEF63BB9DD755EC /* MockPiholeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0BEBCDA7B56CD1F615FCE4 /* MockPiholeService.swift */; };
+		35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3037DAE3AD3C562737BC6733 /* TimerManager.swift */; };
+		36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */; };
+		5A0859A89A93A8BEB85CA9E1 /* CertificateTrustDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */; };
+		5A76161165D9F37D55F7A4A2 /* ServerStatusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507680431AF9D6DE4B6FBA04 /* ServerStatusMonitor.swift */; };
+		5A78A147A95270D06EABB816 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95FB5B3D605B9B67C996313D /* AuthManager.swift */; };
+		626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */; };
+		63CF85CCE757442B7815EB50 /* MenuItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605419E9BD70D12D3678C188 /* MenuItemFactory.swift */; };
+		63DF3275E31EAD0B223E7F24 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */; };
+		6AD8F78991DBD3CBC985C690 /* HoleberryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA656E9C0CFF9C7BFACD1FE9 /* HoleberryTests.swift */; };
+		6B3713898D082A7306D4A7D6 /* BlockingStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3292BD2BB3958F9CF81AF6B0 /* BlockingStatus.swift */; };
+		6DC693BE85C64E78FDE8385E /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2E357D9079D86EABA28C75 /* KeychainManager.swift */; };
+		7293DB06AE587F2DB899051A /* PiHoleScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A636F70225D7F8E6867D9DA /* PiHoleScanner.swift */; };
+		7914218930096F4DB12917C0 /* HTTPMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */; };
+		7AFB815A949BAC2E2B500265 /* TempUnblockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77573F2AD15D1F12598EE5B9 /* TempUnblockManager.swift */; };
+		8484E7BB554DE460EC01BF00 /* ServerProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DF3D1A4AF2BE4E3A2E4C40 /* ServerProviding.swift */; };
+		8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A02DF65DF3F9B323288CEA /* TempUnblockRecord.swift */; };
+		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
+		9BD659AE8A7F7C4106E502FB /* ReachabilityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5939E6E499C008726E9D6C9F /* ReachabilityMonitor.swift */; };
+		9BFC7720A8727E8050C27E07 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */; };
+		A53206E2C77A50E9328EE84A /* TempUnblockManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BE4587DD4CF3D7EE8233954 /* TempUnblockManagerTests.swift */; };
+		A994F095FB794E3A4442A994 /* PiholeError.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BBBA61BCC50C3234F83862 /* PiholeError.swift */; };
+		B3B4B6C8F0805665C62CF8BC /* ConnectionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D0BFE31201149D164B93D34 /* ConnectionStatus.swift */; };
+		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
+		C08544537C22B1C069A77DE9 /* DomainEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0A1D51C51B661825EDDDBC /* DomainEntry.swift */; };
+		C8E0239329AEF874B5875C51 /* ServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5A40D821C2EA41D7774C08 /* ServerConfig.swift */; };
+		CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */; };
+		CBFB3F60995ED900BD1290BA /* PiholeServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */; };
+		D65B5A3E4E21A9DCDF47DF28 /* Logger+Subsystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */; };
+		D6CCDA6BFF58DA86B92DB4AD /* Holeberry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029F9F35EBB77CE05EFFD309 /* Holeberry.swift */; };
+		D8E3C678109A99C500F416AE /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BBF2413FF86F8684BEC45DF6 /* Defaults */; };
+		D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C039DDD8F05E05A8D434F71 /* Assets.xcassets */; };
+		E1CF909E4F782467C9844BDA /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED6EC3FBFFD74F33D2827AC /* MenuBarController.swift */; };
+		E1D97CDD8096AF9BD3E99DBD /* App+Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F81FF4F72C7E4177ADE4917 /* App+Defaults.swift */; };
+		EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */; };
+		F663123DDE353E543BBDDB8B /* RecentQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BADE1D5F709C7F4AEB42305 /* RecentQuery.swift */; };
+		FF653C48A5B5B764BD25F36F /* PiholeV6Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A5309DE45FB822B893A799B /* PiholeV6Service.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F09A5785495153499BEA34BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3FAFEF6F12FCE5E0D94872C3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84B5E82FE32C304FB3B13672;
+			remoteInfo = Holeberry;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		029F9F35EBB77CE05EFFD309 /* Holeberry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Holeberry.swift; sourceTree = "<group>"; };
+		0B7E22A89202908454F32B61 /* PiholeServerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServerManager.swift; sourceTree = "<group>"; };
+		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		16734CCFC3B4278B09707067 /* HoleberryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HoleberryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1711F877CC4CB0A92C25A1CC /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
+		1BE4587DD4CF3D7EE8233954 /* TempUnblockManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockManagerTests.swift; sourceTree = "<group>"; };
+		1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBuilder.swift; sourceTree = "<group>"; };
+		2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutNames.swift; sourceTree = "<group>"; };
+		2D0BFE31201149D164B93D34 /* ConnectionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatus.swift; sourceTree = "<group>"; };
+		3037DAE3AD3C562737BC6733 /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
+		3292BD2BB3958F9CF81AF6B0 /* BlockingStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockingStatus.swift; sourceTree = "<group>"; };
+		35DF3D1A4AF2BE4E3A2E4C40 /* ServerProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerProviding.swift; sourceTree = "<group>"; };
+		3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSheet.swift; sourceTree = "<group>"; };
+		3ED6EC3FBFFD74F33D2827AC /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		4D5A40D821C2EA41D7774C08 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
+		507680431AF9D6DE4B6FBA04 /* ServerStatusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStatusMonitor.swift; sourceTree = "<group>"; };
+		5939E6E499C008726E9D6C9F /* ReachabilityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityMonitor.swift; sourceTree = "<group>"; };
+		5F81FF4F72C7E4177ADE4917 /* App+Defaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "App+Defaults.swift"; sourceTree = "<group>"; };
+		605419E9BD70D12D3678C188 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
+		6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateTrustDelegate.swift; sourceTree = "<group>"; };
+		68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Subsystem.swift"; sourceTree = "<group>"; };
+		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
+		742006E19BC8359536F89BED /* NetworkInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInterface.swift; sourceTree = "<group>"; };
+		77573F2AD15D1F12598EE5B9 /* TempUnblockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockManager.swift; sourceTree = "<group>"; };
+		7A5309DE45FB822B893A799B /* PiholeV6Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV6Service.swift; sourceTree = "<group>"; };
+		7C0BEBCDA7B56CD1F615FCE4 /* MockPiholeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPiholeService.swift; sourceTree = "<group>"; };
+		8A5D9D07B8EC02852147638F /* Holeberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Holeberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D2E683DDE9E5051C9E0D687 /* PiHoleScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiHoleScannerTests.swift; sourceTree = "<group>"; };
+		95FB5B3D605B9B67C996313D /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		9A636F70225D7F8E6867D9DA /* PiHoleScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiHoleScanner.swift; sourceTree = "<group>"; };
+		9BADE1D5F709C7F4AEB42305 /* RecentQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentQuery.swift; sourceTree = "<group>"; };
+		A2BBBA61BCC50C3234F83862 /* PiholeError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeError.swift; sourceTree = "<group>"; };
+		B03C5D43567908E4F5F4F05C /* PiholeV5Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV5Service.swift; sourceTree = "<group>"; };
+		BA656E9C0CFF9C7BFACD1FE9 /* HoleberryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleberryTests.swift; sourceTree = "<group>"; };
+		BA6DF9213C6E6E08CBB7C131 /* PiholeServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceProtocol.swift; sourceTree = "<group>"; };
+		CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
+		CF0A1D51C51B661825EDDDBC /* DomainEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainEntry.swift; sourceTree = "<group>"; };
+		D3A02DF65DF3F9B323288CEA /* TempUnblockRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TempUnblockRecord.swift; sourceTree = "<group>"; };
+		D48A2E625686DBB46B548D0E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceFactory.swift; sourceTree = "<group>"; };
+		DD3CA987B28094B70335ED14 /* PiholeVersionDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeVersionDetector.swift; sourceTree = "<group>"; };
+		F20BC6E492A3D31D9FE4E1C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutController.swift; sourceTree = "<group>"; };
+		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
+		FF2E357D9079D86EABA28C75 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AB87BB6AC94E755D8CAB4ADA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CA9613D75CEDCA3D3F5EBF6 /* SimpleKeychain in Frameworks */,
+				D8E3C678109A99C500F416AE /* Defaults in Frameworks */,
+				190DDC489CC23486BD2C7290 /* KeyboardShortcuts in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		05E28E2794738F28F909ADBD /* ConnectionViews */ = {
+			isa = PBXGroup;
+			children = (
+				6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */,
+				FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */,
+				3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */,
+			);
+			path = ConnectionViews;
+			sourceTree = "<group>";
+		};
+		16052FF148BF43B05B561212 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				3ED6EC3FBFFD74F33D2827AC /* MenuBarController.swift */,
+				1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */,
+				FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		40CFFDE54F1764017E70CC4B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0C039DDD8F05E05A8D434F71 /* Assets.xcassets */,
+				1711F877CC4CB0A92C25A1CC /* Holeberry.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		78F58E90EDC49C9FF3E31C6C /* Holeberry */ = {
+			isa = PBXGroup;
+			children = (
+				029F9F35EBB77CE05EFFD309 /* Holeberry.swift */,
+				F20BC6E492A3D31D9FE4E1C4 /* Info.plist */,
+				16052FF148BF43B05B561212 /* App */,
+				A1FA71E34CB50EC3F38B19A5 /* Models */,
+				40CFFDE54F1764017E70CC4B /* Resources */,
+				C0349379494A7A64B01B8EF2 /* Services */,
+				8BB69277240BEEB373A07922 /* Settings */,
+				7AB6AB5FEA1E7DF9D0A096C6 /* Utils */,
+			);
+			name = Holeberry;
+			path = Sources/Holeberry;
+			sourceTree = "<group>";
+		};
+		7AB6AB5FEA1E7DF9D0A096C6 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				5F81FF4F72C7E4177ADE4917 /* App+Defaults.swift */,
+				CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */,
+				FF2E357D9079D86EABA28C75 /* KeychainManager.swift */,
+				68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */,
+				605419E9BD70D12D3678C188 /* MenuItemFactory.swift */,
+				742006E19BC8359536F89BED /* NetworkInterface.swift */,
+				2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		8BB69277240BEEB373A07922 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
+				4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */,
+				05E28E2794738F28F909ADBD /* ConnectionViews */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		A1FA71E34CB50EC3F38B19A5 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				3292BD2BB3958F9CF81AF6B0 /* BlockingStatus.swift */,
+				2D0BFE31201149D164B93D34 /* ConnectionStatus.swift */,
+				CF0A1D51C51B661825EDDDBC /* DomainEntry.swift */,
+				9BADE1D5F709C7F4AEB42305 /* RecentQuery.swift */,
+				4D5A40D821C2EA41D7774C08 /* ServerConfig.swift */,
+				D3A02DF65DF3F9B323288CEA /* TempUnblockRecord.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		B9B65F76EBEBC8A5C75A1641 = {
+			isa = PBXGroup;
+			children = (
+				78F58E90EDC49C9FF3E31C6C /* Holeberry */,
+				F0DD2B315CD737DDC1ED93AC /* HoleberryTests */,
+				DB7783B91E0F747BBB9AB1F9 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C0349379494A7A64B01B8EF2 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				95FB5B3D605B9B67C996313D /* AuthManager.swift */,
+				6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */,
+				A2BBBA61BCC50C3234F83862 /* PiholeError.swift */,
+				9A636F70225D7F8E6867D9DA /* PiHoleScanner.swift */,
+				0B7E22A89202908454F32B61 /* PiholeServerManager.swift */,
+				DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */,
+				BA6DF9213C6E6E08CBB7C131 /* PiholeServiceProtocol.swift */,
+				B03C5D43567908E4F5F4F05C /* PiholeV5Service.swift */,
+				7A5309DE45FB822B893A799B /* PiholeV6Service.swift */,
+				DD3CA987B28094B70335ED14 /* PiholeVersionDetector.swift */,
+				5939E6E499C008726E9D6C9F /* ReachabilityMonitor.swift */,
+				35DF3D1A4AF2BE4E3A2E4C40 /* ServerProviding.swift */,
+				507680431AF9D6DE4B6FBA04 /* ServerStatusMonitor.swift */,
+				77573F2AD15D1F12598EE5B9 /* TempUnblockManager.swift */,
+				3037DAE3AD3C562737BC6733 /* TimerManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		DB7783B91E0F747BBB9AB1F9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8A5D9D07B8EC02852147638F /* Holeberry.app */,
+				16734CCFC3B4278B09707067 /* HoleberryTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F0DD2B315CD737DDC1ED93AC /* HoleberryTests */ = {
+			isa = PBXGroup;
+			children = (
+				BA656E9C0CFF9C7BFACD1FE9 /* HoleberryTests.swift */,
+				7C0BEBCDA7B56CD1F615FCE4 /* MockPiholeService.swift */,
+				8D2E683DDE9E5051C9E0D687 /* PiHoleScannerTests.swift */,
+				1BE4587DD4CF3D7EE8233954 /* TempUnblockManagerTests.swift */,
+			);
+			name = HoleberryTests;
+			path = Tests/HoleberryTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		84B5E82FE32C304FB3B13672 /* Holeberry */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 97725504FDB0A8BF5E2804E4 /* Build configuration list for PBXNativeTarget "Holeberry" */;
+			buildPhases = (
+				D993B67186E5BA3E31788379 /* Run SwiftLint */,
+				FFD18C08A44E1DA0F04E493E /* Run swift-format lint */,
+				5CB3C8460B3AEF8A4CC34405 /* Sources */,
+				6B712A805367450E10F6C9A2 /* Resources */,
+				AB87BB6AC94E755D8CAB4ADA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Holeberry;
+			packageProductDependencies = (
+				851DA79BC13691B98158A0F6 /* SimpleKeychain */,
+				BBF2413FF86F8684BEC45DF6 /* Defaults */,
+				F937B463F6A990098878357C /* KeyboardShortcuts */,
+			);
+			productName = Holeberry;
+			productReference = 8A5D9D07B8EC02852147638F /* Holeberry.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E7B911A85DB91E4D924C651D /* HoleberryTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DD6092F5A41D6E1BD6176DC8 /* Build configuration list for PBXNativeTarget "HoleberryTests" */;
+			buildPhases = (
+				B66075E725ECED5599B23A69 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9F937D10604E57621EB3BD77 /* PBXTargetDependency */,
+			);
+			name = HoleberryTests;
+			packageProductDependencies = (
+			);
+			productName = HoleberryTests;
+			productReference = 16734CCFC3B4278B09707067 /* HoleberryTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3FAFEF6F12FCE5E0D94872C3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = A3CECFC05804D0E3AE6B88AF /* Build configuration list for PBXProject "Holeberry" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B9B65F76EBEBC8A5C75A1641;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				19938065878F84994BE1EB60 /* XCRemoteSwiftPackageReference "Defaults" */,
+				D1CAE943163400BB0FC3209E /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				823018DBBF15A5E456A84D1C /* XCRemoteSwiftPackageReference "SimpleKeychain" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DB7783B91E0F747BBB9AB1F9 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				84B5E82FE32C304FB3B13672 /* Holeberry */,
+				E7B911A85DB91E4D924C651D /* HoleberryTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6B712A805367450E10F6C9A2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D993B67186E5BA3E31788379 /* Run SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run SwiftLint";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export PATH=\"$PATH:/opt/homebrew/bin\"\nif which swiftlint > /dev/null; then\n  swiftlint --strict\nelse\n  echo \"warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint\"\nfi\n";
+		};
+		FFD18C08A44E1DA0F04E493E /* Run swift-format lint */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run swift-format lint";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "FORMAT_BIN=$(xcrun --find swift-format 2>/dev/null)\nif [ -n \"$FORMAT_BIN\" ]; then\n  \"$FORMAT_BIN\" lint --recursive --strict Sources/ Tests/\nelse\n  echo \"warning: swift-format not found in Xcode toolchain\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5CB3C8460B3AEF8A4CC34405 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1D97CDD8096AF9BD3E99DBD /* App+Defaults.swift in Sources */,
+				5A78A147A95270D06EABB816 /* AuthManager.swift in Sources */,
+				6B3713898D082A7306D4A7D6 /* BlockingStatus.swift in Sources */,
+				5A0859A89A93A8BEB85CA9E1 /* CertificateTrustDelegate.swift in Sources */,
+				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,
+				CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */,
+				626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */,
+				B3B4B6C8F0805665C62CF8BC /* ConnectionStatus.swift in Sources */,
+				C08544537C22B1C069A77DE9 /* DomainEntry.swift in Sources */,
+				7914218930096F4DB12917C0 /* HTTPMethod.swift in Sources */,
+				D6CCDA6BFF58DA86B92DB4AD /* Holeberry.swift in Sources */,
+				6DC693BE85C64E78FDE8385E /* KeychainManager.swift in Sources */,
+				D65B5A3E4E21A9DCDF47DF28 /* Logger+Subsystem.swift in Sources */,
+				E1CF909E4F782467C9844BDA /* MenuBarController.swift in Sources */,
+				9BFC7720A8727E8050C27E07 /* MenuBuilder.swift in Sources */,
+				63CF85CCE757442B7815EB50 /* MenuItemFactory.swift in Sources */,
+				27F79CC75823E965D1A83E5B /* NetworkInterface.swift in Sources */,
+				7293DB06AE587F2DB899051A /* PiHoleScanner.swift in Sources */,
+				A994F095FB794E3A4442A994 /* PiholeError.swift in Sources */,
+				1D48F5DE87DD5075BB010741 /* PiholeServerManager.swift in Sources */,
+				CBFB3F60995ED900BD1290BA /* PiholeServiceFactory.swift in Sources */,
+				1DE30D02710B910B83AC8548 /* PiholeServiceProtocol.swift in Sources */,
+				228A3C5590D806C88BE2C624 /* PiholeV5Service.swift in Sources */,
+				FF653C48A5B5B764BD25F36F /* PiholeV6Service.swift in Sources */,
+				1C679E3674EA0D48615599F3 /* PiholeVersionDetector.swift in Sources */,
+				9BD659AE8A7F7C4106E502FB /* ReachabilityMonitor.swift in Sources */,
+				F663123DDE353E543BBDDB8B /* RecentQuery.swift in Sources */,
+				C8E0239329AEF874B5875C51 /* ServerConfig.swift in Sources */,
+				8484E7BB554DE460EC01BF00 /* ServerProviding.swift in Sources */,
+				5A76161165D9F37D55F7A4A2 /* ServerStatusMonitor.swift in Sources */,
+				BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */,
+				EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */,
+				63DF3275E31EAD0B223E7F24 /* ShortcutController.swift in Sources */,
+				36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */,
+				7AFB815A949BAC2E2B500265 /* TempUnblockManager.swift in Sources */,
+				8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */,
+				35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B66075E725ECED5599B23A69 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6AD8F78991DBD3CBC985C690 /* HoleberryTests.swift in Sources */,
+				317812DE6DEF63BB9DD755EC /* MockPiholeService.swift in Sources */,
+				087B6C336453AE3AADB2C84D /* PiHoleScannerTests.swift in Sources */,
+				A53206E2C77A50E9328EE84A /* TempUnblockManagerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9F937D10604E57621EB3BD77 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84B5E82FE32C304FB3B13672 /* Holeberry */;
+			targetProxy = F09A5785495153499BEA34BC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		203232F933E79FF42B548E70 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.holeberry.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Holeberry.app/Contents/MacOS/Holeberry";
+			};
+			name = Release;
+		};
+		2E9BEF13A2AF2CE7E79B5D42 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		998DCFAA0AD0C3BF8CC953EF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/Holeberry/Resources/Holeberry.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = Sources/Holeberry/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.holeberry;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		AE86D3773ED3D233C5D83E5C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		B50BCA2BD85D45198AFA2DAC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/Holeberry/Resources/Holeberry.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = Sources/Holeberry/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.holeberry;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		C47C909D248C7933973F1D2B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.holeberry.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Holeberry.app/Contents/MacOS/Holeberry";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		97725504FDB0A8BF5E2804E4 /* Build configuration list for PBXNativeTarget "Holeberry" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B50BCA2BD85D45198AFA2DAC /* Debug */,
+				998DCFAA0AD0C3BF8CC953EF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A3CECFC05804D0E3AE6B88AF /* Build configuration list for PBXProject "Holeberry" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2E9BEF13A2AF2CE7E79B5D42 /* Debug */,
+				AE86D3773ED3D233C5D83E5C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DD6092F5A41D6E1BD6176DC8 /* Build configuration list for PBXNativeTarget "HoleberryTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C47C909D248C7933973F1D2B /* Debug */,
+				203232F933E79FF42B548E70 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		19938065878F84994BE1EB60 /* XCRemoteSwiftPackageReference "Defaults" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/Defaults";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+		823018DBBF15A5E456A84D1C /* XCRemoteSwiftPackageReference "SimpleKeychain" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/auth0/SimpleKeychain";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+		D1CAE943163400BB0FC3209E /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		851DA79BC13691B98158A0F6 /* SimpleKeychain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 823018DBBF15A5E456A84D1C /* XCRemoteSwiftPackageReference "SimpleKeychain" */;
+			productName = SimpleKeychain;
+		};
+		BBF2413FF86F8684BEC45DF6 /* Defaults */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 19938065878F84994BE1EB60 /* XCRemoteSwiftPackageReference "Defaults" */;
+			productName = Defaults;
+		};
+		F937B463F6A990098878357C /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D1CAE943163400BB0FC3209E /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3FAFEF6F12FCE5E0D94872C3 /* Project object */;
+}
