@@ -5,7 +5,7 @@ final class KeychainManager: Sendable {
   static let shared = KeychainManager()
   private let keychain: SimpleKeychain
 
-  init(service: String = "com.pihole.menuapp") {
+  init(service: String = "me.pedrovieira.holeberry") {
     self.keychain = SimpleKeychain(service: service)
   }
 

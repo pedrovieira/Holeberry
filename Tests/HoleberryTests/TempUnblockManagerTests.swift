@@ -1,7 +1,7 @@
 import Defaults
 import XCTest
 
-@testable import PiHoleMenuApp
+@testable import Holeberry
 
 @MainActor
 final class TempUnblockManagerTests: XCTestCase {
@@ -20,7 +20,7 @@ final class TempUnblockManagerTests: XCTestCase {
   func testAddAddsDomainToServer() async throws {
     let mock = MockPiholeService()
     mock.addDomainStub = .success(
-      DomainEntry(id: 42, domain: "doubleclick.net", type: 0, comment: "pihole-menu-app:test-uuid")
+      DomainEntry(id: 42, domain: "doubleclick.net", type: 0, comment: "holeberry:test-uuid")
     )
     let provider = MockServerProvider()
     provider.servers = [
@@ -34,7 +34,7 @@ final class TempUnblockManagerTests: XCTestCase {
     XCTAssertEqual(mock.addDomainCallCount, 1)
     XCTAssertEqual(mock.addDomainLastDomain, "doubleclick.net")
     XCTAssertEqual(mock.addDomainLastList, .allow)
-    XCTAssertTrue(mock.addDomainLastComment?.hasPrefix("pihole-menu-app:") ?? false)
+    XCTAssertTrue(mock.addDomainLastComment?.hasPrefix("holeberry:") ?? false)
     XCTAssertEqual(record.domain, "doubleclick.net")
     XCTAssertEqual(record.durationSeconds, 300)
     XCTAssertFalse(record.pendingRemoval)
@@ -268,7 +268,7 @@ final class TempUnblockManagerTests: XCTestCase {
   func testReconcileActiveRecordRestored() async throws {
     let mock = MockPiholeService()
     mock.getDomainsStub = .success([
-      DomainEntry(id: 42, domain: "active.com", type: 0, comment: "pihole-menu-app:existing-uuid")
+      DomainEntry(id: 42, domain: "active.com", type: 0, comment: "holeberry:existing-uuid")
     ])
 
     let provider = MockServerProvider()
@@ -280,7 +280,7 @@ final class TempUnblockManagerTests: XCTestCase {
     let manager = TempUnblockManager(serverProvider: provider)
     let active = TempUnblockRecord(
       domain: "active.com",
-      uuid: "pihole-menu-app:existing-uuid",
+      uuid: "holeberry:existing-uuid",
       startDateUTC: Date(),
       durationSeconds: 3600
     )
@@ -307,7 +307,7 @@ final class TempUnblockManagerTests: XCTestCase {
     let manager = TempUnblockManager(serverProvider: provider)
     let orphan = TempUnblockRecord(
       domain: "orphan.com",
-      uuid: "pihole-menu-app:orphan-uuid",
+      uuid: "holeberry:orphan-uuid",
       startDateUTC: Date(),
       durationSeconds: 3600
     )
@@ -338,7 +338,7 @@ final class TempUnblockManagerTests: XCTestCase {
     let manager = TempUnblockManager(serverProvider: provider)
     let orphan = TempUnblockRecord(
       domain: "orphan.com",
-      uuid: "pihole-menu-app:orphan-uuid",
+      uuid: "holeberry:orphan-uuid",
       startDateUTC: Date(),
       durationSeconds: 3600
     )

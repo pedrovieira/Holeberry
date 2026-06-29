@@ -1,6 +1,6 @@
 import Foundation
 
-@testable import PiHoleMenuApp
+@testable import Holeberry
 
 /// Configurable mock implementing `PiholeServiceProtocol` with stub injection, call-count tracking, and failure injection.
 final class MockPiholeService: PiholeServiceProtocol {
