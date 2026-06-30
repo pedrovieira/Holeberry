@@ -5,7 +5,6 @@ import OSLog
 final class MenuBuilder: NSObject {
   private let serverManager: PiholeServerManager
   private let timerManager: TimerManager
-  private let tempUnblockManager: TempUnblockManager
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-builder")
 
   var onDisableURL: ((String, TimeInterval) -> Void)?
@@ -13,12 +12,10 @@ final class MenuBuilder: NSObject {
 
   init(
     serverManager: PiholeServerManager,
-    timerManager: TimerManager,
-    tempUnblockManager: TempUnblockManager
+    timerManager: TimerManager
   ) {
     self.serverManager = serverManager
     self.timerManager = timerManager
-    self.tempUnblockManager = tempUnblockManager
   }
 
   // swiftlint:disable:next function_parameter_count
@@ -26,7 +23,6 @@ final class MenuBuilder: NSObject {
     recentBlocked: [String],
     error: String?,
     isConnected: Bool,
-    activeRecords: [TempUnblockRecord],
     combinedStatus: CombinedStatus,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
@@ -56,33 +52,8 @@ final class MenuBuilder: NSObject {
       to: menu, recentBlocked: recentBlocked, isConnected: isConnected
     )
     menu.addItem(.separator())
-    addActiveUnblockSection(to: menu, activeRecords: activeRecords)
-    menu.addItem(.separator())
     addSettingsAndQuit(to: menu)
     return menu
-  }
-
-  func updateCountdowns(in menu: NSMenu) {
-    let now = Date()
-    for item in menu.items {
-      guard let identifier = item.identifier?.rawValue, identifier.hasPrefix("unblock-countdown"),
-        let uuid = identifier.split(separator: ":").last.map(String.init)
-      else { continue }
-
-      guard let record = tempUnblockManager.activeRecords.first(where: { $0.uuid == uuid })
-      else { continue }
-
-      let elapsed = now.timeIntervalSince(record.startDateUTC)
-      let remaining = max(0, record.durationSeconds - elapsed)
-      let formatted = formattedRemaining(remaining)
-      item.title = "\(record.domain)  (\(formatted))"
-      item.setAccessibilityLabel("\(record.domain), \(formatted) remaining")
-
-      if let submenu = item.submenu, submenu.items.count >= 2 {
-        let infoItem = submenu.items[0]
-        infoItem.title = "\(formattedRemaining(remaining)) remaining"
-      }
-    }
   }
 
   // swiftlint:disable:next function_parameter_count
@@ -278,21 +249,6 @@ final class MenuBuilder: NSObject {
     item.target = self
     item.representedObject = ["domain": domain, "duration": duration] as NSDictionary
     menu.addItem(item)
-  }
-
-  private func addActiveUnblockSection(to menu: NSMenu, activeRecords: [TempUnblockRecord]) {
-    let now = Date()
-
-    for record in activeRecords {
-      let elapsed = now.timeIntervalSince(record.startDateUTC)
-      let remaining = max(0, record.durationSeconds - elapsed)
-      let title = "\(record.domain)  (\(formattedRemaining(remaining)))"
-
-      let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-      item.identifier = NSUserInterfaceItemIdentifier("unblock-countdown:\(record.uuid)")
-      item.setAccessibilityLabel("\(record.domain), \(formattedRemaining(remaining)) remaining")
-      menu.addItem(item)
-    }
   }
 
   private func addSettingsAndQuit(to menu: NSMenu) {

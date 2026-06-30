@@ -1,4 +1,4 @@
-import Combine
+@preconcurrency import Combine
 import Foundation
 import Network
 
@@ -8,21 +8,28 @@ final class ReachabilityMonitor: ObservableObject {
 
   private let monitor = NWPathMonitor()
   private let queue = DispatchQueue(label: "me.pedrovieira.holeberry.reachability", qos: .background)
+  private var cancellables = Set<AnyCancellable>()
 
   var onConnect: (() -> Void)?
 
   init() {
-    monitor.pathUpdateHandler = { [weak self] path in
-      let connected = path.status == .satisfied
-      DispatchQueue.main.async {
+    let pathSubject = PassthroughSubject<Bool, Never>()
+
+    monitor.pathUpdateHandler = { path in
+      pathSubject.send(path.status == .satisfied)
+    }
+    monitor.start(queue: DispatchQueue.global(qos: .background))
+
+    pathSubject
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] connected in
         let wasDisconnected = !(self?.isConnected ?? true)
         self?.isConnected = connected
         if connected && wasDisconnected {
           self?.onConnect?()
         }
       }
-    }
-    monitor.start(queue: queue)
+      .store(in: &cancellables)
   }
 
   deinit {

@@ -7,7 +7,7 @@ options:
 
 settings:
   base:
-    SWIFT_VERSION: "5.9"
+    SWIFT_VERSION: "6.0"
 
 packages:
   SimpleKeychain:

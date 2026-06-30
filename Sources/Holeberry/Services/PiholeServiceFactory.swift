@@ -3,7 +3,8 @@ import Foundation
 struct PiholeServiceFactory {
   static let shared = PiholeServiceFactory()
 
-  func buildService(config: ServerConfig, credential: String) -> PiholeServiceProtocol {
+  @MainActor
+  func buildService(config: ServerConfig, credential: String) -> PiholeServiceInternal {
     guard let url = URL(string: config.url) else {
       fatalError("Invalid URL in ServerConfig: \(config.url)")
     }
