@@ -110,11 +110,9 @@ final class ServerStatusMonitor: ObservableObject {
 
   // MARK: - On-Demand Fetching
 
-  func fetchRecentBlocked(for id: UUID) async throws -> [String] {
+  func fetchRecentBlocked() async throws -> [String] {
     let length = max(Defaults[.recentBlockedCount], 20)
-    return try await manager.perform(for: id) { service in
-      try await service.getRecentBlocked(count: length)
-    }
+    return try await manager.getRecentBlocked(count: length)
   }
 
   // MARK: - Polling Implementation
@@ -153,9 +151,7 @@ final class ServerStatusMonitor: ObservableObject {
 
         // Aggregate query summary stats
         do {
-          let summary = try await manager.perform(for: config.id) { service in
-            try await service.getQuerySummary()
-          }
+          let summary = try await manager.getQuerySummary(for: config.id)
           totalQueries += summary.totalQueries
           totalBlocked += summary.totalBlocked
         } catch {

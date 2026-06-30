@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
-final class PiholeV6Service: PiholeServiceProtocol {
+final class PiholeV6Service: PiholeServiceInternal {
   // MARK: - Identity & Config
   let id: UUID
   var label: String?
@@ -199,6 +199,10 @@ final class PiholeV6Service: PiholeServiceProtocol {
     return result.queries
   }
 
+  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
+    try await addDomain(domain, to: list, comment: nil)
+  }
+
   func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
     let body = AddDomainBody(domain: domain, type: list.rawValue, comment: comment)
     let bodyData = try JSONEncoder().encode(body)
@@ -239,6 +243,10 @@ final class PiholeV6Service: PiholeServiceProtocol {
       throw PiholeError.unknown("Domain not found in allowlist: \(domain)")
     }
     try await deleteDomain(identifiedBy: entryID)
+  }
+
+  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
+    _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
   func getDomains() async throws -> [DomainEntry] {

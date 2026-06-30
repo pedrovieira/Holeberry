@@ -10,12 +10,12 @@ final class HoleberryTests: XCTestCase {
   override func setUp() {
     super.setUp()
     Defaults[.servers] = []
-    Defaults[.tempUnblocks] = []
+    Defaults[.tempUnblocks(for: UUID())] = []
   }
 
   override func tearDown() {
     Defaults[.servers] = []
-    Defaults[.tempUnblocks] = []
+    Defaults[.tempUnblocks(for: UUID())] = []
     super.tearDown()
   }
 

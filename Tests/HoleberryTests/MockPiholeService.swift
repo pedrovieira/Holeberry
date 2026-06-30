@@ -2,8 +2,9 @@ import Foundation
 
 @testable import Holeberry
 
-/// Configurable mock implementing `PiholeServiceProtocol` with stub injection, call-count tracking, and failure injection.
-final class MockPiholeService: PiholeServiceProtocol {
+/// Configurable mock implementing `PiholeServiceInternal` with stub injection, call-count tracking, and failure injection.
+@MainActor
+final class MockPiholeService: PiholeServiceInternal {
   let id: UUID
   var label: String?
   var url: String
@@ -81,12 +82,20 @@ final class MockPiholeService: PiholeServiceProtocol {
     return try getQuerySummaryStub.get()
   }
 
+  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
+    try await addDomain(domain, to: list, comment: nil)
+  }
+
   func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
     addDomainCallCount += 1
     addDomainLastDomain = domain
     addDomainLastList = list
     addDomainLastComment = comment
     return try addDomainStub.get()
+  }
+
+  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
+    _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
   func deleteDomain(identifiedBy id: Int) async throws {
@@ -112,23 +121,5 @@ final class MockPiholeService: PiholeServiceProtocol {
 
   func logout() async {
     logoutCallCount += 1
-  }
-}
-
-final class MockServerProvider: ServerProviding {
-  var servers: [ServerConfig] = []
-  var makeService: ((ServerConfig) -> PiholeServiceProtocol)?
-
-  private(set) var performCallCount = 0
-  private(set) var lastServerID: UUID?
-
-  func perform<T>(for id: UUID, block: (PiholeServiceProtocol) async throws -> T) async throws -> T {
-    performCallCount += 1
-    lastServerID = id
-    guard let config = servers.first(where: { $0.id == id }) else {
-      throw PiholeError.unknown("Server not found in mock")
-    }
-    let service = makeService?(config) ?? MockPiholeService()
-    return try await block(service)
   }
 }

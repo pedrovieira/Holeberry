@@ -12,7 +12,7 @@ private enum V5QueryStatus: String, CaseIterable {
 }
 
 /// Pi-hole v5 API implementation using static token auth and query-string endpoints. HTML parsing for domain lists.
-final class PiholeV5Service: PiholeServiceProtocol {
+final class PiholeV5Service: PiholeServiceInternal {
   // MARK: - Identity & Config
   let id: UUID
   var label: String?
@@ -237,6 +237,10 @@ final class PiholeV5Service: PiholeServiceProtocol {
     return queries
   }
 
+  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
+    try await addDomain(domain, to: list, comment: nil)
+  }
+
   func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
     let listName = list == .allow ? "white" : "black"
     let (data, httpResponse) = try await getRequestWithRetry(
@@ -248,6 +252,10 @@ final class PiholeV5Service: PiholeServiceProtocol {
     }
 
     return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: nil)
+  }
+
+  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
+    _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
   func deleteDomain(identifiedBy id: Int) async throws {

@@ -11,12 +11,10 @@ final class MenuBarController: NSObject {
   private let serverManager = PiholeServerManager.shared
   private let reachability = ReachabilityMonitor()
   private let statusMonitor = ServerStatusMonitor.shared
-  private let tempUnblockManager: TempUnblockManager
   private lazy var menuBuilder: MenuBuilder = {
     let builder = MenuBuilder(
       serverManager: serverManager,
-      timerManager: timerManager,
-      tempUnblockManager: tempUnblockManager
+      timerManager: timerManager
     )
     builder.onDisableURL = { [weak self] domain, duration in
       self?.performTempUnblock(domain: domain, duration: duration)
@@ -38,15 +36,13 @@ final class MenuBarController: NSObject {
 
   // Menu lifecycle
   private var currentMenu: NSMenu?
-  private var countdownTimer: Timer?
 
   // Inline error
   private var errorMessage: String?
   private var errorClearTask: Task<Void, Never>?
 
-  init(tempUnblockManager: TempUnblockManager) {
+  override init() {
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    self.tempUnblockManager = tempUnblockManager
     super.init()
     configureStatusItem()
     observeTimer()
@@ -55,9 +51,6 @@ final class MenuBarController: NSObject {
     setupReachability()
     observeTotpNotifications()
     prewarmRecentBlockedCache()
-    Task {
-      await tempUnblockManager.reconcileOnLaunch()
-    }
   }
 
   // MARK: - Status Item
@@ -76,7 +69,6 @@ final class MenuBarController: NSObject {
       recentBlocked: recentBlockedCache,
       error: errorMessage,
       isConnected: reachability.isConnected,
-      activeRecords: tempUnblockManager.activeRecords,
       combinedStatus: statusMonitor.combinedStatus,
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
@@ -85,10 +77,6 @@ final class MenuBarController: NSObject {
     menu.delegate = self
     currentMenu = menu
     statusItem.menu = menu
-
-    if !tempUnblockManager.activeRecords.isEmpty {
-      startCountdownTimer()
-    }
 
     statusItem.button?.performClick(nil)
   }
@@ -224,9 +212,7 @@ final class MenuBarController: NSObject {
     Task {
       do {
         let length = max(Defaults[.recentBlockedCount], 20)
-        let blocked = try await serverManager.perform(for: server.id) { service in
-          try await service.getRecentBlocked(count: length)
-        }
+        let blocked = try await serverManager.getRecentBlocked(count: length)
         recentBlockedCache = blocked
         lastCacheRefresh = Date()
       } catch {
@@ -240,7 +226,7 @@ final class MenuBarController: NSObject {
   private func performTempUnblock(domain: String, duration: TimeInterval) {
     Task {
       do {
-        _ = try await tempUnblockManager.add(domain: domain, duration: duration)
+        try await serverManager.unblock(domain: domain, duration: duration)
         setError(nil)
       } catch {
         showError("Failed to unblock \(domain): \(error.localizedDescription)")
@@ -251,46 +237,8 @@ final class MenuBarController: NSObject {
   // MARK: - Add to Allowlist
 
   private func addToAllowlist(domain: String) {
-    let servers = serverManager.servers
-    guard !servers.isEmpty else { return }
-
     Task {
-      var successCount = 0
-      let total = servers.count
-
-      for config in servers {
-        do {
-          _ = try await serverManager.perform(for: config.id) { service in
-            try await service.addDomain(domain, to: .allow, comment: nil)
-          }
-          successCount += 1
-        } catch {
-          logger.warning("Allowlist failed: \(error.localizedDescription, privacy: .public)")
-        }
-      }
-
-      if successCount < total {
-        let content = UNMutableNotificationContent()
-        content.sound = .default
-        if successCount == 0 {
-          content.title = "Failed to add to allowlist"
-          content.body = "Could not add \"\(domain)\" to the allowlist on any instance."
-        } else {
-          content.title = "Partially added to allowlist"
-          content.body = "Added \"\(domain)\" to allowlist on \(successCount)/\(total) instances."
-        }
-        let request = UNNotificationRequest(
-          identifier: "allowlist-fail-\(domain)-\(Date().timeIntervalSince1970)",
-          content: content,
-          trigger: nil
-        )
-        UNUserNotificationCenter.current().add(request) { [weak self] error in
-          if let error {
-            self?.logger.warning(
-              "Failed to deliver allowlist notification: \(error.localizedDescription, privacy: .public)")
-          }
-        }
-      }
+      await serverManager.addToAllowlist(domain: domain)
     }
   }
 
@@ -310,31 +258,12 @@ final class MenuBarController: NSObject {
       }
     }
   }
-
-  // MARK: - Countdown Timer
-
-  private func startCountdownTimer() {
-    stopCountdownTimer()
-    countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-      Task { @MainActor [weak self] in
-        guard let self, let menu = self.currentMenu else { return }
-        self.menuBuilder.updateCountdowns(in: menu)
-      }
-    }
-    if let countdownTimer { RunLoop.current.add(countdownTimer, forMode: .common) }
-  }
-
-  private func stopCountdownTimer() {
-    countdownTimer?.invalidate()
-    countdownTimer = nil
-  }
 }
 
 // MARK: - NSMenuDelegate
 
 extension MenuBarController: NSMenuDelegate {
   func menuDidClose(_ menu: NSMenu) {
-    stopCountdownTimer()
     currentMenu = nil
     statusItem.menu = nil
   }
