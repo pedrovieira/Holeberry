@@ -31,7 +31,8 @@ enum SheetMode: Identifiable {
 struct ConnectionSheet: View {
   let mode: SheetMode
   var serverCount: Int = 0
-  let onSave: (_ label: String?, _ url: String, _ credential: String, _ version: ServerVersion) async throws -> Void
+  let onSave:
+    @Sendable (_ label: String?, _ url: String, _ credential: String, _ version: ServerVersion) async throws -> Void
   let onCancel: () -> Void
 
   let serverManager: PiholeServerManager
@@ -230,7 +231,7 @@ struct ConnectionSheet: View {
           let version = try await serverManager.testConnection(url: serverURL, credential: credential)
           try Task.checkCancellation()
 
-          let config = try serverManager.addServerAfterTest(
+          let config = try await serverManager.addServerAfterTest(
             label: label, url: serverURL, version: version, credential: credential
           )
           didSaveToKeychain = true
@@ -289,7 +290,10 @@ struct TimeoutError: Error, LocalizedError {
   var errorDescription: String? { "Timed out" }
 }
 
-func withThrowingTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+func withThrowingTimeout<T: Sendable>(
+  seconds: TimeInterval,
+  operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
   try await withThrowingTaskGroup(of: T.self) { group in
     group.addTask {
       try await operation()
