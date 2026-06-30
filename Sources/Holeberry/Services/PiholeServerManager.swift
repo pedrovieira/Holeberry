@@ -3,7 +3,7 @@ import Foundation
 import OSLog
 
 @MainActor
-final class PiholeServerManager: ObservableObject, ServerProviding {
+final class PiholeServerManager: ObservableObject {
   private static let maxServers = 2
   private static let jsonEncoder = JSONEncoder()
 
@@ -26,12 +26,6 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     loadServers()
   }
 
-  deinit {
-    for service in services.values {
-      Task { await service.logout() }
-    }
-  }
-
   // MARK: - Server CRUD
 
   func addServer(label: String?, url: String, credential: String) async throws {
@@ -50,10 +44,11 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     let version = try await testConnection(url: url, credential: credential)
 
     let config = ServerConfig(label: label, url: url, version: version)
-    let service = serviceFactory.buildService(config: config, credential: credential)
+    let rawService = serviceFactory.buildService(config: config, credential: credential)
+    let decorator = TemporaryUnblockPiholeServiceDecorator(service: rawService)
 
     servers.append(config)
-    services[config.id] = service
+    services[config.id] = decorator
     saveServers()
 
     try keychain.saveCredential(credential, for: config.id)
@@ -109,9 +104,10 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
       throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
     let config = ServerConfig(label: label, url: url, version: version)
-    let service = serviceFactory.buildService(config: config, credential: credential)
+    let rawService = serviceFactory.buildService(config: config, credential: credential)
+    let decorator = TemporaryUnblockPiholeServiceDecorator(service: rawService)
     servers.append(config)
-    services[config.id] = service
+    services[config.id] = decorator
     try keychain.saveCredential(credential, for: config.id)
     saveServers()
     logger.info("Added server after test: \(label ?? url, privacy: .public)")
@@ -254,15 +250,94 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
     loadServers()
   }
 
-  // MARK: - Generic Perform
+  // MARK: - Typed Operations
 
-  func perform<T>(
-    for id: UUID, block: (PiholeServiceProtocol) async throws -> T
-  ) async throws -> T {
-    guard let service = services[id] else {
-      throw PiholeError.unknown("Server not found")
+  func unblockDomain(_ domain: String, duration: TimeInterval?, for serverID: UUID) async throws {
+    guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
+    try await service.unblockDomain(domain, duration: duration)
+  }
+
+  func deleteDomain(_ domain: String) async {
+    for config in servers {
+      guard let service = services[config.id] else { continue }
+      do {
+        try await service.deleteDomain(domain: domain)
+      } catch {
+        logger.warning(
+          "deleteDomain failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+        )
+      }
     }
-    return try await block(service)
+  }
+
+  func getDomains() async throws -> [UUID: [DomainEntry]] {
+    var results: [UUID: [DomainEntry]] = [:]
+    for config in servers {
+      guard let service = services[config.id] else { continue }
+      do {
+        results[config.id] = try await service.getDomains()
+      } catch {
+        logger.warning(
+          "getDomains failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    }
+    return results
+  }
+
+  func getRecentBlocked(count: Int) async throws -> [String] {
+    var allBlocked: [String] = []
+    for config in servers {
+      guard let service = services[config.id] else { continue }
+      do {
+        let blocked = try await service.getRecentBlocked(count: count)
+        allBlocked.append(contentsOf: blocked)
+      } catch {
+        logger.warning(
+          "getRecentBlocked failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    }
+    return allBlocked
+  }
+
+  func getQuerySummary(for serverID: UUID) async throws -> QuerySummary {
+    guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
+    return try await service.getQuerySummary()
+  }
+
+  // MARK: - Multi-server workflows
+
+  func unblock(domain: String, duration: TimeInterval) async throws {
+    guard !servers.isEmpty else { throw PiholeError.unknown("No configured Pi-hole instance") }
+    var anySuccess = false
+    var lastError: Error?
+
+    for config in servers {
+      do {
+        try await unblockDomain(domain, duration: duration, for: config.id)
+        anySuccess = true
+      } catch {
+        lastError = error
+        logger.warning(
+          "Unblock failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    }
+
+    guard anySuccess else { throw lastError ?? PiholeError.unknown("Failed to unblock on all servers") }
+  }
+
+  func addToAllowlist(domain: String) async {
+    for config in servers {
+      do {
+        try await unblockDomain(domain, duration: nil, for: config.id)
+      } catch {
+        logger.warning(
+          "Allowlist failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    }
   }
 
   // MARK: - Persistence
@@ -276,8 +351,9 @@ final class PiholeServerManager: ObservableObject, ServerProviding {
         logger.warning("No credential found for server \(config.id), skipping")
         continue
       }
-      let service = serviceFactory.buildService(config: config, credential: credential)
-      services[config.id] = service
+      let rawService = serviceFactory.buildService(config: config, credential: credential)
+      let decorator = TemporaryUnblockPiholeServiceDecorator(service: rawService)
+      services[config.id] = decorator
     }
 
     syncConfigs()

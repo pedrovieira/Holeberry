@@ -37,13 +37,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     UNUserNotificationCenter.current().delegate = self
 
     ServerStatusMonitor.shared.startPolling()
-    menuBarController = MenuBarController(tempUnblockManager: .shared)
+    menuBarController = MenuBarController()
     shortcutController = ShortcutController()
   }
 
   func applicationWillTerminate(_ notification: Notification) {
     Task {
-      await ServerStatusMonitor.shared.logoutAll()
+      await PiholeServerManager.shared.logoutAll()
     }
   }
 }

@@ -6,7 +6,7 @@ final class TimerManager: ObservableObject {
   @Published var remainingSeconds: TimeInterval = 0
 
   private var endTime: ContinuousClock.Instant?
-  private var countdownTask: Task<Void, Never>?
+  private var countdownTimer: AnyCancellable?
 
   var formattedTime: String {
     guard isDisabled else { return "" }
@@ -56,26 +56,23 @@ final class TimerManager: ObservableObject {
 
   private func startCountdown() {
     stopCountdown()
-    countdownTask = Task { [weak self] in
-      while !Task.isCancelled {
-        try? await Task.sleep(for: .seconds(1))
+    countdownTimer = Timer.publish(every: 1, on: .main, in: .common)
+      .autoconnect()
+      .sink { [weak self] _ in
         guard let self else { return }
-        await MainActor.run { [self] in
-          guard let endTime = self.endTime else { return }
-          let now = ContinuousClock.now
-          if endTime > now {
-            self.remainingSeconds = (endTime - now) / .seconds(1)
-          } else {
-            self.cancelDisable()
-          }
+        guard let endTime = self.endTime else { return }
+        let now = ContinuousClock.now
+        if endTime > now {
+          self.remainingSeconds = (endTime - now) / .seconds(1)
+        } else {
+          self.cancelDisable()
         }
       }
-    }
   }
 
   private func stopCountdown() {
-    countdownTask?.cancel()
-    countdownTask = nil
+    countdownTimer?.cancel()
+    countdownTimer = nil
   }
 
   deinit {
