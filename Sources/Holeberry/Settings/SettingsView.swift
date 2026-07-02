@@ -12,14 +12,14 @@ enum SettingsTab: String, CaseIterable {
   case notifications = "Notifications"
   case about = "About"
 
-  var icon: String {
+  var image: Image {
     switch self {
-    case .servers: return "server.rack"
-    case .defaults: return "slider.horizontal.3"
-    case .shortcuts: return "keyboard"
-    case .advanced: return "gearshape.2"
-    case .notifications: return "bell"
-    case .about: return "info.circle"
+    case .servers: return Image("Pi-hole")
+    case .defaults: return Image(systemName: "slider.horizontal.3")
+    case .shortcuts: return Image(systemName: "keyboard")
+    case .advanced: return Image(systemName: "gearshape.2")
+    case .notifications: return Image(systemName: "bell")
+    case .about: return Image(systemName: "info.circle")
     }
   }
 }
@@ -41,7 +41,14 @@ struct SettingsView: View {
   var body: some View {
     NavigationSplitView {
       List(SettingsTab.allCases, id: \.self, selection: $selectedTab) { tab in
-        Label(tab.rawValue, systemImage: tab.icon)
+        Label {
+          Text(tab.rawValue)
+        } icon: {
+          tab.image
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 16, height: 16)
+        }
       }
       .listStyle(.sidebar)
       .frame(minWidth: 145)
