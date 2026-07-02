@@ -6,8 +6,10 @@ import UserNotifications
 @MainActor
 final class ShortcutController {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "shortcuts")
+  private let serverManager: PiholeServerManager
 
-  init() {
+  init(serverManager: PiholeServerManager) {
+    self.serverManager = serverManager
     registerShortcuts()
   }
 
@@ -37,8 +39,7 @@ final class ShortcutController {
   // MARK: - Blocking
 
   private func setBlockingOnAll(enabled: Bool, duration: TimeInterval?) async {
-    let monitor = ServerStatusMonitor.shared
-    let servers = monitor.servers
+    let servers = serverManager.servers
 
     guard !servers.isEmpty else {
       logger.debug("Shortcut fired but no servers configured — skipping")
@@ -48,7 +49,7 @@ final class ShortcutController {
     var firstError: String?
     for server in servers {
       do {
-        try await monitor.setBlocking(for: server.id, enabled: enabled, duration: duration)
+        try await serverManager.setBlocking(for: server.id, enabled: enabled, duration: duration)
       } catch {
         logger.warning(
           """
@@ -70,8 +71,7 @@ final class ShortcutController {
   // MARK: - Custom Duration
 
   private func promptCustomDurationThenSetBlocking() async {
-    let monitor = ServerStatusMonitor.shared
-    guard !monitor.servers.isEmpty else {
+    guard !serverManager.servers.isEmpty else {
       logger.debug("disableCustom shortcut fired but no servers configured — skipping")
       return
     }

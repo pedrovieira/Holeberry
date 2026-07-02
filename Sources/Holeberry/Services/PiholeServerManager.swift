@@ -94,36 +94,6 @@ final class PiholeServerManager: ObservableObject {
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
   }
 
-  func addServerAfterTest(
-    label: String?,
-    url: String,
-    version: ServerVersion,
-    credential: String
-  ) throws -> ServerConfig {
-    guard servers.count < Self.maxServers else {
-      throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
-    }
-    let config = ServerConfig(label: label, url: url, version: version)
-    let rawService = serviceFactory.buildService(config: config, credential: credential)
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: rawService)
-    servers.append(config)
-    services[config.id] = decorator
-    try keychain.saveCredential(credential, for: config.id)
-    saveServers()
-    logger.info("Added server after test: \(label ?? url, privacy: .public)")
-    return config
-  }
-
-  func revertAddServer(id: UUID) {
-    if let service = services.removeValue(forKey: id) {
-      Task { await service.logout() }
-    }
-    servers.removeAll { $0.id == id }
-    saveServers()
-    try? keychain.deleteCredential(for: id)
-    logger.info("Reverted server creation: \(id.uuidString, privacy: .public)")
-  }
-
   // MARK: - Connection Testing
 
   func testConnection(url urlString: String, credential: String) async throws -> ServerVersion {
