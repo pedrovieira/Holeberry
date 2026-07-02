@@ -31,8 +31,7 @@ enum SheetMode: Identifiable {
 struct ConnectionSheet: View {
   let mode: SheetMode
   var serverCount: Int = 0
-  let onSave:
-    @Sendable (_ label: String?, _ url: String, _ credential: String, _ version: ServerVersion) async throws -> Void
+  let onDismiss: () -> Void
   let onCancel: () -> Void
 
   let serverManager: PiholeServerManager
@@ -42,9 +41,6 @@ struct ConnectionSheet: View {
   @State private var credential: String = ""
   @State private var isCreating = false
   @State private var createError: String?
-  @State private var createTask: Task<Void, Never>?
-  @State private var didSaveToKeychain = false
-  @State private var createdServerID: UUID?
   @State private var showingCredentialInfo = false
   @State private var isTotpError = false
   @State private var shakeTrigger: Int = 0
@@ -167,14 +163,14 @@ struct ConnectionSheet: View {
           Button("Cancel", action: handleCancel)
             .font(.system(size: 12))
           Button {
-            Task { await createServer() }
+            Task { await submit() }
           } label: {
             if isCreating {
               ProgressView()
                 .controlSize(.small)
                 .scaleEffect(0.8)
             } else {
-              Text("Create")
+              Text(isAdd ? "Create" : "Update")
             }
           }
           .buttonStyle(.borderedProminent)
@@ -207,74 +203,52 @@ struct ConnectionSheet: View {
   }
 
   private func handleCancel() {
-    if let task = createTask {
-      task.cancel()
-      createTask = nil
-    }
-    revertKeychain()
     isCreating = false
     createError = nil
     onCancel()
   }
 
-  private func createServer() async {
+  private func submit() async {
     isCreating = true
     createError = nil
-    didSaveToKeychain = false
-    createdServerID = nil
 
     let serverURL = normalizedURL(from: url)
+    let trimmedLabel = label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label
 
-    let task = Task {
+    if isAdd {
       do {
         try await withThrowingTimeout(seconds: 10) {
-          let version = try await serverManager.testConnection(url: serverURL, credential: credential)
-          try Task.checkCancellation()
-
-          let config = try await serverManager.addServerAfterTest(
-            label: label, url: serverURL, version: version, credential: credential
-          )
-          didSaveToKeychain = true
-          createdServerID = config.id
-
-          try await onSave(
-            label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label,
-            serverURL,
-            credential,
-            version
+          _ = try await serverManager.addServer(
+            label: trimmedLabel, url: serverURL, credential: credential
           )
         }
+        onDismiss()
       } catch is CancellationError {
-        revertKeychain()
         isCreating = false
       } catch _ as TimeoutError {
-        revertKeychain()
         createError = "Creation failed. Timed out (10s)"
         triggerShake()
         isCreating = false
       } catch PiholeError.totpRequired {
-        revertKeychain()
         createError = "Your Pi-hole uses TOTP. Create an Application Password in the web UI and use it here."
         isTotpError = true
         triggerShake()
         isCreating = false
       } catch {
-        revertKeychain()
         createError = "Creation failed: \(error.localizedDescription)"
         triggerShake()
         isCreating = false
       }
+    } else {
+      guard case .edit(let server) = mode else { return }
+      serverManager.updateServer(
+        id: server.id,
+        label: trimmedLabel,
+        url: serverURL,
+        credential: credential.isEmpty ? nil : credential
+      )
+      onDismiss()
     }
-    createTask = task
-    await task.value
-  }
-
-  private func revertKeychain() {
-    if didSaveToKeychain, let id = createdServerID {
-      serverManager.revertAddServer(id: id)
-    }
-    didSaveToKeychain = false
-    createdServerID = nil
   }
 
   private func triggerShake() {
