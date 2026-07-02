@@ -1,3 +1,4 @@
+import Combine
 import Defaults
 import Foundation
 import OSLog
@@ -18,12 +19,29 @@ final class ServerStatusMonitor: ObservableObject {
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private var pollingTask: Task<Void, Never>?
+  private var cancellables = Set<AnyCancellable>()
+  private var isPolling = false
 
   let manager: PiholeServerManager
 
   init(manager: PiholeServerManager) {
     self.manager = manager
     self.servers = manager.servers
+
+    manager.$servers
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] newServers in
+        guard let self else { return }
+        let newIDs = Set(newServers.map(\.id))
+        self.connectionStatuses = self.connectionStatuses.filter { newIDs.contains($0.key) }
+        self.blockingStatuses = self.blockingStatuses.filter { newIDs.contains($0.key) }
+        self.servers = newServers
+        self.combinedStatus.totalInstanceCount = newServers.count
+        self.combinedStatus.connectedInstanceCount = self.connectionStatuses.values.filter { $0 == .connected }.count
+        guard !self.isPolling else { return }
+        Task { await self.pollNow() }
+      }
+      .store(in: &cancellables)
   }
 
   // MARK: - Polling Control
@@ -57,29 +75,6 @@ final class ServerStatusMonitor: ObservableObject {
 
   // MARK: - Server CRUD
 
-  func addServer(label: String?, url: String, credential: String) async throws {
-    try await manager.addServer(label: label, url: url, credential: credential)
-    servers = manager.servers
-    await pollNow()
-  }
-
-  func updateServer(id: UUID, label: String?, url: String, credential: String?) async {
-    manager.updateServer(id: id, label: label, url: url, credential: credential)
-    servers = manager.servers
-    connectionStatuses.removeValue(forKey: id)
-    blockingStatuses.removeValue(forKey: id)
-    await pollNow()
-  }
-
-  func deleteServer(id: UUID) {
-    manager.deleteServer(id: id)
-    servers = manager.servers
-    connectionStatuses.removeValue(forKey: id)
-    blockingStatuses.removeValue(forKey: id)
-    combinedStatus.totalInstanceCount = servers.count
-    combinedStatus.connectedInstanceCount = connectionStatuses.values.filter { $0 == .connected }.count
-  }
-
   func logoutAll() async {
     await manager.logoutAll()
   }
@@ -102,22 +97,11 @@ final class ServerStatusMonitor: ObservableObject {
     isScanning = false
   }
 
-  // MARK: - Blocking Controls
-
-  func setBlocking(for id: UUID, enabled: Bool, duration: TimeInterval?) async throws {
-    try await manager.setBlocking(for: id, enabled: enabled, duration: duration)
-  }
-
-  // MARK: - On-Demand Fetching
-
-  func fetchRecentBlocked() async throws -> [String] {
-    let length = max(Defaults[.recentBlockedCount], 20)
-    return try await manager.getRecentBlocked(count: length)
-  }
-
   // MARK: - Polling Implementation
 
   private func performPoll() async {
+    isPolling = true
+    defer { isPolling = false }
     guard !servers.isEmpty else {
       connectionStatuses = [:]
       blockingStatuses = [:]
@@ -142,7 +126,9 @@ final class ServerStatusMonitor: ObservableObject {
 
       do {
         let version = try await manager.testConnection(url: config.url, credential: credential)
-        manager.updateServerVersion(id: config.id, version: version)
+        if version != config.version {
+          manager.updateServerVersion(id: config.id, version: version)
+        }
 
         let blocking = try await manager.getBlockingStatus(for: config.id)
         connectionStatuses[config.id] = .connected

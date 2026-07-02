@@ -38,7 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     ServerStatusMonitor.shared.startPolling()
     menuBarController = MenuBarController()
-    shortcutController = ShortcutController()
+    shortcutController = ShortcutController(serverManager: .shared)
   }
 
   func applicationWillTerminate(_ notification: Notification) {

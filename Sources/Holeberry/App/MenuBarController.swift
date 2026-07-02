@@ -204,7 +204,7 @@ final class MenuBarController: NSObject {
   }
 
   private func refreshRecentBlockedCache() {
-    guard let server = serverManager.servers.first else {
+    guard serverManager.servers.first != nil else {
       recentBlockedCache = []
       lastCacheRefresh = Date()
       return

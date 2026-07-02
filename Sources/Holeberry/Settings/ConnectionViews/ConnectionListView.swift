@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ConnectionListView: View {
+  let serverManager: PiholeServerManager
   @ObservedObject private var monitor = ServerStatusMonitor.shared
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
@@ -118,30 +119,15 @@ struct ConnectionListView: View {
       ConnectionSheet(
         mode: mode,
         serverCount: monitor.servers.count,
-        onSave: { label, url, password, _ in
-          switch mode {
-          case .add:
-            try await monitor.addServer(label: label, url: url, credential: password)
-          case .edit:
-            if case .edit(let server) = mode {
-              await monitor.updateServer(
-                id: server.id,
-                label: label,
-                url: url,
-                credential: password.isEmpty ? nil : password
-              )
-            }
-          }
-          sheetMode = nil
-        },
+        onDismiss: { sheetMode = nil },
         onCancel: { sheetMode = nil },
-        serverManager: .shared
+        serverManager: serverManager
       )
     }
     .alert("Delete Connection", isPresented: $showDeleteConfirmation, presenting: serverToDelete) { server in
       Button("Cancel", role: .cancel) { serverToDelete = nil }
       Button("Delete", role: .destructive) {
-        monitor.deleteServer(id: server.id)
+        serverManager.deleteServer(id: server.id)
         serverToDelete = nil
       }
     } message: { server in
@@ -153,7 +139,7 @@ struct ConnectionListView: View {
       await monitor.pollNow()
       await monitor.runScanIfNeeded()
     }
-    .onChange(of: monitor.servers.count) { _ in
+    .onChange(of: monitor.servers.count) {
       Task { await monitor.runScanIfNeeded() }
     }
   }
