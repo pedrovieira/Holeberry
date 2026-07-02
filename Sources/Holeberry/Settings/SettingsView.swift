@@ -5,7 +5,7 @@ import ServiceManagement
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable {
-  case server = "Server"
+  case servers = "Servers"
   case defaults = "Defaults"
   case shortcuts = "Shortcuts"
   case advanced = "Advanced"
@@ -14,7 +14,7 @@ enum SettingsTab: String, CaseIterable {
 
   var icon: String {
     switch self {
-    case .server: return "server.rack"
+    case .servers: return "server.rack"
     case .defaults: return "slider.horizontal.3"
     case .shortcuts: return "keyboard"
     case .advanced: return "gearshape.2"
@@ -32,7 +32,7 @@ struct SettingsView: View {
 
   @State private var isToggling = false
   @State private var requiresApproval = false
-  @State private var selectedTab: SettingsTab = .server
+  @State private var selectedTab: SettingsTab = .servers
 
   let serverManager: PiholeServerManager
 
@@ -49,9 +49,9 @@ struct SettingsView: View {
       .navigationSplitViewColumnWidth(min: 140, ideal: 160, max: 160)
     } detail: {
       switch selectedTab {
-      case .server:
+      case .servers:
         Form {
-          ConnectionListView()
+          ConnectionListView(serverManager: serverManager)
         }
         .formStyle(.grouped)
       case .defaults:
