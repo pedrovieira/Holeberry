@@ -13,6 +13,9 @@ final class MockPiholeService: PiholeServiceInternal {
   var checkStatusStub: Result<BlockingStatus, Error> = .success(.enabled)
   var checkStatusCallCount = 0
 
+  var loginStub: Result<Void, Error> = .success(())
+  var loginCallCount = 0
+
   var setBlockingStub: Result<Void, Error> = .success(())
   var setBlockingCallCount = 0
   var setBlockingLastEnabled: Bool?
@@ -42,9 +45,6 @@ final class MockPiholeService: PiholeServiceInternal {
 
   var getDomainsStub: Result<[DomainEntry], Error> = .success([])
   var getDomainsCallCount = 0
-
-  var refreshSessionCallCount = 0
-  var refreshSessionLastURL: String?
 
   var logoutCallCount = 0
 
@@ -113,10 +113,9 @@ final class MockPiholeService: PiholeServiceInternal {
     return try getDomainsStub.get()
   }
 
-  func refreshSession(from urlString: String) {
-    refreshSessionCallCount += 1
-    refreshSessionLastURL = urlString
-    self.url = urlString
+  func login() async throws {
+    loginCallCount += 1
+    try loginStub.get()
   }
 
   func logout() async {

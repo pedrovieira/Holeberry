@@ -12,7 +12,6 @@ actor AuthManager {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "auth")
 
   private static let passwordKey = "password"
-  private static let totpKey = "totp"
   private static let ftlSIDHeader = "X-FTL-SID"
   private static let ftlCSRFHeader = "X-FTL-CSRF"
 
@@ -31,21 +30,21 @@ actor AuthManager {
 
   var isLoggedIn: Bool { isAuthenticated }
 
-  func login(password: String, totp: String? = nil) async throws {
+  func login(password: String) async throws {
     if isAuthenticated { return }
     if let existingTask = loginTask {
       return try await existingTask.value
     }
     let task = Task { [weak self] in
       guard let self else { throw PiholeError.unknown("AuthManager deallocated") }
-      try await self.performLogin(password: password, totp: totp)
+      try await self.performLogin(password: password)
     }
     loginTask = task
     defer { loginTask = nil }
     try await task.value
   }
 
-  private func performLogin(password: String, totp: String? = nil) async throws {
+  private func performLogin(password: String) async throws {
     cancelRefresh()
 
     let url = baseURL.appendingPathComponent("/api/auth")
@@ -54,10 +53,7 @@ actor AuthManager {
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.timeoutInterval = 15
 
-    var bodyDict: [String: String] = [Self.passwordKey: password]
-    if let totp {
-      bodyDict[Self.totpKey] = totp
-    }
+    let bodyDict: [String: String] = [Self.passwordKey: password]
     request.httpBody = try JSONEncoder().encode(bodyDict)
 
     let (data, response): (Data, URLResponse)
@@ -90,7 +86,7 @@ actor AuthManager {
       throw PiholeError.decoding(error.localizedDescription)
     }
 
-    if authResponse.totp == true && totp == nil {
+    if authResponse.totp == true {
       throw PiholeError.totpRequired
     }
 
@@ -101,7 +97,7 @@ actor AuthManager {
     isAuthenticated = true
 
     logger.debug("Authenticated successfully; SID valid for \(authResponse.session.validity ?? 0, privacy: .public)s")
-    scheduleRefresh(password: password, totp: totp)
+    scheduleRefresh(password: password)
   }
 
   func logout() async {
@@ -135,12 +131,15 @@ actor AuthManager {
     return headers
   }
 
-  func reauthenticate(password: String, totp: String? = nil) async throws {
+  func reauthenticate(password: String) async throws {
     logger.debug("Re-authenticating (proactive refresh)")
-    try await performLogin(password: password, totp: totp)
+    isAuthenticated = false
+    sid = nil
+    csrf = nil
+    try await login(password: password)
   }
 
-  private func scheduleRefresh(password: String, totp: String?) {
+  private func scheduleRefresh(password: String) {
     guard let validity else { return }
     let refreshIn = max(validity - 50, 10)
     let capturedBaseURL = baseURL
@@ -149,7 +148,7 @@ actor AuthManager {
       do {
         try await Task.sleep(nanoseconds: UInt64(refreshIn * 1_000_000_000))
         guard !Task.isCancelled else { return }
-        try await self?.reauthenticate(password: password, totp: totp)
+        try await self?.reauthenticate(password: password)
       } catch is CancellationError {
         return
       } catch PiholeError.totpRequired {

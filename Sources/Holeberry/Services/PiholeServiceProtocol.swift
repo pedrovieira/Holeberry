@@ -32,6 +32,6 @@ protocol PiholeServiceProtocol: AnyObject {
 
   // MARK: - Session
 
-  func refreshSession(from urlString: String)
+  func login() async throws
   func logout() async
 }

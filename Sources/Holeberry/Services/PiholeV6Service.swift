@@ -37,14 +37,8 @@ final class PiholeV6Service: PiholeServiceInternal {
     self.password = password
   }
 
-  func refreshSession(from urlString: String) {
-    guard let newURL = URL(string: urlString) else { return }
-    self.url = urlString
-    self.baseURL = newURL
-    session.invalidateAndCancel()
-    let delegate = CertificateTrustDelegate(trustedHosts: Set([newURL.host].compactMap { $0 }))
-    self.session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
-    self.authManager = AuthManager(baseURL: newURL, session: self.session)
+  func login() async throws {
+    try await authManager.login(password: password)
   }
 
   func logout() async {

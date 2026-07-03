@@ -47,13 +47,9 @@ final class PiholeV5Service: PiholeServiceInternal {
     self.apiToken = apiToken
   }
 
-  func refreshSession(from urlString: String) {
-    guard let newURL = URL(string: urlString) else { return }
-    self.url = urlString
-    self.baseURL = newURL
-    session.invalidateAndCancel()
-    let delegate = CertificateTrustDelegate(trustedHosts: Set([newURL.host].compactMap { $0 }))
-    self.session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+  func login() async throws {
+    // V5 uses API token — no session to establish.
+    // If the token is invalid, the first API call will fail naturally.
   }
 
   func logout() async {
