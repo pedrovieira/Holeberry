@@ -4,17 +4,16 @@ struct PiholeServiceFactory {
   static let shared = PiholeServiceFactory()
 
   @MainActor
-  func buildService(config: ServerConfig, credential: String) -> PiholeServiceInternal {
+  func buildService(config: ServerConfig, credential: String, session: URLSession) -> PiholeServiceInternal {
     guard let url = URL(string: config.url) else {
       fatalError("Invalid URL in ServerConfig: \(config.url)")
     }
-    let delegate = CertificateTrustDelegate(trustedHosts: Set([url.host].compactMap { $0 }))
-    let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
 
+    let raw: PiholeServiceInternal
     switch config.version {
     case .v6:
       let authManager = AuthManager(baseURL: url, session: session)
-      return PiholeV6Service(
+      raw = PiholeV6Service(
         id: config.id,
         label: config.label,
         url: config.url,
@@ -25,7 +24,7 @@ struct PiholeServiceFactory {
         password: credential
       )
     case .v5:
-      return PiholeV5Service(
+      raw = PiholeV5Service(
         id: config.id,
         label: config.label,
         url: config.url,
@@ -35,5 +34,6 @@ struct PiholeServiceFactory {
         apiToken: credential
       )
     }
+    return TemporaryUnblockPiholeServiceDecorator(service: raw)
   }
 }

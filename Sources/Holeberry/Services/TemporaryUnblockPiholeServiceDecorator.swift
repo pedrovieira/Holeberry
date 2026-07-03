@@ -35,7 +35,9 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals
     self.activeRecords = restoreFromDefaults()
-    Task { await reconcileWithServer() }
+    if !activeRecords.isEmpty {
+      Task { await reconcileWithServer() }
+    }
   }
 
   // MARK: - Passthrough methods
@@ -82,12 +84,12 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
     try await wrapped.getDomains()
   }
 
-  func refreshSession(from urlString: String) {
-    wrapped.refreshSession(from: urlString)
-  }
-
   func logout() async {
     await wrapped.logout()
+  }
+
+  func login() async throws {
+    try await wrapped.login()
   }
 
   // MARK: - Unblock
