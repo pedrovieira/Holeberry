@@ -26,6 +26,24 @@ enum SheetMode: Identifiable {
   }
 }
 
+public struct ShakeEffect: GeometryEffect {
+  private let amount: CGFloat = 10.0
+  private let shakesPerUnit: CGFloat = 3.0
+  public var animatableData: CGFloat
+  public init(animatableData: CGFloat) {
+    self.animatableData = animatableData
+  }
+
+  public func effectValue(size: CGSize) -> ProjectionTransform {
+    ProjectionTransform(
+      CGAffineTransform(
+        translationX: self.amount * sin(self.animatableData * .pi * self.shakesPerUnit),
+        y: 0.0
+      )
+    )
+  }
+}
+
 // MARK: - Connection Sheet
 
 struct ConnectionSheet: View {
@@ -43,7 +61,7 @@ struct ConnectionSheet: View {
   @State private var createError: String?
   @State private var showingCredentialInfo = false
   @State private var isTotpError = false
-  @State private var shakeTrigger: Int = 0
+  @State private var shakeTrigger: CGFloat = 0
 
   private var hasURLError: Bool {
     !isCreating && !url.isEmpty && !isValidURL
@@ -165,13 +183,15 @@ struct ConnectionSheet: View {
           Button {
             Task { await submit() }
           } label: {
-            if isCreating {
-              ProgressView()
-                .controlSize(.small)
-                .scaleEffect(0.8)
-            } else {
-              Text(isAdd ? "Create" : "Update")
-            }
+            Text(isAdd ? "Create" : "Update")
+              .opacity(isCreating ? 0 : 1)
+              .overlay {
+                if isCreating {
+                  ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.8)
+                }
+              }
           }
           .buttonStyle(.borderedProminent)
           .font(.system(size: 12))
@@ -181,19 +201,22 @@ struct ConnectionSheet: View {
     }
     .padding(20)
     .frame(width: 420)
-    .phaseAnimator(
-      [0, -10, 10, -6, 6, -3, 3, 0],
-      trigger: shakeTrigger
-    ) { content, offset in
-      content.offset(x: offset)
-    } animation: { _ in
-      .linear(duration: 0.4)
+    .modifier(ShakeEffect(animatableData: shakeTrigger))
+    .onSubmit {
+      guard canCreate else { return }
+      Task { await submit() }
     }
     .onAppear {
       url = mode.prefillURL
       if let existingLabel = mode.existingLabel {
         label = existingLabel
       }
+    }
+  }
+
+  private func triggerShake() {
+    withAnimation(.easeOut(duration: 0.45)) {
+      shakeTrigger += 1
     }
   }
 
@@ -248,12 +271,6 @@ struct ConnectionSheet: View {
         credential: credential.isEmpty ? nil : credential
       )
       onDismiss()
-    }
-  }
-
-  private func triggerShake() {
-    withAnimation {
-      shakeTrigger += 1
     }
   }
 }
