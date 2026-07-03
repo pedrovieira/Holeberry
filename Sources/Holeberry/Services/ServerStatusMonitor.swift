@@ -29,6 +29,7 @@ final class ServerStatusMonitor: ObservableObject {
     self.servers = manager.servers
 
     manager.$servers
+      .dropFirst()
       .receive(on: DispatchQueue.main)
       .sink { [weak self] newServers in
         guard let self else { return }
@@ -117,7 +118,7 @@ final class ServerStatusMonitor: ObservableObject {
     var anyError: String?
 
     for config in servers {
-      guard let credential = try? KeychainManager.shared.readCredential(for: config.id) else {
+      guard (try? KeychainManager.shared.readCredential(for: config.id)) != nil else {
         connectionStatuses[config.id] = .disconnected
         blockingStatuses.removeValue(forKey: config.id)
         anyError = anyError ?? "Missing credentials for \(config.label ?? config.url)"
@@ -125,11 +126,6 @@ final class ServerStatusMonitor: ObservableObject {
       }
 
       do {
-        let version = try await manager.testConnection(url: config.url, credential: credential)
-        if version != config.version {
-          manager.updateServerVersion(id: config.id, version: version)
-        }
-
         let blocking = try await manager.getBlockingStatus(for: config.id)
         connectionStatuses[config.id] = .connected
         blockingStatuses[config.id] = blocking
