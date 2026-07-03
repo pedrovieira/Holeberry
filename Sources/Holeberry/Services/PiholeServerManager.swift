@@ -14,13 +14,19 @@ final class PiholeServerManager: ObservableObject {
 
   private let keychain: KeychainManager
   private let serviceFactory: PiholeServiceFactory
+  private let versionDetector: PiholeVersionDetector
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
 
   private var services: [UUID: PiholeServiceProtocol] = [:]
 
-  init(keychain: KeychainManager = .shared, serviceFactory: PiholeServiceFactory = .shared) {
+  init(
+    keychain: KeychainManager = .shared,
+    serviceFactory: PiholeServiceFactory = .shared,
+    versionDetector: PiholeVersionDetector = .shared
+  ) {
     self.keychain = keychain
     self.serviceFactory = serviceFactory
+    self.versionDetector = versionDetector
     self.servers = []
     self.combinedStatus = CombinedStatus()
     loadServers()
@@ -33,7 +39,7 @@ final class PiholeServerManager: ObservableObject {
       throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
 
-    guard URL(string: url) != nil else {
+    guard let serverURL = URL(string: url) else {
       throw PiholeError.unknown("Invalid URL format")
     }
 
@@ -41,14 +47,16 @@ final class PiholeServerManager: ObservableObject {
       throw PiholeError.unknown("Credential is required")
     }
 
-    let version = try await testConnection(url: url, credential: credential)
+    let version = try await detectVersion(url: url)
 
     let config = ServerConfig(label: label, url: url, version: version)
-    let rawService = serviceFactory.buildService(config: config, credential: credential)
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: rawService)
+    let session = makeSession(trusting: serverURL)
+    let service = serviceFactory.buildService(config: config, credential: credential, session: session)
+
+    try await service.login()
 
     servers.append(config)
-    services[config.id] = decorator
+    services[config.id] = service
     saveServers()
 
     try keychain.saveCredential(credential, for: config.id)
@@ -59,15 +67,20 @@ final class PiholeServerManager: ObservableObject {
   func updateServer(id: UUID, label: String?, url: String, credential: String?, version: ServerVersion? = nil) {
     guard let idx = servers.firstIndex(where: { $0.id == id }) else { return }
 
-    if let service = services[id] {
-      let oldURL = service.url
+    if let existingService = services[id] {
+      let urlChanged = url != existingService.url
 
-      if let label { service.label = label }
-      service.url = url
-      if let version { service.version = version }
+      if let label { existingService.label = label }
+      existingService.url = url
+      if let version { existingService.version = version }
 
-      if url != oldURL {
-        service.refreshSession(from: url)
+      if urlChanged {
+        let currentCredential = credential ?? (try? keychain.readCredential(for: id)) ?? ""
+        let config = ServerConfig(id: id, label: existingService.label, url: url, version: existingService.version)
+        Task { await existingService.logout() }
+        guard let serverURL = URL(string: url) else { return }
+        let session = makeSession(trusting: serverURL)
+        services[id] = serviceFactory.buildService(config: config, credential: currentCredential, session: session)
       }
     } else {
       if let label { servers[idx].label = label }
@@ -96,95 +109,24 @@ final class PiholeServerManager: ObservableObject {
 
   // MARK: - Connection Testing
 
-  func testConnection(url urlString: String, credential: String) async throws -> ServerVersion {
+  private func makeSession(trusting url: URL) -> URLSession {
+    let hosts = Set(servers.compactMap { URL(string: $0.url)?.host } + [url.host].compactMap { $0 })
+    let delegate = CertificateTrustDelegate(trustedHosts: hosts)
+    return URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+  }
+
+  private func detectVersion(url urlString: String) async throws -> ServerVersion {
     guard let url = URL(string: urlString) else {
       throw PiholeError.unknown("Invalid URL format")
     }
 
-    let hosts = Set(servers.compactMap { URL(string: $0.url)?.host } + [url.host].compactMap { $0 })
-    let delegate = CertificateTrustDelegate(trustedHosts: hosts)
-    let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    let session = makeSession(trusting: url)
     defer { session.finishTasksAndInvalidate() }
 
-    // 1. Try v6 auth first
-    let authURL = url.appendingPathComponent("/api/auth")
-    var authRequest = URLRequest(url: authURL)
-    authRequest.httpMethod = "POST"
-    authRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    authRequest.timeoutInterval = 15
-    authRequest.httpBody = try Self.jsonEncoder.encode(["password": credential])
-
-    let (authData, authResponse): (Data, URLResponse)
-    do {
-      (authData, authResponse) = try await session.data(for: authRequest)
-    } catch {
-      return try await detectV5Fallback(url: url, session: session)
-    }
-
-    guard let authHTTP = authResponse as? HTTPURLResponse else {
-      return try await detectV5Fallback(url: url, session: session)
-    }
-
-    switch authHTTP.statusCode {
-    case 200:
-      let authManager = AuthManager(baseURL: url, session: session)
-      let service = PiholeV6Service(
-        id: UUID(),
-        label: nil,
-        url: urlString,
-        version: .v6,
-        baseURL: url,
-        session: session,
-        authManager: authManager,
-        password: credential
-      )
-      _ = try await service.checkStatus()
-      return .v6
-
-    case 400:
-      guard
-        let json = try? JSONSerialization.jsonObject(with: authData) as? [String: Any],
-        let errorObj = json["error"] as? [String: Any],
-        let message = errorObj["message"] as? String,
-        message.localizedCaseInsensitiveContains("2fa")
-      else {
-        return try await detectV5Fallback(url: url, session: session)
-      }
-      throw PiholeError.totpRequired
-
-    case 401:
-      throw PiholeError.unauthorized
-
-    case 404:
-      return try await detectV5Fallback(url: url, session: session)
-
-    default:
-      return try await detectV5Fallback(url: url, session: session)
-    }
-  }
-
-  private func detectV5Fallback(url: URL, session: URLSession) async throws -> ServerVersion {
-    let version = try await PiholeVersionDetector.detect(baseURL: url, session: session)
-    return version
+    return try await versionDetector.detect(baseURL: url, session: session)
   }
 
   // MARK: - Status & Blocking
-
-  func refreshStatuses() async {
-    for (id, service) in services {
-      guard let credential = try? keychain.readCredential(for: id) else { continue }
-      do {
-        let version = try await testConnection(url: service.url, credential: credential)
-        service.version = version
-      } catch {
-        logger.warning(
-          "refreshStatuses failed for \(service.label ?? service.url): \(error.localizedDescription, privacy: .public)"
-        )
-      }
-    }
-    syncConfigs()
-    saveServers()
-  }
 
   func getBlockingStatus(for id: UUID) async throws -> BlockingStatus {
     guard let service = services[id] else {
@@ -321,9 +263,9 @@ final class PiholeServerManager: ObservableObject {
         logger.warning("No credential found for server \(config.id), skipping")
         continue
       }
-      let rawService = serviceFactory.buildService(config: config, credential: credential)
-      let decorator = TemporaryUnblockPiholeServiceDecorator(service: rawService)
-      services[config.id] = decorator
+      guard let serverURL = URL(string: config.url) else { continue }
+      let session = makeSession(trusting: serverURL)
+      services[config.id] = serviceFactory.buildService(config: config, credential: credential, session: session)
     }
 
     syncConfigs()

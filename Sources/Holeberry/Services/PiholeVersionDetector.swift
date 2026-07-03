@@ -8,29 +8,31 @@ import OSLog
 ///   - **v6:**  HTTP 400 with `{"hint": "...the API is hosted at /api..."}`
 ///
 /// Any other response is treated as unreachable.
-enum PiholeVersionDetector {
-  private static let logger = Logger(
-    subsystem: Logger.appSubsystem,
-    category: "version-detector"
-  )
-
+struct PiholeVersionDetector {
   private static let versionKey = "version"
   private static let hintKey = "hint"
   private static let errorKey = "error"
 
-  private static let versionQueryItem = URLQueryItem(name: Self.versionKey, value: nil)
+  static let shared = PiholeVersionDetector()
 
-  private static func hint(from json: [String: Any]) -> String? {
+  private let logger = Logger(
+    subsystem: Logger.appSubsystem,
+    category: "version-detector"
+  )
+
+  private let versionQueryItem = URLQueryItem(name: "version", value: nil)
+
+  private func hint(from json: [String: Any]) -> String? {
     let errorDict = json[Self.errorKey] as? [String: Any]
     return (json[Self.hintKey] as? String) ?? errorDict?[Self.hintKey] as? String
   }
 
-  static func detect(baseURL: URL, session: URLSession) async throws -> ServerVersion {
+  func detect(baseURL: URL, session: URLSession) async throws -> ServerVersion {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("/admin/api.php"),
       resolvingAgainstBaseURL: false
     )
-    components?.queryItems = [Self.versionQueryItem]
+    components?.queryItems = [versionQueryItem]
 
     guard let probeURL = components?.url else {
       throw PiholeError.unknown("Failed to build probe URL")
@@ -66,7 +68,7 @@ enum PiholeVersionDetector {
     case 400:
       guard
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-        let hint = Self.hint(from: json),
+        let hint = hint(from: json),
         hint.contains("/api")
       else {
         throw PiholeError.unknown(
