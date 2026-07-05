@@ -42,22 +42,23 @@ struct ConnectionCardView: View {
 
         Menu {
           Button("Edit...", action: onEdit)
-          Button("Delete...", role: .destructive, action: onDelete)
+          Button(role: .destructive, action: onDelete) {
+            Text("Delete...")
+          }
         } label: {
           Text("···")
             .font(.system(size: 12, weight: .medium))
             .foregroundColor(.secondary)
+            .frame(width: 24, height: 24)
+            .background(Color(nsColor: .quaternaryLabelColor))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
         }
+        .menuIndicator(.hidden)
         .menuStyle(.borderlessButton)
-        .frame(width: 24, height: 24)
         .help("More options")
       }
     }
     .padding(.vertical, 4)
-    .contextMenu {
-      Button("Edit...", action: onEdit)
-      Button("Delete...", role: .destructive, action: onDelete)
-    }
   }
 }
 

@@ -37,6 +37,18 @@ struct ConnectionListView: View {
             showDeleteConfirmation = true
           }
         )
+        .contextMenu {
+          Button("Edit...") { sheetMode = .edit(server) }
+          Button(
+            role: .destructive,
+            action: {
+              serverToDelete = server
+              showDeleteConfirmation = true
+            },
+            label: {
+              Text("Delete...")
+            })
+        }
       }
 
       if monitor.servers.count < 2 {
