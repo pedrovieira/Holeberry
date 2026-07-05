@@ -29,6 +29,8 @@ struct SettingsView: View {
   var recentBlockedCount
   @Default(.launchAtLogin)
   var launchAtLogin
+  @Default(.browserTabUnblockEnabled)
+  var browserTabUnblockEnabled
 
   @State private var isToggling = false
   @State private var requiresApproval = false
@@ -182,6 +184,22 @@ struct SettingsView: View {
           .controlSize(.small)
           .foregroundColor(.accentColor)
         }
+      }
+
+      Divider()
+        .padding(.vertical, 4)
+
+      VStack(alignment: .leading) {
+        Toggle("Enable browser tab unblocking", isOn: $browserTabUnblockEnabled)
+
+        Text("Let Holeberry read the current browser tab URL to quickly unblock it. Requires Automation permission.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+
+      if browserTabUnblockEnabled {
+        KeyboardShortcuts.Recorder("Unblock Current Tab:", name: .unblockCurrentTab)
       }
     }
   }

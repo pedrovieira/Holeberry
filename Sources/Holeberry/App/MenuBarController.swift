@@ -11,6 +11,7 @@ final class MenuBarController: NSObject {
   private let serverManager = PiholeServerManager.shared
   private let reachability = ReachabilityMonitor()
   private let statusMonitor = ServerStatusMonitor.shared
+  private let browserUrlFetcher = BrowserUrlFetcher()
   private lazy var menuBuilder: MenuBuilder = {
     let builder = MenuBuilder(
       serverManager: serverManager,
@@ -21,6 +22,9 @@ final class MenuBarController: NSObject {
     }
     builder.onAddToAllowlist = { [weak self] domain in
       self?.addToAllowlist(domain: domain)
+    }
+    builder.onUnblockCurrentTab = { [weak self] in
+      self?.performBrowserTabUnblock()
     }
 
     return builder
@@ -40,6 +44,9 @@ final class MenuBarController: NSObject {
   // Inline error
   private var errorMessage: String?
   private var errorClearTask: Task<Void, Never>?
+
+  // Browser icon cache
+  private var appIconCache: [String: NSImage] = [:]
 
   override init() {
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -65,6 +72,11 @@ final class MenuBarController: NSObject {
   @objc private func handleClick() {
     ensureCacheFresh()
 
+    let browserTabStatus = browserUrlFetcher.resolveCurrentTabDomain()
+    var browserIcon: NSImage?
+    if case .url = browserTabStatus {
+      browserIcon = resolveBrowserIcon()
+    }
     let menu = menuBuilder.buildMenu(
       recentBlocked: recentBlockedCache,
       error: errorMessage,
@@ -72,7 +84,9 @@ final class MenuBarController: NSObject {
       combinedStatus: statusMonitor.combinedStatus,
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
-      servers: statusMonitor.servers
+      servers: statusMonitor.servers,
+      browserTabStatus: browserTabStatus,
+      browserIcon: browserIcon
     )
     menu.delegate = self
     currentMenu = menu
@@ -240,6 +254,44 @@ final class MenuBarController: NSObject {
     Task {
       await serverManager.addToAllowlist(domain: domain)
     }
+  }
+
+  // MARK: - Browser Tab Unblock
+
+  private func performBrowserTabUnblock() {
+    let status = browserUrlFetcher.resolveCurrentTabDomain()
+    guard case .url(let domain) = status else {
+      logger.warning("Browser tab unblock failed: \(String(describing: status))")
+      return
+    }
+    Task {
+      do {
+        try await serverManager.unblock(domain: domain, duration: 300)
+        setError(nil)
+      } catch {
+        showError("Failed to unblock \(domain): \(error.localizedDescription)")
+      }
+    }
+  }
+
+  /// Returns the browser tab status for menu rendering.
+  func resolveBrowserTabStatus() -> BrowserUrlFetcher.Status {
+    browserUrlFetcher.resolveCurrentTabDomain()
+  }
+
+  // MARK: - Browser Icon
+
+  private func resolveBrowserIcon() -> NSImage? {
+    guard let app = NSWorkspace.shared.frontmostApplication,
+      let bundleID = app.bundleIdentifier
+    else { return nil }
+
+    if let cached = appIconCache[bundleID] {
+      return cached
+    }
+    guard let icon = app.resizedIcon(size: NSRunningApplication.menuBarIconSize) else { return nil }
+    appIconCache[bundleID] = icon
+    return icon
   }
 
   // MARK: - Inline Error
