@@ -31,6 +31,7 @@ targets:
       properties:
         LSUIElement: true
         NSLocalNetworkUsageDescription: Holeberry needs local network access to connect to your Pi-hole instances.
+        NSAppleEventsUsageDescription: Holeberry needs to read the current tab URL from your browser to unblock it.
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Resources/Holeberry.entitlements

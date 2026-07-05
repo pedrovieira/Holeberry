@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import KeyboardShortcuts
 import OSLog
 import UserNotifications
@@ -7,6 +8,7 @@ import UserNotifications
 final class ShortcutController {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "shortcuts")
   private let serverManager: PiholeServerManager
+  private let browserUrlFetcher = BrowserUrlFetcher()
 
   init(serverManager: PiholeServerManager) {
     self.serverManager = serverManager
@@ -33,6 +35,21 @@ final class ShortcutController {
     }
     KeyboardShortcuts.onKeyDown(for: .reEnableBlocking) { [weak self] in
       Task { await self?.setBlockingOnAll(enabled: true, duration: nil) }
+    }
+    KeyboardShortcuts.onKeyDown(for: .unblockCurrentTab) { [weak self] in
+      guard let self else { return }
+      guard Defaults[.browserTabUnblockEnabled] else {
+        logger.debug("Unblock current tab shortcut fired but feature is disabled")
+        return
+      }
+      let status = self.browserUrlFetcher.resolveCurrentTabDomain()
+      guard case .url(let domain) = status else {
+        logger.debug("Unblock current tab shortcut: no URL available (\(String(describing: status)))")
+        return
+      }
+      Task {
+        await self.unblockOnAllServers(domain: domain, duration: 300)
+      }
     }
   }
 
@@ -65,6 +82,25 @@ final class ShortcutController {
 
     if let errorMessage = firstError {
       await postErrorNotification(action: enabled ? "enable" : "disable", error: errorMessage)
+    }
+  }
+
+  private func unblockOnAllServers(domain: String, duration: TimeInterval) async {
+    guard !serverManager.servers.isEmpty else {
+      logger.debug("Unblock shortcut fired but no servers configured — skipping")
+      return
+    }
+
+    do {
+      try await serverManager.unblock(domain: domain, duration: duration)
+    } catch {
+      logger.warning(
+        """
+        Shortcut unblock failed: \
+        \(error.localizedDescription, privacy: .public)
+        """
+      )
+      await postErrorNotification(action: "unblock", error: error.localizedDescription)
     }
   }
 
