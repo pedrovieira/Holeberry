@@ -52,11 +52,16 @@ struct ConnectionListView: View {
       }
 
       if monitor.servers.count >= 2 {
-        Text("Max 2 connections")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-          .frame(maxWidth: .infinity)
-          .padding(.top, 4)
+        HStack(spacing: 6) {
+          Image(systemName: "plus")
+          Text("Maximum connections reached")
+        }
+        .font(.system(size: 11))
+        .foregroundColor(.secondary)
+        .opacity(0.4)
+        .allowsHitTesting(false)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
       }
     } header: {
       VStack(alignment: .leading, spacing: 4) {
