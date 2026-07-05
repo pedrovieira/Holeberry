@@ -7,4 +7,5 @@ extension KeyboardShortcuts.Name {
   static let disable5m = Self("disable5m")
   static let disableCustom = Self("disableCustom")
   static let reEnableBlocking = Self("reEnableBlocking")
+  static let unblockCurrentTab = Self("unblockCurrentTab")
 }

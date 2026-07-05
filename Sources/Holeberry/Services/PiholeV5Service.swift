@@ -98,7 +98,7 @@ final class PiholeV5Service: PiholeServiceInternal {
   func checkStatus() async throws -> BlockingStatus {
     let (data, httpResponse) = try await getRequest(path: "/admin/api.php", params: ["status": nil])
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -124,7 +124,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       path: "/admin/api.php", params: ["summaryRaw": nil]
     )
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -147,7 +147,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       let (data, httpResponse) = try await getRequestWithRetry(
         path: "/admin/api.php", params: ["enable": nil]
       )
-      guard httpResponse.statusCode == 200 else {
+      guard httpResponse.isSuccess else {
         throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
       }
     } else {
@@ -155,7 +155,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       let (data, httpResponse) = try await getRequestWithRetry(
         path: "/admin/api.php", params: ["disable": String(seconds)]
       )
-      guard httpResponse.statusCode == 200 else {
+      guard httpResponse.isSuccess else {
         throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
       }
     }
@@ -174,7 +174,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       path: "/admin/api.php", params: params
     )
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -196,7 +196,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       path: "/admin/api.php", params: ["getAllQueries": nil]
     )
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -243,7 +243,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       path: "/admin/api.php", params: ["list": listName, "add": domain]
     )
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -265,7 +265,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       path: "/admin/api.php", params: ["list": listName, "sub": domain]
     )
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
   }
@@ -281,7 +281,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       path: "/admin/api.php", params: ["list": listType]
     )
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       return []
     }
 

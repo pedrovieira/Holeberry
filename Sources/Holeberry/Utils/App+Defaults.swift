@@ -21,6 +21,9 @@ extension Defaults.Keys {
   /// Whether the app should launch at login.
   static let launchAtLogin = Defaults.Key<Bool>("launchAtLogin", default: false)
 
+  /// Whether browser tab URL unblocking is enabled (off by default).
+  static let browserTabUnblockEnabled = Defaults.Key<Bool>("browserTabUnblockEnabled", default: false)
+
   /// Returns a per-server key for temp-unblock records.
   static func tempUnblocks(for serverID: UUID) -> Defaults.Key<[TempUnblockRecord]> {
     Defaults.Key<[TempUnblockRecord]>("tempUnblocks-\(serverID.uuidString)", default: [])

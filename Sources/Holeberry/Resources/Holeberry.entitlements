@@ -6,5 +6,32 @@
     <true/>
     <key>com.apple.security.personal-information.keychain</key>
     <true/>
+    <key>com.apple.security.temporary-exception.apple-events</key>
+    <array>
+        <string>com.apple.Safari</string>
+        <string>com.apple.SafariTechnologyPreview</string>
+        <string>com.google.Chrome</string>
+        <string>com.google.Chrome.beta</string>
+        <string>com.google.Chrome.dev</string>
+        <string>com.google.Chrome.canary</string>
+        <string>com.microsoft.edgemac</string>
+        <string>com.microsoft.edgemac.beta</string>
+        <string>com.microsoft.edgemac.dev</string>
+        <string>com.microsoft.edgemac.canary</string>
+        <string>com.brave.Browser</string>
+        <string>com.brave.Browser.beta</string>
+        <string>com.brave.Browser.nightly</string>
+        <string>company.thebrowser.Browser</string>
+        <string>com.operasoftware.Opera</string>
+        <string>com.operasoftware.OperaNext</string>
+        <string>com.operasoftware.OperaDeveloper</string>
+        <string>com.vivaldi.Vivaldi</string>
+        <string>com.vivaldi.Vivaldi.snapshot</string>
+    </array>
+
+    <key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
+    <array>
+        <string>/Library/Application Support/Firefox/</string>
+    </array>
 </dict>
 </plist>
