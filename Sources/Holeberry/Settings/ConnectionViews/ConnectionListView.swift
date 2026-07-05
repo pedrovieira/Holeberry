@@ -98,7 +98,7 @@ struct ConnectionListView: View {
       }
     } header: {
       HStack {
-        Text("Instances Found")
+        Text("Available Instances")
           .font(.headline)
         Spacer()
         if monitor.isScanning {

@@ -49,7 +49,7 @@ final class PiholeV6Service: PiholeServiceInternal {
   func checkStatus() async throws -> BlockingStatus {
     let (data, httpResponse) = try await authenticatedRequest(path: "/api/dns/blocking")
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -82,7 +82,7 @@ final class PiholeV6Service: PiholeServiceInternal {
       path: "/api/dns/blocking", method: .post, bodyData: bodyData
     )
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
   }
@@ -112,7 +112,7 @@ final class PiholeV6Service: PiholeServiceInternal {
 
     let (data, httpResponse) = try await authenticatedRequest(url: url)
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -139,7 +139,7 @@ final class PiholeV6Service: PiholeServiceInternal {
   func getQuerySummary() async throws -> QuerySummary {
     let (data, httpResponse) = try await authenticatedRequest(path: "/api/stats/summary")
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -175,7 +175,7 @@ final class PiholeV6Service: PiholeServiceInternal {
 
     let (data, httpResponse) = try await authenticatedRequest(url: url)
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -198,25 +198,26 @@ final class PiholeV6Service: PiholeServiceInternal {
   }
 
   func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
-    let body = AddDomainBody(domain: domain, type: list.rawValue, comment: comment)
+    let body = AddDomainBody(domain: domain, comment: comment)
     let bodyData = try JSONEncoder().encode(body)
+    let listType = list == .allow ? "allow" : "deny"
+    let path = "/api/domains/\(listType)/exact"
     let (data, httpResponse) = try await authenticatedRequestWithRetry(
-      path: "/api/domains", method: .post, bodyData: bodyData
+      path: path, method: .post, bodyData: bodyData
     )
 
     if httpResponse.statusCode == 409 {
       throw PiholeError.duplicateDomain
     }
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    do {
-      return try Self.decoder.decode(DomainEntry.self, from: data)
-    } catch {
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    // V6 wraps the response in {"domains":[...]} — our DomainEntry struct
+    // can't decode that directly. Since callers ignore the return value,
+    // just return a synthetic entry from the known inputs.
+    return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: comment)
   }
 
   func deleteDomain(identifiedBy id: Int) async throws {
@@ -224,7 +225,7 @@ final class PiholeV6Service: PiholeServiceInternal {
       path: "/api/domains/\(id)", method: .delete
     )
 
-    guard httpResponse.statusCode == 204 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
   }
@@ -246,7 +247,7 @@ final class PiholeV6Service: PiholeServiceInternal {
   func getDomains() async throws -> [DomainEntry] {
     let (data, httpResponse) = try await authenticatedRequest(path: "/api/domains")
 
-    guard httpResponse.statusCode == 200 else {
+    guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
@@ -368,6 +369,5 @@ private struct SetBlockingBody: Encodable {
 
 private struct AddDomainBody: Encodable {
   let domain: String
-  let type: Int
   let comment: String?
 }

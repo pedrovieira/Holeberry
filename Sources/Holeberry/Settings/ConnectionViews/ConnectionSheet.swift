@@ -88,7 +88,7 @@ struct ConnectionSheet: View {
         HStack(spacing: 4) {
           Text("Label")
             .frame(width: 85, alignment: .trailing)
-          TextField("", text: $label, prompt: Text("Instance \(serverCount + 1)"))
+          TextField("", text: $label, prompt: Text("Home"))
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.leading)
             .labelsHidden()

@@ -1,6 +1,8 @@
 import AppKit
 import OSLog
 
+// swiftlint:disable file_length
+
 @MainActor
 final class MenuBuilder: NSObject {
   private let serverManager: PiholeServerManager
@@ -9,6 +11,8 @@ final class MenuBuilder: NSObject {
 
   var onDisableURL: ((String, TimeInterval) -> Void)?
   var onAddToAllowlist: ((String) -> Void)?
+  var onUnblockCurrentTab: (() -> Void)?
+
 
   init(
     serverManager: PiholeServerManager,
@@ -26,7 +30,9 @@ final class MenuBuilder: NSObject {
     combinedStatus: CombinedStatus,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
-    servers: [ServerConfig]
+    servers: [ServerConfig],
+    browserTabStatus: BrowserUrlFetcher.Status = .disabled,
+    browserIcon: NSImage? = nil
   ) -> NSMenu {
     let menu = NSMenu()
     addStatusSection(
@@ -47,6 +53,8 @@ final class MenuBuilder: NSObject {
     )
     menu.addItem(.separator())
     addBlockingControls(to: menu, isConnected: isConnected)
+    menu.addItem(.separator())
+    addBrowserTabSection(to: menu, browserStatus: browserTabStatus, browserIcon: browserIcon)
     menu.addItem(.separator())
     addDisableURLSection(
       to: menu, recentBlocked: recentBlocked, isConnected: isConnected
@@ -249,6 +257,47 @@ final class MenuBuilder: NSObject {
     item.target = self
     item.representedObject = ["domain": domain, "duration": duration] as NSDictionary
     menu.addItem(item)
+  }
+
+  private func addBrowserTabSection(
+    to menu: NSMenu,
+    browserStatus: BrowserUrlFetcher.Status,
+    browserIcon: NSImage? = nil
+  ) {
+    let title: String
+    let enabled: Bool
+
+    switch browserStatus {
+    case .disabled:
+      return  // no item shown
+    case .noBrowser:
+      title = "No browser focused"
+      enabled = false
+
+    case .permissionDenied:
+      title = "Permission needed"
+      enabled = false
+    case .noURL:
+      title = "Could not get URL"
+      enabled = false
+    case .url(let domain):
+      title = "Unblock \(domain) — 5m"
+      enabled = true
+    }
+
+    let item = NSMenuItem(
+      title: title,
+      action: enabled ? #selector(unblockCurrentTabAction) : nil,
+      keyEquivalent: ""
+    )
+    item.target = self
+    item.isEnabled = enabled
+    item.image = browserIcon
+    menu.addItem(item)
+  }
+
+  @objc private func unblockCurrentTabAction() {
+    onUnblockCurrentTab?()
   }
 
   private func addSettingsAndQuit(to menu: NSMenu) {

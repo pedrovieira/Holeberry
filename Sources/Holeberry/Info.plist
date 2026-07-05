@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Holeberry needs to read the current tab URL from your browser to unblock it.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Holeberry needs local network access to connect to your Pi-hole instances.</string>
 </dict>
