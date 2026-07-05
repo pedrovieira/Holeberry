@@ -11,7 +11,10 @@ struct ConnectionCardView: View {
   }
 
   private var versionLabel: String {
-    config.version == .v5 ? "v5" : "v6"
+    switch config.version {
+    case .v5: return "v5"
+    case .v6: return "v6"
+    }
   }
 
   var body: some View {
@@ -47,6 +50,7 @@ struct ConnectionCardView: View {
         }
         .menuStyle(.borderlessButton)
         .frame(width: 24, height: 24)
+        .help("More options")
       }
     }
     .padding(.vertical, 4)
