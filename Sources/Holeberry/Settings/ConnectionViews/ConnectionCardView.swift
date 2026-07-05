@@ -6,43 +6,54 @@ struct ConnectionCardView: View {
   let onEdit: () -> Void
   let onDelete: () -> Void
 
+  private var hostname: String {
+    URLComponents(string: config.url)?.host ?? config.url
+  }
+
+  private var versionLabel: String {
+    config.version == .v5 ? "v5" : "v6"
+  }
+
   var body: some View {
-    HStack(alignment: .top) {
+    HStack(alignment: .center, spacing: 8) {
+      PulsingStatusDot(color: status.color, isActive: status == .connected)
+
       VStack(alignment: .leading, spacing: 2) {
-        Text(config.label ?? "Instance \(config.url)")
+        Text(config.label ?? hostname)
           .font(.system(size: 12, weight: .semibold))
-        Text("\(config.url) · \(config.version.displayName)")
-          .font(.system(size: 10))
+        Text(hostname)
+          .font(.system(size: 10, design: .monospaced))
           .foregroundColor(.secondary)
       }
 
       Spacer()
 
-      HStack(spacing: 4) {
-        PulsingStatusDot(color: status.color, isActive: status == .connected)
-        Text(status.label)
-          .font(.system(size: 10))
+      HStack(spacing: 6) {
+        Text(versionLabel)
+          .font(.system(size: 9, weight: .medium))
           .foregroundColor(.secondary)
+          .padding(.horizontal, 6)
+          .padding(.vertical, 2)
+          .background(Color(nsColor: .quaternaryLabelColor))
+          .clipShape(Capsule())
 
-        Button("Edit", action: onEdit)
-          .buttonStyle(.plain)
-          .font(.system(size: 10))
-          .foregroundColor(.accentColor)
-
-        Button("Delete", action: onDelete)
-          .buttonStyle(.plain)
-          .font(.system(size: 10))
-          .foregroundColor(.red)
+        Menu {
+          Button("Edit...", action: onEdit)
+          Button("Delete...", role: .destructive, action: onDelete)
+        } label: {
+          Text("···")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .frame(width: 24, height: 24)
       }
-      .fixedSize()
     }
-    .padding(10)
-    .background(Color(.windowBackgroundColor).opacity(0.5))
-    .cornerRadius(6)
-    .overlay(
-      RoundedRectangle(cornerRadius: 6)
-        .stroke(Color(nsColor: .separatorColor).opacity(0.3), lineWidth: 1)
-    )
+    .padding(.vertical, 4)
+    .contextMenu {
+      Button("Edit...", action: onEdit)
+      Button("Delete...", role: .destructive, action: onDelete)
+    }
   }
 }
 
