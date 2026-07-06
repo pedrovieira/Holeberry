@@ -33,13 +33,18 @@ final class ServerStatusMonitor: ObservableObject {
       .receive(on: DispatchQueue.main)
       .sink { [weak self] newServers in
         guard let self else { return }
+
+        let structuralChange =
+          newServers.count != self.servers.count
+          || zip(self.servers, newServers).contains { $0.id != $1.id || $0.url != $1.url || $0.version != $1.version }
+
         let newIDs = Set(newServers.map(\.id))
         self.connectionStatuses = self.connectionStatuses.filter { newIDs.contains($0.key) }
         self.blockingStatuses = self.blockingStatuses.filter { newIDs.contains($0.key) }
         self.servers = newServers
         self.combinedStatus.totalInstanceCount = newServers.count
         self.combinedStatus.connectedInstanceCount = self.connectionStatuses.values.filter { $0 == .connected }.count
-        guard !self.isPolling else { return }
+        guard structuralChange, !self.isPolling else { return }
         Task { await self.pollNow() }
       }
       .store(in: &cancellables)
@@ -118,13 +123,6 @@ final class ServerStatusMonitor: ObservableObject {
     var anyError: String?
 
     for config in servers {
-      guard (try? KeychainManager.shared.readCredential(for: config.id)) != nil else {
-        connectionStatuses[config.id] = .disconnected
-        blockingStatuses.removeValue(forKey: config.id)
-        anyError = anyError ?? "Missing credentials for \(config.label ?? config.url)"
-        continue
-      }
-
       do {
         let blocking = try await manager.getBlockingStatus(for: config.id)
         connectionStatuses[config.id] = .connected
