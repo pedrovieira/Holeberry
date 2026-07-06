@@ -67,7 +67,7 @@ struct RedMenuButton: NSViewRepresentable {
         attributes: [.foregroundColor: NSColor.systemRed]
       )
 
-      menu.items = [editItem, deleteItem]
+      menu.items = [editItem, .separator(), deleteItem]
       menu.popUp(
         positioning: nil,
         at: NSPoint(x: 0, y: sender.bounds.height),
