@@ -189,7 +189,8 @@ final class PiholeServerManager: ObservableObject {
 
   func unblockDomain(_ domain: String, duration: TimeInterval?, for serverID: UUID) async throws {
     guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
-    try await service.unblockDomain(domain, duration: duration)
+    let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
+    try await service.unblockDomain(stripped, duration: duration)
   }
 
   func deleteDomain(_ domain: String) async {
