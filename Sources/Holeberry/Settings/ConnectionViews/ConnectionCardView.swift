@@ -6,8 +6,6 @@ struct ConnectionCardView: View {
   let onEdit: () -> Void
   let onDelete: () -> Void
 
-  @State private var showPopover = false
-
   private var hostname: String {
     URLComponents(string: config.url)?.host ?? config.url
   }
@@ -42,45 +40,9 @@ struct ConnectionCardView: View {
           .background(Color(nsColor: .quaternaryLabelColor))
           .clipShape(Capsule())
 
-        Button {
-          showPopover = true
-        } label: {
-          Text("···")
-            .font(.system(size: 11, weight: .medium))
-            .frame(width: 22, height: 22)
-        }
-        .buttonStyle(.borderless)
-        .background(
-          RoundedRectangle(cornerRadius: 5)
-            .fill(Color(nsColor: .controlBackgroundColor))
-        )
-        .overlay(
-          RoundedRectangle(cornerRadius: 5)
-            .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
-        )
-        .popover(isPresented: $showPopover, arrowEdge: .trailing) {
-          VStack(alignment: .leading, spacing: 0) {
-            Button("Edit...") {
-              showPopover = false
-              onEdit()
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-
-            Button("Delete...") {
-              showPopover = false
-              onDelete()
-            }
-            .buttonStyle(.plain)
-            .foregroundColor(.red)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-          }
-          .padding(.vertical, 4)
-          .frame(minWidth: 120)
-        }
-        .help("More options")
+        RedMenuButton(editAction: onEdit, deleteAction: onDelete)
+          .frame(width: 22, height: 22)
+          .fixedSize()
       }
     }
     .padding(.vertical, 4)
