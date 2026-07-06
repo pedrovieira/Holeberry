@@ -54,7 +54,23 @@ struct ConnectionSheet: View {
 
   let serverManager: PiholeServerManager
 
+  init(
+    mode: SheetMode,
+    serverCount: Int = 0,
+    onDismiss: @escaping () -> Void,
+    onCancel: @escaping () -> Void,
+    serverManager: PiholeServerManager
+  ) {
+    self.mode = mode
+    self.serverCount = serverCount
+    self.onDismiss = onDismiss
+    self.onCancel = onCancel
+    self.serverManager = serverManager
+    _label = State(initialValue: mode.existingLabel ?? "")
+  }
+
   @State private var label: String = ""
+  @State private var generatedLabel: String = ""
   @State private var url: String = ""
   @State private var credential: String = ""
   @State private var isCreating = false
@@ -74,7 +90,11 @@ struct ConnectionSheet: View {
 
   private var canCreate: Bool {
     let trimmedURL = url.trimmingCharacters(in: .whitespaces)
-    return !trimmedURL.isEmpty && isValidURL && !credential.isEmpty && !isCreating
+    let baseValid = !trimmedURL.isEmpty && isValidURL && !isCreating
+    if case .edit = mode {
+      return baseValid && label != (mode.existingLabel ?? "")
+    }
+    return baseValid && !credential.isEmpty
   }
 
   var body: some View {
@@ -88,7 +108,7 @@ struct ConnectionSheet: View {
         HStack(spacing: 4) {
           Text("Label")
             .frame(width: 85, alignment: .trailing)
-          TextField("", text: $label, prompt: Text("Home"))
+          TextField("", text: $label, prompt: Text(generatedLabel))
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.leading)
             .labelsHidden()
@@ -208,9 +228,7 @@ struct ConnectionSheet: View {
     }
     .onAppear {
       url = mode.prefillURL
-      if let existingLabel = mode.existingLabel {
-        label = existingLabel
-      }
+      generatedLabel = isAdd ? WordLabel.generate() : (mode.existingLabel ?? "")
     }
   }
 
@@ -236,7 +254,8 @@ struct ConnectionSheet: View {
     createError = nil
 
     let serverURL = normalizedURL(from: url)
-    let trimmedLabel = label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label
+    let isLabelEmpty = label.trimmingCharacters(in: .whitespaces).isEmpty
+    let trimmedLabel = isLabelEmpty ? generatedLabel : label
 
     if isAdd {
       do {
