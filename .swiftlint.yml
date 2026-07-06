@@ -2,6 +2,10 @@ excluded:
   - .build
   - DerivedData
 
+file_length:
+  warning: 500
+  error: 600
+
 strict: true
 
 disabled_rules:

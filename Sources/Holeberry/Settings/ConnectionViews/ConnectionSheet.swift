@@ -1,4 +1,5 @@
 import SwiftUI
+import SymbolPicker
 
 // MARK: - Sheet Mode
 
@@ -22,6 +23,11 @@ enum SheetMode: Identifiable {
 
   var existingLabel: String? {
     if case .edit(let config) = self { return config.label }
+    return nil
+  }
+
+  var existingIcon: String? {
+    if case .edit(let config) = self { return config.icon }
     return nil
   }
 }
@@ -67,6 +73,7 @@ struct ConnectionSheet: View {
     self.onCancel = onCancel
     self.serverManager = serverManager
     _label = State(initialValue: mode.existingLabel ?? "")
+    _iconName = State(initialValue: mode.existingIcon ?? "")
   }
 
   @State private var label: String = ""
@@ -78,6 +85,8 @@ struct ConnectionSheet: View {
   @State private var showingCredentialInfo = false
   @State private var isTotpError = false
   @State private var shakeTrigger: CGFloat = 0
+  @State private var iconName: String = ""
+  @State private var showingIconPicker = false
 
   private var hasURLError: Bool {
     !isCreating && !url.isEmpty && !isValidURL
@@ -114,6 +123,54 @@ struct ConnectionSheet: View {
             .labelsHidden()
             .frame(maxWidth: .infinity)
             .disabled(isCreating)
+        }
+
+        HStack(spacing: 4) {
+          Text("Icon")
+            .frame(width: 85, alignment: .trailing)
+          Button {
+            showingIconPicker = true
+          } label: {
+            HStack(spacing: 4) {
+              if !iconName.isEmpty {
+                Image(systemName: iconName)
+                  .font(.system(size: 13))
+              }
+              Text(iconName.isEmpty ? "No icon" : iconName)
+                .font(.system(size: 11))
+                .foregroundColor(iconName.isEmpty ? .secondary : .primary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(
+              RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.secondary.opacity(0.3), lineWidth: 0.5)
+            )
+          }
+          .buttonStyle(.plain)
+          .disabled(isCreating)
+          .popover(isPresented: $showingIconPicker) {
+            SymbolPicker(symbolName: $iconName)
+              .symbolPickerSymbolsStyle(.filled)
+              .symbolPickerDismiss(type: .onSymbolSelect) {
+                showingIconPicker = false
+              }
+              .frame(width: 310, height: 430)
+          }
+
+          if !iconName.isEmpty {
+            Button {
+              iconName = ""
+            } label: {
+              Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(isCreating)
+            .help("Remove icon")
+          }
         }
 
         HStack(spacing: 4) {
@@ -261,7 +318,10 @@ struct ConnectionSheet: View {
       do {
         try await withThrowingTimeout(seconds: 10) {
           _ = try await serverManager.addServer(
-            label: trimmedLabel, url: serverURL, credential: credential
+            label: trimmedLabel,
+            icon: iconName.isEmpty ? nil : iconName,
+            url: serverURL,
+            credential: credential
           )
         }
         onDismiss()
@@ -286,6 +346,7 @@ struct ConnectionSheet: View {
       serverManager.updateServer(
         id: server.id,
         label: trimmedLabel,
+        icon: iconName.isEmpty ? nil : iconName,
         url: serverURL,
         credential: credential.isEmpty ? nil : credential
       )
