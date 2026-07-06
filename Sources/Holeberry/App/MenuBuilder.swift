@@ -1,6 +1,8 @@
 import AppKit
 import OSLog
 
+// swiftlint:disable file_length
+
 @MainActor
 final class MenuBuilder: NSObject {
   private let serverManager: PiholeServerManager

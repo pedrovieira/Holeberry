@@ -1,6 +1,8 @@
 import SwiftUI
 import SymbolPicker
 
+// swiftlint:disable file_length
+
 // MARK: - Sheet Mode
 
 enum SheetMode: Identifiable {

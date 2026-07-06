@@ -3,6 +3,8 @@ import XCTest
 
 @testable import Holeberry
 
+// swiftlint:disable file_length
+
 @MainActor
 final class HoleberryTests: XCTestCase {
   override func setUp() {
