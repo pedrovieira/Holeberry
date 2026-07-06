@@ -78,7 +78,7 @@ final class PiholeServerManager: ObservableObject {
       let urlChanged = url != existingService.url
 
       if let label { existingService.label = label }
-      if let icon { existingService.icon = icon }
+      if let icon { servers[idx].icon = icon }
       existingService.url = url
       if let version { existingService.version = version }
 
@@ -123,7 +123,6 @@ final class PiholeServerManager: ObservableObject {
     let config = ServerConfig(
       id: id,
       label: existingService.label,
-      icon: existingService.icon,
       url: url,
       version: existingService.version
     )
@@ -302,7 +301,7 @@ final class PiholeServerManager: ObservableObject {
   private func syncConfigs() {
     servers = servers.map { config in
       if let svc = services[config.id] {
-        return ServerConfig(id: svc.id, label: svc.label, icon: svc.icon, url: svc.url, version: svc.version)
+        return ServerConfig(id: svc.id, label: svc.label, icon: config.icon, url: svc.url, version: svc.version)
       }
       return config
     }

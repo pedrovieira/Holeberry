@@ -16,7 +16,6 @@ struct PiholeServiceFactory {
       raw = PiholeV6Service(
         id: config.id,
         label: config.label,
-        icon: config.icon,
         url: config.url,
         version: config.version,
         baseURL: url,
@@ -28,7 +27,6 @@ struct PiholeServiceFactory {
       raw = PiholeV5Service(
         id: config.id,
         label: config.label,
-        icon: config.icon,
         url: config.url,
         version: config.version,
         baseURL: url,

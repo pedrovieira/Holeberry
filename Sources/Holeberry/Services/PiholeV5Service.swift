@@ -16,7 +16,6 @@ final class PiholeV5Service: PiholeServiceInternal {
   // MARK: - Identity & Config
   let id: UUID
   var label: String?
-  var icon: String?
   var url: String
   var version: ServerVersion
 
@@ -33,7 +32,6 @@ final class PiholeV5Service: PiholeServiceInternal {
   init(
     id: UUID,
     label: String?,
-    icon: String?,
     url: String,
     version: ServerVersion,
     baseURL: URL,
@@ -42,7 +40,6 @@ final class PiholeV5Service: PiholeServiceInternal {
   ) {
     self.id = id
     self.label = label
-    self.icon = icon
     self.url = url
     self.version = version
     self.baseURL = baseURL
