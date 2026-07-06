@@ -19,6 +19,9 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: 2.4.0
+  SymbolPicker:
+    url: https://github.com/SzpakKamil/SymbolPicker
+    from: 1.0.0
 
 targets:
   Holeberry:
@@ -40,6 +43,7 @@ targets:
       - package: SimpleKeychain
       - package: Defaults
       - package: KeyboardShortcuts
+      - package: SymbolPicker
     preBuildScripts:
       - name: Run SwiftLint
         basedOnDependencyAnalysis: false
