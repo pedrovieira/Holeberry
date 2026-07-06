@@ -78,22 +78,12 @@ final class PiholeServerManager: ObservableObject {
       let urlChanged = url != existingService.url
 
       if let label { existingService.label = label }
+      if let icon { existingService.icon = icon }
       existingService.url = url
       if let version { existingService.version = version }
 
       if urlChanged {
-        let currentCredential = credential ?? (try? keychain.readCredential(for: id)) ?? ""
-        let config = ServerConfig(
-          id: id,
-          label: existingService.label,
-          icon: existingService.icon,
-          url: url,
-          version: existingService.version
-        )
-        Task { await existingService.logout() }
-        guard let serverURL = URL(string: url) else { return }
-        let session = makeSession(trusting: serverURL)
-        services[id] = serviceFactory.buildService(config: config, credential: currentCredential, session: session)
+        reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
     } else {
       if let label { servers[idx].label = label }
@@ -121,7 +111,27 @@ final class PiholeServerManager: ObservableObject {
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
   }
 
-  // MARK: - Connection Testing
+  // MARK: - Helpers
+
+  private func reconnectExistingService(
+    _ existingService: PiholeServiceProtocol,
+    id: UUID,
+    url: String,
+    credential: String?
+  ) {
+    let currentCredential = credential ?? (try? keychain.readCredential(for: id)) ?? ""
+    let config = ServerConfig(
+      id: id,
+      label: existingService.label,
+      icon: existingService.icon,
+      url: url,
+      version: existingService.version
+    )
+    Task { await existingService.logout() }
+    guard let serverURL = URL(string: url) else { return }
+    let session = makeSession(trusting: serverURL)
+    services[id] = serviceFactory.buildService(config: config, credential: currentCredential, session: session)
+  }
 
   private func makeSession(trusting url: URL) -> URLSession {
     let hosts = Set(servers.compactMap { URL(string: $0.url)?.host } + [url.host].compactMap { $0 })
