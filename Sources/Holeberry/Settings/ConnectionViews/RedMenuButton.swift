@@ -58,8 +58,10 @@ struct RedMenuButton: NSViewRepresentable {
         keyEquivalent: ""
       )
       deleteItem.target = self
+      let redConfig = NSImage.SymbolConfiguration(hierarchicalColor: .systemRed)
       deleteItem.image = NSImage(
-        systemSymbolName: "trash", accessibilityDescription: "Delete")
+        systemSymbolName: "trash", accessibilityDescription: "Delete"
+      )?.withSymbolConfiguration(redConfig)
       deleteItem.attributedTitle = NSAttributedString(
         string: "Delete",
         attributes: [.foregroundColor: NSColor.systemRed]
