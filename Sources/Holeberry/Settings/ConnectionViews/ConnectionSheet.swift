@@ -115,9 +115,9 @@ struct ConnectionSheet: View {
       Text(isAdd ? "New Connection" : "Edit Connection")
         .font(.headline)
 
-      iconCircleView
-
       Divider()
+
+      iconCircleView
 
       VStack(spacing: 8) {
         HStack(spacing: 4) {
