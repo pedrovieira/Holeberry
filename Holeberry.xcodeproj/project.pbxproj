@@ -20,6 +20,7 @@
 		317812DE6DEF63BB9DD755EC /* MockPiholeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0BEBCDA7B56CD1F615FCE4 /* MockPiholeService.swift */; };
 		35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3037DAE3AD3C562737BC6733 /* TimerManager.swift */; };
 		36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */; };
+		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
 		541FB83C9023F440E4111378 /* BrowserActiveUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4CAFE10BF8FAFBC09CE71DB /* BrowserActiveUrlFetchingStrategy.swift */; };
 		5A0859A89A93A8BEB85CA9E1 /* CertificateTrustDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */; };
 		5A76161165D9F37D55F7A4A2 /* ServerStatusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507680431AF9D6DE4B6FBA04 /* ServerStatusMonitor.swift */; };
@@ -41,7 +42,6 @@
 		8C79C94542328E68480EEF62 /* FirefoxSessionStoreUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E470F7D35E567A623F195927 /* FirefoxSessionStoreUrlFetchingStrategy.swift */; };
 		8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A02DF65DF3F9B323288CEA /* TempUnblockRecord.swift */; };
 		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
-		AB2C62B689A9426CBEF03320 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70C6B998C68D4DCE9F426459 /* RedMenuButton.swift */; };
 		9BD659AE8A7F7C4106E502FB /* ReachabilityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5939E6E499C008726E9D6C9F /* ReachabilityMonitor.swift */; };
 		9BFC7720A8727E8050C27E07 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */; };
 		A994F095FB794E3A4442A994 /* PiholeError.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BBBA61BCC50C3234F83862 /* PiholeError.swift */; };
@@ -102,7 +102,6 @@
 		6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateTrustDelegate.swift; sourceTree = "<group>"; };
 		68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Subsystem.swift"; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
-		70C6B998C68D4DCE9F426459 /* RedMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedMenuButton.swift; sourceTree = "<group>"; };
 		742006E19BC8359536F89BED /* NetworkInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInterface.swift; sourceTree = "<group>"; };
 		799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariUrlFetchingStrategy.swift; sourceTree = "<group>"; };
 		7A5309DE45FB822B893A799B /* PiholeV6Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV6Service.swift; sourceTree = "<group>"; };
@@ -119,6 +118,7 @@
 		B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSRunningApplication+Icon.swift"; sourceTree = "<group>"; };
 		BA656E9C0CFF9C7BFACD1FE9 /* HoleberryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleberryTests.swift; sourceTree = "<group>"; };
 		BA6DF9213C6E6E08CBB7C131 /* PiholeServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceProtocol.swift; sourceTree = "<group>"; };
+		BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedMenuButton.swift; sourceTree = "<group>"; };
 		CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
 		CF0A1D51C51B661825EDDDBC /* DomainEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainEntry.swift; sourceTree = "<group>"; };
 		D39565CB3B24FB9693EF4604 /* BrowserUrlFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserUrlFetcher.swift; sourceTree = "<group>"; };
@@ -153,9 +153,9 @@
 			isa = PBXGroup;
 			children = (
 				6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */,
-				70C6B998C68D4DCE9F426459 /* RedMenuButton.swift */,
 				FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */,
 				3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */,
+				BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */,
 			);
 			path = ConnectionViews;
 			sourceTree = "<group>";
@@ -451,7 +451,6 @@
 				5A0859A89A93A8BEB85CA9E1 /* CertificateTrustDelegate.swift in Sources */,
 				CC8C5DAB85F4CBA75D550957 /* ChromiumUrlFetchingStrategy.swift in Sources */,
 				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,
-				AB2C62B689A9426CBEF03320 /* RedMenuButton.swift in Sources */,
 				CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */,
 				626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */,
 				B3B4B6C8F0805665C62CF8BC /* ConnectionStatus.swift in Sources */,
@@ -478,6 +477,7 @@
 				1C679E3674EA0D48615599F3 /* PiholeVersionDetector.swift in Sources */,
 				9BD659AE8A7F7C4106E502FB /* ReachabilityMonitor.swift in Sources */,
 				F663123DDE353E543BBDDB8B /* RecentQuery.swift in Sources */,
+				4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */,
 				8B0DF160023249B935D7C313 /* SafariUrlFetchingStrategy.swift in Sources */,
 				C8E0239329AEF874B5875C51 /* ServerConfig.swift in Sources */,
 				5A76161165D9F37D55F7A4A2 /* ServerStatusMonitor.swift in Sources */,
