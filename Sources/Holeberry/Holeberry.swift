@@ -41,10 +41,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     shortcutController = ShortcutController(serverManager: .shared)
   }
 
-  func applicationWillTerminate(_ notification: Notification) {
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     Task {
-      await PiholeServerManager.shared.logoutAll()
+      do {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+          group.addTask {
+            await PiholeServerManager.shared.logoutAll()
+          }
+          group.addTask {
+            try await Task.sleep(for: .seconds(5))
+          }
+          _ = try await group.next()
+          group.cancelAll()
+        }
+      } catch {
+        // timed out or cancelled — let the app quit anyway
+      }
+      await MainActor.run {
+        NSApp.reply(toApplicationShouldTerminate: true)
+      }
     }
+    return .terminateLater
   }
 }
 
