@@ -274,6 +274,8 @@ struct ConnectionSheet: View {
         }
       }
       .buttonStyle(.plain)
+      .frame(width: 48, height: 48)
+      .contentShape(Circle())
       .disabled(isCreating)
       .popover(isPresented: $showingIconPicker) {
         SymbolPicker(symbolName: $iconName)
