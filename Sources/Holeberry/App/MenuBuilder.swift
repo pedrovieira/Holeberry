@@ -162,6 +162,7 @@ final class MenuBuilder: NSObject {
       let item = NSMenuItem()
       item.attributedTitle = MenuItemFactory.instanceLine(
         dotColor: dotColor,
+        icon: config.icon,
         label: config.label ?? config.url
       )
       item.isEnabled = false

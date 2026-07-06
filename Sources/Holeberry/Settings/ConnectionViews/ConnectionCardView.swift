@@ -21,6 +21,12 @@ struct ConnectionCardView: View {
     HStack(alignment: .center, spacing: 8) {
       PulsingStatusDot(color: status.color, isActive: status == .connected)
 
+      if let icon = config.icon {
+        Image(systemName: icon)
+          .font(.system(size: 12))
+          .foregroundColor(.secondary)
+      }
+
       VStack(alignment: .leading, spacing: 2) {
         Text(config.label ?? hostname)
           .font(.system(size: 12, weight: .semibold))

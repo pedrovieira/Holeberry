@@ -33,6 +33,29 @@ enum MenuItemFactory {
     return attachment
   }
 
+  /// An `NSTextAttachment` containing an SF Symbol icon for the instance.
+  static func iconAttachment(symbolName: String, diameter: CGFloat = 12) -> NSTextAttachment {
+    let symbolConfig = NSImage.SymbolConfiguration(pointSize: diameter, weight: .regular)
+    let image =
+      NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+      .withSymbolConfiguration(symbolConfig)
+      ?? NSImage(size: NSSize(width: diameter, height: diameter))
+
+    let attachment = NSTextAttachment()
+    attachment.image = image
+
+    let font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+    let centerY = font.capHeight / 2
+    attachment.bounds = NSRect(
+      x: 0,
+      y: centerY - diameter / 2,
+      width: diameter,
+      height: diameter
+    )
+
+    return attachment
+  }
+
   // MARK: - Status Header
 
   /// Builds the status-line attributed string (dot + text).
@@ -83,10 +106,14 @@ enum MenuItemFactory {
     return attr
   }
 
-  /// Builds a per-instance attributed string (dot + label).
-  static func instanceLine(dotColor: NSColor, label: String) -> NSAttributedString {
+  /// Builds a per-instance attributed string (dot + optional icon + label).
+  static func instanceLine(dotColor: NSColor, icon: String? = nil, label: String) -> NSAttributedString {
     let result = NSMutableAttributedString()
     result.append(NSAttributedString(attachment: dotAttachment(color: dotColor)))
+    if let icon, !icon.isEmpty {
+      result.append(NSAttributedString(string: " "))
+      result.append(NSAttributedString(attachment: iconAttachment(symbolName: icon)))
+    }
     result.append(NSAttributedString(string: " " + label))
     return result
   }
