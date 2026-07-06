@@ -254,6 +254,9 @@ struct ConnectionSheet: View {
       } label: {
         ZStack {
           if iconName.isEmpty {
+            Color.clear
+              .frame(width: 48, height: 48)
+
             Circle()
               .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
               .foregroundColor(.secondary.opacity(0.4))
@@ -263,6 +266,9 @@ struct ConnectionSheet: View {
               .font(.system(size: 16, weight: .medium))
               .foregroundColor(.secondary.opacity(0.6))
           } else {
+            Color.clear
+              .frame(width: 48, height: 48)
+
             Circle()
               .fill(Color.accentColor.opacity(0.15))
               .frame(width: 48, height: 48)
@@ -272,10 +278,9 @@ struct ConnectionSheet: View {
               .foregroundColor(.accentColor)
           }
         }
+        .contentShape(Circle())
       }
       .buttonStyle(.plain)
-      .frame(width: 48, height: 48)
-      .contentShape(Circle())
       .disabled(isCreating)
       .popover(isPresented: $showingIconPicker) {
         SymbolPicker(symbolName: $iconName)
