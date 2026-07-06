@@ -30,9 +30,22 @@ struct ConnectionCardView: View {
       VStack(alignment: .leading, spacing: 2) {
         Text(config.label ?? hostname)
           .font(.system(size: 12, weight: .semibold))
-        Text(hostname)
-          .font(.system(size: 10, design: .monospaced))
-          .foregroundColor(.secondary)
+        Button {
+          if let url = URL(string: config.url + "/admin") {
+            NSWorkspace.shared.open(url)
+          }
+        } label: {
+          HStack(spacing: 3) {
+            Text(hostname)
+              .font(.system(size: 10, design: .monospaced))
+              .foregroundColor(.secondary)
+            Image(systemName: "arrow.up.forward.square")
+              .font(.system(size: 10))
+              .foregroundColor(.secondary)
+          }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .help("Open in browser")
       }
 
       Spacer()
