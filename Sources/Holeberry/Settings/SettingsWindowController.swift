@@ -6,8 +6,8 @@ final class SettingsWindowController: NSWindowController {
 
   private init() {
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 580, height: 400),
-      styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+      contentRect: NSRect(x: 0, y: 0, width: 580, height: 420),
+      styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
       backing: .buffered,
       defer: false
     )
@@ -27,6 +27,7 @@ final class SettingsWindowController: NSWindowController {
     window?.toolbarStyle = .unified
     window?.contentView = NSHostingView(rootView: SettingsView(serverManager: .shared))
     window?.setFrameAutosaveName("Settings")
+    window?.collectionBehavior = .managed
     window?.delegate = self
   }
 

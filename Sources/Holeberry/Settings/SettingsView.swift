@@ -99,7 +99,7 @@ struct SettingsView: View {
       }
       .ignoresSafeArea()
     }
-    .frame(width: 580, height: 400)
+    .frame(width: 580, height: 420)
     .onAppear {
       syncLaunchAtLoginFromSystem()
     }
