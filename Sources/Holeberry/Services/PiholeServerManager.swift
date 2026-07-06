@@ -34,7 +34,7 @@ final class PiholeServerManager: ObservableObject {
 
   // MARK: - Server CRUD
 
-  func addServer(label: String?, url: String, credential: String) async throws {
+  func addServer(label: String?, icon: String? = nil, url: String, credential: String) async throws {
     guard servers.count < Self.maxServers else {
       throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
@@ -49,7 +49,7 @@ final class PiholeServerManager: ObservableObject {
 
     let version = try await detectVersion(url: url)
 
-    let config = ServerConfig(label: label, url: url, version: version)
+    let config = ServerConfig(label: label, icon: icon, url: url, version: version)
     let session = makeSession(trusting: serverURL)
     let service = serviceFactory.buildService(config: config, credential: credential, session: session)
 
@@ -64,7 +64,14 @@ final class PiholeServerManager: ObservableObject {
     logger.info("Added server: \(config.label ?? config.url, privacy: .public)")
   }
 
-  func updateServer(id: UUID, label: String?, url: String, credential: String?, version: ServerVersion? = nil) {
+  func updateServer(
+    id: UUID,
+    label: String?,
+    icon: String? = nil,
+    url: String,
+    credential: String?,
+    version: ServerVersion? = nil
+  ) {
     guard let idx = servers.firstIndex(where: { $0.id == id }) else { return }
 
     if let existingService = services[id] {
@@ -76,7 +83,13 @@ final class PiholeServerManager: ObservableObject {
 
       if urlChanged {
         let currentCredential = credential ?? (try? keychain.readCredential(for: id)) ?? ""
-        let config = ServerConfig(id: id, label: existingService.label, url: url, version: existingService.version)
+        let config = ServerConfig(
+          id: id,
+          label: existingService.label,
+          icon: existingService.icon,
+          url: url,
+          version: existingService.version
+        )
         Task { await existingService.logout() }
         guard let serverURL = URL(string: url) else { return }
         let session = makeSession(trusting: serverURL)
@@ -84,6 +97,7 @@ final class PiholeServerManager: ObservableObject {
       }
     } else {
       if let label { servers[idx].label = label }
+      if let icon { servers[idx].icon = icon }
       servers[idx].url = url
       if let version { servers[idx].version = version }
     }
@@ -278,7 +292,7 @@ final class PiholeServerManager: ObservableObject {
   private func syncConfigs() {
     servers = servers.map { config in
       if let svc = services[config.id] {
-        return ServerConfig(id: svc.id, label: svc.label, url: svc.url, version: svc.version)
+        return ServerConfig(id: svc.id, label: svc.label, icon: svc.icon, url: svc.url, version: svc.version)
       }
       return config
     }

@@ -12,6 +12,10 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
     get { wrapped.label }
     set { wrapped.label = newValue }
   }
+  var icon: String? {
+    get { wrapped.icon }
+    set { wrapped.icon = newValue }
+  }
   var url: String {
     get { wrapped.url }
     set { wrapped.url = newValue }
