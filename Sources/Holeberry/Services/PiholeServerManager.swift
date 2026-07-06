@@ -78,7 +78,7 @@ final class PiholeServerManager: ObservableObject {
       let urlChanged = url != existingService.url
 
       if let label { existingService.label = label }
-      if let icon { servers[idx].icon = icon }
+      servers[idx].icon = icon
       existingService.url = url
       if let version { existingService.version = version }
 
@@ -87,7 +87,7 @@ final class PiholeServerManager: ObservableObject {
       }
     } else {
       if let label { servers[idx].label = label }
-      if let icon { servers[idx].icon = icon }
+      servers[idx].icon = icon
       servers[idx].url = url
       if let version { servers[idx].version = version }
     }
