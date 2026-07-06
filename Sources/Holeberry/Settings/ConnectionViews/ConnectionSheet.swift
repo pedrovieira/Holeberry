@@ -113,6 +113,8 @@ struct ConnectionSheet: View {
       Text(isAdd ? "New Connection" : "Edit Connection")
         .font(.headline)
 
+      iconCircleView
+
       Divider()
 
       VStack(spacing: 8) {
@@ -125,54 +127,6 @@ struct ConnectionSheet: View {
             .labelsHidden()
             .frame(maxWidth: .infinity)
             .disabled(isCreating)
-        }
-
-        HStack(spacing: 4) {
-          Text("Icon")
-            .frame(width: 85, alignment: .trailing)
-          Button {
-            showingIconPicker = true
-          } label: {
-            HStack(spacing: 4) {
-              if !iconName.isEmpty {
-                Image(systemName: iconName)
-                  .font(.system(size: 13))
-              }
-              Text(iconName.isEmpty ? "No icon" : iconName)
-                .font(.system(size: 11))
-                .foregroundColor(iconName.isEmpty ? .secondary : .primary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(
-              RoundedRectangle(cornerRadius: 4)
-                .stroke(Color.secondary.opacity(0.3), lineWidth: 0.5)
-            )
-          }
-          .buttonStyle(.plain)
-          .disabled(isCreating)
-          .popover(isPresented: $showingIconPicker) {
-            SymbolPicker(symbolName: $iconName)
-              .symbolPickerSymbolsStyle(.filled)
-              .symbolPickerDismiss(type: .onSymbolSelect) {
-                showingIconPicker = false
-              }
-              .frame(width: 310, height: 430)
-          }
-
-          if !iconName.isEmpty {
-            Button {
-              iconName = ""
-            } label: {
-              Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .disabled(isCreating)
-            .help("Remove icon")
-          }
         }
 
         HStack(spacing: 4) {
@@ -289,6 +243,60 @@ struct ConnectionSheet: View {
       url = mode.prefillURL
       generatedLabel = isAdd ? WordLabel.generate() : (mode.existingLabel ?? "")
     }
+  }
+
+  private var iconCircleView: some View {
+    ZStack {
+      Button {
+        showingIconPicker = true
+      } label: {
+        ZStack {
+          if iconName.isEmpty {
+            Circle()
+              .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+              .foregroundColor(.secondary.opacity(0.4))
+              .frame(width: 48, height: 48)
+
+            Image(systemName: "plus")
+              .font(.system(size: 16, weight: .medium))
+              .foregroundColor(.secondary.opacity(0.6))
+          } else {
+            Circle()
+              .fill(Color.accentColor.opacity(0.15))
+              .frame(width: 48, height: 48)
+
+            Image(systemName: iconName)
+              .font(.system(size: 22))
+              .foregroundColor(.accentColor)
+          }
+        }
+      }
+      .buttonStyle(.plain)
+      .disabled(isCreating)
+      .popover(isPresented: $showingIconPicker) {
+        SymbolPicker(symbolName: $iconName)
+          .symbolPickerSymbolsStyle(.filled)
+          .symbolPickerDismiss(type: .onSymbolSelect) {
+            showingIconPicker = false
+          }
+          .frame(width: 310, height: 430)
+      }
+
+      if !iconName.isEmpty {
+        Button {
+          iconName = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .font(.system(size: 14))
+            .foregroundColor(.secondary)
+            .background(Circle().fill(Color(nsColor: .windowBackgroundColor)))
+        }
+        .buttonStyle(.plain)
+        .disabled(isCreating)
+        .offset(x: 20, y: -20)
+      }
+    }
+    .padding(.vertical, 4)
   }
 
   private func triggerShake() {
