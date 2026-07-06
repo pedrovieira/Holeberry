@@ -103,7 +103,9 @@ struct ConnectionSheet: View {
     let trimmedURL = url.trimmingCharacters(in: .whitespaces)
     let baseValid = !trimmedURL.isEmpty && isValidURL && !isCreating
     if case .edit = mode {
-      return baseValid && label != (mode.existingLabel ?? "")
+      let labelChanged = label != (mode.existingLabel ?? "")
+      let iconChanged = iconName != (mode.existingIcon ?? "")
+      return baseValid && (labelChanged || iconChanged)
     }
     return baseValid && !credential.isEmpty
   }
