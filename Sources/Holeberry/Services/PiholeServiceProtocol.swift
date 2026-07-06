@@ -11,6 +11,7 @@ struct QuerySummary {
 protocol PiholeServiceProtocol: AnyObject {
   var id: UUID { get }
   var label: String? { get set }
+  var icon: String? { get set }
   var url: String { get set }
   var version: ServerVersion { get set }
 
