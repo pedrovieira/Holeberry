@@ -38,7 +38,11 @@ struct ConnectionListView: View {
           }
         )
         .contextMenu {
-          Button("Edit...") { sheetMode = .edit(server) }
+          Button {
+            sheetMode = .edit(server)
+          } label: {
+            Label("Edit", systemImage: "pencil")
+          }
           Button(
             role: .destructive,
             action: {
@@ -46,7 +50,7 @@ struct ConnectionListView: View {
               showDeleteConfirmation = true
             },
             label: {
-              Text("Delete...")
+              Label("Delete", systemImage: "trash")
             })
         }
       }
