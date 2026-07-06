@@ -47,6 +47,7 @@
 		9BFC7720A8727E8050C27E07 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */; };
 		A994F095FB794E3A4442A994 /* PiholeError.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BBBA61BCC50C3234F83862 /* PiholeError.swift */; };
 		B3B4B6C8F0805665C62CF8BC /* ConnectionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D0BFE31201149D164B93D34 /* ConnectionStatus.swift */; };
+		BBD4E8FAA636A794162F8A60 /* SymbolPicker in Frameworks */ = {isa = PBXBuildFile; productRef = B0E62A40CEFA9876FE31890F /* SymbolPicker */; };
 		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
 		C08544537C22B1C069A77DE9 /* DomainEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0A1D51C51B661825EDDDBC /* DomainEntry.swift */; };
 		C8E0239329AEF874B5875C51 /* ServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D5A40D821C2EA41D7774C08 /* ServerConfig.swift */; };
@@ -145,6 +146,7 @@
 				1CA9613D75CEDCA3D3F5EBF6 /* SimpleKeychain in Frameworks */,
 				D8E3C678109A99C500F416AE /* Defaults in Frameworks */,
 				190DDC489CC23486BD2C7290 /* KeyboardShortcuts in Frameworks */,
+				BBD4E8FAA636A794162F8A60 /* SymbolPicker in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -327,6 +329,7 @@
 				851DA79BC13691B98158A0F6 /* SimpleKeychain */,
 				BBF2413FF86F8684BEC45DF6 /* Defaults */,
 				F937B463F6A990098878357C /* KeyboardShortcuts */,
+				B0E62A40CEFA9876FE31890F /* SymbolPicker */,
 			);
 			productName = Holeberry;
 			productReference = 8A5D9D07B8EC02852147638F /* Holeberry.app */;
@@ -374,6 +377,7 @@
 				19938065878F84994BE1EB60 /* XCRemoteSwiftPackageReference "Defaults" */,
 				D1CAE943163400BB0FC3209E /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				823018DBBF15A5E456A84D1C /* XCRemoteSwiftPackageReference "SimpleKeychain" */,
+				7F2B9C0AA668218507868FBC /* XCRemoteSwiftPackageReference "SymbolPicker" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB7783B91E0F747BBB9AB1F9 /* Products */;
@@ -743,6 +747,14 @@
 				minimumVersion = 9.0.0;
 			};
 		};
+		7F2B9C0AA668218507868FBC /* XCRemoteSwiftPackageReference "SymbolPicker" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SzpakKamil/SymbolPicker";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 		823018DBBF15A5E456A84D1C /* XCRemoteSwiftPackageReference "SimpleKeychain" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/auth0/SimpleKeychain";
@@ -766,6 +778,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 823018DBBF15A5E456A84D1C /* XCRemoteSwiftPackageReference "SimpleKeychain" */;
 			productName = SimpleKeychain;
+		};
+		B0E62A40CEFA9876FE31890F /* SymbolPicker */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7F2B9C0AA668218507868FBC /* XCRemoteSwiftPackageReference "SymbolPicker" */;
+			productName = SymbolPicker;
 		};
 		BBF2413FF86F8684BEC45DF6 /* Defaults */ = {
 			isa = XCSwiftPackageProductDependency;

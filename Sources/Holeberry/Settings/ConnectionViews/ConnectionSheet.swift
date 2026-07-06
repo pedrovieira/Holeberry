@@ -1,4 +1,7 @@
 import SwiftUI
+import SymbolPicker
+
+// swiftlint:disable file_length
 
 // MARK: - Sheet Mode
 
@@ -22,6 +25,11 @@ enum SheetMode: Identifiable {
 
   var existingLabel: String? {
     if case .edit(let config) = self { return config.label }
+    return nil
+  }
+
+  var existingIcon: String? {
+    if case .edit(let config) = self { return config.icon }
     return nil
   }
 }
@@ -67,6 +75,7 @@ struct ConnectionSheet: View {
     self.onCancel = onCancel
     self.serverManager = serverManager
     _label = State(initialValue: mode.existingLabel ?? "")
+    _iconName = State(initialValue: mode.existingIcon ?? "")
   }
 
   @State private var label: String = ""
@@ -78,6 +87,8 @@ struct ConnectionSheet: View {
   @State private var showingCredentialInfo = false
   @State private var isTotpError = false
   @State private var shakeTrigger: CGFloat = 0
+  @State private var iconName: String = ""
+  @State private var showingIconPicker = false
 
   private var hasURLError: Bool {
     !isCreating && !url.isEmpty && !isValidURL
@@ -92,7 +103,9 @@ struct ConnectionSheet: View {
     let trimmedURL = url.trimmingCharacters(in: .whitespaces)
     let baseValid = !trimmedURL.isEmpty && isValidURL && !isCreating
     if case .edit = mode {
-      return baseValid && label != (mode.existingLabel ?? "")
+      let labelChanged = label != (mode.existingLabel ?? "")
+      let iconChanged = iconName != (mode.existingIcon ?? "")
+      return baseValid && (labelChanged || iconChanged)
     }
     return baseValid && !credential.isEmpty
   }
@@ -103,6 +116,8 @@ struct ConnectionSheet: View {
         .font(.headline)
 
       Divider()
+
+      iconCircleView
 
       VStack(spacing: 8) {
         HStack(spacing: 4) {
@@ -232,6 +247,67 @@ struct ConnectionSheet: View {
     }
   }
 
+  private var iconCircleView: some View {
+    ZStack {
+      Button {
+        showingIconPicker = true
+      } label: {
+        ZStack {
+          if iconName.isEmpty {
+            Color.clear
+              .frame(width: 48, height: 48)
+
+            Circle()
+              .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+              .foregroundColor(.secondary.opacity(0.4))
+              .frame(width: 48, height: 48)
+
+            Image(systemName: "plus")
+              .font(.system(size: 16, weight: .medium))
+              .foregroundColor(.secondary.opacity(0.6))
+          } else {
+            Color.clear
+              .frame(width: 48, height: 48)
+
+            Circle()
+              .fill(Color.accentColor.opacity(0.15))
+              .frame(width: 48, height: 48)
+
+            Image(systemName: iconName)
+              .font(.system(size: 22))
+              .foregroundColor(.accentColor)
+          }
+        }
+        .contentShape(Circle())
+      }
+      .buttonStyle(.plain)
+      .disabled(isCreating)
+      .popover(isPresented: $showingIconPicker) {
+        SymbolPicker(symbolName: $iconName)
+          .symbolPickerSymbolsStyle(.filled)
+          .symbolPickerDismiss(type: .onSymbolSelect) {
+            showingIconPicker = false
+          }
+          .frame(width: 310, height: 430)
+      }
+
+      if !iconName.isEmpty {
+        Button {
+          iconName = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .font(.system(size: 14))
+            .foregroundColor(.secondary)
+            .background(Circle().fill(Color(nsColor: .windowBackgroundColor)))
+        }
+        .buttonStyle(.plain)
+        .disabled(isCreating)
+        .offset(x: 20, y: -20)
+      }
+    }
+    .padding(.vertical, 4)
+  }
+
   private func triggerShake() {
     withAnimation(.easeOut(duration: 0.45)) {
       shakeTrigger += 1
@@ -261,7 +337,10 @@ struct ConnectionSheet: View {
       do {
         try await withThrowingTimeout(seconds: 10) {
           _ = try await serverManager.addServer(
-            label: trimmedLabel, url: serverURL, credential: credential
+            label: trimmedLabel,
+            icon: iconName.isEmpty ? nil : iconName,
+            url: serverURL,
+            credential: credential
           )
         }
         onDismiss()
@@ -286,6 +365,7 @@ struct ConnectionSheet: View {
       serverManager.updateServer(
         id: server.id,
         label: trimmedLabel,
+        icon: iconName.isEmpty ? nil : iconName,
         url: serverURL,
         credential: credential.isEmpty ? nil : credential
       )

@@ -16,12 +16,14 @@ enum ServerVersion: String, Codable, Sendable, CaseIterable {
 struct ServerConfig: Codable, Identifiable, Equatable {
   let id: UUID
   var label: String?
+  var icon: String?
   var url: String
   var version: ServerVersion
 
-  init(id: UUID = UUID(), label: String? = nil, url: String, version: ServerVersion) {
+  init(id: UUID = UUID(), label: String? = nil, icon: String? = nil, url: String, version: ServerVersion) {
     self.id = id
     self.label = label
+    self.icon = icon
     self.url = url
     self.version = version
   }
