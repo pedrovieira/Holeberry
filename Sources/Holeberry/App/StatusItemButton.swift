@@ -10,7 +10,7 @@ final class StatusItemButton: NSView {
     static let horizontalPadding: CGFloat = 8
     static let iconTextGap: CGFloat = 8
     static let height: CGFloat = 22
-    static let borderWidth: CGFloat = 2
+    static let borderWidth: CGFloat = 1
     static let fontPointSize: CGFloat = 12
   }
 
@@ -99,6 +99,7 @@ final class StatusItemButton: NSView {
   override func viewDidChangeEffectiveAppearance() {
     super.viewDidChangeEffectiveAppearance()
     inactiveBorderLayer.strokeColor = NSColor.separatorColor.cgColor
+    needsDisplay = true
   }
 
   // MARK: - Mouse
@@ -209,7 +210,8 @@ final class StatusItemButton: NSView {
     guard let image = NSImage(systemSymbolName: "shield.slash.fill", accessibilityDescription: nil) else { return }
 
     let tintColor: NSColor = isUrgent ? .systemRed : .labelColor
-    tintColor.setFill()
+    tintColor.set()
+    image.isTemplate = true
     image.draw(in: iconRect)
   }
 
