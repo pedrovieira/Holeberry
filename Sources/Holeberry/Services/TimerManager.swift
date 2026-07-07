@@ -11,7 +11,7 @@ final class TimerManager: ObservableObject {
 
   var formattedTime: String {
     guard isDisabled else { return "" }
-    let totalSeconds = Int(max(0, remainingSeconds))
+    let totalSeconds = Int(ceil(max(0, remainingSeconds)))
     if totalSeconds >= 60 {
       return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
     } else {
