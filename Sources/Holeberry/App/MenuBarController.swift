@@ -162,6 +162,8 @@ final class MenuBarController: NSObject {
         statusItem.view = nil
       }
       guard let button = statusItem.button else { return }
+      button.action = #selector(handleClick)
+      button.target = self
       button.title = ""
       button.image = NSImage(
         systemSymbolName: "shield.fill",
