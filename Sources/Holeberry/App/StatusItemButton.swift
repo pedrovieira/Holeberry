@@ -81,6 +81,13 @@ final class StatusItemButton: NSView {
   /// sets this to handle menu presentation.
   var onClick: (() -> Void)?
 
+  /// The preferred pill width for the current text. The owning controller
+  /// reads this to resize the status item smoothly.
+  var preferredWidth: CGFloat {
+    let textW = ceil(currentTextWidth)
+    return Layout.horizontalPadding + Layout.iconSize + Layout.iconTextGap + textW + Layout.horizontalPadding
+  }
+
   // MARK: - Init
 
   override init(frame: NSRect) {
@@ -111,9 +118,7 @@ final class StatusItemButton: NSView {
   // MARK: - Sizing
 
   override var intrinsicContentSize: NSSize {
-    let textW = ceil(currentTextWidth)
-    let width = Layout.horizontalPadding + Layout.iconSize + Layout.iconTextGap + textW + Layout.horizontalPadding
-    return NSSize(width: width, height: Layout.height)
+    NSSize(width: preferredWidth, height: Layout.height)
   }
 
   // MARK: - Layout
