@@ -136,12 +136,14 @@ final class MenuBarController: NSObject {
   }
 
   private func animatePillWidth(to width: CGFloat) {
-    let current = statusItem.length
+    let current = statusItemButton.frame.size.width
     guard abs(current - width) > 0.5 else { return }
     NSAnimationContext.runAnimationGroup { context in
       context.duration = 0.15
-      context.allowsImplicitAnimation = true
-      statusItem.length = width
+      context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+      statusItemButton.animator().setFrameSize(
+        NSSize(width: width, height: statusItemButton.frame.size.height)
+      )
     }
   }
 
