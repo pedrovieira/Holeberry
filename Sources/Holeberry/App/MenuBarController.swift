@@ -23,9 +23,6 @@ final class MenuBarController: NSObject {
     builder.onAddToAllowlist = { [weak self] domain in
       self?.addToAllowlist(domain: domain)
     }
-    builder.onUnblockCurrentTab = { [weak self] in
-      self?.performBrowserTabUnblock()
-    }
 
     return builder
   }()
@@ -299,24 +296,6 @@ final class MenuBarController: NSObject {
   private func addToAllowlist(domain: String) {
     Task {
       await serverManager.addToAllowlist(domain: domain)
-    }
-  }
-
-  // MARK: - Browser Tab Unblock
-
-  private func performBrowserTabUnblock() {
-    let status = browserUrlFetcher.resolveCurrentTabDomain()
-    guard case .url(let domain) = status else {
-      logger.warning("Browser tab unblock failed: \(String(describing: status))")
-      return
-    }
-    Task {
-      do {
-        try await serverManager.unblock(domain: domain, duration: 300)
-        setError(nil)
-      } catch {
-        showError("Failed to unblock \(domain): \(error.localizedDescription)")
-      }
     }
   }
 
