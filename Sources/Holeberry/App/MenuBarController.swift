@@ -172,6 +172,7 @@ final class MenuBarController: NSObject {
       // Blocking active — revert to normal button
       if statusItem.view != nil {
         statusItem.view = nil
+        statusItem.length = NSStatusItem.variableLength
       }
       guard let button = statusItem.button else { return }
       button.action = #selector(handleClick)
