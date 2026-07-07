@@ -60,20 +60,19 @@ final class StatusItemButton: NSView {
     return NSRect(x: Layout.horizontalPadding, y: y, width: Layout.iconSize, height: Layout.iconSize)
   }
 
-  private lazy var textMaxWidth: CGFloat = {
-    let text = "88:88" as NSString
+  private var currentTextWidth: CGFloat {
+    let text = formattedTime as NSString
     let attrs: [NSAttributedString.Key: Any] = [.font: timeFont]
     return text.size(withAttributes: attrs).width
-  }()
+  }
 
   private var textRect: NSRect {
-    let maxW = textMaxWidth
     let text = formattedTime as NSString
     let attrs: [NSAttributedString.Key: Any] = [.font: timeFont]
     let size = text.size(withAttributes: attrs)
-    let x = bounds.width - Layout.horizontalPadding - maxW
+    let x = Layout.horizontalPadding + Layout.iconSize + Layout.iconTextGap
     let y = (bounds.height - size.height) / 2
-    return NSRect(x: x, y: y, width: maxW, height: size.height)
+    return NSRect(x: x, y: y, width: ceil(size.width), height: size.height)
   }
 
   // MARK: - Click callback
@@ -111,8 +110,8 @@ final class StatusItemButton: NSView {
   // MARK: - Sizing
 
   override var intrinsicContentSize: NSSize {
-    let textWidth = textMaxWidth
-    let width = Layout.horizontalPadding + Layout.iconSize + Layout.iconTextGap + textWidth + Layout.horizontalPadding
+    let textW = ceil(currentTextWidth)
+    let width = Layout.horizontalPadding + Layout.iconSize + Layout.iconTextGap + textW + Layout.horizontalPadding
     return NSSize(width: width, height: Layout.height)
   }
 
@@ -137,7 +136,7 @@ final class StatusItemButton: NSView {
   /// and proceeding clockwise. This allows `strokeEnd` to reveal the arc
   /// clockwise from 12 o'clock.
   private func capsulePath(in rect: NSRect) -> CGPath {
-    let radius = rect.height / 2
+    let radius = rect.height * 0.4
     let path = CGMutablePath()
 
     let minX = rect.minX
@@ -209,6 +208,8 @@ final class StatusItemButton: NSView {
   private func drawIcon() {
     guard let image = NSImage(systemSymbolName: "shield.slash.fill", accessibilityDescription: nil) else { return }
 
+    let tintColor: NSColor = isUrgent ? .systemRed : .labelColor
+    tintColor.setFill()
     image.draw(in: iconRect)
   }
 
@@ -236,6 +237,9 @@ final class StatusItemButton: NSView {
       progressArcLayer.strokeEnd = progressFraction
     }
     progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.systemOrange.cgColor
+
+    // Invalidate size (text may have changed length, e.g. "9s" → "10s")
+    invalidateIntrinsicContentSize()
 
     // Redraw text/icon (color may have changed)
     needsDisplay = true
