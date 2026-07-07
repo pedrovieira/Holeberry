@@ -125,6 +125,13 @@ final class ShortcutController {
       alert.accessoryView = textField
       alert.window.initialFirstResponder = textField
 
+      // Force synchronous layout before entering the modal run loop.
+      // NSTextField lazily initializes its internal formatter/layout on first
+      // layout, dispatching that work at Default QoS. Without this, the field can
+      // appear blank or trigger a QoS inversion warning during runModal() on the
+      // main thread.
+      textField.layoutSubtreeIfNeeded()
+
       let response = alert.runModal()
       guard response == .alertFirstButtonReturn else { return nil }
 

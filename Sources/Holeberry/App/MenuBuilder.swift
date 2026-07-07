@@ -376,6 +376,12 @@ final class MenuBuilder: NSObject {
     datePicker.minDate = calendar.startOfDay(for: Date())
     alert.accessoryView = datePicker
 
+    // Force synchronous layout before entering the modal run loop.
+    // NSDatePicker lazily initializes its internal date formatter on first layout,
+    // dispatching that work at Default QoS. Without this, the picker can appear
+    // blank or trigger a QoS inversion warning during runModal() on the main thread.
+    datePicker.layoutSubtreeIfNeeded()
+
     let response = alert.runModal()
     guard response == .alertFirstButtonReturn else { return nil }
 

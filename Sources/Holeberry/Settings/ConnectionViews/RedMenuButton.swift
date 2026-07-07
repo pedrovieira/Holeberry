@@ -75,6 +75,7 @@ struct RedMenuButton: NSViewRepresentable {
     Coordinator(editAction: editAction, deleteAction: deleteAction)
   }
 
+  @MainActor
   final class Coordinator: NSObject {
     var editAction: () -> Void
     var deleteAction: () -> Void
@@ -127,6 +128,7 @@ struct RedContextMenu: NSViewRepresentable {
     ContextMenuCoordinator(editAction: editAction, deleteAction: deleteAction)
   }
 
+  @MainActor
   final class ContextMenuCoordinator: NSObject {
     var editAction: () -> Void
     var deleteAction: () -> Void
