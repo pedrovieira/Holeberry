@@ -52,3 +52,5 @@ fastlane/test_output
 *.swo
 *~
 .DS_Store?
+
+docs/
