@@ -48,6 +48,16 @@ final class MenuBarController: NSObject {
   // Browser icon cache
   private var appIconCache: [String: NSImage] = [:]
 
+  // MARK: - Countdown view
+
+  private lazy var statusItemButton: StatusItemButton = {
+    let view = StatusItemButton()
+    view.onClick = { [weak self] in
+      self?.handleClick()
+    }
+    return view
+  }()
+
   override init() {
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     super.init()
@@ -91,38 +101,73 @@ final class MenuBarController: NSObject {
     currentMenu = menu
     statusItem.menu = menu
 
-    statusItem.button?.performClick(nil)
+    if let customView = statusItem.view {
+      menu.popUp(
+        positioning: nil,
+        at: NSPoint(x: 0, y: customView.bounds.height),
+        in: customView
+      )
+    } else {
+      statusItem.button?.performClick(nil)
+    }
   }
 
   // MARK: - Timer Observation
 
   private func observeTimer() {
     timerManager.$isDisabled
-      .combineLatest(timerManager.$remainingSeconds)
+      .combineLatest(timerManager.$remainingSeconds, timerManager.$totalDuration)
       .receive(on: DispatchQueue.main)
-      .sink { [weak self] isDisabled, remaining in
-        self?.updateDisplay(isDisabled: isDisabled, remaining: remaining)
+      .sink { [weak self] isDisabled, remaining, totalDuration in
+        self?.updateDisplay(
+          isDisabled: isDisabled,
+          remaining: remaining,
+          totalDuration: totalDuration
+        )
       }
       .store(in: &cancellables)
   }
 
-  private func updateDisplay(isDisabled: Bool, remaining: TimeInterval) {
-    guard let button = statusItem.button else { return }
+  private func updateDisplay(isDisabled: Bool, remaining: TimeInterval, totalDuration: TimeInterval?) {
     if isDisabled && remaining > 0 {
-      button.title = timerManager.formattedTime
-      button.image = NSImage(
-        systemSymbolName: "shield.slash.fill", accessibilityDescription: "Pi-hole Disabled"
+      // Timed countdown — use custom view
+      if statusItem.view !== statusItemButton {
+        statusItem.view = statusItemButton
+        statusItem.button?.image = nil
+        statusItem.button?.title = ""
+      }
+      statusItemButton.update(
+        remainingSeconds: remaining,
+        totalDuration: totalDuration,
+        formattedTime: timerManager.formattedTime
       )
-      button.setAccessibilityLabel("Pi-hole disabled, \(timerManager.formattedTime) remaining")
+      statusItemButton.setAccessibilityLabel(
+        "Pi-hole disabled, \(timerManager.formattedTime) remaining"
+      )
     } else if isDisabled {
-      button.title = "∞"
-      button.image = NSImage(
-        systemSymbolName: "shield.slash.fill", accessibilityDescription: "Pi-hole Disabled Indefinitely"
+      // Indefinite — use custom view with "∞"
+      if statusItem.view !== statusItemButton {
+        statusItem.view = statusItemButton
+        statusItem.button?.image = nil
+        statusItem.button?.title = ""
+      }
+      statusItemButton.update(
+        remainingSeconds: 0,
+        totalDuration: nil as TimeInterval?,
+        formattedTime: "\u{221E}"
       )
-      button.setAccessibilityLabel("Pi-hole disabled indefinitely")
+      statusItemButton.setAccessibilityLabel("Pi-hole disabled indefinitely")
     } else {
+      // Blocking active — revert to normal button
+      if statusItem.view != nil {
+        statusItem.view = nil
+      }
+      guard let button = statusItem.button else { return }
       button.title = ""
-      button.image = NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Pi-hole Active")
+      button.image = NSImage(
+        systemSymbolName: "shield.fill",
+        accessibilityDescription: "Pi-hole Active"
+      )
       button.setAccessibilityLabel("Pi-hole blocking active")
     }
   }
