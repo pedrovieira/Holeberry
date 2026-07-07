@@ -92,13 +92,14 @@ final class HoleberryTests: XCTestCase {
   }
 
   func testV6AddDomainResponseDecoding() throws {
-    let json = "{\"id\": 42, \"domain\": \"example.com\", \"type\": 0, \"comment\": \"holeberry:test-uuid\"}"
+    let json =
+      "{\"id\": 42, \"domain\": \"example.com\", \"type\": 0, \"comment\": \"via holeberryapp.com / test-uuid\"}"
     let data = try XCTUnwrap(json.data(using: .utf8))
     let entry = try JSONDecoder().decode(DomainEntry.self, from: data)
     XCTAssertEqual(entry.id, 42)
     XCTAssertEqual(entry.domain, "example.com")
     XCTAssertEqual(entry.type, 0)
-    XCTAssertEqual(entry.comment, "holeberry:test-uuid")
+    XCTAssertEqual(entry.comment, "via holeberryapp.com / test-uuid")
   }
 
   func testV6DomainsResponseDecoding() throws {
@@ -400,7 +401,7 @@ final class HoleberryTests: XCTestCase {
   func testTempUnblockRecordCodableRoundTrip() throws {
     let record = TempUnblockRecord(
       domain: "doubleclick.net",
-      uuid: "holeberry:test-uuid",
+      uuid: "via holeberryapp.com / test-uuid",
       startDateUTC: Date(),
       durationSeconds: 300,
       pendingRemoval: true,
@@ -419,7 +420,7 @@ final class HoleberryTests: XCTestCase {
   func testTempUnblockRecordDefaults() {
     let record = TempUnblockRecord(
       domain: "ads.com",
-      uuid: "holeberry:uuid-2",
+      uuid: "via holeberryapp.com / uuid-2",
       startDateUTC: Date(),
       durationSeconds: 60
     )

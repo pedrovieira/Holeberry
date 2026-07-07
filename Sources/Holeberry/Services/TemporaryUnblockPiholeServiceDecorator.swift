@@ -96,7 +96,7 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
 
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
     if let duration {
-      let uuid = "holeberry:\(UUID().uuidString)"
+      let uuid = "via holeberryapp.com / \(UUID().uuidString)"
       _ = try await wrapped.addDomain(domain, to: .allow, comment: uuid)
       let record = TempUnblockRecord(
         domain: domain,
