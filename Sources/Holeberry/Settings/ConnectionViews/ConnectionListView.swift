@@ -181,6 +181,7 @@ private struct DiscoveredRow: View {
           Image(systemName: "arrow.up.forward.square")
             .font(.system(size: 11))
             .foregroundColor(.secondary)
+            .padding(.leading, 2)
         }
       }
       .buttonStyle(.plain)
