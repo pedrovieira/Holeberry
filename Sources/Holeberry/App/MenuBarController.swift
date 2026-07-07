@@ -135,6 +135,16 @@ final class MenuBarController: NSObject {
     statusItem.button?.title = ""
   }
 
+  private func animatePillWidth(to width: CGFloat) {
+    let current = statusItem.length
+    guard abs(current - width) > 0.5 else { return }
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0.15
+      context.allowsImplicitAnimation = true
+      statusItem.length = width
+    }
+  }
+
   private func updateDisplay(isDisabled: Bool, remaining: TimeInterval, totalDuration: TimeInterval?) {
     if isDisabled && remaining > 0 {
       // Timed countdown — use custom view
@@ -144,6 +154,7 @@ final class MenuBarController: NSObject {
         totalDuration: totalDuration,
         formattedTime: timerManager.formattedTime
       )
+      animatePillWidth(to: statusItemButton.preferredWidth)
       statusItemButton.setAccessibilityLabel(
         "Pi-hole disabled, \(timerManager.formattedTime) remaining"
       )
@@ -155,6 +166,7 @@ final class MenuBarController: NSObject {
         totalDuration: nil as TimeInterval?,
         formattedTime: "\u{221E}"
       )
+      animatePillWidth(to: statusItemButton.preferredWidth)
       statusItemButton.setAccessibilityLabel("Pi-hole disabled indefinitely")
     } else {
       // Blocking active — revert to normal button
