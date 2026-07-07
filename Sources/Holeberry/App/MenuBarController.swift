@@ -101,11 +101,11 @@ final class MenuBarController: NSObject {
     currentMenu = menu
     statusItem.menu = menu
 
-    if let customView = statusItem.view {
+    if let button = statusItem.button, statusItemButton.superview === button {
       menu.popUp(
         positioning: nil,
-        at: NSPoint(x: 0, y: customView.bounds.height),
-        in: customView
+        at: NSPoint(x: 0, y: button.bounds.height),
+        in: button
       )
     } else {
       statusItem.button?.performClick(nil)
@@ -129,22 +129,19 @@ final class MenuBarController: NSObject {
   }
 
   private func ensureCustomViewIsShowing() {
-    guard statusItem.view !== statusItemButton else { return }
-    statusItem.view = statusItemButton
-    statusItem.button?.image = nil
-    statusItem.button?.title = ""
+    guard let button = statusItem.button else { return }
+    guard statusItemButton.superview !== button else { return }
+    button.image = nil
+    button.title = ""
+    statusItemButton.frame = button.bounds
+    statusItemButton.autoresizingMask = [.width, .height]
+    button.addSubview(statusItemButton)
   }
 
   private func animatePillWidth(to width: CGFloat) {
-    let current = statusItemButton.frame.size.width
+    let current = statusItem.length
     guard abs(current - width) > 0.5 else { return }
-    NSAnimationContext.runAnimationGroup { context in
-      context.duration = 0.15
-      context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-      statusItemButton.animator().setFrameSize(
-        NSSize(width: width, height: statusItemButton.frame.size.height)
-      )
-    }
+    statusItem.length = width
   }
 
   private func updateDisplay(isDisabled: Bool, remaining: TimeInterval, totalDuration: TimeInterval?) {
@@ -172,8 +169,8 @@ final class MenuBarController: NSObject {
       statusItemButton.setAccessibilityLabel("Pi-hole disabled indefinitely")
     } else {
       // Blocking active — revert to normal button
-      if statusItem.view != nil {
-        statusItem.view = nil
+      if statusItemButton.superview != nil {
+        statusItemButton.removeFromSuperview()
         statusItem.length = NSStatusItem.variableLength
       }
       guard let button = statusItem.button else { return }
