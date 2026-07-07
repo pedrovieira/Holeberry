@@ -10,7 +10,7 @@ final class StatusItemButton: NSView {
     static let horizontalPadding: CGFloat = 8
     static let iconTextGap: CGFloat = 8
     static let height: CGFloat = 22
-    static let borderWidth: CGFloat = 1
+    static let borderWidth: CGFloat = 1.5
     static let fontPointSize: CGFloat = 12
   }
 
@@ -210,9 +210,9 @@ final class StatusItemButton: NSView {
     guard let image = NSImage(systemSymbolName: "shield.slash.fill", accessibilityDescription: nil) else { return }
 
     let tintColor: NSColor = isUrgent ? .systemRed : .labelColor
-    tintColor.set()
-    image.isTemplate = true
-    image.draw(in: iconRect)
+    let config = NSImage.SymbolConfiguration(hierarchicalColor: tintColor)
+    guard let tintedImage = image.withSymbolConfiguration(config) else { return }
+    tintedImage.draw(in: iconRect)
   }
 
   private func drawTimeText() {
