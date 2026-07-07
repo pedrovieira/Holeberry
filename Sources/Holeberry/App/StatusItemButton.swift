@@ -244,9 +244,6 @@ final class StatusItemButton: NSView {
     }
     progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.labelColor.cgColor
 
-    // Invalidate size (text may have changed length, e.g. "9s" → "10s")
-    invalidateIntrinsicContentSize()
-
     // Redraw text/icon (color may have changed)
     needsDisplay = true
   }
