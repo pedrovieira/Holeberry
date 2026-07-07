@@ -128,14 +128,17 @@ final class MenuBarController: NSObject {
       .store(in: &cancellables)
   }
 
+  private func ensureCustomViewIsShowing() {
+    guard statusItem.view !== statusItemButton else { return }
+    statusItem.view = statusItemButton
+    statusItem.button?.image = nil
+    statusItem.button?.title = ""
+  }
+
   private func updateDisplay(isDisabled: Bool, remaining: TimeInterval, totalDuration: TimeInterval?) {
     if isDisabled && remaining > 0 {
       // Timed countdown — use custom view
-      if statusItem.view !== statusItemButton {
-        statusItem.view = statusItemButton
-        statusItem.button?.image = nil
-        statusItem.button?.title = ""
-      }
+      ensureCustomViewIsShowing()
       statusItemButton.update(
         remainingSeconds: remaining,
         totalDuration: totalDuration,
@@ -146,11 +149,7 @@ final class MenuBarController: NSObject {
       )
     } else if isDisabled {
       // Indefinite — use custom view with "∞"
-      if statusItem.view !== statusItemButton {
-        statusItem.view = statusItemButton
-        statusItem.button?.image = nil
-        statusItem.button?.title = ""
-      }
+      ensureCustomViewIsShowing()
       statusItemButton.update(
         remainingSeconds: 0,
         totalDuration: nil as TimeInterval?,

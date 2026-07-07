@@ -60,11 +60,11 @@ final class StatusItemButton: NSView {
     return NSRect(x: Layout.horizontalPadding, y: y, width: Layout.iconSize, height: Layout.iconSize)
   }
 
-  private var textMaxWidth: CGFloat {
+  private lazy var textMaxWidth: CGFloat = {
     let text = "88:88" as NSString
     let attrs: [NSAttributedString.Key: Any] = [.font: timeFont]
     return text.size(withAttributes: attrs).width
-  }
+  }()
 
   private var textRect: NSRect {
     let maxW = textMaxWidth
@@ -95,6 +95,11 @@ final class StatusItemButton: NSView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
+  }
+
+  override func viewDidChangeEffectiveAppearance() {
+    super.viewDidChangeEffectiveAppearance()
+    inactiveBorderLayer.strokeColor = NSColor.separatorColor.cgColor
   }
 
   // MARK: - Mouse
@@ -151,9 +156,9 @@ final class StatusItemButton: NSView {
     path.addArc(
       center: CGPoint(x: maxX - radius, y: maxY - radius),
       radius: radius,
-      startAngle: -.pi / 2,
+      startAngle: .pi / 2,
       endAngle: 0,
-      clockwise: false
+      clockwise: true
     )
 
     // Bottom-right quarter circle (clockwise: rightward → downward)
@@ -161,8 +166,8 @@ final class StatusItemButton: NSView {
       center: CGPoint(x: maxX - radius, y: minY + radius),
       radius: radius,
       startAngle: 0,
-      endAngle: .pi / 2,
-      clockwise: false
+      endAngle: -.pi / 2,
+      clockwise: true
     )
 
     // Left along bottom edge
@@ -172,9 +177,9 @@ final class StatusItemButton: NSView {
     path.addArc(
       center: CGPoint(x: minX + radius, y: minY + radius),
       radius: radius,
-      startAngle: .pi / 2,
-      endAngle: .pi,
-      clockwise: false
+      startAngle: -.pi / 2,
+      endAngle: -.pi,
+      clockwise: true
     )
 
     // Top-left quarter circle (clockwise: leftward → upward)
@@ -182,8 +187,8 @@ final class StatusItemButton: NSView {
       center: CGPoint(x: minX + radius, y: maxY - radius),
       radius: radius,
       startAngle: .pi,
-      endAngle: -.pi / 2,
-      clockwise: false
+      endAngle: .pi / 2,
+      clockwise: true
     )
 
     // Left half of top edge → back to top center
