@@ -11,7 +11,6 @@ final class MenuBuilder: NSObject {
 
   var onDisableURL: ((String, TimeInterval) -> Void)?
   var onAddToAllowlist: ((String) -> Void)?
-  var onUnblockCurrentTab: (() -> Void)?
 
 
   init(
@@ -282,23 +281,31 @@ final class MenuBuilder: NSObject {
       title = "Could not get URL"
       enabled = false
     case .url(let domain):
-      title = "Unblock \(domain) — 5m"
+      title = "Unblock \(domain)"
       enabled = true
+
+      let item = NSMenuItem(
+        title: title,
+        action: nil,
+        keyEquivalent: ""
+      )
+      item.target = self
+      item.isEnabled = enabled
+      item.image = browserIcon
+      item.submenu = buildDurationSubmenu(for: domain)
+      menu.addItem(item)
+      return
     }
 
     let item = NSMenuItem(
       title: title,
-      action: enabled ? #selector(unblockCurrentTabAction) : nil,
+      action: nil,
       keyEquivalent: ""
     )
     item.target = self
     item.isEnabled = enabled
     item.image = browserIcon
     menu.addItem(item)
-  }
-
-  @objc private func unblockCurrentTabAction() {
-    onUnblockCurrentTab?()
   }
 
   private func addSettingsAndQuit(to menu: NSMenu) {
