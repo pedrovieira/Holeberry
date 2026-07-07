@@ -50,7 +50,7 @@ final class StatusItemButton: NSView {
   // MARK: - Font
 
   private let timeFont: NSFont = {
-    .monospacedDigitSystemFont(ofSize: Layout.fontPointSize, weight: .bold)
+    .monospacedDigitSystemFont(ofSize: Layout.fontPointSize, weight: .regular)
   }()
 
   // MARK: - Computed layout
