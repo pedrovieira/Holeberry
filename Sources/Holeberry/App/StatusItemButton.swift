@@ -141,45 +141,45 @@ final class StatusItemButton: NSView {
     let minY = rect.minY
     let maxY = rect.maxY
 
-    // Start at top center
-    path.move(to: CGPoint(x: midX, y: minY))
+    // Start at top center (maxY = top in AppKit coordinates)
+    path.move(to: CGPoint(x: midX, y: maxY))
 
-    // Right half of top edge → top-right arc center
-    path.addLine(to: CGPoint(x: maxX - radius, y: minY))
+    // Right along top edge → top-right arc center
+    path.addLine(to: CGPoint(x: maxX - radius, y: maxY))
 
-    // Top-right quarter circle (clockwise: -π/2 → 0)
+    // Top-right quarter circle (clockwise: upward → rightward)
     path.addArc(
-      center: CGPoint(x: maxX - radius, y: minY + radius),
+      center: CGPoint(x: maxX - radius, y: maxY - radius),
       radius: radius,
       startAngle: -.pi / 2,
       endAngle: 0,
       clockwise: false
     )
 
-    // Bottom-right quarter circle (clockwise: 0 → π/2)
+    // Bottom-right quarter circle (clockwise: rightward → downward)
     path.addArc(
-      center: CGPoint(x: maxX - radius, y: maxY - radius),
+      center: CGPoint(x: maxX - radius, y: minY + radius),
       radius: radius,
       startAngle: 0,
       endAngle: .pi / 2,
       clockwise: false
     )
 
-    // Bottom edge (right→left)
-    path.addLine(to: CGPoint(x: minX + radius, y: maxY))
+    // Left along bottom edge
+    path.addLine(to: CGPoint(x: minX + radius, y: minY))
 
-    // Bottom-left quarter circle (clockwise: π/2 → π)
+    // Bottom-left quarter circle (clockwise: downward → leftward)
     path.addArc(
-      center: CGPoint(x: minX + radius, y: maxY - radius),
+      center: CGPoint(x: minX + radius, y: minY + radius),
       radius: radius,
       startAngle: .pi / 2,
       endAngle: .pi,
       clockwise: false
     )
 
-    // Top-left quarter circle (clockwise: π → 3π/2 = -π/2)
+    // Top-left quarter circle (clockwise: leftward → upward)
     path.addArc(
-      center: CGPoint(x: minX + radius, y: minY + radius),
+      center: CGPoint(x: minX + radius, y: maxY - radius),
       radius: radius,
       startAngle: .pi,
       endAngle: -.pi / 2,
@@ -187,7 +187,7 @@ final class StatusItemButton: NSView {
     )
 
     // Left half of top edge → back to top center
-    path.addLine(to: CGPoint(x: midX, y: minY))
+    path.addLine(to: CGPoint(x: midX, y: maxY))
     path.closeSubpath()
 
     return path
