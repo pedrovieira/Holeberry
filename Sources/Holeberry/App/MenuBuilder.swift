@@ -328,24 +328,13 @@ final class MenuBuilder: NSObject {
   @objc private func disable5m() { performBlocking(enabled: false, duration: 300) }
 
   @objc private func disableCustom() {
-    let alert = NSAlert()
-    alert.messageText = "Custom Disable Time"
-    alert.informativeText = "Enter the number of seconds to disable blocking."
-    alert.addButton(withTitle: "Disable")
-    alert.addButton(withTitle: "Cancel")
-
-    let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-    textField.placeholderString = "e.g. 120"
-    textField.setAccessibilityLabel("Custom disable duration in seconds")
-    alert.accessoryView = textField
-
-    let response = alert.runModal()
-    if response == .alertFirstButtonReturn {
-      let text = textField.stringValue.trimmingCharacters(in: .whitespaces)
-      if let seconds = TimeInterval(text), seconds > 0 {
-        performBlocking(enabled: false, duration: seconds)
-      }
-    }
+    let seconds = promptDuration(
+      title: "Custom Disable Time",
+      message: "Choose how long to disable blocking.",
+      button: "Disable"
+    )
+    guard let seconds else { return }
+    performBlocking(enabled: false, duration: seconds)
   }
 
   @objc private func reEnableBlocking() { performBlocking(enabled: true, duration: nil) }
@@ -360,25 +349,42 @@ final class MenuBuilder: NSObject {
 
   @objc private func disableURLWithCustomTime(_ sender: NSMenuItem) {
     guard let domain = sender.representedObject as? String else { return }
+    let seconds = promptDuration(
+      title: "Custom Unblock Duration",
+      message: "Choose how long to unblock \"\(domain)\".",
+      button: "Unblock"
+    )
+    guard let seconds else { return }
+    onDisableURL?(domain, seconds)
+  }
 
+  /// Shows an alert with a DatePicker (hour:minute:second) and returns the duration in seconds, or nil if cancelled.
+  private func promptDuration(title: String, message: String, button: String) -> TimeInterval? {
     let alert = NSAlert()
-    alert.messageText = "Custom Unblock Duration"
-    alert.informativeText = "Enter the number of seconds to unblock \"\(domain)\"."
-    alert.addButton(withTitle: "Unblock")
+    alert.messageText = title
+    alert.informativeText = message
+    alert.addButton(withTitle: button)
     alert.addButton(withTitle: "Cancel")
 
-    let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-    textField.placeholderString = "e.g. 120"
-    textField.setAccessibilityLabel("Custom unblock duration in seconds")
-    alert.accessoryView = textField
+    let datePicker = NSDatePicker(frame: NSRect(x: 0, y: 0, width: 160, height: 24))
+    datePicker.datePickerStyle = .textFieldAndStepper
+    datePicker.datePickerElements = .hourMinuteSecond
+    datePicker.locale = Locale(identifier: "en_GB")  // 24-hour format
+    let calendar = Calendar.current
+    let defaultDate = calendar.date(bySettingHour: 0, minute: 5, second: 0, of: Date()) ?? Date()
+    datePicker.dateValue = defaultDate
+    datePicker.minDate = calendar.startOfDay(for: Date())
+    alert.accessoryView = datePicker
 
     let response = alert.runModal()
-    if response == .alertFirstButtonReturn {
-      let text = textField.stringValue.trimmingCharacters(in: .whitespaces)
-      if let seconds = TimeInterval(text), seconds > 0 {
-        onDisableURL?(domain, seconds)
-      }
-    }
+    guard response == .alertFirstButtonReturn else { return nil }
+
+    let components = calendar.dateComponents([.hour, .minute, .second], from: datePicker.dateValue)
+    let hrs = (components.hour ?? 0) * 3600
+    let mins = (components.minute ?? 0) * 60
+    let secs = components.second ?? 0
+    let seconds = TimeInterval(hrs + mins + secs)
+    return seconds > 0 ? seconds : nil
   }
 
   @objc private func addToAllowlistAction(_ sender: NSMenuItem) {
