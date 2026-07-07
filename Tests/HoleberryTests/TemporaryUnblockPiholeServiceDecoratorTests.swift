@@ -16,7 +16,7 @@ final class TemporaryUnblockPiholeServiceDecoratorTests: XCTestCase {  // swiftl
   func testUnblockDomainAddsTrackingComment() async throws {
     let mock = MockPiholeService()
     mock.addDomainStub = .success(
-      DomainEntry(id: 42, domain: "doubleclick.net", type: 0, comment: "holeberry:test-uuid")
+      DomainEntry(id: 42, domain: "doubleclick.net", type: 0, comment: "via holeberryapp.com / test-uuid")
     )
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: mock)
 
@@ -26,8 +26,8 @@ final class TemporaryUnblockPiholeServiceDecoratorTests: XCTestCase {  // swiftl
     XCTAssertEqual(mock.addDomainLastDomain, "doubleclick.net")
     XCTAssertEqual(mock.addDomainLastList, .allow)
     XCTAssertTrue(
-      mock.addDomainLastComment?.hasPrefix("holeberry:") ?? false,
-      "Comment should have holeberry prefix"
+      mock.addDomainLastComment?.hasPrefix("via holeberryapp.com / ") ?? false,
+      "Comment should have holeberryapp prefix"
     )
   }
 
@@ -51,7 +51,7 @@ final class TemporaryUnblockPiholeServiceDecoratorTests: XCTestCase {  // swiftl
   func testAutoExpiryRemovesRecord() async throws {
     let mock = MockPiholeService()
     mock.addDomainStub = .success(
-      DomainEntry(id: 42, domain: "test.com", type: 0, comment: "holeberry:uuid-1")
+      DomainEntry(id: 42, domain: "test.com", type: 0, comment: "via holeberryapp.com / uuid-1")
     )
     mock.deleteDomainByNameStub = .success(())
 
@@ -68,7 +68,7 @@ final class TemporaryUnblockPiholeServiceDecoratorTests: XCTestCase {  // swiftl
   func testAutoExpiryFailureMarksPending() async throws {
     let mock = MockPiholeService()
     mock.addDomainStub = .success(
-      DomainEntry(id: 42, domain: "test.com", type: 0, comment: "holeberry:uuid-1")
+      DomainEntry(id: 42, domain: "test.com", type: 0, comment: "via holeberryapp.com / uuid-1")
     )
     mock.deleteDomainByNameStub = .failure(PiholeError.server(500, "Overloaded"))
 

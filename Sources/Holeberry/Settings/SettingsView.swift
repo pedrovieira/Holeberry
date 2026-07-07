@@ -255,7 +255,7 @@ struct SettingsView: View {
             .contentShape(Rectangle())
           }
           .buttonStyle(PlainButtonStyle())
-          socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://pedrovieira.me")
+          socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://holeberryapp.com/")
           Spacer()
         }
       } header: {
