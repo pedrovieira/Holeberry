@@ -4,6 +4,7 @@ import Foundation
 final class TimerManager: ObservableObject {
   @Published var isDisabled = false
   @Published var remainingSeconds: TimeInterval = 0
+  @Published var totalDuration: TimeInterval?
 
   private var endTime: ContinuousClock.Instant?
   private var countdownTimer: AnyCancellable?
@@ -20,6 +21,7 @@ final class TimerManager: ObservableObject {
 
   func startDisable(duration: TimeInterval?) {
     isDisabled = true
+    totalDuration = duration
     stopCountdown()
     if let duration {
       endTime = ContinuousClock.now + .seconds(duration)
@@ -34,6 +36,7 @@ final class TimerManager: ObservableObject {
   func cancelDisable() {
     isDisabled = false
     remainingSeconds = 0
+    totalDuration = nil
     endTime = nil
     stopCountdown()
   }
@@ -45,6 +48,7 @@ final class TimerManager: ObservableObject {
     case .disabled(let remaining):
       if let remaining, remaining > 0 {
         isDisabled = true
+        totalDuration = remaining
         self.remainingSeconds = remaining
         endTime = ContinuousClock.now + .seconds(remaining)
         startCountdown()
