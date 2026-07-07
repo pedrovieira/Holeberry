@@ -172,8 +172,19 @@ private struct DiscoveredRow: View {
       Image(systemName: "shield.lefthalf.filled")
         .foregroundStyle(.green)
         .font(.system(size: 14))
-      Text(instance.addr)
-        .font(.system(size: 12, design: .monospaced))
+      Button {
+        NSWorkspace.shared.open(instance.adminURL)
+      } label: {
+        HStack(spacing: 3) {
+          Text(instance.addr)
+            .font(.system(size: 12, design: .monospaced))
+          Image(systemName: "arrow.up.forward.square")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+        }
+      }
+      .buttonStyle(.plain)
+      .help("Open in your default browser")
       Spacer()
       Button("Add") { onAdd() }
         .buttonStyle(.bordered)
@@ -181,15 +192,6 @@ private struct DiscoveredRow: View {
         .frame(height: 24)
         .opacity(isHovering ? 1 : 0)
         .disabled(!isHovering)
-      Button {
-        NSWorkspace.shared.open(instance.adminURL)
-      } label: {
-        Image(systemName: "arrow.up.forward.square")
-          .font(.system(size: 12))
-      }
-      .buttonStyle(.plain)
-      .foregroundColor(.secondary)
-      .help("Open in your default browser")
     }
     .padding(.horizontal, 2)
     .frame(height: 30)
