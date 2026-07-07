@@ -54,7 +54,6 @@ final class MenuBarController: NSObject {
     configureStatusItem()
     observeTimer()
     pollInitialStatus()
-    listenForSettingsChanges()
     setupReachability()
     observeTotpNotifications()
     prewarmRecentBlockedCache()
@@ -140,17 +139,6 @@ final class MenuBarController: NSObject {
         logger.warning("Initial status poll failed: \(error.localizedDescription, privacy: .public)")
       }
     }
-  }
-
-  // MARK: - Settings Changes
-
-  private func listenForSettingsChanges() {
-    Defaults.publisher(.servers)
-      .receive(on: DispatchQueue.main)
-      .sink { [weak self] _ in
-        self?.serverManager.reloadServers()
-      }
-      .store(in: &cancellables)
   }
 
   // MARK: - Reachability
