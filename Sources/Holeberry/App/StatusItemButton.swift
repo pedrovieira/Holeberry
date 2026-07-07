@@ -209,8 +209,7 @@ final class StatusItemButton: NSView {
   private func drawIcon() {
     guard let image = NSImage(systemSymbolName: "shield.slash.fill", accessibilityDescription: nil) else { return }
 
-    let tintColor: NSColor = isUrgent ? .systemRed : .labelColor
-    let config = NSImage.SymbolConfiguration(hierarchicalColor: tintColor)
+    let config = NSImage.SymbolConfiguration(hierarchicalColor: .labelColor)
     guard let tintedImage = image.withSymbolConfiguration(config) else { return }
     tintedImage.draw(in: iconRect)
   }
