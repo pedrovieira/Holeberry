@@ -18,6 +18,7 @@
 		2983EE2FE8F663897343FF1E /* AppleScriptUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E77630FEB80F0E977ECE2C47 /* AppleScriptUrlFetchingStrategy.swift */; };
 		2B1583EA747A2A5C36606AC3 /* TemporaryUnblockPiholeServiceDecorator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01E3A2221DD64B23DCD681D9 /* TemporaryUnblockPiholeServiceDecorator.swift */; };
 		317812DE6DEF63BB9DD755EC /* MockPiholeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0BEBCDA7B56CD1F615FCE4 /* MockPiholeService.swift */; };
+		3230D6021E41949B01AF5247 /* StatusItemButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48CD81D74316B99B21AB96E2 /* StatusItemButton.swift */; };
 		35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3037DAE3AD3C562737BC6733 /* TimerManager.swift */; };
 		36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
@@ -42,6 +43,7 @@
 		8B0DF160023249B935D7C313 /* SafariUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */; };
 		8C79C94542328E68480EEF62 /* FirefoxSessionStoreUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E470F7D35E567A623F195927 /* FirefoxSessionStoreUrlFetchingStrategy.swift */; };
 		8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A02DF65DF3F9B323288CEA /* TempUnblockRecord.swift */; };
+		97E0F4753A5EE8C4E5E09E2B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 740E0351B8319723BD1DD852 /* AppIcon.icon */; };
 		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
 		9BD659AE8A7F7C4106E502FB /* ReachabilityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5939E6E499C008726E9D6C9F /* ReachabilityMonitor.swift */; };
 		9BFC7720A8727E8050C27E07 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */; };
@@ -65,7 +67,6 @@
 		FAD5590CC7B0568772EB01AD /* Browser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAE03C986FB57395AC64F527 /* Browser.swift */; };
 		FDB45358490C60B476711BEA /* TemporaryUnblockPiholeServiceDecoratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA7627296810A816610EDF5 /* TemporaryUnblockPiholeServiceDecoratorTests.swift */; };
 		FF653C48A5B5B764BD25F36F /* PiholeV6Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A5309DE45FB822B893A799B /* PiholeV6Service.swift */; };
-		08A72E49E2E44B6FB655C0A4EE4AF025 /* StatusItemButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA6F4EACD5C349AEB4C6302176493F6F /* StatusItemButton.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +96,7 @@
 		3825AF9F229EBAEBF16CD81D /* HTTPURLResponse+StatusCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPURLResponse+StatusCodes.swift"; sourceTree = "<group>"; };
 		3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSheet.swift; sourceTree = "<group>"; };
 		3ED6EC3FBFFD74F33D2827AC /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		48CD81D74316B99B21AB96E2 /* StatusItemButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemButton.swift; sourceTree = "<group>"; };
 		4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		4D5A40D821C2EA41D7774C08 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
 		507680431AF9D6DE4B6FBA04 /* ServerStatusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStatusMonitor.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 		6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateTrustDelegate.swift; sourceTree = "<group>"; };
 		68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Subsystem.swift"; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
+		740E0351B8319723BD1DD852 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		742006E19BC8359536F89BED /* NetworkInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInterface.swift; sourceTree = "<group>"; };
 		799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariUrlFetchingStrategy.swift; sourceTree = "<group>"; };
 		7A5309DE45FB822B893A799B /* PiholeV6Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV6Service.swift; sourceTree = "<group>"; };
@@ -137,7 +140,6 @@
 		FAE03C986FB57395AC64F527 /* Browser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Browser.swift; sourceTree = "<group>"; };
 		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
 		FF2E357D9079D86EABA28C75 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
-		EA6F4EACD5C349AEB4C6302176493F6F /* StatusItemButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemButton.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -172,7 +174,7 @@
 				3ED6EC3FBFFD74F33D2827AC /* MenuBarController.swift */,
 				1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */,
 				FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */,
-				EA6F4EACD5C349AEB4C6302176493F6F /* StatusItemButton.swift */,
+				48CD81D74316B99B21AB96E2 /* StatusItemButton.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -180,6 +182,7 @@
 		40CFFDE54F1764017E70CC4B /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				740E0351B8319723BD1DD852 /* AppIcon.icon */,
 				0C039DDD8F05E05A8D434F71 /* Assets.xcassets */,
 				1711F877CC4CB0A92C25A1CC /* Holeberry.entitlements */,
 			);
@@ -398,6 +401,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				97E0F4753A5EE8C4E5E09E2B /* AppIcon.icon in Resources */,
 				D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -494,8 +498,8 @@
 				BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */,
 				EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */,
 				63DF3275E31EAD0B223E7F24 /* ShortcutController.swift in Sources */,
-				08A72E49E2E44B6FB655C0A4EE4AF025 /* StatusItemButton.swift in Sources */,
 				36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */,
+				3230D6021E41949B01AF5247 /* StatusItemButton.swift in Sources */,
 				8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */,
 				2B1583EA747A2A5C36606AC3 /* TemporaryUnblockPiholeServiceDecorator.swift in Sources */,
 				35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */,
@@ -609,6 +613,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/Holeberry/Resources/Holeberry.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = Sources/Holeberry/Info.plist;
@@ -681,6 +686,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/Holeberry/Resources/Holeberry.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = Sources/Holeberry/Info.plist;
