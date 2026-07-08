@@ -54,6 +54,8 @@ struct ConnectionListView: View {
         } label: {
           Label("New Connection", systemImage: "plus.circle")
             .font(.system(size: 12))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundColor(.accentColor)
