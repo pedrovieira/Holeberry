@@ -70,7 +70,10 @@ final class MenuBarController: NSObject {
 
   private func configureStatusItem() {
     guard let button = statusItem.button else { return }
-    button.image = NSImage(systemSymbolName: "shield.fill", accessibilityDescription: "Pi-hole Active")
+    let image = NSImage(named: "StatusBar")
+    image?.size = NSSize(width: 17, height: 17)
+    button.image = image
+    button.image?.isTemplate = true
     button.action = #selector(handleClick)
     button.target = self
   }
@@ -171,13 +174,8 @@ final class MenuBarController: NSObject {
         statusItem.length = NSStatusItem.variableLength
       }
       guard let button = statusItem.button else { return }
-      button.action = #selector(handleClick)
-      button.target = self
+      configureStatusItem()
       button.title = ""
-      button.image = NSImage(
-        systemSymbolName: "shield.fill",
-        accessibilityDescription: "Pi-hole Active"
-      )
       button.setAccessibilityLabel("Pi-hole blocking active")
     }
   }
