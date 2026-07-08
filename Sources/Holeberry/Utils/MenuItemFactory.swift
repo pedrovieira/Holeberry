@@ -44,13 +44,16 @@ enum MenuItemFactory {
     let attachment = NSTextAttachment()
     attachment.image = image
 
+    // Use the image's actual size so non-square SF Symbols (e.g. "macbook.gen2")
+    // are rendered at their natural aspect ratio instead of being squished.
+    let symbolSize = image.size
     let font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
     let centerY = font.capHeight / 2
     attachment.bounds = NSRect(
       x: 0,
-      y: centerY - diameter / 2,
-      width: diameter,
-      height: diameter
+      y: centerY - symbolSize.height / 2,
+      width: symbolSize.width,
+      height: symbolSize.height
     )
 
     return attachment
