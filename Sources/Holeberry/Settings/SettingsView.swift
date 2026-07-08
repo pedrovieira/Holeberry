@@ -221,7 +221,7 @@ struct SettingsView: View {
         HStack(spacing: 30) {
           Spacer(minLength: 0)
           Button {
-            openURL("https://github.com/pedrovieira/pihole-bar")
+            openURL("https://github.com/pedrovieira/Holeberry")
           } label: {
             VStack(spacing: 5) {
               Image("Github")
