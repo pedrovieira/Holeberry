@@ -213,10 +213,13 @@ final class StatusItemButton: NSView {
 
   private func drawIcon() {
     guard let image = NSImage(systemSymbolName: "shield.slash.fill", accessibilityDescription: nil) else { return }
-
     let config = NSImage.SymbolConfiguration(hierarchicalColor: .labelColor)
     guard let tintedImage = image.withSymbolConfiguration(config) else { return }
     tintedImage.draw(in: iconRect)
+    //  guard let image = NSImage(named: "StatusBar-unblocked") else { return }
+    //  image.isTemplate = true
+    // image.size = iconRect.size
+    // image.draw(in: iconRect)
   }
 
   private func drawTimeText() {

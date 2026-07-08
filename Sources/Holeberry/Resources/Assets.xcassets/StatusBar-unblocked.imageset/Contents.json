@@ -1,0 +1,22 @@
+{
+  "images" : [
+    {
+      "filename" : "menu-bar-icon-unblocked.svg",
+      "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "menu-bar-icon-unblocked-dark.svg",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
