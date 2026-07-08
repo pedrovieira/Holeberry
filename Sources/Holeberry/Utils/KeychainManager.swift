@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import SimpleKeychain
 
 final class KeychainManager: Sendable {
@@ -6,7 +7,18 @@ final class KeychainManager: Sendable {
   private let keychain: SimpleKeychain
 
   init() {
-    self.keychain = SimpleKeychain(service: Bundle.main.bundleIdentifier ?? "me.pedrovieira.holeberry")
+    let context = LAContext()
+    context.localizedReason = "Holeberry needs to access your saved Pi-hole password."
+
+    let attributes: [String: Any] = [
+      kSecUseDataProtectionKeychain as String: true
+    ]
+    self.keychain = SimpleKeychain(
+      service: Bundle.main.bundleIdentifier ?? "me.pedrovieira.holeberry",
+      accessibility: .afterFirstUnlock,
+      context: context,
+      attributes: attributes
+    )
   }
 
   func saveCredential(_ credential: String, for serverID: UUID) throws {
