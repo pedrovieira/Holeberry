@@ -33,12 +33,14 @@ targets:
       path: Sources/Holeberry/Info.plist
       properties:
         LSUIElement: true
+        CFBundleIconFile: AppIcon
         NSLocalNetworkUsageDescription: Holeberry needs local network access to connect to your Pi-hole instances.
         NSAppleEventsUsageDescription: Holeberry needs to read the current tab URL from your browser to unblock it.
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Resources/Holeberry.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
     dependencies:
       - package: SimpleKeychain
       - package: Defaults
