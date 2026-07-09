@@ -105,11 +105,22 @@ final class StatusItemButton: NSView {
 
   override func viewDidChangeEffectiveAppearance() {
     super.viewDidChangeEffectiveAppearance()
+    viewDidUpdateAppearance()
+  }
 
-    let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil
+  override func viewWillDraw() {
+    super.viewWillDraw()
+    viewDidUpdateAppearance()
+  }
+
+  /// Re-resolve layer stroke colors against the current appearance.
+  /// Called on appearance changes and before every draw pass so colors
+  /// reflect the actual visual context (e.g. vibrant dark menu bar in
+  /// fullscreen, even when the system appearance is light).
+  private func viewDidUpdateAppearance() {
+    let isDark = NSAppearance.currentDrawing().bestMatch(from: [.darkAqua, .vibrantDark]) != nil
     inactiveBorderLayer.strokeColor = isDark ? NSColor.separatorColor.cgColor : NSColor.tertiaryLabelColor.cgColor
     progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.labelColor.cgColor
-    needsDisplay = true
   }
 
   // MARK: - Mouse
@@ -248,9 +259,8 @@ final class StatusItemButton: NSView {
     } else {
       progressArcLayer.strokeEnd = progressFraction
     }
-    progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.labelColor.cgColor
 
-    // Redraw text/icon (color may have changed)
+    // Colors are resolved in viewWillDraw() against the correct appearance.
     needsDisplay = true
   }
 }
