@@ -105,22 +105,7 @@ final class StatusItemButton: NSView {
 
   override func viewDidChangeEffectiveAppearance() {
     super.viewDidChangeEffectiveAppearance()
-    viewDidUpdateAppearance()
-  }
-
-  override func viewWillDraw() {
-    super.viewWillDraw()
-    viewDidUpdateAppearance()
-  }
-
-  /// Re-resolve layer stroke colors against the current appearance.
-  /// Called on appearance changes and before every draw pass so colors
-  /// reflect the actual visual context (e.g. vibrant dark menu bar in
-  /// fullscreen, even when the system appearance is light).
-  private func viewDidUpdateAppearance() {
-    let isDark = NSAppearance.currentDrawing().bestMatch(from: [.darkAqua, .vibrantDark]) != nil
-    inactiveBorderLayer.strokeColor = isDark ? NSColor.separatorColor.cgColor : NSColor.tertiaryLabelColor.cgColor
-    progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.labelColor.cgColor
+    needsDisplay = true
   }
 
   // MARK: - Mouse
@@ -221,8 +206,24 @@ final class StatusItemButton: NSView {
 
   override func draw(_ dirtyRect: NSRect) {
     super.draw(dirtyRect)
+    updateLayerColors()
     drawIcon()
     drawTimeText()
+  }
+
+  /// Re-resolve layer stroke colors in the actual drawing context.
+  /// Only during draw() does NSAppearance.currentDrawing() correctly
+  /// reflect the visual context (e.g. vibrant dark menu bar in fullscreen
+  /// while the system appearance is light).
+  private func updateLayerColors() {
+    let isDark = NSAppearance.currentDrawing().bestMatch(from: [.darkAqua, .vibrantDark]) != nil
+
+    inactiveBorderLayer.strokeColor =
+      isDark
+      ? NSColor.separatorColor.cgColor
+      : NSColor.separatorColor.withAlphaComponent(0.5).cgColor
+
+    progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.labelColor.cgColor
   }
 
   private func drawIcon() {
@@ -260,7 +261,7 @@ final class StatusItemButton: NSView {
       progressArcLayer.strokeEnd = progressFraction
     }
 
-    // Colors are resolved in viewWillDraw() against the correct appearance.
+    // Colors are resolved in draw() against the correct appearance.
     needsDisplay = true
   }
 }
