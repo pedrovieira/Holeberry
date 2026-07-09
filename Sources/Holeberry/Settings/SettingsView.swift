@@ -25,11 +25,11 @@ enum SettingsTab: String, CaseIterable {
 }
 
 struct SettingsView: View {
-  @Default(.recentBlockedCount)
+  @Default(.recentBlockedCount())
   var recentBlockedCount
-  @Default(.launchAtLogin)
+  @Default(.launchAtLogin())
   var launchAtLogin
-  @Default(.browserTabUnblockEnabled)
+  @Default(.browserTabUnblockEnabled())
   var browserTabUnblockEnabled
 
   @State private var isToggling = false
