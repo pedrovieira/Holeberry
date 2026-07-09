@@ -56,10 +56,6 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
     saveRecords()
   }
 
-  func deleteDomain(identifiedBy id: Int) async throws {
-    try await wrapped.deleteDomain(identifiedBy: id)
-  }
-
   func checkStatus() async throws -> BlockingStatus {
     try await wrapped.checkStatus()
   }

@@ -295,12 +295,6 @@ final class HoleberryTests: XCTestCase {
     }
   }
 
-  func testMockServiceDeleteDomainByID() async throws {
-    let mock = MockPiholeService()
-    try await mock.deleteDomain(identifiedBy: 42, ofType: 0)
-    XCTAssertEqual(mock.deleteDomainByIDCallCount, 1)
-  }
-
   func testMockServiceDeleteDomainByName() async throws {
     let mock = MockPiholeService()
     try await mock.deleteDomain(domain: "test.com")

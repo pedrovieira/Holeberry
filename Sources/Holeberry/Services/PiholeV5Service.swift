@@ -254,10 +254,6 @@ final class PiholeV5Service: PiholeServiceInternal {
     _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
-  func deleteDomain(identifiedBy id: Int) async throws {
-    throw PiholeError.unknown("deleteDomain(identifiedBy:) is not supported for Pi-hole v5")
-  }
-
   func deleteDomain(domain: String) async throws {
     let entries = try await getDomains()
     let listName = entries.contains { $0.domain == domain } ? "white" : "black"
