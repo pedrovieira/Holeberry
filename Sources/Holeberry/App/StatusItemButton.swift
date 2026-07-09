@@ -105,7 +105,10 @@ final class StatusItemButton: NSView {
 
   override func viewDidChangeEffectiveAppearance() {
     super.viewDidChangeEffectiveAppearance()
-    inactiveBorderLayer.strokeColor = NSColor.separatorColor.cgColor
+
+    let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil
+    inactiveBorderLayer.strokeColor = isDark ? NSColor.separatorColor.cgColor : NSColor.tertiaryLabelColor.cgColor
+    progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.labelColor.cgColor
     needsDisplay = true
   }
 
