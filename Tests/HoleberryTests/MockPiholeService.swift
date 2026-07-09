@@ -37,9 +37,6 @@ final class MockPiholeService: PiholeServiceInternal {
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
 
-  var deleteDomainByIDStub: Result<Void, Error> = .success(())
-  var deleteDomainByIDCallCount = 0
-
   var deleteDomainByNameStub: Result<Void, Error> = .success(())
   var deleteDomainByNameCallCount = 0
 
@@ -96,11 +93,6 @@ final class MockPiholeService: PiholeServiceInternal {
 
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
     _ = try await addDomain(domain, to: .allow, comment: nil)
-  }
-
-  func deleteDomain(identifiedBy id: Int) async throws {
-    deleteDomainByIDCallCount += 1
-    try deleteDomainByIDStub.get()
   }
 
   func deleteDomain(domain: String) async throws {

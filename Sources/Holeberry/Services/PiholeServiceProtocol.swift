@@ -19,7 +19,6 @@ protocol PiholeServiceProtocol: AnyObject {
   func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws
   func deleteDomain(domain: String) async throws
-  func deleteDomain(identifiedBy id: Int) async throws
   func getDomains() async throws -> [DomainEntry]
 
   // MARK: - Status & queries

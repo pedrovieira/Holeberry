@@ -220,24 +220,19 @@ final class PiholeV6Service: PiholeServiceInternal {
     return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: comment)
   }
 
-  func deleteDomain(identifiedBy id: Int) async throws {
-    let (data, httpResponse) = try await authenticatedRequestWithRetry(
-      path: "/api/domains/\(id)", method: .delete
-    )
+  func deleteDomain(domain: String) async throws {
+    // Holeberry only ever adds to allow/exact, so delete from there directly.
+    let kind = "exact"
+    guard let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+      throw PiholeError.unknown("Invalid domain: \(domain)")
+    }
+    let path = "/api/domains/allow/\(kind)/\(encodedDomain)"
+    logger.debug("deleteDomain(domain:) DELETE \(path)")
+    let (data, httpResponse) = try await authenticatedRequestWithRetry(path: path, method: .delete)
 
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
-  }
-
-  func deleteDomain(domain: String) async throws {
-    let entries = try await getDomains()
-    guard let entry = entries.first(where: { $0.domain == domain }),
-      let entryID = entry.id
-    else {
-      throw PiholeError.unknown("Domain not found in allowlist: \(domain)")
-    }
-    try await deleteDomain(identifiedBy: entryID)
   }
 
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
@@ -252,8 +247,17 @@ final class PiholeV6Service: PiholeServiceInternal {
     }
 
     do {
-      return try Self.decoder.decode([DomainEntry].self, from: data)
+      // V6 wraps domains in {"domains":[...]} — decode through the wrapper.
+      let response = try Self.decoder.decode(DomainsResponse.self, from: data)
+      return response.domains
     } catch {
+      let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
+      logger.error(
+        """
+        GET /api/domains decode failed. Status \(httpResponse.statusCode). \
+        Error: \(String(describing: error)). Body: \(body, privacy: .public)
+        """
+      )
       throw PiholeError.decoding(error.localizedDescription)
     }
   }
@@ -365,6 +369,10 @@ final class PiholeV6Service: PiholeServiceInternal {
 private struct SetBlockingBody: Encodable {
   let blocking: Bool
   let timer: TimeInterval?
+}
+
+struct DomainsResponse: Decodable {
+  let domains: [DomainEntry]
 }
 
 private struct AddDomainBody: Encodable {
