@@ -7,15 +7,21 @@ import XCTest
 
 @MainActor
 final class HoleberryTests: XCTestCase {
+  /// Throwaway UserDefaults suite — no test data touches the real UserDefaults.standard.
+  private let testUserDefaults: UserDefaults = {
+    guard let defaults = UserDefaults(suiteName: "com.holeberry.tests") else {
+      fatalError("Failed to create test UserDefaults suite")
+    }
+    return defaults
+  }()
+
   override func setUp() {
     super.setUp()
-    Defaults[.servers] = []
-    Defaults[.tempUnblocks(for: UUID())] = []
+    testUserDefaults.removePersistentDomain(forName: "com.holeberry.tests")
   }
 
   override func tearDown() {
-    Defaults[.servers] = []
-    Defaults[.tempUnblocks(for: UUID())] = []
+    testUserDefaults.removePersistentDomain(forName: "com.holeberry.tests")
     super.tearDown()
   }
 
@@ -103,6 +109,23 @@ final class HoleberryTests: XCTestCase {
   }
 
   func testV6DomainsResponseDecoding() throws {
+    // Pi-hole v6 wraps domains in {"domains":[...]} with string type values.
+    let json =
+      "{\"domains\":["
+      + "{\"domain\":\"a.com\",\"type\":\"allow\",\"comment\":\"\"},"
+      + "{\"domain\":\"b.com\",\"type\":\"deny\",\"comment\":\"x\"}]}"
+    let data = try XCTUnwrap(json.data(using: .utf8))
+    let response = try JSONDecoder().decode(DomainsResponse.self, from: data)
+    XCTAssertEqual(response.domains.count, 2)
+    XCTAssertEqual(response.domains[0].domain, "a.com")
+    XCTAssertEqual(response.domains[0].type, 0)
+    XCTAssertEqual(response.domains[1].domain, "b.com")
+    XCTAssertEqual(response.domains[1].type, 1)
+    XCTAssertEqual(response.domains[1].comment, "x")
+  }
+
+  func testV6DomainsResponseDecodingIntegerTypes() throws {
+    // Also accept integer type values (v5-compatible format).
     let json =
       "[{\"id\": 1, \"domain\": \"allowed.com\", \"type\": 0, \"comment\": \"\"}, "
       + "{\"id\": 2, \"domain\": \"blocked.com\", \"type\": 1, \"comment\": \"manual block\"}]"
@@ -274,7 +297,7 @@ final class HoleberryTests: XCTestCase {
 
   func testMockServiceDeleteDomainByID() async throws {
     let mock = MockPiholeService()
-    try await mock.deleteDomain(identifiedBy: 42)
+    try await mock.deleteDomain(identifiedBy: 42, ofType: 0)
     XCTAssertEqual(mock.deleteDomainByIDCallCount, 1)
   }
 
@@ -334,50 +357,63 @@ final class HoleberryTests: XCTestCase {
   // MARK: - Defaults persistence tests
 
   func testDefaultsServersEmptyByDefault() {
-    Defaults[.servers] = []
-    XCTAssertTrue(Defaults[.servers].isEmpty)
+    let data = testUserDefaults.data(forKey: "servers")
+    XCTAssertNil(data)
   }
 
-  func testDefaultsServersSaveAndLoad() {
+  func testDefaultsServersSaveAndLoad() throws {
+    let encoder = JSONEncoder()
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
-    Defaults[.servers] = [server]
-    let loaded = Defaults[.servers]
+    let data = try encoder.encode([server])
+    testUserDefaults.set(data, forKey: "servers")
+
+    let loadedData = try XCTUnwrap(testUserDefaults.data(forKey: "servers"))
+    let loaded = try JSONDecoder().decode([ServerConfig].self, from: loadedData)
     XCTAssertEqual(loaded.count, 1)
     XCTAssertEqual(loaded[0].id, server.id)
     XCTAssertEqual(loaded[0].url, "http://test.com")
   }
 
-  func testDefaultsServersOverwrite() {
+  func testDefaultsServersOverwrite() throws {
+    let encoder = JSONEncoder()
     let server1 = ServerConfig(label: "A", url: "http://a.com", version: .v6)
     let server2 = ServerConfig(label: "B", url: "http://b.com", version: .v6)
-    Defaults[.servers] = [server1]
-    Defaults[.servers] = [server2]
-    XCTAssertEqual(Defaults[.servers].count, 1)
-    XCTAssertEqual(Defaults[.servers][0].id, server2.id)
+    testUserDefaults.set(try encoder.encode([server1]), forKey: "servers")
+    testUserDefaults.set(try encoder.encode([server2]), forKey: "servers")
+
+    let data = try XCTUnwrap(testUserDefaults.data(forKey: "servers"))
+    let loaded = try JSONDecoder().decode([ServerConfig].self, from: data)
+    XCTAssertEqual(loaded.count, 1)
+    XCTAssertEqual(loaded[0].id, server2.id)
   }
 
-  func testDefaultsServersMultiple() {
+  func testDefaultsServersMultiple() throws {
+    let encoder = JSONEncoder()
     let server1 = ServerConfig(label: "A", url: "http://a.com", version: .v6)
     let server2 = ServerConfig(label: "B", url: "http://b.com", version: .v6)
-    Defaults[.servers] = [server1, server2]
-    XCTAssertEqual(Defaults[.servers].count, 2)
+    testUserDefaults.set(try encoder.encode([server1, server2]), forKey: "servers")
+
+    let data = try XCTUnwrap(testUserDefaults.data(forKey: "servers"))
+    let loaded = try JSONDecoder().decode([ServerConfig].self, from: data)
+    XCTAssertEqual(loaded.count, 2)
   }
 
   func testDefaultsServersCorruptedData() {
-    UserDefaults.standard.set("<bad json>", forKey: "servers")
-    XCTAssertTrue(Defaults[.servers].isEmpty)
-    UserDefaults.standard.removeObject(forKey: "servers")
+    testUserDefaults.set("<bad json>", forKey: "servers")
+    // PiholeServerManager uses a key bound to the injected suite — corrupted data = empty.
+    let manager = PiholeServerManager(suite: testUserDefaults)
+    XCTAssertTrue(manager.servers.isEmpty)
   }
 
   // MARK: - PiholeServerManager tests
 
   func testManagerStartsEmpty() {
-    let manager = PiholeServerManager()
+    let manager = PiholeServerManager(suite: testUserDefaults)
     XCTAssertTrue(manager.servers.isEmpty)
   }
 
   func testManagerDeleteServer() {
-    let manager = PiholeServerManager()
+    let manager = PiholeServerManager(suite: testUserDefaults)
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     manager.servers = [server]
     let id = manager.servers[0].id
@@ -386,7 +422,7 @@ final class HoleberryTests: XCTestCase {
   }
 
   func testManagerUpdateServer() {
-    let manager = PiholeServerManager()
+    let manager = PiholeServerManager(suite: testUserDefaults)
     let server = ServerConfig(label: "Old", url: "http://old.com", version: .v6)
     manager.servers = [server]
     guard let id = manager.servers.first?.id else { return XCTFail("No server") }

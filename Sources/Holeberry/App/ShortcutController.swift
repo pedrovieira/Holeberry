@@ -38,7 +38,7 @@ final class ShortcutController {
     }
     KeyboardShortcuts.onKeyDown(for: .unblockCurrentTab) { [weak self] in
       guard let self else { return }
-      guard Defaults[.browserTabUnblockEnabled] else {
+      guard Defaults[.browserTabUnblockEnabled()] else {
         logger.debug("Unblock current tab shortcut fired but feature is disabled")
         return
       }

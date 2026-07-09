@@ -15,6 +15,7 @@ final class PiholeServerManager: ObservableObject {
   private let keychain: KeychainManager
   private let serviceFactory: PiholeServiceFactory
   private let versionDetector: PiholeVersionDetector
+  private let suite: UserDefaults
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
 
   private var services: [UUID: PiholeServiceProtocol] = [:]
@@ -22,11 +23,13 @@ final class PiholeServerManager: ObservableObject {
   init(
     keychain: KeychainManager = .shared,
     serviceFactory: PiholeServiceFactory = .shared,
-    versionDetector: PiholeVersionDetector = .shared
+    versionDetector: PiholeVersionDetector = .shared,
+    suite: UserDefaults = .standard
   ) {
     self.keychain = keychain
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
+    self.suite = suite
     self.servers = []
     self.combinedStatus = CombinedStatus()
     loadServers()
@@ -279,10 +282,16 @@ final class PiholeServerManager: ObservableObject {
   // MARK: - Persistence
 
   private func loadServers() {
-    let configs: [ServerConfig] = Defaults[.servers]
+    let configs: [ServerConfig] = Defaults[.servers(suite: suite)]
+    logger.debug("loadServers: found \(configs.count) configs")
+
+    if configs.isEmpty {
+      logger.debug("loadServers: Defaults returned empty — no persisted servers")
+    }
+
     servers = configs
 
-    for config in configs {
+    for config in servers {
       guard let credential = try? keychain.readCredential(for: config.id) else {
         logger.warning("No credential found for server \(config.id), skipping")
         continue
@@ -296,7 +305,7 @@ final class PiholeServerManager: ObservableObject {
   }
 
   private func saveServers() {
-    Defaults[.servers] = servers
+    Defaults[.servers(suite: suite)] = servers
   }
 
   private func syncConfigs() {

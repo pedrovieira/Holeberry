@@ -22,7 +22,7 @@ final class BrowserUrlFetcher {
   }
 
   func resolveCurrentTabDomain() -> Status {
-    guard Defaults[.browserTabUnblockEnabled] else {
+    guard Defaults[.browserTabUnblockEnabled()] else {
       return .disabled
     }
 
