@@ -203,9 +203,7 @@ final class MenuBuilder: NSObject {
     recentBlocked: [BlockedDomain],
     isConnected: Bool
   ) {
-    let deduped = Array(NSOrderedSet(array: recentBlocked.map(\.domain))).compactMap { $0 as? String }
-
-    if deduped.isEmpty {
+    if recentBlocked.isEmpty {
       let item = NSMenuItem(title: "Recently Blocked", action: nil, keyEquivalent: "")
       item.isEnabled = false
       menu.addItem(item)
@@ -213,9 +211,10 @@ final class MenuBuilder: NSObject {
     }
 
     let submenu = NSMenu()
-    for domain in deduped {
-      let durationSubmenu = buildDurationSubmenu(for: domain)
-      let domainItem = NSMenuItem(title: domain, action: nil, keyEquivalent: "")
+    for entry in recentBlocked {
+      let durationSubmenu = buildDurationSubmenu(for: entry.domain)
+      let domainItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+      domainItem.attributedTitle = attributedTitle(for: entry)
       domainItem.submenu = durationSubmenu
       submenu.addItem(domainItem)
     }
@@ -225,6 +224,26 @@ final class MenuBuilder: NSObject {
     item.isEnabled = isConnected
     item.setAccessibilityLabel("Recently blocked domains")
     menu.addItem(item)
+  }
+
+  /// Builds a two-line attributed title: domain name + relative timestamp below.
+  private func attributedTitle(for entry: BlockedDomain) -> NSAttributedString {
+    let result = NSMutableAttributedString()
+
+    let domainAttr: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: NSFont.systemFontSize),
+      .foregroundColor: NSColor.labelColor
+    ]
+    result.append(NSAttributedString(string: entry.domain, attributes: domainAttr))
+
+    let timestamp = MenuItemFactory.relativeTimestamp(since: entry.timestamp)
+    let timeAttr: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+      .foregroundColor: NSColor.secondaryLabelColor
+    ]
+    result.append(NSAttributedString(string: "\n" + timestamp, attributes: timeAttr))
+
+    return result
   }
 
   private func buildDurationSubmenu(for domain: String) -> NSMenu {

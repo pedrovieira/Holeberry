@@ -3,6 +3,8 @@ import OSLog
 
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
 final class PiholeV6Service: PiholeServiceInternal {
+  private static let blockedStatus = "GRAVITY"
+
   // MARK: - Identity & Config
   let id: UUID
   var label: String?
@@ -86,10 +88,6 @@ final class PiholeV6Service: PiholeServiceInternal {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
   }
-
-  // MARK: - Constants
-
-  private static let blockedStatus = "GRAVITY"
 
   func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
     guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
