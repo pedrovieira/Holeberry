@@ -37,8 +37,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     UNUserNotificationCenter.current().delegate = self
 
     ServerStatusMonitor.shared.startPolling()
-    menuBarController = MenuBarController()
-    shortcutController = ShortcutController(serverManager: .shared)
+
+    let timerManager = TimerManager()
+    let serverManager = PiholeServerManager.shared
+    let reachability = ReachabilityMonitor()
+    let statusMonitor = ServerStatusMonitor.shared
+    let browserUrlFetcher = BrowserUrlFetcher()
+
+    menuBarController = MenuBarController(
+      timerManager: timerManager,
+      serverManager: serverManager,
+      reachability: reachability,
+      statusMonitor: statusMonitor,
+      browserUrlFetcher: browserUrlFetcher
+    )
+    shortcutController = ShortcutController(
+      serverManager: serverManager,
+      browserUrlFetcher: browserUrlFetcher
+    )
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

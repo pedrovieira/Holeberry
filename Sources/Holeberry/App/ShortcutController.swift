@@ -8,10 +8,11 @@ import UserNotifications
 final class ShortcutController {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "shortcuts")
   private let serverManager: PiholeServerManager
-  private let browserUrlFetcher = BrowserUrlFetcher()
+  private let browserUrlFetcher: BrowserUrlFetcher
 
-  init(serverManager: PiholeServerManager) {
+  init(serverManager: PiholeServerManager, browserUrlFetcher: BrowserUrlFetcher) {
     self.serverManager = serverManager
+    self.browserUrlFetcher = browserUrlFetcher
     registerShortcuts()
   }
 
