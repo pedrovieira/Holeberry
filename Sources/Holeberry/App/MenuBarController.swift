@@ -31,7 +31,7 @@ final class MenuBarController: NSObject {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-bar")
 
   // Recent blocked cache
-  private var recentBlockedCache: [String] = []
+  private var recentBlockedCache: [BlockedDomain] = []
   private var lastCacheRefresh = Date.distantPast
   private let cacheTTL: TimeInterval = 60
 
@@ -267,7 +267,9 @@ final class MenuBarController: NSObject {
     Task {
       do {
         let length = max(Defaults[.recentBlockedCount()], 20)
-        let blocked = try await serverManager.getRecentBlocked(count: length)
+        let clientIP = NetworkInterface.localIPAddress()
+        let blocked = try await serverManager.getRecentBlocked(
+          forClientIp: clientIP, maxCount: length)
         recentBlockedCache = blocked
         lastCacheRefresh = Date()
       } catch {

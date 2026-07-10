@@ -224,12 +224,12 @@ final class PiholeServerManager: ObservableObject {
     return results
   }
 
-  func getRecentBlocked(count: Int) async throws -> [String] {
-    var allBlocked: [String] = []
+  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
+    var allBlocked: [BlockedDomain] = []
     for config in servers {
       guard let service = services[config.id] else { continue }
       do {
-        let blocked = try await service.getRecentBlocked(count: count)
+        let blocked = try await service.getRecentBlocked(forClientIp: forClientIp, maxCount: maxCount)
         allBlocked.append(contentsOf: blocked)
       } catch {
         logger.warning(
@@ -237,7 +237,12 @@ final class PiholeServerManager: ObservableObject {
         )
       }
     }
-    return allBlocked
+    // Deduplicate by domain keeping the most recent timestamp, then sort DESC
+    let deduped = Dictionary(grouping: allBlocked, by: \.domain)
+      .compactMapValues { $0.max { $0.timestamp < $1.timestamp } }
+      .values
+      .sorted { $0.timestamp > $1.timestamp }
+    return deduped
   }
 
   func getQuerySummary(for serverID: UUID) async throws -> QuerySummary {

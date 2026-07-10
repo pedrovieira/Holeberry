@@ -91,19 +91,17 @@ final class PiholeV6Service: PiholeServiceInternal {
 
   private static let blockedStatus = "GRAVITY"
 
-  func getRecentBlocked(count: Int) async throws -> [String] {
-    let clientIP = localIPAddress()
-
+  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
     guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
       throw PiholeError.unknown("Invalid base URL")
     }
     components.path = "/api/queries"
     var queryItems: [URLQueryItem] = [
       URLQueryItem(name: "status", value: Self.blockedStatus),
-      URLQueryItem(name: "length", value: String(count))
+      URLQueryItem(name: "length", value: String(maxCount))
     ]
-    if let clientIP {
-      queryItems.append(URLQueryItem(name: "client_ip", value: clientIP))
+    if let forClientIp {
+      queryItems.append(URLQueryItem(name: "client_ip", value: forClientIp))
     }
     components.queryItems = queryItems
     guard let url = components.url else {
@@ -122,6 +120,7 @@ final class PiholeV6Service: PiholeServiceInternal {
 
     struct QueryEntry: Decodable {
       let domain: String
+      let time: Double
     }
 
     let result: QueriesResponse
@@ -131,7 +130,9 @@ final class PiholeV6Service: PiholeServiceInternal {
       throw PiholeError.decoding(error.localizedDescription)
     }
 
-    return result.queries.map(\.domain)
+    return result.queries.map {
+      BlockedDomain(domain: $0.domain, timestamp: Date(timeIntervalSince1970: $0.time))
+    }
   }
 
   // MARK: - Summary
@@ -159,39 +160,6 @@ final class PiholeV6Service: PiholeServiceInternal {
     )
   }
 
-  func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {
-    guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
-      throw PiholeError.unknown("Invalid base URL")
-    }
-    components.path = "/api/queries"
-    var queryItems: [URLQueryItem] = [URLQueryItem(name: "length", value: "100")]
-    if let clientIP {
-      queryItems.append(URLQueryItem(name: "client", value: clientIP))
-    }
-    components.queryItems = queryItems
-    guard let url = components.url else {
-      throw PiholeError.unknown("Invalid URL for /api/queries")
-    }
-
-    let (data, httpResponse) = try await authenticatedRequest(url: url)
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    struct QueriesResponse: Decodable {
-      let queries: [RecentQuery]
-    }
-
-    let result: QueriesResponse
-    do {
-      result = try Self.decoder.decode(QueriesResponse.self, from: data)
-    } catch {
-      throw PiholeError.decoding(error.localizedDescription)
-    }
-
-    return result.queries
-  }
 
   func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
     try await addDomain(domain, to: list, comment: nil)
