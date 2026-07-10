@@ -7,11 +7,11 @@ import UserNotifications
 @MainActor
 final class MenuBarController: NSObject {
   private let statusItem: NSStatusItem
-  private let timerManager = TimerManager()
-  private let serverManager = PiholeServerManager.shared
-  private let reachability = ReachabilityMonitor()
-  private let statusMonitor = ServerStatusMonitor.shared
-  private let browserUrlFetcher = BrowserUrlFetcher()
+  private let timerManager: TimerManager
+  private let serverManager: PiholeServerManager
+  private let reachability: ReachabilityMonitor
+  private let statusMonitor: ServerStatusMonitor
+  private let browserUrlFetcher: BrowserUrlFetcher
   private lazy var menuBuilder: MenuBuilder = {
     let builder = MenuBuilder(
       serverManager: serverManager,
@@ -55,7 +55,18 @@ final class MenuBarController: NSObject {
     return view
   }()
 
-  override init() {
+  init(
+    timerManager: TimerManager,
+    serverManager: PiholeServerManager,
+    reachability: ReachabilityMonitor,
+    statusMonitor: ServerStatusMonitor,
+    browserUrlFetcher: BrowserUrlFetcher
+  ) {
+    self.timerManager = timerManager
+    self.serverManager = serverManager
+    self.reachability = reachability
+    self.statusMonitor = statusMonitor
+    self.browserUrlFetcher = browserUrlFetcher
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     super.init()
     configureStatusItem()
