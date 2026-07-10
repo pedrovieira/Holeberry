@@ -161,13 +161,11 @@ final class PiholeV5Service: PiholeServiceInternal {
     }
   }
 
-  func getRecentBlocked(count: Int) async throws -> [String] {
-    let clientIP = localIPAddress()
-
+  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
     // v5 doesn't support server-side status filtering, so over-fetch and filter client-side
-    var params: [String: String?] = ["getAllQueries": String(max(count, 1000))]
-    if let clientIP {
-      params["client"] = clientIP
+    var params: [String: String?] = ["getAllQueries": String(max(maxCount, 1000))]
+    if let forClientIp {
+      params["client"] = forClientIp
     }
 
     let (data, httpResponse) = try await getRequest(
@@ -182,55 +180,19 @@ final class PiholeV5Service: PiholeServiceInternal {
       return []
     }
 
-    let blocked = rows.compactMap { row -> String? in
-      guard row.count >= 5 else { return nil }
-      let status = "\(row[4])"
-      guard V5QueryStatus.blocked.contains(status) else { return nil }
-      return "\(row[2])"
-    }
-    return Array(blocked.prefix(count))
-  }
-
-  func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {
-    let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["getAllQueries": nil]
-    )
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    guard let rawJSON = try JSONSerialization.jsonObject(with: data) as? [[Any]] else {
-      throw PiholeError.decoding("Unexpected v5 getAllQueries format")
-    }
-
     let dateFormatter = DateFormatter()
     dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
-    var queries: [RecentQuery] = []
-    for row in rawJSON {
-      guard row.count >= 5 else { continue }
+    let blocked = rows.compactMap { row -> BlockedDomain? in
+      guard row.count >= 5 else { return nil }
+      let status = "\(row[4])"
+      guard V5QueryStatus.blocked.contains(status) else { return nil }
+      let domain = "\(row[2])"
       let timestampStr = "\(row[0])"
       let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
-      let dnsType = "\(row[1])"
-      let domain = "\(row[2])"
-      let clientIP = "\(row[3])"
-      let status = "\(row[4])"
-
-      queries.append(
-        RecentQuery(
-          timestamp: timestamp,
-          domain: domain,
-          clientIP: clientIP,
-          status: status,
-          dnsType: dnsType
-        ))
+      return BlockedDomain(domain: domain, timestamp: timestamp)
     }
-
-    if let clientIP {
-      return queries.filter { $0.clientIP == clientIP }
-    }
-    return queries
+    return Array(blocked.prefix(maxCount))
   }
 
   func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {

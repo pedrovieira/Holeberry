@@ -164,8 +164,8 @@ final class HoleberryTests: XCTestCase {
   func testV5GetAllQueriesDecoding() throws {
     let json =
       "[[\"2024-01-15 10:30:00\", \"A\", \"example.com\", \"192.168.1.5\", \"2\", \"OK\", \"0\"], "
-      + "[\"2024-01-15 10:31:00\", \"AAAA\", \"blocked.com\", \"192.168.1.10\", \"0\", \"Blocked\", \"1\"], "
-      + "[\"2024-01-15 10:32:00\", \"A\", \"tracker.net\", \"192.168.1.5\", \"0\", \"Blocked\", \"1\"]]"
+      + "[\"2024-01-15 10:31:00\", \"AAAA\", \"blocked.com\", \"192.168.1.10\", \"1\", \"Blocked\", \"1\"], "
+      + "[\"2024-01-15 10:32:00\", \"A\", \"tracker.net\", \"192.168.1.5\", \"1\", \"Blocked\", \"1\"]]"
     let data = try XCTUnwrap(json.data(using: .utf8))
     guard let rawJSON = try JSONSerialization.jsonObject(with: data) as? [[Any]] else {
       XCTFail("Expected array of arrays")
@@ -175,31 +175,20 @@ final class HoleberryTests: XCTestCase {
     let dateFormatter = DateFormatter()
     dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
-    var queries: [RecentQuery] = []
-    for row in rawJSON {
-      guard row.count >= 5 else { continue }
-      let timestamp = dateFormatter.date(from: "\(row[0])") ?? Date()
-      let dnsType = "\(row[1])"
-      let domain = "\(row[2])"
-      let clientIP = "\(row[3])"
-      let status = "\(row[4])"
+    let blockedStatuses: Set<String> = ["1", "4", "5", "6"]
 
-      queries.append(
-        RecentQuery(
-          timestamp: timestamp,
-          domain: domain,
-          clientIP: clientIP,
-          status: status,
-          dnsType: dnsType
-        ))
+    let blocked: [BlockedDomain] = rawJSON.compactMap { row -> BlockedDomain? in
+      guard row.count >= 5 else { return nil }
+      let status = "\(row[4])"
+      guard blockedStatuses.contains(status) else { return nil }
+      let domain = "\(row[2])"
+      let timestamp = dateFormatter.date(from: "\(row[0])") ?? Date()
+      return BlockedDomain(domain: domain, timestamp: timestamp)
     }
 
-    XCTAssertEqual(queries.count, 3)
-    XCTAssertEqual(queries[0].domain, "example.com")
-    XCTAssertEqual(queries[0].status, "2")
-    XCTAssertEqual(queries[1].domain, "blocked.com")
-    XCTAssertEqual(queries[1].status, "0")
-    XCTAssertEqual(queries[2].dnsType, "A")
+    XCTAssertEqual(blocked.count, 2)
+    XCTAssertEqual(blocked[0].domain, "blocked.com")
+    XCTAssertEqual(blocked[1].domain, "tracker.net")
   }
 
   // MARK: - v5 HTML parsing tests

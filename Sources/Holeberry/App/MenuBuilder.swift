@@ -23,7 +23,7 @@ final class MenuBuilder: NSObject {
 
   // swiftlint:disable:next function_parameter_count
   func buildMenu(
-    recentBlocked: [String],
+    recentBlocked: [BlockedDomain],
     error: String?,
     isConnected: Bool,
     combinedStatus: CombinedStatus,
@@ -200,10 +200,10 @@ final class MenuBuilder: NSObject {
 
   private func addDisableURLSection(
     to menu: NSMenu,
-    recentBlocked: [String],
+    recentBlocked: [BlockedDomain],
     isConnected: Bool
   ) {
-    let deduped = Array(NSOrderedSet(array: recentBlocked)).compactMap { $0 as? String }
+    let deduped = Array(NSOrderedSet(array: recentBlocked.map(\.domain))).compactMap { $0 as? String }
 
     if deduped.isEmpty {
       let item = NSMenuItem(title: "Recently Blocked", action: nil, keyEquivalent: "")

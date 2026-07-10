@@ -26,8 +26,7 @@ protocol PiholeServiceProtocol: AnyObject {
   func checkStatus() async throws -> BlockingStatus
   func getQuerySummary() async throws -> QuerySummary
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws
-  func getRecentBlocked(count: Int) async throws -> [String]
-  func getRecentQueries(clientIP: String?) async throws -> [RecentQuery]
+  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain]
 
   // MARK: - Session
 

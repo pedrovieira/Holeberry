@@ -22,7 +22,7 @@ enum PiHoleScanner {
   /// Best-effort: unreachable IPs are silently skipped.
   /// Respects cooperative cancellation.
   static func scan() async -> [DiscoveredInstance] {
-    guard let localIP = localIPAddress() else { return [] }
+    guard let localIP = NetworkInterface.localIPAddress() else { return [] }
 
     let components = localIP.split(separator: ".")
     guard components.count == 4 else { return [] }

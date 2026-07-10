@@ -21,11 +21,8 @@ final class MockPiholeService: PiholeServiceInternal {
   var setBlockingLastEnabled: Bool?
   var setBlockingLastDuration: TimeInterval?
 
-  var getRecentBlockedStub: Result<[String], Error> = .success([])
+  var getRecentBlockedStub: Result<[BlockedDomain], Error> = .success([])
   var getRecentBlockedCallCount = 0
-
-  var getRecentQueriesStub: Result<[RecentQuery], Error> = .success([])
-  var getRecentQueriesCallCount = 0
 
   var getQuerySummaryStub: Result<QuerySummary, Error> = .success(QuerySummary(totalQueries: 0, totalBlocked: 0))
   var getQuerySummaryCallCount = 0
@@ -64,14 +61,9 @@ final class MockPiholeService: PiholeServiceInternal {
     try setBlockingStub.get()
   }
 
-  func getRecentBlocked(count: Int) async throws -> [String] {
+  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
     getRecentBlockedCallCount += 1
     return try getRecentBlockedStub.get()
-  }
-
-  func getRecentQueries(clientIP: String?) async throws -> [RecentQuery] {
-    getRecentQueriesCallCount += 1
-    return try getRecentQueriesStub.get()
   }
 
   func getQuerySummary() async throws -> QuerySummary {
