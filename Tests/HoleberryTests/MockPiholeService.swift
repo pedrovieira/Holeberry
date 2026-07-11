@@ -61,7 +61,7 @@ final class MockPiholeService: PiholeServiceInternal {
     try setBlockingStub.get()
   }
 
-  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
+  func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
     getRecentBlockedCallCount += 1
     return try getRecentBlockedStub.get()
   }

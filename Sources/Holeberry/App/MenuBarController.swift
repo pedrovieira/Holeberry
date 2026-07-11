@@ -277,10 +277,12 @@ final class MenuBarController: NSObject {
     }
     Task {
       do {
-        let length = max(Defaults[.recentBlockedCount()], 20)
         let clientIP = NetworkInterface.localIPAddress()
+        let interval = DateInterval(
+          start: Date().addingTimeInterval(-3600),
+          end: Date())
         let blocked = try await serverManager.getRecentBlocked(
-          forClientIp: clientIP, maxCount: length)
+          forClientIp: clientIP, interval: interval)
         recentBlockedCache = blocked
         lastCacheRefresh = Date()
       } catch {
