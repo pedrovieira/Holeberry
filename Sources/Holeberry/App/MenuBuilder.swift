@@ -179,6 +179,7 @@ final class MenuBuilder: NSObject {
       menu.addItem(item)
     } else {
       let submenu = NSMenu()
+
       submenu.addItem(withTitle: "Indefinitely", action: #selector(disableIndefinitely), keyEquivalent: "")
       submenu.addItem(withTitle: "10 seconds", action: #selector(disable10s), keyEquivalent: "")
       submenu.addItem(withTitle: "30 seconds", action: #selector(disable30s), keyEquivalent: "")
@@ -250,9 +251,10 @@ final class MenuBuilder: NSObject {
   private func buildDurationSubmenu(for domain: String) -> NSMenu {
     let submenu = NSMenu()
 
+    addDurationItem(to: submenu, domain: domain, duration: 10, title: "10 seconds")
     addDurationItem(to: submenu, domain: domain, duration: 30, title: "30 seconds")
     addDurationItem(to: submenu, domain: domain, duration: 300, title: "5 minutes")
-    addDurationItem(to: submenu, domain: domain, duration: 900, title: "15 minutes")
+
     submenu.addItem(.separator())
 
     let allowlistItem = NSMenuItem(
