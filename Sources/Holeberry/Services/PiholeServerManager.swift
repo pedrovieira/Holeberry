@@ -237,9 +237,12 @@ final class PiholeServerManager: ObservableObject {
         )
       }
     }
-    // Deduplicate by domain keeping the most recent timestamp, then sort DESC
-    let deduped = Dictionary(grouping: allBlocked, by: \.domain)
-      .compactMapValues { $0.max { $0.timestamp < $1.timestamp } }
+    // Deduplicate by domain keeping the most recent timestamp, count occurrences
+    let deduped: [BlockedDomain] = Dictionary(grouping: allBlocked, by: \.domain)
+      .mapValues { entries in
+        let mostRecent = entries.max { $0.timestamp < $1.timestamp } ?? entries[0]
+        return BlockedDomain(domain: mostRecent.domain, timestamp: mostRecent.timestamp, count: entries.count)
+      }
       .values
       .sorted { $0.timestamp > $1.timestamp }
     return deduped
