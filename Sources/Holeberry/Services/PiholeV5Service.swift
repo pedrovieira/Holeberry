@@ -25,6 +25,10 @@ final class PiholeV5Service: PiholeServiceInternal {
   private let apiToken: String
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
+  /// Safety cap on the number of rows the server returns. The real filter is the time
+  /// range (`from`/`until`) and status, but we keep a large limit so v5.0–5.1 servers
+  /// (which ignore those params) still bound their response.
+  private static let queryLimit = 5000
 
   private static let maxRetries = 3
   private static let backoffSeconds: [TimeInterval] = [1, 2, 4]
@@ -161,9 +165,14 @@ final class PiholeV5Service: PiholeServiceInternal {
     }
   }
 
-  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
-    // v5 doesn't support server-side status filtering, so over-fetch and filter client-side
-    var params: [String: String?] = ["getAllQueries": String(max(maxCount, 1000))]
+  func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
+    // Pass server-side filtering params; silently ignored on FTL < v5.2
+    var params: [String: String?] = [
+      "getAllQueries": String(Self.queryLimit),
+      "from": String(Int(interval.start.timeIntervalSince1970)),
+      "until": String(Int(interval.end.timeIntervalSince1970)),
+      "status": "1,4,5,6"
+    ]
     if let forClientIp {
       params["client"] = forClientIp
     }
@@ -183,6 +192,9 @@ final class PiholeV5Service: PiholeServiceInternal {
     let dateFormatter = DateFormatter()
     dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
+    let fromTime = interval.start.timeIntervalSince1970
+    let untilTime = interval.end.timeIntervalSince1970
+
     let blocked = rows.compactMap { row -> BlockedDomain? in
       guard row.count >= 5 else { return nil }
       let status = "\(row[4])"
@@ -190,9 +202,12 @@ final class PiholeV5Service: PiholeServiceInternal {
       let domain = "\(row[2])"
       let timestampStr = "\(row[0])"
       let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
+      // Client-side time range filter as fallback for FTL < v5.2
+      let timestampSecs = timestamp.timeIntervalSince1970
+      guard timestampSecs >= fromTime && timestampSecs <= untilTime else { return nil }
       return BlockedDomain(domain: domain, timestamp: timestamp)
     }
-    return Array(blocked.prefix(maxCount))
+    return blocked
   }
 
   func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {

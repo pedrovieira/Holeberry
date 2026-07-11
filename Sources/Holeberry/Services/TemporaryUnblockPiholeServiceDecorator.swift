@@ -68,8 +68,8 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
     try await wrapped.setBlocking(enabled: enabled, duration: duration)
   }
 
-  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
-    try await wrapped.getRecentBlocked(forClientIp: forClientIp, maxCount: maxCount)
+  func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
+    try await wrapped.getRecentBlocked(forClientIp: forClientIp, interval: interval)
   }
 
   func getDomains() async throws -> [DomainEntry] {

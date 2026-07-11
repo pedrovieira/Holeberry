@@ -224,12 +224,12 @@ final class PiholeServerManager: ObservableObject {
     return results
   }
 
-  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
+  func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
     var allBlocked: [BlockedDomain] = []
     for config in servers {
       guard let service = services[config.id] else { continue }
       do {
-        let blocked = try await service.getRecentBlocked(forClientIp: forClientIp, maxCount: maxCount)
+        let blocked = try await service.getRecentBlocked(forClientIp: forClientIp, interval: interval)
         allBlocked.append(contentsOf: blocked)
       } catch {
         logger.warning(

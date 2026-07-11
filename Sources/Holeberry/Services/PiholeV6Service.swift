@@ -4,6 +4,9 @@ import OSLog
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
 final class PiholeV6Service: PiholeServiceInternal {
   private static let blockedStatus = "GRAVITY"
+  /// Safety cap on the number of rows the server returns. The real filter is the time
+  /// range (`from`/`until`), but a large limit prevents unbounded responses.
+  private static let queryLimit = 5000
 
   // MARK: - Identity & Config
   let id: UUID
@@ -89,14 +92,16 @@ final class PiholeV6Service: PiholeServiceInternal {
     }
   }
 
-  func getRecentBlocked(forClientIp: String?, maxCount: Int) async throws -> [BlockedDomain] {
+  func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
     guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
       throw PiholeError.unknown("Invalid base URL")
     }
     components.path = "/api/queries"
     var queryItems: [URLQueryItem] = [
       URLQueryItem(name: "status", value: Self.blockedStatus),
-      URLQueryItem(name: "length", value: String(maxCount))
+      URLQueryItem(name: "length", value: String(Self.queryLimit)),
+      URLQueryItem(name: "from", value: String(Int(interval.start.timeIntervalSince1970))),
+      URLQueryItem(name: "until", value: String(Int(interval.end.timeIntervalSince1970)))
     ]
     if let forClientIp {
       queryItems.append(URLQueryItem(name: "client_ip", value: forClientIp))
