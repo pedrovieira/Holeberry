@@ -22,6 +22,23 @@ final class PiholeV6Service: PiholeServiceInternal {
   private static let decoder = JSONDecoder()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v6-service")
 
+  // MARK: - API response types
+
+  private struct QueriesResponse: Decodable {
+    let queries: [QueryEntry]
+  }
+
+  private struct QueryEntry: Decodable {
+    let domain: String
+    let time: Double
+    let client: ClientInfo
+  }
+
+  private struct ClientInfo: Decodable {
+    // swiftlint:disable:next identifier_name
+    let ip: String
+  }
+
   init(
     id: UUID,
     label: String?,
@@ -117,24 +134,23 @@ final class PiholeV6Service: PiholeServiceInternal {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    struct QueriesResponse: Decodable {
-      let queries: [QueryEntry]
-    }
-
-    struct QueryEntry: Decodable {
-      let domain: String
-      let time: Double
-    }
-
     let result: QueriesResponse
     do {
       result = try Self.decoder.decode(QueriesResponse.self, from: data)
     } catch {
+      let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
+      self.logger.error("V6 getRecentBlocked decode failed. URL: \(url.absoluteString, privacy: .public)")
+      self.logger.error("Response body (truncated): \(body.prefix(500), privacy: .public)")
+      self.logger.error("Decode error: \(error.localizedDescription, privacy: .public)")
       throw PiholeError.decoding(error.localizedDescription)
     }
 
-    return result.queries.map {
-      BlockedDomain(domain: $0.domain, timestamp: Date(timeIntervalSince1970: $0.time))
+    return result.queries.map { entry in
+      BlockedDomain(
+        domain: entry.domain,
+        timestamp: Date(timeIntervalSince1970: entry.time),
+        fromClientIp: entry.client.ip
+      )
     }
   }
 

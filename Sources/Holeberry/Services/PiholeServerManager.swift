@@ -241,7 +241,11 @@ final class PiholeServerManager: ObservableObject {
     let deduped: [BlockedDomain] = Dictionary(grouping: allBlocked, by: \.domain)
       .mapValues { entries in
         let mostRecent = entries.max { $0.timestamp < $1.timestamp } ?? entries[0]
-        return BlockedDomain(domain: mostRecent.domain, timestamp: mostRecent.timestamp, count: entries.count)
+        return BlockedDomain(
+          domain: mostRecent.domain,
+          timestamp: mostRecent.timestamp,
+          count: entries.count,
+          fromClientIp: mostRecent.fromClientIp)
       }
       .values
       .sorted { $0.timestamp > $1.timestamp }

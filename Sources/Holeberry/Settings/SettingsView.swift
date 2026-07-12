@@ -31,6 +31,8 @@ struct SettingsView: View {
   var launchAtLogin
   @Default(.browserTabUnblockEnabled())
   var browserTabUnblockEnabled
+  @Default(.showAllClientsRecentBlocked())
+  var showAllClientsRecentBlocked
 
   @State private var isToggling = false
   @State private var requiresApproval = false
@@ -200,6 +202,21 @@ struct SettingsView: View {
 
       if browserTabUnblockEnabled {
         KeyboardShortcuts.Recorder("Unblock Current Tab:", name: .unblockCurrentTab)
+      }
+
+      Divider()
+        .padding(.vertical, 4)
+
+      VStack(alignment: .leading) {
+        Toggle("Show recently blocked for all clients", isOn: $showAllClientsRecentBlocked)
+
+        (Text("Show blocked domains from all network devices. ")
+          + Text("This Mac's blocks are marked with ")
+          + Text(Image(systemName: "person.circle"))
+          + Text("."))
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
   }
