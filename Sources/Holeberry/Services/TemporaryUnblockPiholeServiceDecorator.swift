@@ -100,7 +100,7 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
       saveRecords()
       startExpiryTask(for: record)
     } else {
-      _ = try await wrapped.addDomain(domain, to: .allow, comment: nil)
+      _ = try await wrapped.addDomain(domain, to: .allow, comment: "via holeberryapp.com")
     }
   }
 
