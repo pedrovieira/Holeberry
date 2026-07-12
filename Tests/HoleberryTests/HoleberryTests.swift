@@ -182,8 +182,9 @@ final class HoleberryTests: XCTestCase {
       let status = "\(row[4])"
       guard blockedStatuses.contains(status) else { return nil }
       let domain = "\(row[2])"
+      let client = "\(row[3])"
       let timestamp = dateFormatter.date(from: "\(row[0])") ?? Date()
-      return BlockedDomain(domain: domain, timestamp: timestamp)
+      return BlockedDomain(domain: domain, timestamp: timestamp, fromClientIp: client)
     }
 
     XCTAssertEqual(blocked.count, 2)

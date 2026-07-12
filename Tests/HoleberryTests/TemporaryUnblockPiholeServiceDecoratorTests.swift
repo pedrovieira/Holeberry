@@ -43,7 +43,7 @@ final class TemporaryUnblockPiholeServiceDecoratorTests: XCTestCase {  // swiftl
     try await decorator.unblockDomain("permanent.com", duration: nil)
 
     XCTAssertEqual(mock.addDomainCallCount, 1)
-    XCTAssertEqual(mock.addDomainLastComment, nil, "Permanent unblock should have nil comment")
+    XCTAssertEqual(mock.addDomainLastComment, "via holeberryapp.com", "Permanent unblock should have standard comment")
   }
 
   // MARK: - Auto-expiry
