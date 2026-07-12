@@ -4,7 +4,7 @@ import SwiftUI
 import UserNotifications
 
 @main
-struct Holeberry: App {
+struct HoleberryApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self)
   var appDelegate
 
