@@ -12,6 +12,7 @@ final class MenuBarController: NSObject {
   private let reachability: ReachabilityMonitor
   private let statusMonitor: ServerStatusMonitor
   private let browserUrlFetcher: BrowserUrlFetcher
+  private let localIPAddressResolver: LocalIPAddressProviding
   private lazy var menuBuilder: MenuBuilder = {
     let builder = MenuBuilder(
       serverManager: serverManager,
@@ -60,13 +61,15 @@ final class MenuBarController: NSObject {
     serverManager: PiholeServerManager,
     reachability: ReachabilityMonitor,
     statusMonitor: ServerStatusMonitor,
-    browserUrlFetcher: BrowserUrlFetcher
+    browserUrlFetcher: BrowserUrlFetcher,
+    localIPAddressResolver: LocalIPAddressProviding = LocalIPAddressResolver()
   ) {
     self.timerManager = timerManager
     self.serverManager = serverManager
     self.reachability = reachability
     self.statusMonitor = statusMonitor
     self.browserUrlFetcher = browserUrlFetcher
+    self.localIPAddressResolver = localIPAddressResolver
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     super.init()
     configureStatusItem()
@@ -99,7 +102,7 @@ final class MenuBarController: NSObject {
     }
     let menu = menuBuilder.buildMenu(
       recentBlocked: recentBlockedCache,
-      userIP: NetworkInterface.localIPAddress(),
+      userIP: localIPAddressResolver.localIPAddress(),
       showAllClients: Defaults[.showAllClientsRecentBlocked()],
       error: errorMessage,
       isConnected: reachability.isConnected,
@@ -279,7 +282,7 @@ final class MenuBarController: NSObject {
     }
     Task {
       do {
-        let clientIP = NetworkInterface.localIPAddress()
+        let clientIP = localIPAddressResolver.localIPAddress()
         let showAll = Defaults[.showAllClientsRecentBlocked()]
         let interval = DateInterval(
           start: Date().addingTimeInterval(-3600),

@@ -21,8 +21,8 @@ enum PiHoleScanner {
   /// Returns discovered instances ordered by IP ascending.
   /// Best-effort: unreachable IPs are silently skipped.
   /// Respects cooperative cancellation.
-  static func scan() async -> [DiscoveredInstance] {
-    guard let localIP = NetworkInterface.localIPAddress() else { return [] }
+  static func scan(localIPAddressResolver: LocalIPAddressProviding) async -> [DiscoveredInstance] {
+    guard let localIP = localIPAddressResolver.localIPAddress() else { return [] }
 
     let components = localIP.split(separator: ".")
     guard components.count == 4 else { return [] }
