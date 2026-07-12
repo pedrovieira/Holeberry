@@ -33,6 +33,11 @@ extension Defaults.Keys {
     Defaults.Key<Bool>("browserTabUnblockEnabled", default: false, suite: suite)
   }
 
+  /// Whether to show recently blocked domains for all network clients (off by default).
+  static func showAllClientsRecentBlocked(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("showAllClientsRecentBlocked", default: false, suite: suite)
+  }
+
   /// Returns a per-server key for temp-unblock records.
   static func tempUnblocks(for serverID: UUID, suite: UserDefaults = .standard) -> Defaults.Key<[TempUnblockRecord]> {
     Defaults.Key<[TempUnblockRecord]>("tempUnblocks-\(serverID.uuidString)", default: [], suite: suite)

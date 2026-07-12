@@ -12,6 +12,9 @@ final class MenuBuilder: NSObject {
   var onDisableURL: ((String, TimeInterval) -> Void)?
   var onAddToAllowlist: ((String) -> Void)?
 
+  // User-device tracking for recently-blocked icon
+  private var userIP: String?
+  private var showAllClients = false
 
   init(
     serverManager: PiholeServerManager,
@@ -24,6 +27,8 @@ final class MenuBuilder: NSObject {
   // swiftlint:disable:next function_parameter_count
   func buildMenu(
     recentBlocked: [BlockedDomain],
+    userIP: String? = nil,
+    showAllClients: Bool = false,
     error: String?,
     isConnected: Bool,
     combinedStatus: CombinedStatus,
@@ -33,6 +38,8 @@ final class MenuBuilder: NSObject {
     browserTabStatus: BrowserUrlFetcher.Status = .disabled,
     browserIcon: NSImage? = nil
   ) -> NSMenu {
+    self.userIP = userIP
+    self.showAllClients = showAllClients
     let menu = NSMenu()
     addStatusSection(
       to: menu,
@@ -155,7 +162,7 @@ final class MenuBuilder: NSObject {
 
     for config in servers {
       let connected = connectionStatuses[config.id] == .connected
-      let blocking = if case .enabled = blockingStatuses[config.id] { true } else { false }
+      let blocking = .enabled == blockingStatuses[config.id]
       let dotColor: NSColor = (connected && blocking) ? .systemGreen : .systemRed
 
       let item = NSMenuItem()
@@ -243,7 +250,18 @@ final class MenuBuilder: NSObject {
       .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
       .foregroundColor: NSColor.secondaryLabelColor
     ]
-    result.append(NSAttributedString(string: "\n" + timestamp + " · " + hitSuffix, attributes: timeAttr))
+
+    let subtitle = NSMutableAttributedString()
+    if showAllClients, entry.fromClientIp == userIP {
+      let icon = MenuItemFactory.iconAttachment(
+        symbolName: "person.circle", color: .secondaryLabelColor)
+      subtitle.append(NSAttributedString(attachment: icon))
+      subtitle.append(NSAttributedString(string: " "))
+    }
+    subtitle.append(NSAttributedString(string: timestamp + " · " + hitSuffix, attributes: timeAttr))
+
+    result.append(NSAttributedString(string: "\n"))
+    result.append(subtitle)
 
     return result
   }

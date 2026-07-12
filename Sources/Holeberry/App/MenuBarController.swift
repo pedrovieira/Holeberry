@@ -99,6 +99,8 @@ final class MenuBarController: NSObject {
     }
     let menu = menuBuilder.buildMenu(
       recentBlocked: recentBlockedCache,
+      userIP: NetworkInterface.localIPAddress(),
+      showAllClients: Defaults[.showAllClientsRecentBlocked()],
       error: errorMessage,
       isConnected: reachability.isConnected,
       combinedStatus: statusMonitor.combinedStatus,
@@ -278,11 +280,12 @@ final class MenuBarController: NSObject {
     Task {
       do {
         let clientIP = NetworkInterface.localIPAddress()
+        let showAll = Defaults[.showAllClientsRecentBlocked()]
         let interval = DateInterval(
           start: Date().addingTimeInterval(-3600),
           end: Date())
         let blocked = try await serverManager.getRecentBlocked(
-          forClientIp: clientIP, interval: interval)
+          forClientIp: showAll ? nil : clientIP, interval: interval)
         recentBlockedCache = blocked
         lastCacheRefresh = Date()
       } catch {

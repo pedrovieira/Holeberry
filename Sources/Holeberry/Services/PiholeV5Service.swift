@@ -200,12 +200,13 @@ final class PiholeV5Service: PiholeServiceInternal {
       let status = "\(row[4])"
       guard V5QueryStatus.blocked.contains(status) else { return nil }
       let domain = "\(row[2])"
+      let client = "\(row[3])"
       let timestampStr = "\(row[0])"
       let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
       // Client-side time range filter as fallback for FTL < v5.2
       let timestampSecs = timestamp.timeIntervalSince1970
       guard timestampSecs >= fromTime && timestampSecs <= untilTime else { return nil }
-      return BlockedDomain(domain: domain, timestamp: timestamp)
+      return BlockedDomain(domain: domain, timestamp: timestamp, fromClientIp: client)
     }
     return blocked
   }

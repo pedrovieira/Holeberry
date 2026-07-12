@@ -34,8 +34,11 @@ enum MenuItemFactory {
   }
 
   /// An `NSTextAttachment` containing an SF Symbol icon for the instance.
-  static func iconAttachment(symbolName: String, diameter: CGFloat = 12) -> NSTextAttachment {
-    let symbolConfig = NSImage.SymbolConfiguration(pointSize: diameter, weight: .regular)
+  static func iconAttachment(symbolName: String, diameter: CGFloat = 12, color: NSColor? = nil) -> NSTextAttachment {
+    var symbolConfig = NSImage.SymbolConfiguration(pointSize: diameter, weight: .regular)
+    if let color {
+      symbolConfig = symbolConfig.applying(NSImage.SymbolConfiguration(hierarchicalColor: color))
+    }
     let image =
       NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
       .withSymbolConfiguration(symbolConfig)
