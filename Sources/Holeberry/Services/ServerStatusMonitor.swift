@@ -5,7 +5,7 @@ import OSLog
 
 @MainActor
 final class ServerStatusMonitor: ObservableObject {
-  static let shared = ServerStatusMonitor(manager: .shared)
+  static let shared = ServerStatusMonitor(manager: .shared, networkInterface: LocalIPAddressResolver())
 
   @Published var servers: [ServerConfig] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]
@@ -23,9 +23,11 @@ final class ServerStatusMonitor: ObservableObject {
   private var isPolling = false
 
   let manager: PiholeServerManager
+  let networkInterface: LocalIPAddressProviding
 
-  init(manager: PiholeServerManager) {
+  init(manager: PiholeServerManager, networkInterface: LocalIPAddressProviding) {
     self.manager = manager
+    self.networkInterface = networkInterface
     self.servers = manager.servers
 
     manager.$servers
@@ -99,7 +101,7 @@ final class ServerStatusMonitor: ObservableObject {
     }
 
     isScanning = true
-    discoveredInstances = await PiHoleScanner.scan()
+    discoveredInstances = await PiHoleScanner.scan(localIPAddressResolver: networkInterface)
     isScanning = false
   }
 

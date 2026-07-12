@@ -1,10 +1,18 @@
 import Darwin
 import Foundation
 
-/// Utility that resolves the Mac's current local IPv4 address from the primary network interface.
-enum NetworkInterface {
+// MARK: - Protocol
+
+protocol LocalIPAddressProviding: Sendable {
   /// Returns the local IPv4 address string (e.g. "192.168.1.67"), or `nil` if no active interface is found.
-  static func localIPAddress() -> String? {
+  func localIPAddress() -> String?
+}
+
+// MARK: - Concrete Implementation
+
+/// Resolves the Mac's current local IPv4 address from the primary network interface.
+final class LocalIPAddressResolver: LocalIPAddressProviding {
+  func localIPAddress() -> String? {
     var ifaddr: UnsafeMutablePointer<ifaddrs>?
     guard getifaddrs(&ifaddr) == 0 else { return nil }
     defer { freeifaddrs(ifaddr) }

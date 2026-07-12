@@ -43,13 +43,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let reachability = ReachabilityMonitor()
     let statusMonitor = ServerStatusMonitor.shared
     let browserUrlFetcher = BrowserUrlFetcher()
+    let localIPAddressResolver = LocalIPAddressResolver()
 
     menuBarController = MenuBarController(
       timerManager: timerManager,
       serverManager: serverManager,
       reachability: reachability,
       statusMonitor: statusMonitor,
-      browserUrlFetcher: browserUrlFetcher
+      browserUrlFetcher: browserUrlFetcher,
+      localIPAddressResolver: localIPAddressResolver
     )
     shortcutController = ShortcutController(
       serverManager: serverManager,
