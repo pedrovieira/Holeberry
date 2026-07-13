@@ -336,7 +336,7 @@ final class PiholeServerManager: ObservableObject {
     Defaults[.servers(suite: suite)] = servers
   }
 
-  private func syncConfigs() {c
+  private func syncConfigs() {
     servers = servers.map { config in
       if let svc = services[config.id] {
         return ServerConfig(id: svc.id, label: svc.label, icon: config.icon, url: svc.url, version: svc.version)
