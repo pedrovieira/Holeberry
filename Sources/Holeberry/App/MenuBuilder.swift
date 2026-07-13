@@ -2,6 +2,7 @@ import AppKit
 import OSLog
 
 // swiftlint:disable file_length
+// swiftlint:disable type_body_length
 
 @MainActor
 final class MenuBuilder: NSObject {
@@ -96,6 +97,18 @@ final class MenuBuilder: NSObject {
       let item = NSMenuItem(title: "No instances configured", action: nil, keyEquivalent: "")
       item.isEnabled = false
       menu.addItem(item)
+
+      let configureItem = NSMenuItem(
+        title: "Configure in Settings…",
+        action: #selector(openSettings),
+        keyEquivalent: ""
+      )
+      configureItem.target = self
+      configureItem.image = NSImage(
+        systemSymbolName: "arrow.up.forward.square",
+        accessibilityDescription: "Open Settings"
+      )
+      menu.addItem(configureItem)
     } else {
       let (dotColor, statusText) = resolveStatusColor(
         connectionStatuses: connectionStatuses,
@@ -463,3 +476,4 @@ final class MenuBuilder: NSObject {
     }
   }
 }
+// swiftlint:enable type_body_length
