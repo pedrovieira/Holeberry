@@ -9,6 +9,10 @@ enum PiholeError: Error, LocalizedError, Equatable {
   case duplicateDomain
   case decoding(String)
   case totpRequired
+  case invalidCredentials
+  case rateLimited
+  case reauthenticationFailed
+  case sessionLimitReached
   case unknown(String)
 
   var errorDescription: String? {
@@ -30,6 +34,14 @@ enum PiholeError: Error, LocalizedError, Equatable {
       return "Failed to parse response: \(description)"
     case .totpRequired:
       return "TOTP code required for 2FA"
+    case .invalidCredentials:
+      return "Invalid Pi-hole password or application password."
+    case .rateLimited:
+      return "Login rate limited. Please wait before trying again."
+    case .reauthenticationFailed:
+      return "Session re-authentication failed. The Pi-hole may be unreachable or the password was changed."
+    case .sessionLimitReached:
+      return "Pi-hole session limit reached. Sign out from other clients."
     case .unknown(let description):
       return "Unexpected error: \(description)"
     }

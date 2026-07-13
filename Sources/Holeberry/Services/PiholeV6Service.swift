@@ -16,10 +16,10 @@ final class PiholeV6Service: PiholeServiceInternal {
 
   // MARK: - API
   private var baseURL: URL
-  private var session: URLSession
-  private var authManager: AuthManager
-  private let password: String
+  private var urlSession: URLSession
+  private let authSession: AuthSessionProviding
   private static let decoder = JSONDecoder()
+  private static let encoder = JSONEncoder()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v6-service")
 
   // MARK: - API response types
@@ -45,27 +45,25 @@ final class PiholeV6Service: PiholeServiceInternal {
     url: String,
     version: ServerVersion,
     baseURL: URL,
-    session: URLSession,
-    authManager: AuthManager,
-    password: String
+    urlSession: URLSession,
+    authSession: AuthSessionProviding
   ) {
     self.id = id
     self.label = label
     self.url = url
     self.version = version
     self.baseURL = baseURL
-    self.session = session
-    self.authManager = authManager
-    self.password = password
+    self.urlSession = urlSession
+    self.authSession = authSession
   }
 
   func login() async throws {
-    try await authManager.login(password: password)
+    try await authSession.login()
   }
 
   func logout() async {
-    await authManager.logout()
-    session.invalidateAndCancel()
+    await authSession.logout()
+    urlSession.invalidateAndCancel()
   }
 
   func checkStatus() async throws -> BlockingStatus {
@@ -99,9 +97,8 @@ final class PiholeV6Service: PiholeServiceInternal {
 
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
     let body = SetBlockingBody(blocking: enabled, timer: enabled ? nil : duration)
-    let bodyData = try JSONEncoder().encode(body)
     let (data, httpResponse) = try await authenticatedRequestWithRetry(
-      path: "/api/dns/blocking", method: .post, bodyData: bodyData
+      path: "/api/dns/blocking", method: .post, body: body
     )
 
     guard httpResponse.isSuccess else {
@@ -186,11 +183,10 @@ final class PiholeV6Service: PiholeServiceInternal {
 
   func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
     let body = AddDomainBody(domain: domain, comment: comment)
-    let bodyData = try JSONEncoder().encode(body)
     let listType = list == .allow ? "allow" : "deny"
     let path = "/api/domains/\(listType)/exact"
     let (data, httpResponse) = try await authenticatedRequestWithRetry(
-      path: path, method: .post, bodyData: bodyData
+      path: path, method: .post, body: body
     )
 
     if httpResponse.statusCode == 409 {
@@ -266,16 +262,17 @@ final class PiholeV6Service: PiholeServiceInternal {
     return false
   }
 
+  /// Retry on server errors (5xx) — 401 retry is handled inside AuthV6SessionProvider.
   private func authenticatedRequestWithRetry(
     path: String,
     method: HTTPMethod,
-    bodyData: Data? = nil
+    body: (any Encodable)? = nil
   ) async throws -> (Data, HTTPURLResponse) {
     var lastError: Error?
     for attempt in 0..<Self.maxRetries {
       do {
         return try await authenticatedRequest(
-          path: path, method: method, bodyData: bodyData, retryCount: 0
+          path: path, method: method, body: body
         )
       } catch {
         lastError = error
@@ -295,61 +292,42 @@ final class PiholeV6Service: PiholeServiceInternal {
   private func authenticatedRequest(
     path: String,
     method: HTTPMethod = .get,
-    bodyData: Data? = nil,
-    retryCount: Int = 0
+    body: (any Encodable)? = nil
   ) async throws -> (Data, HTTPURLResponse) {
     let url = baseURL.appendingPathComponent(path)
-    return try await authenticatedRequest(url: url, method: method, bodyData: bodyData, retryCount: retryCount)
+    return try await authenticatedRequest(url: url, method: method, body: body)
   }
 
   private func authenticatedRequest(
     url: URL,
     method: HTTPMethod = .get,
-    bodyData: Data? = nil,
-    retryCount: Int = 0
+    body: (any Encodable)? = nil
   ) async throws -> (Data, HTTPURLResponse) {
-    var request = URLRequest(url: url)
-    request.httpMethod = method.rawValue
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.timeoutInterval = 15
+    let bodyData = try body.map { try Self.encoder.encode($0) }
+    return try await authSession.authorizedRequest { sid in
+      var request = URLRequest(url: url)
+      request.httpMethod = method.rawValue
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      request.timeoutInterval = 15
+      request.setValue(sid, forHTTPHeaderField: "X-FTL-SID")
 
-    let headers: [String: String]
-    do {
-      headers = try await authManager.authHeaders()
-    } catch PiholeError.unauthorized {
-      try await authManager.login(password: password)
-      headers = try await authManager.authHeaders()
-    }
-    for (key, value) in headers {
-      request.setValue(value, forHTTPHeaderField: key)
-    }
-
-    if let bodyData {
-      request.httpBody = bodyData
-    }
-
-    let (data, response): (Data, URLResponse)
-    do {
-      (data, response) = try await session.data(for: request)
-    } catch {
-      throw PiholeError.network(error.localizedDescription)
-    }
-
-    guard let httpResponse = response as? HTTPURLResponse else {
-      throw PiholeError.unknown("Invalid response for \(url.absoluteString)")
-    }
-
-    if httpResponse.statusCode == 401, retryCount < 1 {
-      logger.debug("Got 401 on \(url.absoluteString, privacy: .public); re-authenticating and retrying")
-      do {
-        try await authManager.reauthenticate(password: password)
-      } catch {
-        throw PiholeError.unauthorized
+      if let bodyData {
+        request.httpBody = bodyData
       }
-      return try await authenticatedRequest(url: url, method: method, bodyData: bodyData, retryCount: retryCount + 1)
-    }
 
-    return (data, httpResponse)
+      let (data, response): (Data, URLResponse)
+      do {
+        (data, response) = try await urlSession.data(for: request)
+      } catch {
+        throw PiholeError.network(error.localizedDescription)
+      }
+
+      guard let httpResponse = response as? HTTPURLResponse else {
+        throw PiholeError.unknown("Invalid response for \(url.absoluteString)")
+      }
+
+      return ((data, httpResponse), httpResponse)
+    }
   }
 }
 
