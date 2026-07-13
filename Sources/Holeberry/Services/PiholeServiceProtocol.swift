@@ -8,7 +8,7 @@ struct QuerySummary {
 /// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
 /// No `comment` parameter — that's internal (see `PiholeServiceInternal`).
 @MainActor
-protocol PiholeServiceProtocol: AnyObject {
+protocol PiholeServiceProtocol: AnyObject, Sendable {
   var id: UUID { get }
   var label: String? { get set }
   var url: String { get set }

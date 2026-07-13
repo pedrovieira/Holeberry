@@ -1,23 +1,18 @@
 import Defaults
 import Foundation
 import OSLog
-
 @MainActor
 final class PiholeServerManager: ObservableObject {
   private static let maxServers = 2
   private static let jsonEncoder = JSONEncoder()
-
   static let shared = PiholeServerManager()
-
   @Published var servers: [ServerConfig] = []
   @Published private(set) var combinedStatus: CombinedStatus
-
   private let keychain: KeychainManager
   private let serviceFactory: PiholeServiceFactory
   private let versionDetector: PiholeVersionDetector
   private let suite: UserDefaults
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
-
   private var services: [UUID: PiholeServiceProtocol] = [:]
 
   init(
@@ -207,45 +202,78 @@ final class PiholeServerManager: ObservableObject {
   }
 
   func deleteDomain(_ domain: String) async {
-    for config in servers {
-      guard let service = services[config.id] else { continue }
-      do {
-        try await service.deleteDomain(domain: domain)
-      } catch {
-        logger.warning(
-          "deleteDomain failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
-        )
+    let serverList = servers
+    await withTaskGroup(of: Void.self) { group in
+      for config in serverList {
+        guard let service = services[config.id] else { continue }
+        group.addTask {
+          do {
+            try await service.deleteDomain(domain: domain)
+          } catch {
+            self.logger.warning(
+              "deleteDomain failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+            )
+          }
+        }
       }
     }
   }
 
   func getDomains() async throws -> [UUID: [DomainEntry]] {
-    var results: [UUID: [DomainEntry]] = [:]
-    for config in servers {
-      guard let service = services[config.id] else { continue }
-      do {
-        results[config.id] = try await service.getDomains()
-      } catch {
-        logger.warning(
-          "getDomains failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
-        )
+    let serverList = servers
+    let collected: [(UUID, [DomainEntry])] = await withTaskGroup(
+      of: (UUID, [DomainEntry])?.self
+    ) { group in
+      for config in serverList {
+        guard let service = services[config.id] else { continue }
+        group.addTask {
+          do {
+            let domains = try await service.getDomains()
+            return (config.id, domains)
+          } catch {
+            self.logger.warning(
+              "getDomains failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+          }
+        }
       }
+
+      var collected: [(UUID, [DomainEntry])] = []
+      for await result in group {
+        if let pair = result {
+          collected.append(pair)
+        }
+      }
+      return collected
     }
-    return results
+    return Dictionary(uniqueKeysWithValues: collected)
   }
 
   func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
-    var allBlocked: [BlockedDomain] = []
-    for config in servers {
-      guard let service = services[config.id] else { continue }
-      do {
-        let blocked = try await service.getRecentBlocked(forClientIp: forClientIp, interval: interval)
-        allBlocked.append(contentsOf: blocked)
-      } catch {
-        logger.warning(
-          "getRecentBlocked failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
-        )
+    let serverList = servers
+    let allBlocked: [BlockedDomain] = await withTaskGroup(
+      of: [BlockedDomain].self
+    ) { group in
+      for config in serverList {
+        guard let service = services[config.id] else { continue }
+        group.addTask {
+          do {
+            return try await service.getRecentBlocked(forClientIp: forClientIp, interval: interval)
+          } catch {
+            let label = config.label ?? config.url
+            self.logger.warning(
+              "getRecentBlocked failed on \(label): \(error.localizedDescription, privacy: .public)")
+            return []
+          }
+        }
       }
+
+      var allBlocked: [BlockedDomain] = []
+      for await result in group {
+        allBlocked.append(contentsOf: result)
+      }
+      return allBlocked
     }
     // Deduplicate by domain keeping the most recent timestamp, count occurrences
     let deduped: [BlockedDomain] = Dictionary(grouping: allBlocked, by: \.domain)
@@ -271,32 +299,49 @@ final class PiholeServerManager: ObservableObject {
 
   func unblock(domain: String, duration: TimeInterval) async throws {
     guard !servers.isEmpty else { throw PiholeError.unknown("No configured Pi-hole instance") }
-    var anySuccess = false
-    var lastError: Error?
 
-    for config in servers {
-      do {
-        try await unblockDomain(domain, duration: duration, for: config.id)
-        anySuccess = true
-      } catch {
-        lastError = error
-        logger.warning(
-          "Unblock failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
-        )
+    let serverList = servers
+    typealias ServerResult = (succeeded: Bool, error: Error?)
+    let results: [ServerResult] = await withTaskGroup(of: ServerResult.self) { group in
+      for config in serverList {
+        group.addTask {
+          do {
+            try await self.unblockDomain(domain, duration: duration, for: config.id)
+            return (true, nil)
+          } catch {
+            self.logger.warning(
+              "Unblock failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+            )
+            return (false, error)
+          }
+        }
       }
+
+      var results: [ServerResult] = []
+      for await result in group {
+        results.append(result)
+      }
+      return results
     }
 
+    let anySuccess = results.contains(where: \.succeeded)
+    let lastError = results.compactMap(\.error).last
     guard anySuccess else { throw lastError ?? PiholeError.unknown("Failed to unblock on all servers") }
   }
 
   func addToAllowlist(domain: String) async {
-    for config in servers {
-      do {
-        try await unblockDomain(domain, duration: nil, for: config.id)
-      } catch {
-        logger.warning(
-          "Allowlist failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
-        )
+    let serverList = servers
+    await withTaskGroup(of: Void.self) { group in
+      for config in serverList {
+        group.addTask {
+          do {
+            try await self.unblockDomain(domain, duration: nil, for: config.id)
+          } catch {
+            self.logger.warning(
+              "Allowlist failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+            )
+          }
+        }
       }
     }
   }
