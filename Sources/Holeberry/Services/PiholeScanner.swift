@@ -1,6 +1,6 @@
 import Foundation
 
-enum PiHoleScanner {
+enum PiholeScanner {
   // MARK: - Model
 
   struct DiscoveredInstance: Identifiable {

@@ -7,12 +7,12 @@ final class PiHoleScannerTests: XCTestCase {
   // MARK: - DiscoveredInstance model
 
   func testDiscoveredInstance_idIsAddr() {
-    let instance = PiHoleScanner.DiscoveredInstance(addr: "192.168.1.10")
+    let instance = PiholeScanner.DiscoveredInstance(addr: "192.168.1.10")
     XCTAssertEqual(instance.id, "192.168.1.10")
   }
 
   func testDiscoveredInstance_adminURL() {
-    let instance = PiHoleScanner.DiscoveredInstance(addr: "192.168.1.10")
+    let instance = PiholeScanner.DiscoveredInstance(addr: "192.168.1.10")
     XCTAssertEqual(instance.adminURL.absoluteString, "http://192.168.1.10/admin")
   }
 
@@ -20,7 +20,7 @@ final class PiHoleScannerTests: XCTestCase {
 
   func testFilter_exactIPMatch_removesDuplicate() {
     let discovered = [
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.10")
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.10")
     ]
     let connected = [
       ServerConfig(label: nil, url: "http://192.168.1.10", version: .v6)
@@ -31,7 +31,7 @@ final class PiHoleScannerTests: XCTestCase {
 
   func testFilter_ipInURL_removesDuplicate() {
     let discovered = [
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.10")
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.10")
     ]
     let connected = [
       ServerConfig(label: nil, url: "http://192.168.1.10:8080/admin", version: .v6)
@@ -42,7 +42,7 @@ final class PiHoleScannerTests: XCTestCase {
 
   func testFilter_customDomain_keepsInstance() {
     let discovered = [
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.10")
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.10")
     ]
     let connected = [
       ServerConfig(label: nil, url: "https://pihole.server.com", version: .v6)
@@ -55,7 +55,7 @@ final class PiHoleScannerTests: XCTestCase {
   func testFilter_partialIPMatch_keepsInstance() {
     // "192.168.1.1" should NOT match "192.168.1.10"
     let discovered = [
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.1")
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.1")
     ]
     let connected = [
       ServerConfig(label: nil, url: "http://192.168.1.10", version: .v6)
@@ -66,9 +66,9 @@ final class PiHoleScannerTests: XCTestCase {
 
   func testFilter_multipleInstances_mixedDedup() {
     let discovered = [
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.10"),
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.20"),
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.30")
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.10"),
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.20"),
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.30")
     ]
     let connected = [
       ServerConfig(label: nil, url: "http://192.168.1.20:80", version: .v6)
@@ -83,9 +83,9 @@ final class PiHoleScannerTests: XCTestCase {
 
   func testDiscoveredInstance_sorting() {
     let unsorted = [
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.30"),
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.2"),
-      PiHoleScanner.DiscoveredInstance(addr: "192.168.1.10")
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.30"),
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.2"),
+      PiholeScanner.DiscoveredInstance(addr: "192.168.1.10")
     ]
     let sorted = unsorted.sorted {
       $0.addr.localizedStandardCompare($1.addr) == .orderedAscending
@@ -98,9 +98,9 @@ final class PiHoleScannerTests: XCTestCase {
 
 /// Pure deduplication function.
 private func filterDiscovered(
-  _ discovered: [PiHoleScanner.DiscoveredInstance],
+  _ discovered: [PiholeScanner.DiscoveredInstance],
   against servers: [ServerConfig]
-) -> [PiHoleScanner.DiscoveredInstance] {
+) -> [PiholeScanner.DiscoveredInstance] {
   discovered.filter { instance in
     !servers.contains { server in
       // Match the IP as the host portion of the URL, avoiding substring false positives.
