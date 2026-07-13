@@ -222,7 +222,7 @@ final class MenuBarController: NSObject {
 
   private func observeTotpNotifications() {
     NotificationCenter.default.addObserver(
-      forName: .authManagerTotpRequired,
+      forName: .v6SessionTotpRequired,
       object: nil,
       queue: .main
     ) { [weak self] notification in

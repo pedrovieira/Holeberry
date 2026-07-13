@@ -49,6 +49,16 @@ final class HoleberryTests: XCTestCase {
     XCTAssertEqual(PiholeError.decoding("bad JSON").errorDescription, "Failed to parse response: bad JSON")
     XCTAssertEqual(PiholeError.totpRequired.errorDescription, "TOTP code required for 2FA")
     XCTAssertEqual(PiholeError.unknown("something broke").errorDescription, "Unexpected error: something broke")
+    XCTAssertEqual(PiholeError.invalidCredentials.errorDescription, "Invalid Pi-hole password or application password.")
+    XCTAssertEqual(PiholeError.rateLimited.errorDescription, "Login rate limited. Please wait before trying again.")
+    XCTAssertEqual(
+      PiholeError.reauthenticationFailed.errorDescription,
+      "Session re-authentication failed. The Pi-hole may be unreachable or the password was changed."
+    )
+    XCTAssertEqual(
+      PiholeError.sessionLimitReached.errorDescription,
+      "Pi-hole session limit reached. Sign out from other clients."
+    )
   }
 
   func testPiholeErrorEquality() {

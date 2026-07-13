@@ -54,7 +54,11 @@ final class PiholeServerManager: ObservableObject {
 
     let config = ServerConfig(label: label, icon: icon, url: url, version: version)
     let session = makeSession(trusting: serverURL)
-    let service = serviceFactory.buildService(config: config, credential: credential, session: session)
+    let service = try serviceFactory.buildService(
+      config: config,
+      credential: credential,
+      session: session
+    )
 
     try await service.login()
 
@@ -132,7 +136,13 @@ final class PiholeServerManager: ObservableObject {
     Task { await existingService.logout() }
     guard let serverURL = URL(string: url) else { return }
     let session = makeSession(trusting: serverURL)
-    services[id] = serviceFactory.buildService(config: config, credential: currentCredential, session: session)
+    if let rebuilt = try? serviceFactory.buildService(
+      config: config,
+      credential: currentCredential,
+      session: session
+    ) {
+      services[id] = rebuilt
+    }
   }
 
   private func makeSession(trusting url: URL) -> URLSession {
@@ -310,7 +320,13 @@ final class PiholeServerManager: ObservableObject {
       }
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)
-      services[config.id] = serviceFactory.buildService(config: config, credential: credential, session: session)
+      if let rebuilt = try? serviceFactory.buildService(
+        config: config,
+        credential: credential,
+        session: session
+      ) {
+        services[config.id] = rebuilt
+      }
     }
 
     syncConfigs()
@@ -320,7 +336,7 @@ final class PiholeServerManager: ObservableObject {
     Defaults[.servers(suite: suite)] = servers
   }
 
-  private func syncConfigs() {
+  private func syncConfigs() {c
     servers = servers.map { config in
       if let svc = services[config.id] {
         return ServerConfig(id: svc.id, label: svc.label, icon: config.icon, url: svc.url, version: svc.version)
