@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import Defaults
 import Foundation
 import OSLog
@@ -375,6 +377,12 @@ final class PiholeServerManager: ObservableObject {
     }
 
     syncConfigs()
+
+    // Warm up sessions so first concurrent requests don't trigger
+    // the actor-reentrancy race in acquireSession().
+    for (_, service) in services {
+      Task { try? await service.login() }
+    }
   }
 
   private func saveServers() {

@@ -91,73 +91,75 @@ actor AuthV6SessionProvider: AuthSessionProviding {
   /// Concurrent calls are coalesced: only one actual network request is
   /// made and all callers await the same result.
   private func acquireSession() async throws {
+    let authResponse: AuthResponse
+
     if let existingTask = loginTask {
-      _ = try await existingTask.value
-      return
-    }
+      authResponse = try await existingTask.value
+    } else {
+      let task = Task<AuthResponse, Error> { [host, urlSession, password, logger] in
+        let url = host.appendingPathComponent(Self.apiAuthPath)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
 
-    let task = Task<AuthResponse, Error> { [host, urlSession, password, logger] in
-      let url = host.appendingPathComponent(Self.apiAuthPath)
-      var request = URLRequest(url: url)
-      request.httpMethod = "POST"
-      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-      request.timeoutInterval = 15
+        let bodyDict = ["password": password]
+        request.httpBody = try Self.encoder.encode(bodyDict)
 
-      let bodyDict = ["password": password]
-      request.httpBody = try Self.encoder.encode(bodyDict)
-
-      let (data, response): (Data, URLResponse)
-      do {
-        (data, response) = try await urlSession.data(for: request)
-      } catch {
-        throw PiholeError.network(error.localizedDescription)
-      }
-
-      guard let httpResponse = response as? HTTPURLResponse else {
-        throw PiholeError.unknown("Invalid response from auth endpoint")
-      }
-
-      guard httpResponse.isSuccess else {
-        switch httpResponse.statusCode {
-        case 401:
-          throw PiholeError.invalidCredentials
-        case 429:
-          throw PiholeError.rateLimited
-        default:
-          throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+        let (data, response): (Data, URLResponse)
+        do {
+          (data, response) = try await urlSession.data(for: request)
+        } catch {
+          throw PiholeError.network(error.localizedDescription)
         }
-      }
 
-      let authResponse: AuthResponse
-      do {
-        authResponse = try Self.decoder.decode(AuthResponse.self, from: data)
-      } catch {
-        let body = String(data: data, encoding: .utf8) ?? ""
-        logger.error(
-          "Auth response decode failed. Status \(httpResponse.statusCode). Body: \(body, privacy: .public)"
-        )
-        throw PiholeError.decoding(error.localizedDescription)
-      }
+        guard let httpResponse = response as? HTTPURLResponse else {
+          throw PiholeError.unknown("Invalid response from auth endpoint")
+        }
 
-      if authResponse.totp == true {
-        await MainActor.run {
-          NotificationCenter.default.post(
-            name: .v6SessionTotpRequired,
-            object: nil,
-            userInfo: ["serverURL": host.absoluteString]
+        guard httpResponse.isSuccess else {
+          switch httpResponse.statusCode {
+          case 401:
+            throw PiholeError.invalidCredentials
+          case 429:
+            throw PiholeError.rateLimited
+          default:
+            throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+          }
+        }
+
+        let authResponse: AuthResponse
+        do {
+          authResponse = try Self.decoder.decode(AuthResponse.self, from: data)
+        } catch {
+          let body = String(data: data, encoding: .utf8) ?? ""
+          logger.error(
+            "Auth response decode failed. Status \(httpResponse.statusCode). Body: \(body, privacy: .public)"
           )
+          throw PiholeError.decoding(error.localizedDescription)
         }
-        throw PiholeError.totpRequired
+
+        if authResponse.totp == true {
+          await MainActor.run {
+            NotificationCenter.default.post(
+              name: .v6SessionTotpRequired,
+              object: nil,
+              userInfo: ["serverURL": host.absoluteString]
+            )
+          }
+          throw PiholeError.totpRequired
+        }
+
+        logger.debug("Authenticated successfully")
+        return authResponse
       }
 
-      logger.debug("Authenticated successfully")
-      return authResponse
+      loginTask = task
+      defer { loginTask = nil }
+
+      authResponse = try await task.value
     }
 
-    loginTask = task
-    defer { loginTask = nil }
-
-    let authResponse = try await task.value
     sid = authResponse.session.sid
     csrf = authResponse.session.csrf
   }
