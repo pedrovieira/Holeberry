@@ -64,21 +64,31 @@ final class ShortcutController {
       return
     }
 
-    var firstError: String?
-    for server in servers {
-      do {
-        try await serverManager.setBlocking(for: server.id, enabled: enabled, duration: duration)
-      } catch {
-        logger.warning(
-          """
-          Shortcut setBlocking failed for \(server.label ?? server.url): \
-          \(error.localizedDescription, privacy: .public)
-          """
-        )
-        if firstError == nil {
-          firstError = error.localizedDescription
+    let firstError: String? = await withTaskGroup(of: String?.self) { group in
+      for server in servers {
+        group.addTask {
+          do {
+            try await self.serverManager.setBlocking(for: server.id, enabled: enabled, duration: duration)
+            return nil
+          } catch {
+            self.logger.warning(
+              """
+              Shortcut setBlocking failed for \(server.label ?? server.url): \
+              \(error.localizedDescription, privacy: .public)
+              """
+            )
+            return error.localizedDescription
+          }
         }
       }
+
+      var firstError: String?
+      for await result in group {
+        if firstError == nil, let error = result {
+          firstError = error
+        }
+      }
+      return firstError
     }
 
     if let errorMessage = firstError {
