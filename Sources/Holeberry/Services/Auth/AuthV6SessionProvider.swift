@@ -93,6 +93,7 @@ actor AuthV6SessionProvider: AuthSessionProviding {
   private func acquireSession() async throws {
     if let existingTask = loginTask {
       _ = try await existingTask.value
+      return
     }
 
     let task = Task<AuthResponse, Error> { [host, urlSession, password, logger] in
