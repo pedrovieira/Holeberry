@@ -36,11 +36,16 @@ struct SettingsView: View {
 
   @State private var isToggling = false
   @State private var requiresApproval = false
-  @State private var selectedTab: SettingsTab = .servers
+  @State private var selectedTab: SettingsTab
 
   let serverManager: PiholeServerManager
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
+
+  init(serverManager: PiholeServerManager, initialTab: SettingsTab = .servers) {
+    self.serverManager = serverManager
+    _selectedTab = State(initialValue: initialTab)
+  }
 
   var body: some View {
     NavigationSplitView {
