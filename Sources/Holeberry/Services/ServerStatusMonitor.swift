@@ -14,7 +14,7 @@ final class ServerStatusMonitor: ObservableObject {
   @Published var lastPollError: String?
 
   // Scanner state (persists across tab switches)
-  @Published var discoveredInstances: [PiHoleScanner.DiscoveredInstance] = []
+  @Published var discoveredInstances: [PiholeScanner.DiscoveredInstance] = []
   @Published var isScanning = false
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
@@ -101,7 +101,7 @@ final class ServerStatusMonitor: ObservableObject {
     }
 
     isScanning = true
-    discoveredInstances = await PiHoleScanner.scan(localIPAddressResolver: networkInterface)
+    discoveredInstances = await PiholeScanner.scan(localIPAddressResolver: networkInterface)
     isScanning = false
   }
 

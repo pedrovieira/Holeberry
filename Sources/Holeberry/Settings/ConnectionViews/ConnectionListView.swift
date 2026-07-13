@@ -11,7 +11,7 @@ struct ConnectionListView: View {
     monitor.connectionStatuses.values.filter { $0 == .connected }.count
   }
 
-  private var filteredInstances: [PiHoleScanner.DiscoveredInstance] {
+  private var filteredInstances: [PiholeScanner.DiscoveredInstance] {
     monitor.discoveredInstances.filter { instance in
       !monitor.servers.contains { server in
         guard let components = URLComponents(string: server.url),
@@ -164,7 +164,7 @@ struct ConnectionListView: View {
 // MARK: - Discovered Row
 
 private struct DiscoveredRow: View {
-  let instance: PiHoleScanner.DiscoveredInstance
+  let instance: PiholeScanner.DiscoveredInstance
   let onAdd: () -> Void
 
   @State private var isHovering = false
