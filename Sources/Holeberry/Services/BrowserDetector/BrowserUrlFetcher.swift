@@ -8,7 +8,7 @@ final class BrowserUrlFetcher {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-url")
   private let strategyFactory = BrowserActiveUrlFetchingStrategyFactory()
 
-  enum Status {
+  enum Status: Equatable {
     case disabled
     case noBrowser
     case permissionDenied
