@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		087B6C336453AE3AADB2C84D /* PiHoleScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2E683DDE9E5051C9E0D687 /* PiHoleScannerTests.swift */; };
-		0C66105DC6CFF08D670C2A8A /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0570203E73E3950FCB644445 /* UpdateManager.swift */; };
 		190DDC489CC23486BD2C7290 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F937B463F6A990098878357C /* KeyboardShortcuts */; };
 		1C679E3674EA0D48615599F3 /* PiholeVersionDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3CA987B28094B70335ED14 /* PiholeVersionDetector.swift */; };
 		1CA9613D75CEDCA3D3F5EBF6 /* SimpleKeychain in Frameworks */ = {isa = PBXBuildFile; productRef = 851DA79BC13691B98158A0F6 /* SimpleKeychain */; };
@@ -22,6 +21,7 @@
 		3230D6021E41949B01AF5247 /* StatusItemButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48CD81D74316B99B21AB96E2 /* StatusItemButton.swift */; };
 		35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3037DAE3AD3C562737BC6733 /* TimerManager.swift */; };
 		36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */; };
+		43A7C259B9833484EA3728A0 /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47987F52F2D6124503B041A /* SoftwareUpdater.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
 		4C00449F1192A4D0D6BBE866 /* AuthSessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5BC6EB79D2AB97E34607A3 /* AuthSessionFactory.swift */; };
 		541FB83C9023F440E4111378 /* BrowserActiveUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4CAFE10BF8FAFBC09CE71DB /* BrowserActiveUrlFetchingStrategy.swift */; };
@@ -41,6 +41,7 @@
 		6AD8F78991DBD3CBC985C690 /* HoleberryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA656E9C0CFF9C7BFACD1FE9 /* HoleberryTests.swift */; };
 		6B3713898D082A7306D4A7D6 /* BlockingStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3292BD2BB3958F9CF81AF6B0 /* BlockingStatus.swift */; };
 		6DC693BE85C64E78FDE8385E /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2E357D9079D86EABA28C75 /* KeychainManager.swift */; };
+		727E3ABAD8B275F981C811C6 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0091C471D90246392D8A264 /* UpdateManager.swift */; };
 		7914218930096F4DB12917C0 /* HTTPMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
 		81DE794E941B8F72B2D53151 /* BrowserUrlFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39565CB3B24FB9693EF4604 /* BrowserUrlFetcher.swift */; };
@@ -63,7 +64,6 @@
 		CBFB3F60995ED900BD1290BA /* PiholeServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */; };
 		CC8C5DAB85F4CBA75D550957 /* ChromiumUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA738DE1C8726AA4CB45965 /* ChromiumUrlFetchingStrategy.swift */; };
 		D65B5A3E4E21A9DCDF47DF28 /* Logger+Subsystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */; };
-		D6C9EE36A966A2CC40CB9CAF /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A6038E07EC2887240F356F /* SoftwareUpdater.swift */; };
 		D8E3C678109A99C500F416AE /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BBF2413FF86F8684BEC45DF6 /* Defaults */; };
 		D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C039DDD8F05E05A8D434F71 /* Assets.xcassets */; };
 		E1CF909E4F782467C9844BDA /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED6EC3FBFFD74F33D2827AC /* MenuBarController.swift */; };
@@ -89,7 +89,6 @@
 
 /* Begin PBXFileReference section */
 		01E3A2221DD64B23DCD681D9 /* TemporaryUnblockPiholeServiceDecorator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryUnblockPiholeServiceDecorator.swift; sourceTree = "<group>"; };
-		0570203E73E3950FCB644445 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 		093FB82D7ED6970B888349C6 /* BrowserActiveUrlFetchingStrategyFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserActiveUrlFetchingStrategyFactory.swift; sourceTree = "<group>"; };
 		0B7E22A89202908454F32B61 /* PiholeServerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServerManager.swift; sourceTree = "<group>"; };
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -129,12 +128,14 @@
 		A2BBBA61BCC50C3234F83862 /* PiholeError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeError.swift; sourceTree = "<group>"; };
 		AD86959A7257F11E2B4589DC /* AuthSessionProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionProviding.swift; sourceTree = "<group>"; };
 		AFA7627296810A816610EDF5 /* TemporaryUnblockPiholeServiceDecoratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryUnblockPiholeServiceDecoratorTests.swift; sourceTree = "<group>"; };
+		B0091C471D90246392D8A264 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 		B03C5D43567908E4F5F4F05C /* PiholeV5Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV5Service.swift; sourceTree = "<group>"; };
 		B4CAFE10BF8FAFBC09CE71DB /* BrowserActiveUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserActiveUrlFetchingStrategy.swift; sourceTree = "<group>"; };
 		B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSRunningApplication+Icon.swift"; sourceTree = "<group>"; };
 		BA656E9C0CFF9C7BFACD1FE9 /* HoleberryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleberryTests.swift; sourceTree = "<group>"; };
 		BA6DF9213C6E6E08CBB7C131 /* PiholeServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceProtocol.swift; sourceTree = "<group>"; };
 		BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedMenuButton.swift; sourceTree = "<group>"; };
+		C47987F52F2D6124503B041A /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
 		CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
 		CC23106EDFED2519504E3E89 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		CF0A1D51C51B661825EDDDBC /* DomainEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainEntry.swift; sourceTree = "<group>"; };
@@ -150,7 +151,6 @@
 		EB5BC6EB79D2AB97E34607A3 /* AuthSessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionFactory.swift; sourceTree = "<group>"; };
 		EE34D0881B2416F636EAF735 /* LocalIPAddressResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalIPAddressResolver.swift; sourceTree = "<group>"; };
 		F20BC6E492A3D31D9FE4E1C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		F6A6038E07EC2887240F356F /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
 		FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutController.swift; sourceTree = "<group>"; };
 		FAE03C986FB57395AC64F527 /* Browser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Browser.swift; sourceTree = "<group>"; };
 		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
@@ -193,6 +193,7 @@
 				CC23106EDFED2519504E3E89 /* MenuItemFactory.swift */,
 				FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */,
 				48CD81D74316B99B21AB96E2 /* StatusItemButton.swift */,
+				D9C88CBB2E4D81C08ADC2363 /* Updates */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -231,7 +232,6 @@
 				40CFFDE54F1764017E70CC4B /* Resources */,
 				C0349379494A7A64B01B8EF2 /* Services */,
 				8BB69277240BEEB373A07922 /* Settings */,
-				A0E24886CAAA9D5AFF4D055A /* Updates */,
 				7AB6AB5FEA1E7DF9D0A096C6 /* Utils */,
 			);
 			name = Holeberry;
@@ -263,15 +263,6 @@
 				05E28E2794738F28F909ADBD /* ConnectionViews */,
 			);
 			path = Settings;
-			sourceTree = "<group>";
-		};
-		A0E24886CAAA9D5AFF4D055A /* Updates */ = {
-			isa = PBXGroup;
-			children = (
-				F6A6038E07EC2887240F356F /* SoftwareUpdater.swift */,
-				0570203E73E3950FCB644445 /* UpdateManager.swift */,
-			);
-			path = Updates;
 			sourceTree = "<group>";
 		};
 		A1FA71E34CB50EC3F38B19A5 /* Models */ = {
@@ -317,6 +308,15 @@
 				60FE929F091470243D73517C /* BrowserDetector */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		D9C88CBB2E4D81C08ADC2363 /* Updates */ = {
+			isa = PBXGroup;
+			children = (
+				C47987F52F2D6124503B041A /* SoftwareUpdater.swift */,
+				B0091C471D90246392D8A264 /* UpdateManager.swift */,
+			);
+			path = Updates;
 			sourceTree = "<group>";
 		};
 		DB7783B91E0F747BBB9AB1F9 /* Products */ = {
@@ -550,12 +550,12 @@
 				EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */,
 				63DF3275E31EAD0B223E7F24 /* ShortcutController.swift in Sources */,
 				36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */,
-				D6C9EE36A966A2CC40CB9CAF /* SoftwareUpdater.swift in Sources */,
+				43A7C259B9833484EA3728A0 /* SoftwareUpdater.swift in Sources */,
 				3230D6021E41949B01AF5247 /* StatusItemButton.swift in Sources */,
 				8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */,
 				2B1583EA747A2A5C36606AC3 /* TemporaryUnblockPiholeServiceDecorator.swift in Sources */,
 				35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */,
-				0C66105DC6CFF08D670C2A8A /* UpdateManager.swift in Sources */,
+				727E3ABAD8B275F981C811C6 /* UpdateManager.swift in Sources */,
 				57C51F7D8DE6AA3DAAF8F8C4 /* WordLabel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
