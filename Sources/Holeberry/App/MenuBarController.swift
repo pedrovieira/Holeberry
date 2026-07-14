@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import Defaults
 import OSLog
+import Sparkle
 import UserNotifications
 
 @MainActor
@@ -13,10 +14,12 @@ final class MenuBarController: NSObject {
   private let statusMonitor: ServerStatusMonitor
   private let browserUrlFetcher: BrowserUrlFetcher
   private let localIPAddressResolver: LocalIPAddressProviding
+  private let updater: SPUUpdater
   private lazy var menuBuilder: MenuBuilder = {
     let builder = MenuBuilder(
       serverManager: serverManager,
-      timerManager: timerManager
+      timerManager: timerManager,
+      updater: updater
     )
     builder.onDisableURL = { [weak self] domain, duration in
       self?.performTempUnblock(domain: domain, duration: duration)
@@ -62,7 +65,8 @@ final class MenuBarController: NSObject {
     reachability: ReachabilityMonitor,
     statusMonitor: ServerStatusMonitor,
     browserUrlFetcher: BrowserUrlFetcher,
-    localIPAddressResolver: LocalIPAddressProviding = LocalIPAddressResolver()
+    localIPAddressResolver: LocalIPAddressProviding = LocalIPAddressResolver(),
+    updater: SPUUpdater
   ) {
     self.timerManager = timerManager
     self.serverManager = serverManager
@@ -70,6 +74,7 @@ final class MenuBarController: NSObject {
     self.statusMonitor = statusMonitor
     self.browserUrlFetcher = browserUrlFetcher
     self.localIPAddressResolver = localIPAddressResolver
+    self.updater = updater
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     super.init()
     configureStatusItem()
@@ -336,6 +341,12 @@ final class MenuBarController: NSObject {
     guard let icon = app.resizedIcon(size: NSRunningApplication.menuBarIconSize) else { return nil }
     appIconCache[bundleID] = icon
     return icon
+  }
+
+  // MARK: - Check for Updates
+
+  @objc private func checkForUpdates() {
+    updater.checkForUpdates()
   }
 
   // MARK: - Inline Error
