@@ -1,5 +1,6 @@
 import AppKit
 import OSLog
+import Sparkle
 import SwiftUI
 import UserNotifications
 
@@ -24,6 +25,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "app-delegate")
   private var menuBarController: MenuBarController?
   private var shortcutController: ShortcutController?
+  private var updateManager: UpdateManager?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
@@ -35,6 +37,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
     UNUserNotificationCenter.current().delegate = self
+
+    // Start Sparkle updater
+    let updaterManager = UpdateManager()
+    self.updateManager = updaterManager
+    SettingsWindowController.shared.setUpdater(updaterManager.updater)
 
     ServerStatusMonitor.shared.startPolling()
 
@@ -51,7 +58,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       reachability: reachability,
       statusMonitor: statusMonitor,
       browserUrlFetcher: browserUrlFetcher,
-      localIPAddressResolver: localIPAddressResolver
+      localIPAddressResolver: localIPAddressResolver,
+      updater: updaterManager.updater
     )
     shortcutController = ShortcutController(
       serverManager: serverManager,
