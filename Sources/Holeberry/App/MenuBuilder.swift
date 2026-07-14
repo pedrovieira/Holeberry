@@ -64,8 +64,12 @@ final class MenuBuilder: NSObject {
     )
     menu.addItem(.separator())
     addBlockingControls(to: menu, isConnected: isConnected)
-    menu.addItem(.separator())
-    addBrowserTabSection(to: menu, browserStatus: browserTabStatus, browserIcon: browserIcon)
+
+    if browserTabStatus != .disabled {
+      menu.addItem(.separator())
+      addBrowserTabSection(to: menu, browserStatus: browserTabStatus, browserIcon: browserIcon)
+    }
+
     menu.addItem(.separator())
     addDisableURLSection(
       to: menu, recentBlocked: recentBlocked, isConnected: isConnected
