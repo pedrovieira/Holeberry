@@ -95,11 +95,6 @@ struct SettingsView: View {
     }
     .navigationSplitViewStyle(.balanced)
     .toolbar {
-      ToolbarItem(placement: .primaryAction) {
-        Button("Quit App") {
-          NSApplication.shared.terminate(nil)
-        }
-      }
       if let updater {
         ToolbarItem(placement: .automatic) {
           CheckForUpdatesView(updater: updater)

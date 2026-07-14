@@ -9,6 +9,7 @@ final class CheckForUpdatesViewModel: ObservableObject {
 
   init(updater: SPUUpdater) {
     updater.publisher(for: \.canCheckForUpdates)
+      .receive(on: DispatchQueue.main)
       .assign(to: &$canCheckForUpdates)
   }
 }
