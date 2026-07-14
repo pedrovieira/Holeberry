@@ -26,6 +26,7 @@
 		4C00449F1192A4D0D6BBE866 /* AuthSessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5BC6EB79D2AB97E34607A3 /* AuthSessionFactory.swift */; };
 		541FB83C9023F440E4111378 /* BrowserActiveUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4CAFE10BF8FAFBC09CE71DB /* BrowserActiveUrlFetchingStrategy.swift */; };
 		57C51F7D8DE6AA3DAAF8F8C4 /* WordLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFD4AD3C75B5B745A796E95B /* WordLabel.swift */; };
+		59B7F0D47CA957D3925EA390 /* Bundle+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19084AE49A1C33ADD772E45C /* Bundle+Extensions.swift */; };
 		5A0859A89A93A8BEB85CA9E1 /* CertificateTrustDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */; };
 		5A76161165D9F37D55F7A4A2 /* ServerStatusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507680431AF9D6DE4B6FBA04 /* ServerStatusMonitor.swift */; };
 		5A7CAD382E31E7F8638987DD /* AuthV6SessionProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81D5E30303F47EFE0A518EB1 /* AuthV6SessionProviderTests.swift */; };
@@ -94,6 +95,7 @@
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		16734CCFC3B4278B09707067 /* HoleberryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HoleberryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1711F877CC4CB0A92C25A1CC /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
+		19084AE49A1C33ADD772E45C /* Bundle+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bundle+Extensions.swift"; sourceTree = "<group>"; };
 		1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBuilder.swift; sourceTree = "<group>"; };
 		205BFF3B90A59B4288D35097 /* PiholeServiceInternal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceInternal.swift; sourceTree = "<group>"; };
 		2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutNames.swift; sourceTree = "<group>"; };
@@ -240,6 +242,7 @@
 			isa = PBXGroup;
 			children = (
 				5F81FF4F72C7E4177ADE4917 /* App+Defaults.swift */,
+				19084AE49A1C33ADD772E45C /* Bundle+Extensions.swift */,
 				CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */,
 				3825AF9F229EBAEBF16CD81D /* HTTPURLResponse+StatusCodes.swift */,
 				FF2E357D9079D86EABA28C75 /* KeychainManager.swift */,
@@ -510,6 +513,7 @@
 				541FB83C9023F440E4111378 /* BrowserActiveUrlFetchingStrategy.swift in Sources */,
 				5CA4AA5D998760E1E7E514B3 /* BrowserActiveUrlFetchingStrategyFactory.swift in Sources */,
 				81DE794E941B8F72B2D53151 /* BrowserUrlFetcher.swift in Sources */,
+				59B7F0D47CA957D3925EA390 /* Bundle+Extensions.swift in Sources */,
 				5A0859A89A93A8BEB85CA9E1 /* CertificateTrustDelegate.swift in Sources */,
 				CC8C5DAB85F4CBA75D550957 /* ChromiumUrlFetchingStrategy.swift in Sources */,
 				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,

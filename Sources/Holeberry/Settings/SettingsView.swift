@@ -235,7 +235,7 @@ struct SettingsView: View {
         HStack {
           Label("Version", systemImage: "info.circle")
           Spacer()
-          if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+          if let version = Bundle.main.releaseVersionNumber {
             Text(version)
               .foregroundStyle(.secondary)
           }
