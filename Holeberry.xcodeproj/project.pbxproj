@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		087B6C336453AE3AADB2C84D /* PiHoleScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2E683DDE9E5051C9E0D687 /* PiHoleScannerTests.swift */; };
+		0C66105DC6CFF08D670C2A8A /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0570203E73E3950FCB644445 /* UpdateManager.swift */; };
 		190DDC489CC23486BD2C7290 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F937B463F6A990098878357C /* KeyboardShortcuts */; };
 		1C679E3674EA0D48615599F3 /* PiholeVersionDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3CA987B28094B70335ED14 /* PiholeVersionDetector.swift */; };
 		1CA9613D75CEDCA3D3F5EBF6 /* SimpleKeychain in Frameworks */ = {isa = PBXBuildFile; productRef = 851DA79BC13691B98158A0F6 /* SimpleKeychain */; };
@@ -61,6 +62,7 @@
 		CBFB3F60995ED900BD1290BA /* PiholeServiceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */; };
 		CC8C5DAB85F4CBA75D550957 /* ChromiumUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA738DE1C8726AA4CB45965 /* ChromiumUrlFetchingStrategy.swift */; };
 		D65B5A3E4E21A9DCDF47DF28 /* Logger+Subsystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */; };
+		D6C9EE36A966A2CC40CB9CAF /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A6038E07EC2887240F356F /* SoftwareUpdater.swift */; };
 		D8E3C678109A99C500F416AE /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BBF2413FF86F8684BEC45DF6 /* Defaults */; };
 		D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C039DDD8F05E05A8D434F71 /* Assets.xcassets */; };
 		E1CF909E4F782467C9844BDA /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED6EC3FBFFD74F33D2827AC /* MenuBarController.swift */; };
@@ -86,6 +88,7 @@
 
 /* Begin PBXFileReference section */
 		01E3A2221DD64B23DCD681D9 /* TemporaryUnblockPiholeServiceDecorator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryUnblockPiholeServiceDecorator.swift; sourceTree = "<group>"; };
+		0570203E73E3950FCB644445 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 		093FB82D7ED6970B888349C6 /* BrowserActiveUrlFetchingStrategyFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserActiveUrlFetchingStrategyFactory.swift; sourceTree = "<group>"; };
 		0B7E22A89202908454F32B61 /* PiholeServerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServerManager.swift; sourceTree = "<group>"; };
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -145,6 +148,7 @@
 		EB5BC6EB79D2AB97E34607A3 /* AuthSessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionFactory.swift; sourceTree = "<group>"; };
 		EE34D0881B2416F636EAF735 /* LocalIPAddressResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalIPAddressResolver.swift; sourceTree = "<group>"; };
 		F20BC6E492A3D31D9FE4E1C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F6A6038E07EC2887240F356F /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
 		FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutController.swift; sourceTree = "<group>"; };
 		FAE03C986FB57395AC64F527 /* Browser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Browser.swift; sourceTree = "<group>"; };
 		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
@@ -225,6 +229,7 @@
 				40CFFDE54F1764017E70CC4B /* Resources */,
 				C0349379494A7A64B01B8EF2 /* Services */,
 				8BB69277240BEEB373A07922 /* Settings */,
+				A0E24886CAAA9D5AFF4D055A /* Updates */,
 				7AB6AB5FEA1E7DF9D0A096C6 /* Utils */,
 			);
 			name = Holeberry;
@@ -255,6 +260,15 @@
 				05E28E2794738F28F909ADBD /* ConnectionViews */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		A0E24886CAAA9D5AFF4D055A /* Updates */ = {
+			isa = PBXGroup;
+			children = (
+				F6A6038E07EC2887240F356F /* SoftwareUpdater.swift */,
+				0570203E73E3950FCB644445 /* UpdateManager.swift */,
+			);
+			path = Updates;
 			sourceTree = "<group>";
 		};
 		A1FA71E34CB50EC3F38B19A5 /* Models */ = {
@@ -528,10 +542,12 @@
 				EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */,
 				63DF3275E31EAD0B223E7F24 /* ShortcutController.swift in Sources */,
 				36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */,
+				D6C9EE36A966A2CC40CB9CAF /* SoftwareUpdater.swift in Sources */,
 				3230D6021E41949B01AF5247 /* StatusItemButton.swift in Sources */,
 				8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */,
 				2B1583EA747A2A5C36606AC3 /* TemporaryUnblockPiholeServiceDecorator.swift in Sources */,
 				35BD6690D0D43AC0CD1C8F9C /* TimerManager.swift in Sources */,
+				0C66105DC6CFF08D670C2A8A /* UpdateManager.swift in Sources */,
 				57C51F7D8DE6AA3DAAF8F8C4 /* WordLabel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
