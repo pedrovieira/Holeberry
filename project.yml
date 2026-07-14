@@ -8,6 +8,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: "${HOLEBERRY_TEAM_ID}"
+    "CODE_SIGN_IDENTITY[sdk=macosx*]": "${HOLEBERRY_CODE_SIGN_IDENTITY}"
 
 packages:
   SimpleKeychain:
