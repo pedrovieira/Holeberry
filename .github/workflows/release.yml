@@ -27,7 +27,7 @@ jobs:
           with open('Holeberry.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') as f:
               data = json.load(f)
           for pin in data.get('pins', data.get('object', {}).get('pins', [])):
-              if pin.get('package', pin.get('identity', '')) == 'Sparkle':
+              if pin.get('package', pin.get('identity', '')).lower() == 'sparkle':
                   print(pin.get('state', {}).get('version', pin.get('state', {}).get('branch', '')))
                   break
           ")

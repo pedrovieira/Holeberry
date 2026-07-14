@@ -31,16 +31,6 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
 
   func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
     logger.info("No updates available")
-    // Only show "no updates" for manual checks — skip for automated
-    DispatchQueue.main.async {
-      let alert = NSAlert()
-      alert.messageText = "You're up to date!"
-      let version = Bundle.main.releaseVersionNumber ?? "1.0"
-      alert.informativeText = "Holeberry \(version) is currently the newest version available."
-      alert.alertStyle = .informational
-      alert.addButton(withTitle: "OK")
-      alert.runModal()
-    }
   }
 
   func updater(_ updater: SPUUpdater, didAbortWithError error: any Error) {
