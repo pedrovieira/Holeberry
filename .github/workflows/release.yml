@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Parse Sparkle version from Package.resolved
+        id: sparkle-version
+        run: |
+          SPARKLE_VERSION=$(python3 -c "
+          import json
+          with open('Holeberry.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') as f:
+              data = json.load(f)
+          for pin in data.get('pins', data.get('object', {}).get('pins', [])):
+              if pin.get('package', pin.get('identity', '')) == 'Sparkle':
+                  print(pin.get('state', {}).get('version', pin.get('state', {}).get('branch', '')))
+                  break
+          ")
+          echo "version=$SPARKLE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build Holeberry
+        run: |
+          xcodegen generate
+          xcodebuild -project Holeberry.xcodeproj \
+            -scheme Holeberry \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Create DMG
+        id: dmg
+        run: |
+          APP_PATH="build/Build/Products/Release/Holeberry.app"
+          DMG_NAME="Holeberry-${GITHUB_REF_NAME#v}.dmg"
+          DMG_PATH="build/$DMG_NAME"
+
+          mkdir -p build/dmg
+          cp -R "$APP_PATH" build/dmg/
+          ln -s /Applications build/dmg/Applications
+
+          hdiutil create -volname "Holeberry" \
+            -srcfolder build/dmg \
+            -ov -format UDZO \
+            "$DMG_PATH"
+
+          echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
+          echo "dmg_name=$DMG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.dmg.outputs.dmg_path }}
+          generate_release_notes: true
+          make_latest: true
+
+      - name: Clone Sparkle (matching pinned version)
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.sparkle-version.outputs.version }}"
+          REPO="https://github.com/sparkle-project/Sparkle"
+
+          SPARKLE_TAG=""
+          for candidate in "$VERSION" "v$VERSION"; do
+            if git ls-remote --exit-code --tags "$REPO" "refs/tags/$candidate" >/dev/null 2>&1; then
+              SPARKLE_TAG="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$SPARKLE_TAG" ]]; then
+            echo "::error::Could not find Sparkle tag for version $VERSION"
+            exit 1
+          fi
+
+          git clone --depth 1 --branch "$SPARKLE_TAG" --single-branch "$REPO" /tmp/sparkle-src
+          echo "sparkle_tag=$SPARKLE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build generate_appcast
+        run: |
+          xcodebuild -project /tmp/sparkle-src/Sparkle.xcodeproj \
+            -scheme generate_appcast \
+            -configuration Release \
+            -derivedDataPath /tmp/sparkle-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Generate signed appcast
+        env:
+          PRIVATE_SPARKLE_KEY: ${{ secrets.PRIVATE_SPARKLE_KEY }}
+        run: |
+          cp "${{ steps.dmg.outputs.dmg_path }}" Updates/
+
+          printf '%s' "$PRIVATE_SPARKLE_KEY" | \
+            /tmp/sparkle-derived/Build/Products/Release/generate_appcast \
+              --ed-key-file - \
+              --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
+              -o Updates/appcast.xml \
+              Updates/
+
+      - name: Commit and push appcast
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Updates/appcast.xml
+          git diff --staged --quiet || git commit -m "chore: update appcast for ${{ github.ref_name }}"
+          git push origin HEAD:main
