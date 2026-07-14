@@ -1,8 +1,11 @@
 import AppKit
+import Sparkle
 import SwiftUI
 
 final class SettingsWindowController: NSWindowController {
   static let shared = SettingsWindowController()
+
+  private var updater: SPUUpdater?
 
   private init() {
     let window = NSWindow(
@@ -19,13 +22,18 @@ final class SettingsWindowController: NSWindowController {
     fatalError("init(coder:) has not been implemented")
   }
 
+  func setUpdater(_ updater: SPUUpdater) {
+    self.updater = updater
+    setupWindow()
+  }
+
   private func setupWindow() {
     window?.title = "Settings"
     window?.identifier = NSUserInterfaceItemIdentifier("Settings")
     window?.titlebarAppearsTransparent = false
     window?.titleVisibility = .visible
     window?.toolbarStyle = .unified
-    window?.contentView = NSHostingView(rootView: SettingsView(serverManager: .shared))
+    window?.contentView = NSHostingView(rootView: SettingsView(serverManager: .shared, updater: updater))
     window?.setFrameAutosaveName("Settings")
     window?.collectionBehavior = .managed
     window?.delegate = self

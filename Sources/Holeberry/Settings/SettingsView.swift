@@ -2,6 +2,7 @@ import Defaults
 import KeyboardShortcuts
 import OSLog
 import ServiceManagement
+import Sparkle
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable {
@@ -39,11 +40,13 @@ struct SettingsView: View {
   @State private var selectedTab: SettingsTab
 
   let serverManager: PiholeServerManager
+  let updater: SPUUpdater?
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
-  init(serverManager: PiholeServerManager, initialTab: SettingsTab = .servers) {
+  init(serverManager: PiholeServerManager, initialTab: SettingsTab = .servers, updater: SPUUpdater? = nil) {
     self.serverManager = serverManager
+    self.updater = updater
     _selectedTab = State(initialValue: initialTab)
   }
 
@@ -95,6 +98,11 @@ struct SettingsView: View {
       ToolbarItem(placement: .primaryAction) {
         Button("Quit App") {
           NSApplication.shared.terminate(nil)
+        }
+      }
+      if let updater {
+        ToolbarItem(placement: .automatic) {
+          CheckForUpdatesView(updater: updater)
         }
       }
     }
@@ -236,6 +244,10 @@ struct SettingsView: View {
             Text(version)
               .foregroundStyle(.secondary)
           }
+        }
+
+        if let updater {
+          UpdaterSettingsView(updater: updater)
         }
       }
 
