@@ -1,5 +1,6 @@
 import AppKit
 import OSLog
+import Sparkle
 
 // swiftlint:disable file_length
 // swiftlint:disable type_body_length
@@ -8,6 +9,7 @@ import OSLog
 final class MenuBuilder: NSObject {
   private let serverManager: PiholeServerManager
   private let timerManager: TimerManager
+  private let updater: SPUUpdater
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-builder")
 
   var onDisableURL: ((String, TimeInterval) -> Void)?
@@ -19,10 +21,12 @@ final class MenuBuilder: NSObject {
 
   init(
     serverManager: PiholeServerManager,
-    timerManager: TimerManager
+    timerManager: TimerManager,
+    updater: SPUUpdater
   ) {
     self.serverManager = serverManager
     self.timerManager = timerManager
+    self.updater = updater
   }
 
   // swiftlint:disable:next function_parameter_count
@@ -362,6 +366,16 @@ final class MenuBuilder: NSObject {
   }
 
   private func addSettingsAndQuit(to menu: NSMenu) {
+    menu.addItem(.separator())
+
+    let checkForUpdatesItem = NSMenuItem(
+      title: "Check for Updates…",
+      action: #selector(checkForUpdates),
+      keyEquivalent: ""
+    )
+    checkForUpdatesItem.target = self
+    menu.addItem(checkForUpdatesItem)
+
     let settingsItem = NSMenuItem(
       title: "Settings...", action: #selector(openSettings), keyEquivalent: ","
     )
@@ -459,6 +473,10 @@ final class MenuBuilder: NSObject {
   }
 
   @objc private func openSettings() { SettingsWindowController.shared.showWindow() }
+
+  @objc private func checkForUpdates() {
+    updater.checkForUpdates()
+  }
 
   private func performBlocking(enabled: Bool, duration: TimeInterval?) {
     guard let server = serverManager.servers.first else { return }
