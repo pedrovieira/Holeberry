@@ -27,7 +27,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
   // MARK: - SPUUpdaterDelegate
 
   func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
-    logger.info("Found update: \(item.displayVersionString ?? "unknown", privacy: .public)")
+    logger.info("Found update: \(item.displayVersionString, privacy: .public)")
 
     DispatchQueue.main.async { [weak self] in
       self?.showUpdateAvailableAlert(for: item)
@@ -48,7 +48,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     let alert = NSAlert()
     alert.messageText = "A new version of Holeberry is available!"
     let version = Bundle.main.releaseVersionNumber ?? "1.0"
-    alert.informativeText = "Holeberry \(item.displayVersionString ?? "") is now available — you have \(version)."
+    alert.informativeText = "Holeberry \(item.displayVersionString) is now available — you have \(version)."
     alert.alertStyle = .informational
     alert.addButton(withTitle: "View on GitHub")
     alert.addButton(withTitle: "Remind Me Later")

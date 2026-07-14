@@ -98,21 +98,14 @@ final class MenuBuilder: NSObject {
       item.isEnabled = false
       menu.addItem(item)
     } else if servers.isEmpty {
-      let item = NSMenuItem(title: "No instances configured", action: nil, keyEquivalent: "")
-      item.isEnabled = false
-      menu.addItem(item)
-
-      let configureItem = NSMenuItem(
-        title: "Configure in Settings…",
-        action: #selector(openSettings),
-        keyEquivalent: ""
-      )
-      configureItem.target = self
-      configureItem.image = NSImage(
+      let item = NSMenuItem(title: "", action: #selector(openSettings), keyEquivalent: "")
+      item.target = self
+      item.image = NSImage(
         systemSymbolName: "arrow.up.forward.square",
         accessibilityDescription: "Open Settings"
       )
-      menu.addItem(configureItem)
+      item.attributedTitle = noInstancesAttributedTitle()
+      menu.addItem(item)
     } else {
       let (dotColor, statusText) = resolveStatusColor(
         connectionStatuses: connectionStatuses,
@@ -251,6 +244,27 @@ final class MenuBuilder: NSObject {
     menu.addItem(item)
   }
 
+  /// Builds a two-line attributed title: icon + "No instances configured" / "Configure in Settings…" below.
+  private func noInstancesAttributedTitle() -> NSAttributedString {
+    let result = NSMutableAttributedString()
+
+    let titleAttr: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: NSFont.systemFontSize),
+      .foregroundColor: NSColor.labelColor
+    ]
+    result.append(NSAttributedString(string: "No instances configured", attributes: titleAttr))
+
+    result.append(NSAttributedString(string: "\n"))
+
+    let subtitleAttr: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+      .foregroundColor: NSColor.secondaryLabelColor
+    ]
+    result.append(NSAttributedString(string: "Configure in Settings…", attributes: subtitleAttr))
+
+    return result
+  }
+
   /// Builds a two-line attributed title: domain name + relative timestamp and hit count below.
   private func attributedTitle(for entry: BlockedDomain) -> NSAttributedString {
     let result = NSMutableAttributedString()
@@ -368,6 +382,12 @@ final class MenuBuilder: NSObject {
   private func addSettingsAndQuit(to menu: NSMenu) {
     menu.addItem(.separator())
 
+    let settingsItem = NSMenuItem(
+      title: "Settings...", action: #selector(openSettings), keyEquivalent: ","
+    )
+    settingsItem.target = self
+    menu.addItem(settingsItem)
+
     let checkForUpdatesItem = NSMenuItem(
       title: "Check for Updates…",
       action: #selector(checkForUpdates),
@@ -375,12 +395,6 @@ final class MenuBuilder: NSObject {
     )
     checkForUpdatesItem.target = self
     menu.addItem(checkForUpdatesItem)
-
-    let settingsItem = NSMenuItem(
-      title: "Settings...", action: #selector(openSettings), keyEquivalent: ","
-    )
-    settingsItem.target = self
-    menu.addItem(settingsItem)
 
     let quitItem = NSMenuItem(
       title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"
