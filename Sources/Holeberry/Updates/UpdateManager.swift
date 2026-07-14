@@ -15,7 +15,12 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate {
     )
     // Don't auto-download since we're not signed
     updater.automaticallyDownloadsUpdates = false
-    try? updater.start()
+    updater.automaticallyChecksForUpdates = true
+    do {
+      try updater.start()
+    } catch {
+      logger.error("Failed to start updater: \(error.localizedDescription, privacy: .public)")
+    }
     return updater
   }()
 
