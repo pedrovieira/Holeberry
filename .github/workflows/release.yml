@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: macos-latest
@@ -33,6 +37,9 @@ jobs:
           ")
           echo "version=$SPARKLE_VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
       - name: Build Holeberry
         run: |
           xcodegen generate
@@ -40,9 +47,11 @@ jobs:
             -scheme Holeberry \
             -configuration Release \
             -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES
 
       - name: Create DMG
         id: dmg
@@ -101,6 +110,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Switch to latest main
+        run: |
+          git fetch --depth=1 origin main
+          git checkout -B main origin/main
+
       - name: Generate signed appcast
         env:
           PRIVATE_SPARKLE_KEY: ${{ secrets.PRIVATE_SPARKLE_KEY }}
@@ -120,4 +134,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Updates/appcast.xml
           git diff --staged --quiet || git commit -m "chore: update appcast for ${{ github.ref_name }}"
-          git push origin HEAD:main
+          git push origin main
