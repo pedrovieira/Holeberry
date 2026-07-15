@@ -71,7 +71,7 @@ final class MenuBuilder: NSObject {
     }
 
     menu.addItem(.separator())
-    addDisableURLSection(
+    addRecentlyBlockedSection(
       to: menu, recentBlocked: recentBlocked, isConnected: isConnected
     )
     menu.addItem(.separator())
@@ -220,7 +220,7 @@ final class MenuBuilder: NSObject {
     }
   }
 
-  private func addDisableURLSection(
+  private func addRecentlyBlockedSection(
     to menu: NSMenu,
     recentBlocked: [BlockedDomain],
     isConnected: Bool
@@ -238,6 +238,11 @@ final class MenuBuilder: NSObject {
       let domainItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
       domainItem.attributedTitle = attributedTitle(for: entry)
       domainItem.submenu = durationSubmenu
+
+      if showAllClients, entry.fromClientIp == userIP {
+        domainItem.image = .init(systemSymbolName: "person.circle", accessibilityDescription: "")
+      }
+
       submenu.addItem(domainItem)
     }
 
@@ -286,14 +291,7 @@ final class MenuBuilder: NSObject {
       .foregroundColor: NSColor.secondaryLabelColor
     ]
 
-    let subtitle = NSMutableAttributedString()
-    if showAllClients, entry.fromClientIp == userIP {
-      let icon = MenuItemFactory.iconAttachment(
-        symbolName: "person.circle", color: .secondaryLabelColor)
-      subtitle.append(NSAttributedString(attachment: icon))
-      subtitle.append(NSAttributedString(string: " "))
-    }
-    subtitle.append(NSAttributedString(string: timestamp + " · " + hitSuffix, attributes: timeAttr))
+    let subtitle = NSAttributedString(string: timestamp + " · " + hitSuffix, attributes: timeAttr)
 
     result.append(NSAttributedString(string: "\n"))
     result.append(subtitle)

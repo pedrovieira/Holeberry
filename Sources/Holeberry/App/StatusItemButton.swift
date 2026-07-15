@@ -6,7 +6,7 @@ final class StatusItemButton: NSView {
   // MARK: - Constants
 
   private enum Layout {
-    static let iconSize: CGFloat = 16
+    static let iconSize: CGFloat = 18
     static let horizontalPadding: CGFloat = 8
     static let iconTextGap: CGFloat = 8
     static let height: CGFloat = 22
@@ -111,6 +111,10 @@ final class StatusItemButton: NSView {
   // MARK: - Mouse
 
   override func mouseDown(with event: NSEvent) {
+    onClick?()
+  }
+
+  override func rightMouseDown(with event: NSEvent) {
     onClick?()
   }
 
@@ -226,15 +230,25 @@ final class StatusItemButton: NSView {
     progressArcLayer.strokeColor = isUrgent ? NSColor.systemRed.cgColor : NSColor.labelColor.cgColor
   }
 
+  private func tintedImage(named name: String, color: NSColor, size: NSSize) -> NSImage? {
+    guard let base = NSImage(named: name) else { return nil }
+    let image = NSImage(size: size)
+    image.lockFocus()
+    base.draw(in: NSRect(origin: .zero, size: size))
+    color.set()
+    NSRect(origin: .zero, size: size).fill(using: .sourceAtop)
+    image.unlockFocus()
+    return image
+  }
+
   private func drawIcon() {
-    guard let image = NSImage(systemSymbolName: "shield.slash.fill", accessibilityDescription: nil) else { return }
-    let config = NSImage.SymbolConfiguration(hierarchicalColor: .labelColor)
-    guard let tintedImage = image.withSymbolConfiguration(config) else { return }
-    tintedImage.draw(in: iconRect)
-    //  guard let image = NSImage(named: "StatusBar-unblocked") else { return }
-    //  image.isTemplate = true
-    // image.size = iconRect.size
-    // image.draw(in: iconRect)
+    guard
+      let shield = tintedImage(named: "StatusBar-unblocked-shield", color: .secondaryLabelColor, size: iconRect.size),
+      let slash = tintedImage(named: "StatusBar-unblocked-slash", color: .labelColor, size: iconRect.size)
+    else { return }
+
+    shield.draw(in: iconRect)
+    slash.draw(in: iconRect)
   }
 
   private func drawTimeText() {
