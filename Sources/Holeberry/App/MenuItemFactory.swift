@@ -124,6 +124,49 @@ enum MenuItemFactory {
     return result
   }
 
+  /// Builds a two-line per-instance attributed string: dot + (icon) + label on the first line,
+  /// and individual blocking stats on the second line.
+  static func instanceLineWithStats(
+    dotColor: NSColor,
+    icon: String? = nil,
+    label: String,
+    totalQueries: Int,
+    totalBlocked: Int
+  ) -> NSAttributedString {
+    let result = NSMutableAttributedString()
+
+    // Line 1: dot + (icon) + label (same as instanceLine)
+    result.append(NSAttributedString(attachment: dotAttachment(color: dotColor)))
+    if let icon, !icon.isEmpty {
+      result.append(NSAttributedString(string: " "))
+      result.append(NSAttributedString(attachment: iconAttachment(symbolName: icon)))
+    }
+    result.append(NSAttributedString(string: " " + label))
+
+    // Line break
+    result.append(NSAttributedString(string: "\n"))
+
+    // Line 2: stats in small secondary text
+    let queriesText = totalQueries.formatted(.number.notation(.compactName))
+    let blockedText = totalBlocked.formatted(.number.notation(.compactName))
+    let pctText: String
+    if totalQueries > 0 {
+      let pct = Double(totalBlocked) / Double(totalQueries) * 100
+      pctText = String(format: "%.0f%%", pct)
+    } else {
+      pctText = "0%"
+    }
+
+    let statsString = "\(queriesText) queries / \(blockedText) blocked · \(pctText)"
+    let statsAttr: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+      .foregroundColor: NSColor.secondaryLabelColor
+    ]
+    result.append(NSAttributedString(string: statsString, attributes: statsAttr))
+
+    return result
+  }
+
   // MARK: - Timestamp
 
   /// Returns a relative time string for the elapsed interval since the given date.
