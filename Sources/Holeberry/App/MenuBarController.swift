@@ -111,9 +111,9 @@ final class MenuBarController: NSObject {
       showAllClients: Defaults[.showAllClientsRecentBlocked()],
       error: errorMessage,
       isConnected: reachability.isConnected,
-      combinedStatus: statusMonitor.combinedStatus,
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
+      querySummaries: statusMonitor.querySummaries,
       servers: statusMonitor.servers,
       browserTabStatus: browserTabStatus,
       browserIcon: browserIcon

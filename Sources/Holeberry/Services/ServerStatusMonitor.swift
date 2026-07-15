@@ -10,7 +10,7 @@ final class ServerStatusMonitor: ObservableObject {
   @Published var servers: [ServerConfig] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]
   @Published var blockingStatuses: [UUID: BlockingStatus] = [:]
-  @Published var combinedStatus = CombinedStatus()
+  @Published var querySummaries: [UUID: QuerySummary] = [:]
   @Published var lastPollError: String?
 
   // Scanner state (persists across tab switches)
@@ -43,9 +43,8 @@ final class ServerStatusMonitor: ObservableObject {
         let newIDs = Set(newServers.map(\.id))
         self.connectionStatuses = self.connectionStatuses.filter { newIDs.contains($0.key) }
         self.blockingStatuses = self.blockingStatuses.filter { newIDs.contains($0.key) }
+        self.querySummaries = self.querySummaries.filter { newIDs.contains($0.key) }
         self.servers = newServers
-        self.combinedStatus.totalInstanceCount = newServers.count
-        self.combinedStatus.connectedInstanceCount = self.connectionStatuses.values.filter { $0 == .connected }.count
         guard structuralChange, !self.isPolling else { return }
         Task { await self.pollNow() }
       }
@@ -113,15 +112,12 @@ final class ServerStatusMonitor: ObservableObject {
     guard !servers.isEmpty else {
       connectionStatuses = [:]
       blockingStatuses = [:]
-      combinedStatus = CombinedStatus()
+      querySummaries = [:]
       lastPollError = nil
       return
     }
 
     logger.debug("Polling all servers...")
-    var connectedCount = 0
-    var totalQueries = 0
-    var totalBlocked = 0
     var anyError: String?
 
     for config in servers {
@@ -129,16 +125,15 @@ final class ServerStatusMonitor: ObservableObject {
         let blocking = try await manager.getBlockingStatus(for: config.id)
         connectionStatuses[config.id] = .connected
         blockingStatuses[config.id] = blocking
-        connectedCount += 1
 
-        // Aggregate query summary stats
+        // Query summary stats
         do {
           let summary = try await manager.getQuerySummary(for: config.id)
-          totalQueries += summary.totalQueries
-          totalBlocked += summary.totalBlocked
+          querySummaries[config.id] = summary
         } catch {
           logger.warning(
             "Query summary failed for \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)")
+          querySummaries.removeValue(forKey: config.id)
           // Non-fatal: stats just won't include this instance this cycle
         }
       } catch {
@@ -151,17 +146,6 @@ final class ServerStatusMonitor: ObservableObject {
 
     servers = manager.servers
 
-    combinedStatus.connectedInstanceCount = connectedCount
-    combinedStatus.totalInstanceCount = servers.count
-    combinedStatus.blockingEnabled =
-      !servers.isEmpty
-      && blockingStatuses.values.allSatisfy { status in
-        if case .enabled = status { return true }
-        return false
-      }
     lastPollError = anyError
-
-    combinedStatus.totalQueries = totalQueries
-    combinedStatus.totalBlocked = totalBlocked
   }
 }

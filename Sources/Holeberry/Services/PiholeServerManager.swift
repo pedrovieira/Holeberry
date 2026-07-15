@@ -1,5 +1,3 @@
-// swiftlint:disable file_length
-
 import Defaults
 import Foundation
 import OSLog
@@ -9,7 +7,6 @@ final class PiholeServerManager: ObservableObject {
   private static let jsonEncoder = JSONEncoder()
   static let shared = PiholeServerManager()
   @Published var servers: [ServerConfig] = []
-  @Published private(set) var combinedStatus: CombinedStatus
   private let keychain: KeychainManager
   private let serviceFactory: PiholeServiceFactory
   private let versionDetector: PiholeVersionDetector
@@ -28,7 +25,6 @@ final class PiholeServerManager: ObservableObject {
     self.versionDetector = versionDetector
     self.suite = suite
     self.servers = []
-    self.combinedStatus = CombinedStatus()
     loadServers()
   }
 
@@ -397,12 +393,4 @@ final class PiholeServerManager: ObservableObject {
       return config
     }
   }
-}
-
-struct CombinedStatus {
-  var totalQueries: Int = 0
-  var totalBlocked: Int = 0
-  var blockingEnabled: Bool = true
-  var connectedInstanceCount: Int = 0
-  var totalInstanceCount: Int = 0
 }

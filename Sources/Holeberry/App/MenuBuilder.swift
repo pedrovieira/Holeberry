@@ -36,9 +36,9 @@ final class MenuBuilder: NSObject {
     showAllClients: Bool = false,
     error: String?,
     isConnected: Bool,
-    combinedStatus: CombinedStatus,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
+    querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig],
     browserTabStatus: BrowserUrlFetcher.Status = .disabled,
     browserIcon: NSImage? = nil
@@ -50,7 +50,7 @@ final class MenuBuilder: NSObject {
       to: menu,
       error: error,
       isConnected: isConnected,
-      combinedStatus: combinedStatus,
+      querySummaries: querySummaries,
       connectionStatuses: connectionStatuses,
       blockingStatuses: blockingStatuses,
       servers: servers
@@ -60,6 +60,7 @@ final class MenuBuilder: NSObject {
       to: menu,
       connectionStatuses: connectionStatuses,
       blockingStatuses: blockingStatuses,
+      querySummaries: querySummaries,
       servers: servers
     )
     menu.addItem(.separator())
@@ -84,7 +85,7 @@ final class MenuBuilder: NSObject {
     to menu: NSMenu,
     error: String?,
     isConnected: Bool,
-    combinedStatus: CombinedStatus,
+    querySummaries: [UUID: QuerySummary],
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
     servers: [ServerConfig]
@@ -124,10 +125,12 @@ final class MenuBuilder: NSObject {
       statusItem.isEnabled = false
       menu.addItem(statusItem)
 
+      let totalQueries = querySummaries.values.reduce(0) { $0 + $1.totalQueries }
+      let totalBlocked = querySummaries.values.reduce(0) { $0 + $1.totalBlocked }
       let statsItem = NSMenuItem()
       statsItem.attributedTitle = MenuItemFactory.statsLine(
-        totalQueries: combinedStatus.totalQueries,
-        totalBlocked: combinedStatus.totalBlocked
+        totalQueries: totalQueries,
+        totalBlocked: totalBlocked
       )
       statsItem.isEnabled = false
       menu.addItem(statsItem)
@@ -165,9 +168,13 @@ final class MenuBuilder: NSObject {
     to menu: NSMenu,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
+    querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig]
   ) {
     guard !servers.isEmpty else { return }
+
+    let connectedCount = connectionStatuses.values.filter { $0 == .connected }.count
+    let showStats = connectedCount >= 2
 
     let groupItem = NSMenuItem()
     groupItem.attributedTitle = MenuItemFactory.instancesGroupLabel()
@@ -180,11 +187,21 @@ final class MenuBuilder: NSObject {
       let dotColor: NSColor = (connected && blocking) ? .systemGreen : .systemRed
 
       let item = NSMenuItem()
-      item.attributedTitle = MenuItemFactory.instanceLine(
-        dotColor: dotColor,
-        icon: config.icon,
-        label: config.label ?? config.url
-      )
+      if showStats, let summary = querySummaries[config.id] {
+        item.attributedTitle = MenuItemFactory.instanceLineWithStats(
+          dotColor: dotColor,
+          icon: config.icon,
+          label: config.label ?? config.url,
+          totalQueries: summary.totalQueries,
+          totalBlocked: summary.totalBlocked
+        )
+      } else {
+        item.attributedTitle = MenuItemFactory.instanceLine(
+          dotColor: dotColor,
+          icon: config.icon,
+          label: config.label ?? config.url
+        )
+      }
       item.isEnabled = false
       menu.addItem(item)
     }
