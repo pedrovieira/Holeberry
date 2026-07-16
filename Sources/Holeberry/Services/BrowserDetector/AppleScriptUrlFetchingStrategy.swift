@@ -14,8 +14,6 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
   }
 
   func getCurrentURL(for browser: Browser) -> String? {
-    requestPermissionIfNeeded(for: browser.bundleID)
-
     let script = """
       tell application "\(appName)"
         if (count of windows) > 0 then
@@ -46,9 +44,17 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
 
   // MARK: - Permission
 
-  /// Triggers the Automation permission prompt via the proper TCC API,
-  /// which works from any calling context (menu item, keyboard shortcut, etc.).
-  private func requestPermissionIfNeeded(for bundleID: String) {
+  func isPermissionGranted(for browser: Browser) -> Bool {
+    resolvePermission(for: browser.bundleID, askUserIfNeeded: false)
+  }
+
+  func requestPermission(for browser: Browser) {
+    _ = resolvePermission(for: browser.bundleID, askUserIfNeeded: true)
+  }
+
+  /// Queries or requests the TCC Automation permission for a target bundle.
+  /// - Returns: `true` if permission is allowed, `false` otherwise.
+  private func resolvePermission(for bundleID: String, askUserIfNeeded: Bool) -> Bool {
     var target = AEAddressDesc()
     let createStatus = bundleID.withCString { cString in
       AECreateDesc(
@@ -58,15 +64,16 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
         &target
       )
     }
-    guard createStatus == noErr else { return }
+    guard createStatus == noErr else { return false }
     defer { AEDisposeDesc(&target) }
 
     // kAECoreSuite = 'core', kAEGetData = 'getd'
-    _ = AEDeterminePermissionToAutomateTarget(
+    let result = AEDeterminePermissionToAutomateTarget(
       &target,
       0x636F_7265,  // 'core'
       0x6765_7464,  // 'getd'
-      true  // askUserIfNeeded
+      askUserIfNeeded
     )
+    return result == noErr
   }
 }
