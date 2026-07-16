@@ -38,6 +38,16 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
     return nil
   }
 
+  // MARK: - Permission
+
+  func isPermissionGranted(for browser: Browser) -> Bool {
+    true  // Firefox reads session files, no Apple Events needed
+  }
+
+  func requestPermission(for browser: Browser) {
+    // No-op: Firefox doesn't use Apple Events
+  }
+
   // MARK: - profiles.ini parsing
 
   private func resolveDefaultProfilePath(from iniURL: URL) -> URL? {
