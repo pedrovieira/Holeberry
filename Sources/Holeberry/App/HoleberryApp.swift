@@ -49,21 +49,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let serverManager = PiholeServerManager.shared
     let reachability = ReachabilityMonitor()
     let statusMonitor = ServerStatusMonitor.shared
-    let browserUrlFetcher = BrowserUrlFetcher()
     let localIPAddressResolver = LocalIPAddressResolver()
+    let appFocusMonitor = AppFocusMonitor()
+    let browserUrlFetcher = BrowserUrlFetcher()
+    let browserTabCoordinator = BrowserTabCoordinator(
+      monitor: appFocusMonitor,
+      urlFetcher: browserUrlFetcher
+    )
 
     menuBarController = MenuBarController(
       timerManager: timerManager,
       serverManager: serverManager,
       reachability: reachability,
       statusMonitor: statusMonitor,
-      browserUrlFetcher: browserUrlFetcher,
+      browserTabCoordinator: browserTabCoordinator,
       localIPAddressResolver: localIPAddressResolver,
       updater: updaterManager.updater
     )
     shortcutController = ShortcutController(
       serverManager: serverManager,
-      browserUrlFetcher: browserUrlFetcher
+      browserTabCoordinator: browserTabCoordinator
     )
   }
 
