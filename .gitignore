@@ -54,6 +54,5 @@ fastlane/test_output
 .DS_Store?
 
 docs/
-
-# Reasonix AI agent persistent context
 .reasonix/
+.superpowers/
