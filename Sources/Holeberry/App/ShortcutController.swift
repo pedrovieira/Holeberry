@@ -40,6 +40,12 @@ final class ShortcutController {
     KeyboardShortcuts.onKeyDown(for: .unblockCurrentTab) { [weak self] in
       guard let self else { return }
       let result = self.browserTabCoordinator.requestPermissionAndResolve()
+      if case .permissionDenied = result {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Automation") {
+          NSWorkspace.shared.open(url)
+        }
+        return
+      }
       guard case .url(_, let domain) = result else {
         logger.debug("Unblock current tab shortcut: no URL available (\(String(describing: result)))")
         return
