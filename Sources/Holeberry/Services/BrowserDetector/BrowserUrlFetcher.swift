@@ -1,5 +1,4 @@
 import AppKit
-import Defaults
 import Foundation
 import OSLog
 
@@ -8,55 +7,25 @@ final class BrowserUrlFetcher {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-url")
   private let strategyFactory = BrowserActiveUrlFetchingStrategyFactory()
 
-  enum Status: Equatable {
-    case disabled
-    case noBrowser
-    case permissionDenied
-    case noURL
-    case url(String)
-
-    var isSuccess: Bool {
-      if case .url = self { return true }
-      return false
-    }
-  }
-
-  func resolveCurrentTabDomain() -> Status {
-    guard Defaults[.browserTabUnblockEnabled()] else {
-      return .disabled
-    }
-
-    guard let frontApp = NSWorkspace.shared.frontmostApplication,
-      let bundleID = frontApp.bundleIdentifier,
-      let browser = Browser(rawValue: bundleID)
-    else {
-      return .noBrowser
-    }
-
+  /// Resolves the current tab domain for the given browser.
+  /// - Returns: `nil` if permission denied, `""` if no URL available,
+  ///   or a domain string on success.
+  func resolveCurrentTabDomain(for browser: Browser) -> String? {
     let strategy = strategyFactory.strategy(for: browser)
     let result = strategy.getCurrentURL(for: browser)
     // nil means permission denied; empty means no URL available
-    if result == nil {
-      return .permissionDenied
-    }
-    let urlString = result.flatMap { $0.isEmpty ? nil : $0 }
-
-    guard let urlString, let host = hostFromURL(urlString) else {
-      return .noURL
+    guard let urlString = result, !urlString.isEmpty else {
+      return result  // nil → permission denied, "" → no URL
     }
 
     if isInternalPage(urlString) {
-      return .noURL
+      return ""
     }
 
-    return .url(host)
-  }
-
-  private func hostFromURL(_ urlString: String) -> String? {
     let string = urlString.hasPrefix("http") ? urlString : "https://\(urlString)"
     guard let components = URLComponents(string: string),
       let host = components.host
-    else { return nil }
+    else { return "" }
     return host
   }
 
