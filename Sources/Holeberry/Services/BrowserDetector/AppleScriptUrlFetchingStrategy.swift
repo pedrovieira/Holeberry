@@ -44,7 +44,7 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
 
   // MARK: - Permission
 
-  func isPermissionGranted(for browser: Browser) -> Bool {
+  func isPermissionGranted(for browser: Browser) -> AutomationPermission {
     resolvePermission(for: browser.bundleID, askUserIfNeeded: false)
   }
 
@@ -53,8 +53,8 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
   }
 
   /// Queries or requests the TCC Automation permission for a target bundle.
-  /// - Returns: `true` if permission is allowed, `false` otherwise.
-  private func resolvePermission(for bundleID: String, askUserIfNeeded: Bool) -> Bool {
+  /// - Returns: `.allowed`, `.denied`, or `.notDetermined`.
+  private func resolvePermission(for bundleID: String, askUserIfNeeded: Bool) -> AutomationPermission {
     var target = AEAddressDesc()
     let createStatus = bundleID.withCString { cString in
       AECreateDesc(
@@ -64,7 +64,7 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
         &target
       )
     }
-    guard createStatus == noErr else { return false }
+    guard createStatus == noErr else { return .denied }
     defer { AEDisposeDesc(&target) }
 
     // kAECoreSuite = 'core', kAEGetData = 'getd'
@@ -74,6 +74,8 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
       0x6765_7464,  // 'getd'
       askUserIfNeeded
     )
-    return result == noErr
+    if result == noErr { return .allowed }
+    if result == errAEEventNotPermitted { return .denied }
+    return .notDetermined
   }
 }
