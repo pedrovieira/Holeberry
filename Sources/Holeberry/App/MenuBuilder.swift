@@ -14,6 +14,7 @@ final class MenuBuilder: NSObject {
 
   var onDisableURL: ((String, TimeInterval) -> Void)?
   var onAddToAllowlist: ((String) -> Void)?
+  var onEnableBrowserPermission: (() -> Void)?
 
   // User-device tracking for recently-blocked icon
   private var userIP: String?
@@ -40,7 +41,7 @@ final class MenuBuilder: NSObject {
     blockingStatuses: [UUID: BlockingStatus],
     querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig],
-    browserTabStatus: BrowserUrlFetcher.Status = .disabled,
+    browserTabStatus: ResolvedBrowserTab = .disabled,
     browserIcon: NSImage? = nil
   ) -> NSMenu {
     self.userIP = userIP
@@ -351,51 +352,49 @@ final class MenuBuilder: NSObject {
 
   private func addBrowserTabSection(
     to menu: NSMenu,
-    browserStatus: BrowserUrlFetcher.Status,
+    browserStatus: ResolvedBrowserTab,
     browserIcon: NSImage? = nil
   ) {
-    let title: String
-    let enabled: Bool
-
     switch browserStatus {
     case .disabled:
-      return  // no item shown
+      return
+
     case .noBrowser:
-      title = "No browser focused"
-      enabled = false
+      let item = NSMenuItem(title: "No browser detected", action: nil, keyEquivalent: "")
+      item.isEnabled = false
+      item.image = browserIcon
+      menu.addItem(item)
 
-    case .permissionDenied:
-      title = "Permission needed"
-      enabled = false
-    case .noURL:
-      title = "Could not get URL"
-      enabled = false
-    case .url(let domain):
-      title = "Unblock \(domain)"
-      enabled = true
-
+    case .permissionNeeded(let browser):
       let item = NSMenuItem(
-        title: title,
-        action: nil,
+        title: "\(browser.appName) Detected. Enable Permission",
+        action: #selector(enableBrowserPermissionAction),
         keyEquivalent: ""
       )
       item.target = self
-      item.isEnabled = enabled
+      item.isEnabled = true
+      item.image = browserIcon
+      item.representedObject = browser
+      menu.addItem(item)
+
+    case .noURL:
+      let item = NSMenuItem(title: "Could not get tab URL", action: nil, keyEquivalent: "")
+      item.isEnabled = false
+      item.image = browserIcon
+      menu.addItem(item)
+
+    case .url(let browser, let domain):
+      let item = NSMenuItem(title: "Unblock \(domain)", action: nil, keyEquivalent: "")
+      item.target = self
+      item.isEnabled = true
       item.image = browserIcon
       item.submenu = buildDurationSubmenu(for: domain)
       menu.addItem(item)
-      return
     }
+  }
 
-    let item = NSMenuItem(
-      title: title,
-      action: nil,
-      keyEquivalent: ""
-    )
-    item.target = self
-    item.isEnabled = enabled
-    item.image = browserIcon
-    menu.addItem(item)
+  @objc private func enableBrowserPermissionAction(_ sender: NSMenuItem) {
+    onEnableBrowserPermission?()
   }
 
   private func addSettingsAndQuit(to menu: NSMenu) {
