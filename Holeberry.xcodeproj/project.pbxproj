@@ -45,6 +45,8 @@
 		7914218930096F4DB12917C0 /* HTTPMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
 		81DE794E941B8F72B2D53151 /* BrowserUrlFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39565CB3B24FB9693EF4604 /* BrowserUrlFetcher.swift */; };
+		88447822664A4E64AA223607 /* AppFocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB30693E49A408E9A60799A /* AppFocusMonitor.swift */; };
+		D612482998374507ABD0C25D /* BrowserTabCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA6AC4FD2054507A000838B /* BrowserTabCoordinator.swift */; };
 		8B0DF160023249B935D7C313 /* SafariUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */; };
 		8C79C94542328E68480EEF62 /* FirefoxSessionStoreUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = E470F7D35E567A623F195927 /* FirefoxSessionStoreUrlFetchingStrategy.swift */; };
 		8D1E88C1BB495E9DDDBDFB78 /* TempUnblockRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A02DF65DF3F9B323288CEA /* TempUnblockRecord.swift */; };
@@ -155,6 +157,8 @@
 		FAE03C986FB57395AC64F527 /* Browser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Browser.swift; sourceTree = "<group>"; };
 		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
 		FF2E357D9079D86EABA28C75 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
+		7EB30693E49A408E9A60799A /* AppFocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFocusMonitor.swift; sourceTree = "<group>"; };
+		BEA6AC4FD2054507A000838B /* BrowserTabCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -219,6 +223,8 @@
 				5BA738DE1C8726AA4CB45965 /* ChromiumUrlFetchingStrategy.swift */,
 				E470F7D35E567A623F195927 /* FirefoxSessionStoreUrlFetchingStrategy.swift */,
 				799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */,
+				7EB30693E49A408E9A60799A /* AppFocusMonitor.swift */,
+				BEA6AC4FD2054507A000838B /* BrowserTabCoordinator.swift */,
 			);
 			path = BrowserDetector;
 			sourceTree = "<group>";
@@ -513,6 +519,8 @@
 				541FB83C9023F440E4111378 /* BrowserActiveUrlFetchingStrategy.swift in Sources */,
 				5CA4AA5D998760E1E7E514B3 /* BrowserActiveUrlFetchingStrategyFactory.swift in Sources */,
 				81DE794E941B8F72B2D53151 /* BrowserUrlFetcher.swift in Sources */,
+				88447822664A4E64AA223607 /* AppFocusMonitor.swift in Sources */,
+				D612482998374507ABD0C25D /* BrowserTabCoordinator.swift in Sources */,
 				59B7F0D47CA957D3925EA390 /* Bundle+Extensions.swift in Sources */,
 				5A0859A89A93A8BEB85CA9E1 /* CertificateTrustDelegate.swift in Sources */,
 				CC8C5DAB85F4CBA75D550957 /* ChromiumUrlFetchingStrategy.swift in Sources */,

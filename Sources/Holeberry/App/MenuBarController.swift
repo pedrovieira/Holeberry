@@ -12,7 +12,7 @@ final class MenuBarController: NSObject {
   private let serverManager: PiholeServerManager
   private let reachability: ReachabilityMonitor
   private let statusMonitor: ServerStatusMonitor
-  private let browserUrlFetcher: BrowserUrlFetcher
+  private let browserTabCoordinator: BrowserTabCoordinator
   private let localIPAddressResolver: LocalIPAddressProviding
   private let updater: SPUUpdater
   private lazy var menuBuilder: MenuBuilder = {
@@ -26,6 +26,9 @@ final class MenuBarController: NSObject {
     }
     builder.onAddToAllowlist = { [weak self] domain in
       self?.addToAllowlist(domain: domain)
+    }
+    builder.onEnableBrowserPermission = { [weak self] in
+      self?.handleEnableBrowserPermission()
     }
 
     return builder
@@ -46,9 +49,6 @@ final class MenuBarController: NSObject {
   private var errorMessage: String?
   private var errorClearTask: Task<Void, Never>?
 
-  // Browser icon cache
-  private var appIconCache: [String: NSImage] = [:]
-
   // MARK: - Countdown view
 
   private lazy var statusItemButton: StatusItemButton = {
@@ -64,7 +64,7 @@ final class MenuBarController: NSObject {
     serverManager: PiholeServerManager,
     reachability: ReachabilityMonitor,
     statusMonitor: ServerStatusMonitor,
-    browserUrlFetcher: BrowserUrlFetcher,
+    browserTabCoordinator: BrowserTabCoordinator,
     localIPAddressResolver: LocalIPAddressProviding = LocalIPAddressResolver(),
     updater: SPUUpdater
   ) {
@@ -72,7 +72,7 @@ final class MenuBarController: NSObject {
     self.serverManager = serverManager
     self.reachability = reachability
     self.statusMonitor = statusMonitor
-    self.browserUrlFetcher = browserUrlFetcher
+    self.browserTabCoordinator = browserTabCoordinator
     self.localIPAddressResolver = localIPAddressResolver
     self.updater = updater
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -100,10 +100,12 @@ final class MenuBarController: NSObject {
   @objc private func handleClick() {
     ensureCacheFresh()
 
-    let browserTabStatus = browserUrlFetcher.resolveCurrentTabDomain()
+    let browserTabStatus = browserTabCoordinator.resolve()
     var browserIcon: NSImage?
     if case .url = browserTabStatus {
-      browserIcon = resolveBrowserIcon()
+      browserIcon = browserTabCoordinator.resolveBrowserIcon()
+    } else if case .permissionNeeded = browserTabStatus {
+      browserIcon = browserTabCoordinator.resolveBrowserIcon()
     }
     let menu = menuBuilder.buildMenu(
       recentBlocked: recentBlockedCache,
@@ -324,23 +326,16 @@ final class MenuBarController: NSObject {
   }
 
   /// Returns the browser tab status for menu rendering.
-  func resolveBrowserTabStatus() -> BrowserUrlFetcher.Status {
-    browserUrlFetcher.resolveCurrentTabDomain()
+  func resolveBrowserTabStatus() -> ResolvedBrowserTab {
+    browserTabCoordinator.resolve()
   }
 
-  // MARK: - Browser Icon
+  // MARK: - Enable Browser Permission
 
-  private func resolveBrowserIcon() -> NSImage? {
-    guard let app = NSWorkspace.shared.frontmostApplication,
-      let bundleID = app.bundleIdentifier
-    else { return nil }
-
-    if let cached = appIconCache[bundleID] {
-      return cached
-    }
-    guard let icon = app.resizedIcon(size: NSRunningApplication.menuBarIconSize) else { return nil }
-    appIconCache[bundleID] = icon
-    return icon
+  private func handleEnableBrowserPermission() {
+    _ = browserTabCoordinator.requestPermissionAndResolve()
+    // Rebuild the menu to show updated state
+    handleClick()
   }
 
   // MARK: - Check for Updates
