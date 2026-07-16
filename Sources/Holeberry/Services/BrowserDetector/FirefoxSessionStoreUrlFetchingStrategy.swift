@@ -40,8 +40,8 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
 
   // MARK: - Permission
 
-  func isPermissionGranted(for browser: Browser) -> Bool {
-    true  // Firefox reads session files, no Apple Events needed
+  func isPermissionGranted(for browser: Browser) -> AutomationPermission {
+    .allowed  // Firefox reads session files, no Apple Events needed
   }
 
   func requestPermission(for browser: Browser) {
