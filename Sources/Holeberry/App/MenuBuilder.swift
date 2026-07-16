@@ -15,6 +15,7 @@ final class MenuBuilder: NSObject {
   var onDisableURL: ((String, TimeInterval) -> Void)?
   var onAddToAllowlist: ((String) -> Void)?
   var onEnableBrowserPermission: (() -> Void)?
+  var onOpenAutomationSettings: (() -> Void)?
 
   // User-device tracking for recently-blocked icon
   private var userIP: String?
@@ -365,6 +366,17 @@ final class MenuBuilder: NSObject {
       item.image = browserIcon
       menu.addItem(item)
 
+    case .permissionDenied(let browser):
+      let item = NSMenuItem(
+        title: "\(browser.appName) Permission Denied. Open Settings",
+        action: #selector(openAutomationSettingsAction),
+        keyEquivalent: ""
+      )
+      item.target = self
+      item.isEnabled = true
+      item.image = browserIcon
+      menu.addItem(item)
+
     case .permissionNeeded(let browser):
       let item = NSMenuItem(
         title: "\(browser.appName) Detected. Enable Permission",
@@ -383,7 +395,7 @@ final class MenuBuilder: NSObject {
       item.image = browserIcon
       menu.addItem(item)
 
-    case .url(let browser, let domain):
+    case .url(_, let domain):
       let item = NSMenuItem(title: "Unblock \(domain)", action: nil, keyEquivalent: "")
       item.target = self
       item.isEnabled = true
@@ -395,6 +407,10 @@ final class MenuBuilder: NSObject {
 
   @objc private func enableBrowserPermissionAction(_ sender: NSMenuItem) {
     onEnableBrowserPermission?()
+  }
+
+  @objc private func openAutomationSettingsAction(_ sender: NSMenuItem) {
+    onOpenAutomationSettings?()
   }
 
   private func addSettingsAndQuit(to menu: NSMenu) {
