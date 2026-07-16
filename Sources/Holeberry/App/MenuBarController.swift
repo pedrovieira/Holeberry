@@ -30,6 +30,11 @@ final class MenuBarController: NSObject {
     builder.onEnableBrowserPermission = { [weak self] in
       self?.handleEnableBrowserPermission()
     }
+    builder.onOpenAutomationSettings = { [weak self] in
+      if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Automation") {
+        NSWorkspace.shared.open(url)
+      }
+    }
 
     return builder
   }()
@@ -105,6 +110,8 @@ final class MenuBarController: NSObject {
     if case .url = browserTabStatus {
       browserIcon = browserTabCoordinator.resolveBrowserIcon()
     } else if case .permissionNeeded = browserTabStatus {
+      browserIcon = browserTabCoordinator.resolveBrowserIcon()
+    } else if case .permissionDenied = browserTabStatus {
       browserIcon = browserTabCoordinator.resolveBrowserIcon()
     }
     let menu = menuBuilder.buildMenu(
