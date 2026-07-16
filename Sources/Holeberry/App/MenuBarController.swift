@@ -54,6 +54,9 @@ final class MenuBarController: NSObject {
   private var errorMessage: String?
   private var errorClearTask: Task<Void, Never>?
 
+  // Browser icon cache
+  private var appIconCache: [String: NSImage] = [:]
+
   // MARK: - Countdown view
 
   private lazy var statusItemButton: StatusItemButton = {
@@ -106,14 +109,7 @@ final class MenuBarController: NSObject {
     ensureCacheFresh()
 
     let browserTabStatus = browserTabCoordinator.resolve()
-    var browserIcon: NSImage?
-    if case .url = browserTabStatus {
-      browserIcon = browserTabCoordinator.resolveBrowserIcon()
-    } else if case .permissionNeeded = browserTabStatus {
-      browserIcon = browserTabCoordinator.resolveBrowserIcon()
-    } else if case .permissionDenied = browserTabStatus {
-      browserIcon = browserTabCoordinator.resolveBrowserIcon()
-    }
+    let browserIcon = browserTabStatus.browser.flatMap { resolveBrowserIcon(for: $0) }
     let menu = menuBuilder.buildMenu(
       recentBlocked: recentBlockedCache,
       userIP: localIPAddressResolver.localIPAddress(),
@@ -335,6 +331,24 @@ final class MenuBarController: NSObject {
   /// Returns the browser tab status for menu rendering.
   func resolveBrowserTabStatus() -> ResolvedBrowserTab {
     browserTabCoordinator.resolve()
+  }
+
+  // MARK: - Browser Icon
+
+  private func resolveBrowserIcon(for browser: Browser) -> NSImage? {
+    let bundleID = browser.bundleID
+    if let cached = appIconCache[bundleID] {
+      return cached
+    }
+
+    guard
+      let app = NSRunningApplication.runningApplications(
+        withBundleIdentifier: bundleID
+      ).first,
+      let icon = app.resizedIcon(size: NSRunningApplication.menuBarIconSize)
+    else { return nil }
+    appIconCache[bundleID] = icon
+    return icon
   }
 
   // MARK: - Enable Browser Permission

@@ -9,8 +9,18 @@ enum ResolvedBrowserTab: Equatable {
   case noBrowser
   case permissionNeeded(Browser)
   case permissionDenied(Browser)
-  case noURL
+  case noURL(Browser)
   case url(Browser, String)
+
+  var browser: Browser? {
+    switch self {
+    case .permissionNeeded(let browser): return browser
+    case .permissionDenied(let browser): return browser
+    case .noURL(let browser): return browser
+    case .url(let browser, _): return browser
+    case .disabled, .noBrowser: return nil
+    }
+  }
 }
 
 /// Coordinates browser tab detection: tracks the last-seen browser via
@@ -51,7 +61,7 @@ final class BrowserTabCoordinator {
 
     let domain = urlFetcher.resolveCurrentTabDomain(for: browser)
     guard let domain, !domain.isEmpty else {
-      return .noURL
+      return .noURL(browser)
     }
     return .url(browser, domain)
   }
@@ -82,20 +92,13 @@ final class BrowserTabCoordinator {
 
     let domain = urlFetcher.resolveCurrentTabDomain(for: browser)
     guard let domain, !domain.isEmpty else {
-      return .noURL
+      return .noURL(browser)
     }
     return .url(browser, domain)
   }
 
   // MARK: - Browser Icon
 
-  func resolveBrowserIcon() -> NSImage? {
-    guard let bundleID = monitor.lastSeenBrowser?.bundleID else { return nil }
-    guard
-      let app = NSRunningApplication.runningApplications(
-        withBundleIdentifier: bundleID
-      ).first
-    else { return nil }
-    return app.resizedIcon(size: NSRunningApplication.menuBarIconSize)
-  }
+  /// The last-seen browser from the app-focus monitor.
+  var lastSeenBrowser: Browser? { monitor.lastSeenBrowser }
 }

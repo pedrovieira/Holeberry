@@ -3,40 +3,64 @@ import Combine
 import Foundation
 import OSLog
 
-/// Observes NSWorkspace.didActivateApplicationNotification to track the
-/// last-seen browser. Cache persists until a different browser is detected
-/// or the app terminates.
-@MainActor
-final class AppFocusMonitor: ObservableObject {
-  @Published private(set) var lastSeenBrowser: Browser?
+/// Observes NSWorkspace notifications to track the last-seen browser.
+/// The cache persists until a different browser is detected, the browser
+/// is quit, or this object is deallocated.
+final class AppFocusMonitor: ObservableObject, @unchecked Sendable {
+  @MainActor @Published private(set) var lastSeenBrowser: Browser?
 
-  nonisolated(unsafe) private var observer: NSObjectProtocol?
+  private var activationObserver: NSObjectProtocol?
+  private var terminationObserver: NSObjectProtocol?
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "app-focus")
 
   init() {
-    observer = NSWorkspace.shared.notificationCenter.addObserver(
+    let center = NSWorkspace.shared.notificationCenter
+
+    activationObserver = center.addObserver(
       forName: NSWorkspace.didActivateApplicationNotification,
       object: nil,
       queue: .main
     ) { [weak self] notification in
-      guard let self else { return }
       guard
+        let self,
         let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
           as? NSRunningApplication,
         let bundleID = app.bundleIdentifier,
         let browser = Browser(rawValue: bundleID)
       else {
-        // Non-browser app: keep lastSeenBrowser unchanged
         return
       }
-      self.lastSeenBrowser = browser
-      self.logger.debug("Browser detected: \(browser.appName) (\(bundleID))")
+      Task { @MainActor [weak self] in
+        self?.lastSeenBrowser = browser
+        self?.logger.debug("Browser detected: \(browser.appName) (\(bundleID, privacy: .public))")
+      }
+    }
+
+    terminationObserver = center.addObserver(
+      forName: NSWorkspace.didTerminateApplicationNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] notification in
+      guard
+        let self,
+        let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+          as? NSRunningApplication,
+        let bundleID = app.bundleIdentifier
+      else { return }
+
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        if self.lastSeenBrowser?.bundleID == bundleID {
+          self.lastSeenBrowser = nil
+          self.logger.debug("Browser terminated: \(bundleID)")
+        }
+      }
     }
   }
 
   deinit {
-    if let observer {
-      NSWorkspace.shared.notificationCenter.removeObserver(observer)
-    }
+    let center = NSWorkspace.shared.notificationCenter
+    if let activationObserver { center.removeObserver(activationObserver) }
+    if let terminationObserver { center.removeObserver(terminationObserver) }
   }
 }
