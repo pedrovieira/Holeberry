@@ -8,6 +8,7 @@ enum ResolvedBrowserTab: Equatable {
   case disabled
   case noBrowser
   case permissionNeeded(Browser)
+  case permissionDenied(Browser)
   case noURL
   case url(Browser, String)
 }
@@ -39,7 +40,12 @@ final class BrowserTabCoordinator {
     }
 
     let strategy = strategyFactory.strategy(for: browser)
-    guard strategy.isPermissionGranted(for: browser) else {
+    switch strategy.isPermissionGranted(for: browser) {
+    case .allowed:
+      break
+    case .denied:
+      return .permissionDenied(browser)
+    case .notDetermined:
       return .permissionNeeded(browser)
     }
 
@@ -65,7 +71,12 @@ final class BrowserTabCoordinator {
     let strategy = strategyFactory.strategy(for: browser)
     strategy.requestPermission(for: browser)
 
-    guard strategy.isPermissionGranted(for: browser) else {
+    switch strategy.isPermissionGranted(for: browser) {
+    case .allowed:
+      break
+    case .denied:
+      return .permissionDenied(browser)
+    case .notDetermined:
       return .permissionNeeded(browser)
     }
 
