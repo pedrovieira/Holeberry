@@ -10,7 +10,7 @@ import OSLog
 final class AppFocusMonitor: ObservableObject {
   @Published private(set) var lastSeenBrowser: Browser?
 
-  private var observer: NSObjectProtocol?
+  nonisolated(unsafe) private var observer: NSObjectProtocol?
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "app-focus")
 
   init() {
