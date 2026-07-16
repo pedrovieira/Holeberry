@@ -8,11 +8,11 @@ import UserNotifications
 final class ShortcutController {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "shortcuts")
   private let serverManager: PiholeServerManager
-  private let browserUrlFetcher: BrowserUrlFetcher
+  private let browserTabCoordinator: BrowserTabCoordinator
 
-  init(serverManager: PiholeServerManager, browserUrlFetcher: BrowserUrlFetcher) {
+  init(serverManager: PiholeServerManager, browserTabCoordinator: BrowserTabCoordinator) {
     self.serverManager = serverManager
-    self.browserUrlFetcher = browserUrlFetcher
+    self.browserTabCoordinator = browserTabCoordinator
     registerShortcuts()
   }
 
@@ -39,13 +39,9 @@ final class ShortcutController {
     }
     KeyboardShortcuts.onKeyDown(for: .unblockCurrentTab) { [weak self] in
       guard let self else { return }
-      guard Defaults[.browserTabUnblockEnabled()] else {
-        logger.debug("Unblock current tab shortcut fired but feature is disabled")
-        return
-      }
-      let status = self.browserUrlFetcher.resolveCurrentTabDomain()
-      guard case .url(let domain) = status else {
-        logger.debug("Unblock current tab shortcut: no URL available (\(String(describing: status)))")
+      let result = self.browserTabCoordinator.requestPermissionAndResolve()
+      guard case .url(_, let domain) = result else {
+        logger.debug("Unblock current tab shortcut: no URL available (\(String(describing: result)))")
         return
       }
       Task {
