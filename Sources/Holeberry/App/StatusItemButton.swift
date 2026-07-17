@@ -31,7 +31,6 @@ final class StatusItemButton: NSView {
   private let inactiveBorderLayer: CAShapeLayer = {
     let layer = CAShapeLayer()
     layer.fillColor = NSColor.clear.cgColor
-    layer.strokeColor = NSColor.separatorColor.cgColor
     layer.lineWidth = Layout.borderWidth
     layer.lineCap = .round
     return layer
