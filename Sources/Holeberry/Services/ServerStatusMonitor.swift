@@ -12,12 +12,14 @@ final class ServerStatusMonitor: ObservableObject {
   @Published var blockingStatuses: [UUID: BlockingStatus] = [:]
   @Published var querySummaries: [UUID: QuerySummary] = [:]
   @Published var lastPollError: String?
+  @Published var recentBlocked: [BlockedDomain] = []
 
   // Scanner state (persists across tab switches)
   @Published var discoveredInstances: [PiholeScanner.DiscoveredInstance] = []
   @Published var isScanning = false
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
+  private let pollingInterval: TimeInterval
   private var pollingTask: Task<Void, Never>?
   private var cancellables = Set<AnyCancellable>()
   private var isPolling = false
@@ -25,9 +27,10 @@ final class ServerStatusMonitor: ObservableObject {
   let manager: PiholeServerManager
   let networkInterface: LocalIPAddressProviding
 
-  init(manager: PiholeServerManager, networkInterface: LocalIPAddressProviding) {
+  init(manager: PiholeServerManager, networkInterface: LocalIPAddressProviding, pollingInterval: TimeInterval = 30) {
     self.manager = manager
     self.networkInterface = networkInterface
+    self.pollingInterval = pollingInterval
     self.servers = manager.servers
 
     manager.$servers
@@ -46,44 +49,33 @@ final class ServerStatusMonitor: ObservableObject {
         self.querySummaries = self.querySummaries.filter { newIDs.contains($0.key) }
         self.servers = newServers
         guard structuralChange, !self.isPolling else { return }
-        Task { await self.pollNow() }
+        Task { await self.performPoll() }
       }
       .store(in: &cancellables)
   }
 
   // MARK: - Polling Control
 
-  func startPolling(interval: TimeInterval = 30) {
-    guard pollingTask == nil else {
-      logger.info("Polling already running, ignoring duplicate start")
-      return
-    }
+  func startPolling() {
+    guard pollingTask == nil else { return }
     pollingTask = Task { [weak self] in
-      guard let self else { return }
-      while !Task.isCancelled {
+      while true {
+        guard let self, !Task.isCancelled else { return }
         await self.performPoll()
-        try? await Task.sleep(for: .seconds(interval))
+        try? await Task.sleep(for: .seconds(pollingInterval))
       }
     }
   }
 
   func stopPolling() {
-    guard pollingTask != nil else {
-      logger.info("Polling already stopped, ignoring duplicate stop")
-      return
-    }
     pollingTask?.cancel()
     pollingTask = nil
   }
 
-  func pollNow() async {
-    await performPoll()
-  }
-
-  // MARK: - Server CRUD
-
-  func logoutAll() async {
-    await manager.logoutAll()
+  func pollNow() {
+    pollingTask?.cancel()
+    pollingTask = nil
+    startPolling()
   }
 
   // MARK: - Scanning
@@ -113,6 +105,7 @@ final class ServerStatusMonitor: ObservableObject {
       connectionStatuses = [:]
       blockingStatuses = [:]
       querySummaries = [:]
+      recentBlocked = []
       lastPollError = nil
       return
     }
@@ -147,5 +140,19 @@ final class ServerStatusMonitor: ObservableObject {
     servers = manager.servers
 
     lastPollError = anyError
+
+    // Fetch recent blocked domains across all servers
+    do {
+      let clientIP = networkInterface.localIPAddress()
+      let showAll = Defaults[.showAllClientsRecentBlocked()]
+      let interval = DateInterval(start: Date().addingTimeInterval(-3600), end: Date())
+      let blocked = try await manager.getRecentBlocked(
+        forClientIp: showAll ? nil : clientIP,
+        interval: interval
+      )
+      recentBlocked = blocked
+    } catch {
+      logger.warning("Failed to refresh recent blocked: \(error.localizedDescription, privacy: .public)")
+    }
   }
 }
