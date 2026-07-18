@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import AppKit
 import Combine
 import Defaults
@@ -15,29 +17,7 @@ final class MenuBarController: NSObject {
   private let browserTabCoordinator: BrowserTabCoordinator
   private let localIPAddressResolver: LocalIPAddressProviding
   private let updater: SPUUpdater
-  private lazy var menuBuilder: MenuBuilder = {
-    let builder = MenuBuilder(
-      serverManager: serverManager,
-      timerManager: timerManager,
-      updater: updater
-    )
-    builder.onDisableURL = { [weak self] domain, duration in
-      self?.performTempUnblock(domain: domain, duration: duration)
-    }
-    builder.onAddToAllowlist = { [weak self] domain in
-      self?.addToAllowlist(domain: domain)
-    }
-    builder.onEnableBrowserPermission = { [weak self] in
-      self?.handleEnableBrowserPermission()
-    }
-    builder.onOpenAutomationSettings = { [weak self] in
-      if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Automation") {
-        NSWorkspace.shared.open(url)
-      }
-    }
-
-    return builder
-  }()
+  private let menuBuilder = MenuBuilder()
 
   private var cancellables = Set<AnyCancellable>()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-bar")
@@ -83,8 +63,11 @@ final class MenuBarController: NSObject {
     self.browserTabCoordinator = browserTabCoordinator
     self.localIPAddressResolver = localIPAddressResolver
     self.updater = updater
+
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
     super.init()
+
     configureStatusItem()
     observeTimer()
     pollInitialStatus()
@@ -105,12 +88,55 @@ final class MenuBarController: NSObject {
     button.target = self
   }
 
+  // swiftlint:disable:next function_body_length
   @objc private func handleClick() {
     ensureCacheFresh()
 
     let browserTabStatus = browserTabCoordinator.resolve()
     let browserIcon = browserTabStatus.browser.flatMap { resolveBrowserIcon(for: $0) }
     let menu = menuBuilder.buildMenu(
+      actions: MenuActions(
+        openAppSettings: { SettingsWindowController.shared.showWindow() },
+        checkForUpdates: { [updater] in updater.checkForUpdates() },
+        disableBlocking: { [serverManager, timerManager, logger] duration in
+          guard let server = serverManager.servers.first else { return }
+          Task {
+            do {
+              try await serverManager.setBlocking(for: server.id, enabled: false, duration: duration)
+              if let duration { timerManager.startDisable(duration: duration) }
+            } catch {
+              logger.error("Blocking action failed: \(error.localizedDescription, privacy: .public)")
+            }
+          }
+        },
+        reEnableBlocking: { [serverManager, timerManager, logger] in
+          guard let server = serverManager.servers.first else { return }
+          Task {
+            do {
+              try await serverManager.setBlocking(for: server.id, enabled: true, duration: nil)
+              timerManager.cancelDisable()
+            } catch {
+              logger.error("Re-enable blocking failed: \(error.localizedDescription, privacy: .public)")
+            }
+          }
+        },
+        disableURL: { [weak self] domain, duration in
+          self?.performTempUnblock(domain: domain, duration: duration)
+        },
+        addToAllowlist: { [weak self] domain in
+          self?.addToAllowlist(domain: domain)
+        },
+        enableBrowserPermission: { [weak self] in
+          self?.handleEnableBrowserPermission()
+        },
+        openAutomationSettings: {
+          if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Automation") {
+            NSWorkspace.shared.open(url)
+          }
+        }
+      ),
+      isTimerDisabled: timerManager.isDisabled,
+      hasServers: !serverManager.servers.isEmpty,
       recentBlocked: recentBlockedCache,
       userIP: localIPAddressResolver.localIPAddress(),
       showAllClients: Defaults[.showAllClientsRecentBlocked()],
