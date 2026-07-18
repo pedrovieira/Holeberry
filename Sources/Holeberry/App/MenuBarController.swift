@@ -1,5 +1,3 @@
-// swiftlint:disable file_length
-
 import AppKit
 import Combine
 import Defaults
@@ -21,11 +19,6 @@ final class MenuBarController: NSObject {
 
   private var cancellables = Set<AnyCancellable>()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "menu-bar")
-
-  // Recent blocked cache
-  private var recentBlockedCache: [BlockedDomain] = []
-  private var lastCacheRefresh = Date.distantPast
-  private let cacheTTL: TimeInterval = 60
 
   // Menu lifecycle
   private var currentMenu: NSMenu?
@@ -73,7 +66,6 @@ final class MenuBarController: NSObject {
     pollInitialStatus()
     setupReachability()
     observeTotpNotifications()
-    prewarmRecentBlockedCache()
   }
 
   // MARK: - Status Item
@@ -90,7 +82,8 @@ final class MenuBarController: NSObject {
 
   // swiftlint:disable:next function_body_length
   @objc private func handleClick() {
-    ensureCacheFresh()
+    // Refresh data in the background for next time, but show the menu now with cached data
+    statusMonitor.pollNow()
 
     let browserTabStatus = browserTabCoordinator.resolve()
     let browserIcon = browserTabStatus.browser.flatMap { resolveBrowserIcon(for: $0) }
@@ -136,8 +129,7 @@ final class MenuBarController: NSObject {
         }
       ),
       isTimerDisabled: timerManager.isDisabled,
-      hasServers: !serverManager.servers.isEmpty,
-      recentBlocked: recentBlockedCache,
+      recentBlocked: statusMonitor.recentBlocked,
       userIP: localIPAddressResolver.localIPAddress(),
       showAllClients: Defaults[.showAllClientsRecentBlocked()],
       error: errorMessage,
@@ -145,7 +137,7 @@ final class MenuBarController: NSObject {
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
       querySummaries: statusMonitor.querySummaries,
-      servers: statusMonitor.servers,
+      servers: serverManager.servers,
       browserTabStatus: browserTabStatus,
       browserIcon: browserIcon
     )
@@ -250,7 +242,7 @@ final class MenuBarController: NSObject {
 
   private func setupReachability() {
     reachability.onConnect = { [weak self] in
-      self?.refreshRecentBlockedCache()
+      Task { self?.statusMonitor.pollNow() }
     }
   }
 
@@ -293,42 +285,6 @@ final class MenuBarController: NSObject {
     UNUserNotificationCenter.current().add(request) { error in
       if let error {
         self.logger.warning("Failed to deliver TOTP notification: \(error.localizedDescription, privacy: .public)")
-      }
-    }
-  }
-
-  // MARK: - Recent Blocked Cache
-
-  private func prewarmRecentBlockedCache() {
-    refreshRecentBlockedCache()
-  }
-
-  private func ensureCacheFresh() {
-    let elapsed = Date().timeIntervalSince(lastCacheRefresh)
-    if elapsed > cacheTTL {
-      refreshRecentBlockedCache()
-    }
-  }
-
-  private func refreshRecentBlockedCache() {
-    guard serverManager.servers.first != nil else {
-      recentBlockedCache = []
-      lastCacheRefresh = Date()
-      return
-    }
-    Task {
-      do {
-        let clientIP = localIPAddressResolver.localIPAddress()
-        let showAll = Defaults[.showAllClientsRecentBlocked()]
-        let interval = DateInterval(
-          start: Date().addingTimeInterval(-3600),
-          end: Date())
-        let blocked = try await serverManager.getRecentBlocked(
-          forClientIp: showAll ? nil : clientIP, interval: interval)
-        recentBlockedCache = blocked
-        lastCacheRefresh = Date()
-      } catch {
-        logger.warning("Failed to refresh recent blocked cache: \(error.localizedDescription, privacy: .public)")
       }
     }
   }

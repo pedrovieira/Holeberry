@@ -13,7 +13,6 @@ struct MenuBuilder {
   func buildMenu(
     actions: MenuActions,
     isTimerDisabled: Bool,
-    hasServers: Bool,
     recentBlocked: [BlockedDomain],
     userIP: String?,
     showAllClients: Bool,
@@ -54,7 +53,7 @@ struct MenuBuilder {
     addBlockingControls(
       to: menu,
       isTimerDisabled: isTimerDisabled,
-      hasServers: hasServers,
+      hasServers: !servers.isEmpty,
       isConnected: isConnected,
       target: target
     )
@@ -428,11 +427,12 @@ struct MenuBuilder {
     menu.addItem(.separator())
 
     let settingsItem = NSMenuItem(
-      title: "Settings...",
+      title: "Settings…",
       action: #selector(MenuActionTarget.openAppSettings),
       keyEquivalent: ","
     )
     settingsItem.target = target
+    settingsItem.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "Settings")
     menu.addItem(settingsItem)
 
     let checkForUpdatesItem = NSMenuItem(

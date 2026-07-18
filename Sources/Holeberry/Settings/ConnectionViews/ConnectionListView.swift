@@ -152,7 +152,7 @@ struct ConnectionListView: View {
 
     // --- Lifecycle ---
     .task {
-      await monitor.pollNow()
+      monitor.pollNow()
       await monitor.runScanIfNeeded()
     }
     .onChange(of: monitor.servers.count) {
