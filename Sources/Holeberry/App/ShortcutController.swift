@@ -125,32 +125,14 @@ final class ShortcutController {
       return
     }
 
-    // Show NSAlert with text field on main thread, then get the result
+    // Show DurationPickerAlert on main thread, then get the result
     let seconds = await MainActor.run { () -> TimeInterval? in
-      let alert = NSAlert()
-      alert.messageText = "Custom Disable Time"
-      alert.informativeText = "Enter the number of seconds to disable blocking."
-      alert.addButton(withTitle: "Disable")
-      alert.addButton(withTitle: "Cancel")
-
-      let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-      textField.placeholderString = "e.g. 120"
-      alert.accessoryView = textField
-      alert.window.initialFirstResponder = textField
-
-      // Force synchronous layout before entering the modal run loop.
-      // NSTextField lazily initializes its internal formatter/layout on first
-      // layout, dispatching that work at Default QoS. Without this, the field can
-      // appear blank or trigger a QoS inversion warning during runModal() on the
-      // main thread.
-      textField.layoutSubtreeIfNeeded()
-
-      let response = alert.runModal()
-      guard response == .alertFirstButtonReturn else { return nil }
-
-      let text = textField.stringValue.trimmingCharacters(in: .whitespaces)
-      guard let seconds = TimeInterval(text), seconds > 0 else { return nil }
-      return seconds
+      let alert = DurationPickerAlert(
+        title: "Custom Disable Time",
+        message: "Choose how long to disable blocking.",
+        confirmButton: "Disable"
+      )
+      return alert.runDurationPicker()
     }
 
     guard let duration = seconds else { return }

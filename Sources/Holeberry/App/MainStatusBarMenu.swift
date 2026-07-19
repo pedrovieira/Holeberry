@@ -90,36 +90,12 @@ final class MenuActionTarget: NSObject {
   // MARK: - Duration-prompt default implementation
 
   private static func defaultPromptDuration(title: String, message: String, button: String) -> TimeInterval? {
-    let alert = NSAlert()
-    alert.messageText = title
-    alert.informativeText = message
-    alert.addButton(withTitle: button)
-    alert.addButton(withTitle: "Cancel")
-
-    let datePicker = NSDatePicker(frame: NSRect(x: 0, y: 0, width: 160, height: 24))
-    datePicker.datePickerStyle = .textFieldAndStepper
-    datePicker.datePickerElements = .hourMinuteSecond
-    datePicker.locale = Locale(identifier: "en_GB")  // 24-hour format
-    let calendar = Calendar.current
-    let defaultDate = calendar.date(bySettingHour: 0, minute: 5, second: 0, of: Date()) ?? Date()
-    datePicker.dateValue = defaultDate
-    datePicker.minDate = calendar.startOfDay(for: Date())
-    alert.accessoryView = datePicker
-
-    // Force synchronous layout before entering the modal run loop.
-    // NSDatePicker lazily initializes its internal date formatter on first layout,
-    // dispatching that work at Default QoS. Without this, the picker can appear
-    // blank or trigger a QoS inversion warning during runModal() on the main thread.
-    datePicker.layoutSubtreeIfNeeded()
-
-    let response = alert.runModal()
-    guard response == .alertFirstButtonReturn else { return nil }
-
-    let components = calendar.dateComponents([.hour, .minute, .second], from: datePicker.dateValue)
-    let hrs = (components.hour ?? 0) * 3600
-    let mins = (components.minute ?? 0) * 60
-    let secs = components.second ?? 0
-    let seconds = TimeInterval(hrs + mins + secs)
-    return seconds > 0 ? seconds : nil
+    let alert = DurationPickerAlert(
+      title: title,
+      message: message,
+      confirmButton: button,
+      defaultDuration: 30 * 60  // 30 minutes
+    )
+    return alert.runDurationPicker()
   }
 }
