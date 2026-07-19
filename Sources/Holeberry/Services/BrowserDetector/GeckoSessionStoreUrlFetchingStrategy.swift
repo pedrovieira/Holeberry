@@ -2,18 +2,20 @@ import Compression
 import Foundation
 import OSLog
 
-final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
-  private let logger = Logger(subsystem: Logger.appSubsystem, category: "firefox-sessionstore")
+final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
+  private let logger: Logger
+  private let supportDir: URL
 
-  private let firefoxSupportDir: URL = {
+  init(supportDirName: String, category: String) {
     let home = FileManager.default.homeDirectoryForCurrentUser
-    return home.appendingPathComponent("Library/Application Support/Firefox")
-  }()
+    self.supportDir = home.appendingPathComponent("Library/Application Support/\(supportDirName)")
+    self.logger = Logger(subsystem: Logger.appSubsystem, category: category)
+  }
 
   func getCurrentURL(for browser: Browser) -> String? {
-    let profilesINI = firefoxSupportDir.appendingPathComponent("profiles.ini")
+    let profilesINI = supportDir.appendingPathComponent("profiles.ini")
     guard let profilePath = resolveDefaultProfilePath(from: profilesINI) else {
-      logger.warning("Could not resolve Firefox default profile from profiles.ini")
+      logger.warning("Could not resolve default profile from profiles.ini")
       return nil
     }
 
@@ -34,7 +36,7 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
       return extractURL(from: compressedData)
     }
 
-    logger.warning("Firefox sessionstore not found at \(profilePath.path)")
+    logger.warning("Sessionstore not found at \(profilePath.path)")
     return nil
   }
 
@@ -123,7 +125,7 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
 
   private func resolvePath(_ path: String, isRelative: Bool) -> URL {
     if isRelative {
-      return firefoxSupportDir.appendingPathComponent(path)
+      return supportDir.appendingPathComponent(path)
     }
     return URL(fileURLWithPath: path)
   }
@@ -133,13 +135,13 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
   private func extractURL(from compressedData: Data) -> String? {
     // mozLZ4 header: 8 bytes magic "mozLz40\0" + 4 bytes uint32 LE uncompressed size = 12 bytes total
     guard compressedData.count > 12 else {
-      logger.warning("Firefox sessionstore data too small: \(compressedData.count) bytes")
+      logger.warning("Sessionstore data too small: \(compressedData.count) bytes")
       return nil
     }
 
     let magic = compressedData.prefix(8)
     guard magic == Data("mozLz40\0".utf8) else {
-      logger.warning("Firefox sessionstore has unexpected magic bytes")
+      logger.warning("Sessionstore has unexpected magic bytes")
       return nil
     }
 
@@ -167,7 +169,7 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
       return nil
     }
 
-    // Parse JSON (Firefox uses 1-based indexing for selectedWindow and tab selected)
+    // Parse JSON (1-based indexing for selectedWindow and tab selected)
     let decompressedData = Data(bytes: destinationBuffer, count: actualSize)
     guard let json = try? JSONSerialization.jsonObject(with: decompressedData) as? [String: Any],
       let windows = json["windows"] as? [[String: Any]],
@@ -175,7 +177,7 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
       selectedIndex > 0,
       selectedIndex <= windows.count
     else {
-      logger.warning("Firefox sessionstore JSON structure unexpected")
+      logger.warning("Sessionstore JSON structure unexpected")
       return nil
     }
 
@@ -185,18 +187,18 @@ final class FirefoxSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStra
       selectedTabIndex > 0,
       selectedTabIndex <= tabs.count
     else {
-      logger.warning("Firefox sessionstore: no tabs in selected window")
+      logger.warning("Sessionstore: no tabs in selected window")
       return nil
     }
 
     let tab = tabs[selectedTabIndex - 1]
     guard let entries = tab["entries"] as? [[String: Any]] else {
-      logger.warning("Firefox sessionstore: no entries in selected tab")
+      logger.warning("Sessionstore: no entries in selected tab")
       return nil
     }
     let activeIndex = (tab["index"] as? Int) ?? 1
     guard activeIndex > 0, activeIndex <= entries.count else {
-      logger.warning("Firefox sessionstore: invalid active index \(activeIndex)")
+      logger.warning("Sessionstore: invalid active index \(activeIndex)")
       return nil
     }
 

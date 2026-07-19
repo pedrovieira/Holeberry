@@ -31,6 +31,8 @@ enum Browser: String, CaseIterable {
   case firefox = "org.mozilla.firefox"
   case firefoxDeveloperEdition = "org.mozilla.firefoxdeveloperedition"
   case firefoxNightly = "org.mozilla.nightly"
+  // Zen Browser
+  case zen = "app.zen-browser.zen"
 
   var bundleID: String { rawValue }
 
@@ -58,6 +60,7 @@ enum Browser: String, CaseIterable {
     case .firefox: return "Firefox"
     case .firefoxDeveloperEdition: return "Firefox Developer Edition"
     case .firefoxNightly: return "Firefox Nightly"
+    case .zen: return "Zen Browser"
     }
   }
 }
