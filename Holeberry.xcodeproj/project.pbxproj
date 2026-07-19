@@ -45,6 +45,7 @@
 		6DC693BE85C64E78FDE8385E /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2E357D9079D86EABA28C75 /* KeychainManager.swift */; };
 		727E3ABAD8B275F981C811C6 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0091C471D90246392D8A264 /* UpdateManager.swift */; };
 		7914218930096F4DB12917C0 /* HTTPMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */; };
+		7B9757D8CBD6AE3D784E42C4 /* DurationPickerAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01CA02FBB83C18A92E629DBC /* DurationPickerAlert.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
 		81DE794E941B8F72B2D53151 /* BrowserUrlFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39565CB3B24FB9693EF4604 /* BrowserUrlFetcher.swift */; };
 		8B0DF160023249B935D7C313 /* SafariUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */; };
@@ -75,6 +76,7 @@
 		E1D97CDD8096AF9BD3E99DBD /* App+Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F81FF4F72C7E4177ADE4917 /* App+Defaults.swift */; };
 		E830E1B1A8E6128D7D335582 /* AuthV6SessionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A8E2CF4F5AA35BB686EBBD /* AuthV6SessionProvider.swift */; };
 		EB95493A2EEBFF1306830B92 /* PiholeScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D0D96C29BBF2066F730560 /* PiholeScanner.swift */; };
+		EDEEFD250744C2FFE323C513 /* DurationField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D846C1B254E9C3A61C56DB49 /* DurationField.swift */; };
 		EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */; };
 		EF377E2EC98FAC668E74B590 /* MenuItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC23106EDFED2519504E3E89 /* MenuItemFactory.swift */; };
 		FAD5590CC7B0568772EB01AD /* Browser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAE03C986FB57395AC64F527 /* Browser.swift */; };
@@ -93,6 +95,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		01CA02FBB83C18A92E629DBC /* DurationPickerAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationPickerAlert.swift; sourceTree = "<group>"; };
 		01E3A2221DD64B23DCD681D9 /* TemporaryUnblockPiholeServiceDecorator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryUnblockPiholeServiceDecorator.swift; sourceTree = "<group>"; };
 		06070B2F6062558A7C886BA9 /* RecentlyBlockedMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyBlockedMenu.swift; sourceTree = "<group>"; };
 		093FB82D7ED6970B888349C6 /* BrowserActiveUrlFetchingStrategyFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserActiveUrlFetchingStrategyFactory.swift; sourceTree = "<group>"; };
@@ -152,6 +155,7 @@
 		D48A2E625686DBB46B548D0E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D4D28F4C94E46B4F9FED9CD1 /* BrowserTabCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabCoordinator.swift; sourceTree = "<group>"; };
 		D7B0510F82B4477AFBA5C296 /* MainStatusBarMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainStatusBarMenu.swift; sourceTree = "<group>"; };
+		D846C1B254E9C3A61C56DB49 /* DurationField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationField.swift; sourceTree = "<group>"; };
 		DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceFactory.swift; sourceTree = "<group>"; };
 		DD3CA987B28094B70335ED14 /* PiholeVersionDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeVersionDetector.swift; sourceTree = "<group>"; };
 		DFD4AD3C75B5B745A796E95B /* WordLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLabel.swift; sourceTree = "<group>"; };
@@ -197,6 +201,8 @@
 		16052FF148BF43B05B561212 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				D846C1B254E9C3A61C56DB49 /* DurationField.swift */,
+				01CA02FBB83C18A92E629DBC /* DurationPickerAlert.swift */,
 				3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */,
 				D7B0510F82B4477AFBA5C296 /* MainStatusBarMenu.swift */,
 				85BD5C9D1E8AA2311420E550 /* MenuActions.swift */,
@@ -538,6 +544,8 @@
 				626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */,
 				B3B4B6C8F0805665C62CF8BC /* ConnectionStatus.swift in Sources */,
 				C08544537C22B1C069A77DE9 /* DomainEntry.swift in Sources */,
+				EDEEFD250744C2FFE323C513 /* DurationField.swift in Sources */,
+				7B9757D8CBD6AE3D784E42C4 /* DurationPickerAlert.swift in Sources */,
 				8C79C94542328E68480EEF62 /* FirefoxSessionStoreUrlFetchingStrategy.swift in Sources */,
 				7914218930096F4DB12917C0 /* HTTPMethod.swift in Sources */,
 				6549A3E7D99C560B409CD63A /* HTTPURLResponse+StatusCodes.swift in Sources */,
