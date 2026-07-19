@@ -25,7 +25,7 @@ final class DurationPickerAlert: NSAlert {
     title: String,
     message: String,
     confirmButton: String,
-    defaultDuration: TimeInterval = 5 * 60
+    defaultDuration: TimeInterval = 30 * 60
   ) {
     self.durationField = DurationField(initialDuration: defaultDuration)
     super.init()
