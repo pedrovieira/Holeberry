@@ -8,18 +8,18 @@ import AppKit
 /// caller (MenuBuilder) supplies fully-wired menus whose items already target
 /// the shared `MenuActionTarget` — no `@objc` or duplicating that logic here.
 final class RecentlyBlockedMenu: NSMenu, NSMenuDelegate {
-  private let blockedDomains: [BlockedDomain]
+  private let fetchBlocked: () -> [BlockedDomain]
   private let userIP: String?
   private let showAllClients: Bool
   private let buildDurationSubmenu: (String) -> NSMenu
 
   init(
-    blockedDomains: [BlockedDomain],
+    fetchBlocked: @escaping () -> [BlockedDomain],
     userIP: String?,
     showAllClients: Bool,
     buildDurationSubmenu: @escaping (String) -> NSMenu
   ) {
-    self.blockedDomains = blockedDomains
+    self.fetchBlocked = fetchBlocked
     self.userIP = userIP
     self.showAllClients = showAllClients
     self.buildDurationSubmenu = buildDurationSubmenu
@@ -39,6 +39,15 @@ final class RecentlyBlockedMenu: NSMenu, NSMenuDelegate {
 
   func menuNeedsUpdate(_ menu: NSMenu) {
     menu.removeAllItems()
+
+    let blockedDomains = fetchBlocked()
+
+    guard !blockedDomains.isEmpty else {
+      let item = NSMenuItem(title: "No recently blocked domains", action: nil, keyEquivalent: "")
+      item.isEnabled = false
+      addItem(item)
+      return
+    }
 
     for entry in blockedDomains {
       let domainItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")

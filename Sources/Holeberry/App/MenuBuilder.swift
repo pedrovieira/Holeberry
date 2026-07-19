@@ -13,7 +13,7 @@ struct MenuBuilder {
   func buildMenu(
     actions: MenuActions,
     isTimerDisabled: Bool,
-    recentBlocked: [BlockedDomain],
+    recentBlockedProvider: @escaping () -> [BlockedDomain],
     userIP: String?,
     showAllClients: Bool,
     error: String?,
@@ -66,7 +66,7 @@ struct MenuBuilder {
     menu.addItem(.separator())
     addRecentlyBlockedSection(
       to: menu,
-      recentBlocked: recentBlocked,
+      recentBlockedProvider: recentBlockedProvider,
       userIP: userIP,
       showAllClients: showAllClients,
       isConnected: isConnected,
@@ -286,23 +286,16 @@ struct MenuBuilder {
   // swiftlint:disable:next function_parameter_count
   private func addRecentlyBlockedSection(
     to menu: NSMenu,
-    recentBlocked: [BlockedDomain],
+    recentBlockedProvider: @escaping () -> [BlockedDomain],
     userIP: String?,
     showAllClients: Bool,
     isConnected: Bool,
     target: MenuActionTarget
   ) {
-    if recentBlocked.isEmpty {
-      let item = NSMenuItem(title: "Recently Blocked", action: nil, keyEquivalent: "")
-      item.isEnabled = false
-      menu.addItem(item)
-      return
-    }
-
     // Capture `self` and `target` strongly — `self` (MenuBuilder) is used once
     // to build the closure that `RecentlyBlockedMenu` stores for its lifetime.
     let submenu = RecentlyBlockedMenu(
-      blockedDomains: recentBlocked,
+      fetchBlocked: recentBlockedProvider,
       userIP: userIP,
       showAllClients: showAllClients
     ) { [self, target] domain in
