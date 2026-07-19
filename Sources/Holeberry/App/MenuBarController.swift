@@ -129,7 +129,7 @@ final class MenuBarController: NSObject {
         }
       ),
       isTimerDisabled: timerManager.isDisabled,
-      recentBlocked: statusMonitor.recentBlocked,
+      recentBlockedProvider: { [statusMonitor] in statusMonitor.recentBlocked },
       userIP: localIPAddressResolver.localIPAddress(),
       showAllClients: Defaults[.showAllClientsRecentBlocked()],
       error: errorMessage,
