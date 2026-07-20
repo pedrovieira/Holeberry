@@ -4,8 +4,8 @@ import Foundation
 import OSLog
 
 @MainActor
-final class ServerStatusMonitor: ObservableObject {
-  static let shared = ServerStatusMonitor(manager: .shared, networkInterface: LocalIPAddressResolver())
+final class ServerStatusPoller: ObservableObject {
+  static let shared = ServerStatusPoller(manager: .shared, networkInterface: LocalIPAddressResolver())
 
   @Published var servers: [ServerConfig] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]
