@@ -78,6 +78,29 @@ final class ServerStatusMonitor: ObservableObject {
     startPolling()
   }
 
+  // MARK: - Blocking Operations
+
+  /// Send a blocking toggle to the server and immediately reflect the new state locally,
+  /// so the menu dot doesn't wait 30s for the next poll to update.
+  ///
+  /// - Note: This is the funnel that keeps `blockingStatuses` and `connectionStatuses`
+  ///   in sync. Prefer this over calling `manager.setBlocking(...)` directly, which
+  ///   bypasses the local reflection.
+  /// Send a blocking toggle to all servers and immediately reflect the new state locally.
+  func applyBlockingChange(enabled: Bool, duration: TimeInterval?) async {
+    let results = await manager.setBlocking(enabled: enabled, duration: duration)
+    for (id, success) in results {
+      if success {
+        let status: BlockingStatus = enabled ? .enabled : .disabled(remainingSeconds: duration)
+        blockingStatuses[id] = status
+        connectionStatuses[id] = .connected
+      } else {
+        connectionStatuses[id] = .disconnected
+        blockingStatuses.removeValue(forKey: id)
+      }
+    }
+  }
+
   // MARK: - Scanning
 
   private var connectedCount: Int {
@@ -111,35 +134,30 @@ final class ServerStatusMonitor: ObservableObject {
     }
 
     logger.debug("Polling all servers...")
-    var anyError: String?
 
-    for config in servers {
-      do {
-        let blocking = try await manager.getBlockingStatus(for: config.id)
-        connectionStatuses[config.id] = .connected
-        blockingStatuses[config.id] = blocking
+    // Get blocking statuses from all servers in parallel
+    let blockingResults = await manager.getBlockingStatus()
+    for (id, status) in blockingResults {
+      if let status {
+        connectionStatuses[id] = .connected
+        blockingStatuses[id] = status
+      } else {
+        connectionStatuses[id] = .disconnected
+        blockingStatuses.removeValue(forKey: id)
+      }
+    }
 
-        // Query summary stats
-        do {
-          let summary = try await manager.getQuerySummary(for: config.id)
-          querySummaries[config.id] = summary
-        } catch {
-          logger.warning(
-            "Query summary failed for \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)")
-          querySummaries.removeValue(forKey: config.id)
-          // Non-fatal: stats just won't include this instance this cycle
-        }
-      } catch {
-        logger.warning("Poll failed for \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)")
-        connectionStatuses[config.id] = .disconnected
-        blockingStatuses.removeValue(forKey: config.id)
-        anyError = anyError ?? error.localizedDescription
+    // Get query summaries from all servers in parallel
+    let summaryResults = await manager.getQuerySummary()
+    for (id, summary) in summaryResults {
+      if let summary {
+        querySummaries[id] = summary
+      } else {
+        querySummaries.removeValue(forKey: id)
       }
     }
 
     servers = manager.servers
-
-    lastPollError = anyError
 
     // Fetch recent blocked domains across all servers
     do {

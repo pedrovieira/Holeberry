@@ -80,7 +80,7 @@ final class MenuBarController: NSObject {
     button.target = self
   }
 
-  // swiftlint:disable:next function_body_length
+
   @objc private func handleClick() {
     // Refresh data in the background for next time, but show the menu now with cached data
     statusMonitor.pollNow()
@@ -91,26 +91,17 @@ final class MenuBarController: NSObject {
       actions: MenuActions(
         openAppSettings: { SettingsWindowController.shared.showWindow() },
         checkForUpdates: { [updater] in updater.checkForUpdates() },
-        disableBlocking: { [serverManager, timerManager, logger] duration in
-          guard let server = serverManager.servers.first else { return }
+        disableBlocking: { [serverManager, statusMonitor, timerManager, logger] duration in
+          guard !serverManager.servers.isEmpty else { return }
           Task {
-            do {
-              try await serverManager.setBlocking(for: server.id, enabled: false, duration: duration)
-              if let duration { timerManager.startDisable(duration: duration) }
-            } catch {
-              logger.error("Blocking action failed: \(error.localizedDescription, privacy: .public)")
-            }
+            await statusMonitor.applyBlockingChange(enabled: false, duration: duration)
+            if let duration { timerManager.startDisable(duration: duration) }
           }
         },
-        reEnableBlocking: { [serverManager, timerManager, logger] in
-          guard let server = serverManager.servers.first else { return }
+        reEnableBlocking: { [statusMonitor, timerManager] in
           Task {
-            do {
-              try await serverManager.setBlocking(for: server.id, enabled: true, duration: nil)
-              timerManager.cancelDisable()
-            } catch {
-              logger.error("Re-enable blocking failed: \(error.localizedDescription, privacy: .public)")
-            }
+            await statusMonitor.applyBlockingChange(enabled: true, duration: nil)
+            timerManager.cancelDisable()
           }
         },
         disableURL: { [weak self] domain, duration in
@@ -229,11 +220,9 @@ final class MenuBarController: NSObject {
   private func pollInitialStatus() {
     guard let server = serverManager.servers.first else { return }
     Task {
-      do {
-        let status = try await serverManager.getBlockingStatus(for: server.id)
+      let statuses = await serverManager.getBlockingStatus()
+      if let status = statuses[server.id], let status {
         timerManager.syncFromRemote(status)
-      } catch {
-        logger.warning("Initial status poll failed: \(error.localizedDescription, privacy: .public)")
       }
     }
   }

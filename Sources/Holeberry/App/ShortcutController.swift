@@ -66,35 +66,11 @@ final class ShortcutController {
       return
     }
 
-    let firstError: String? = await withTaskGroup(of: String?.self) { group in
-      for server in servers {
-        group.addTask {
-          do {
-            try await self.serverManager.setBlocking(for: server.id, enabled: enabled, duration: duration)
-            return nil
-          } catch {
-            self.logger.warning(
-              """
-              Shortcut setBlocking failed for \(server.label ?? server.url): \
-              \(error.localizedDescription, privacy: .public)
-              """
-            )
-            return error.localizedDescription
-          }
-        }
-      }
-
-      var firstError: String?
-      for await result in group {
-        if firstError == nil, let error = result {
-          firstError = error
-        }
-      }
-      return firstError
-    }
-
-    if let errorMessage = firstError {
-      await postErrorNotification(action: enabled ? "enable" : "disable", error: errorMessage)
+    let results = await serverManager.setBlocking(enabled: enabled, duration: duration)
+    if let firstFailure = results.first { !$0.value } {
+      let label = servers.first { $0.id == firstFailure.key }?.label ?? firstFailure.key.uuidString
+      logger.warning("Shortcut setBlocking failed for \(label)")
+      await postErrorNotification(action: enabled ? "enable" : "disable", error: "Failed for \(label)")
     }
   }
 
