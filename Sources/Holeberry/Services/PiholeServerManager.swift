@@ -1,6 +1,8 @@
 import Defaults
 import Foundation
 import OSLog
+// swiftlint:disable file_length
+
 @MainActor
 final class PiholeServerManager: ObservableObject {
   private static let maxServers = 2
@@ -157,14 +159,58 @@ final class PiholeServerManager: ObservableObject {
 
   // MARK: - Status & Blocking
 
-  func getBlockingStatus(for id: UUID) async throws -> BlockingStatus {
+  /// Returns blocking status for all servers. Each entry is `nil` if that server was unreachable.
+  func getBlockingStatus() async -> [UUID: BlockingStatus?] {
+    await withTaskGroup(of: (UUID, BlockingStatus?).self) { group in
+      for config in servers {
+        group.addTask {
+          do {
+            let status = try await self.getBlockingStatus(for: config.id)
+            return (config.id, status)
+          } catch {
+            return (config.id, nil)
+          }
+        }
+      }
+      var results: [UUID: BlockingStatus?] = [:]
+      for await (id, status) in group {
+        results[id] = status
+      }
+      return results
+    }
+  }
+
+  /// Per-server blocking check. Prefer the umbrella `getBlockingStatus()`.
+  private func getBlockingStatus(for id: UUID) async throws -> BlockingStatus {
     guard let service = services[id] else {
       throw PiholeError.unknown("Server not found")
     }
     return try await service.checkStatus()
   }
 
-  func setBlocking(for id: UUID, enabled: Bool, duration: TimeInterval?) async throws {
+  /// Toggle blocking on all servers. Returns per-server success/failure.
+  func setBlocking(enabled: Bool, duration: TimeInterval?) async -> [UUID: Bool] {
+    await withTaskGroup(of: (UUID, Bool).self) { group in
+      for config in servers {
+        group.addTask {
+          do {
+            try await self.setBlocking(for: config.id, enabled: enabled, duration: duration)
+            return (config.id, true)
+          } catch {
+            return (config.id, false)
+          }
+        }
+      }
+      var results: [UUID: Bool] = [:]
+      for await (id, success) in group {
+        results[id] = success
+      }
+      return results
+    }
+  }
+
+  /// Per-server blocking toggle. Prefer the umbrella `setBlocking(enabled:duration:)`.
+  private func setBlocking(for id: UUID, enabled: Bool, duration: TimeInterval?) async throws {
     guard let service = services[id] else {
       throw PiholeError.unknown("Server not found")
     }
@@ -180,8 +226,12 @@ final class PiholeServerManager: ObservableObject {
   // MARK: - Session Management
 
   func logoutAll() async {
-    for (_, service) in services {
-      await service.logout()
+    await withTaskGroup(of: Void.self) { group in
+      for (_, service) in services {
+        group.addTask {
+          await service.logout()
+        }
+      }
     }
     services.removeAll()
     syncConfigs()
@@ -193,10 +243,32 @@ final class PiholeServerManager: ObservableObject {
 
   // MARK: - Typed Operations
 
-  func unblockDomain(_ domain: String, duration: TimeInterval?, for serverID: UUID) async throws {
-    guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
+  /// Unblock a domain on all servers. Returns per-server result (success or error).
+  func unblockDomain(_ domain: String, duration: TimeInterval?) async -> [UUID: Result<Void, any Error>] {
     let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
-    try await service.unblockDomain(stripped, duration: duration)
+    return await withTaskGroup(of: (UUID, Result<Void, any Error>).self) { group in
+      for config in servers {
+        group.addTask {
+          do {
+            try await self.unblockDomain(stripped, duration: duration, for: config.id)
+            return (config.id, .success(()))
+          } catch {
+            return (config.id, .failure(error))
+          }
+        }
+      }
+      var results: [UUID: Result<Void, any Error>] = [:]
+      for await (id, result) in group {
+        results[id] = result
+      }
+      return results
+    }
+  }
+
+  /// Per-server unblock. Prefer the umbrella `unblockDomain(_:duration:)`.
+  private func unblockDomain(_ domain: String, duration: TimeInterval?, for serverID: UUID) async throws {
+    guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
+    try await service.unblockDomain(domain, duration: duration)
   }
 
   func deleteDomain(_ domain: String) async {
@@ -288,7 +360,29 @@ final class PiholeServerManager: ObservableObject {
     return deduped
   }
 
-  func getQuerySummary(for serverID: UUID) async throws -> QuerySummary {
+  /// Returns query summaries for all servers. Each entry is `nil` if that server was unreachable.
+  func getQuerySummary() async -> [UUID: QuerySummary?] {
+    await withTaskGroup(of: (UUID, QuerySummary?).self) { group in
+      for config in servers {
+        group.addTask {
+          do {
+            let summary = try await self.getQuerySummary(for: config.id)
+            return (config.id, summary)
+          } catch {
+            return (config.id, nil)
+          }
+        }
+      }
+      var results: [UUID: QuerySummary?] = [:]
+      for await (id, summary) in group {
+        results[id] = summary
+      }
+      return results
+    }
+  }
+
+  /// Per-server query summary. Prefer the umbrella `getQuerySummary()`.
+  private func getQuerySummary(for serverID: UUID) async throws -> QuerySummary {
     guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
     return try await service.getQuerySummary()
   }
@@ -298,48 +392,28 @@ final class PiholeServerManager: ObservableObject {
   func unblock(domain: String, duration: TimeInterval) async throws {
     guard !servers.isEmpty else { throw PiholeError.unknown("No configured Pi-hole instance") }
 
-    let serverList = servers
-    typealias ServerResult = (succeeded: Bool, error: Error?)
-    let results: [ServerResult] = await withTaskGroup(of: ServerResult.self) { group in
-      for config in serverList {
-        group.addTask {
-          do {
-            try await self.unblockDomain(domain, duration: duration, for: config.id)
-            return (true, nil)
-          } catch {
-            self.logger.warning(
-              "Unblock failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
-            )
-            return (false, error)
-          }
-        }
-      }
-
-      var results: [ServerResult] = []
-      for await result in group {
-        results.append(result)
-      }
-      return results
+    let results = await unblockDomain(domain, duration: duration)
+    let anySuccess = results.values.contains {
+      if case .success = $0 { return true }
+      return false
     }
-
-    let anySuccess = results.contains(where: \.succeeded)
-    let lastError = results.compactMap(\.error).last
-    guard anySuccess else { throw lastError ?? PiholeError.unknown("Failed to unblock on all servers") }
+    guard anySuccess else {
+      let lastError = results.values.compactMap {
+        if case .failure(let error) = $0 { return error }
+        return nil
+      }.last
+      throw lastError ?? PiholeError.unknown("Failed to unblock on all servers")
+    }
   }
 
   func addToAllowlist(domain: String) async {
-    let serverList = servers
-    await withTaskGroup(of: Void.self) { group in
-      for config in serverList {
-        group.addTask {
-          do {
-            try await self.unblockDomain(domain, duration: nil, for: config.id)
-          } catch {
-            self.logger.warning(
-              "Allowlist failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
-            )
-          }
-        }
+    let results = await unblockDomain(domain, duration: nil)
+    for (configId, result) in results {
+      if case .failure(let error) = result {
+        let label = servers.first { $0.id == configId }?.label ?? configId.uuidString
+        self.logger.warning(
+          "Allowlist failed on \(label): \(error.localizedDescription, privacy: .public)"
+        )
       }
     }
   }
