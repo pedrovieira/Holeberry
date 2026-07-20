@@ -2,6 +2,9 @@ import AppKit
 
 // swiftlint:disable file_length
 
+/// Amber color (#ff9f0a) for the "instances disagree" state.
+private let statusAmber = NSColor(calibratedRed: 1.0, green: 0.624, blue: 0.039, alpha: 1.0)
+
 /// Stateless menu-construction helper.
 ///
 /// Receives all data and actions as parameters; returns a fully-built
@@ -32,7 +35,6 @@ struct MenuBuilder {
       to: menu,
       error: error,
       isConnected: isConnected,
-      isTimerDisabled: isTimerDisabled,
       servers: servers,
       querySummaries: querySummaries,
       connectionStatuses: connectionStatuses,
@@ -85,7 +87,6 @@ struct MenuBuilder {
     to menu: NSMenu,
     error: String?,
     isConnected: Bool,
-    isTimerDisabled: Bool,
     servers: [ServerConfig],
     querySummaries: [UUID: QuerySummary],
     connectionStatuses: [UUID: ConnectionStatus],
@@ -119,7 +120,6 @@ struct MenuBuilder {
       menu.addItem(item)
     } else {
       let (dotColor, statusText) = resolveStatusColor(
-        isTimerDisabled: isTimerDisabled,
         connectionStatuses: connectionStatuses,
         blockingStatuses: blockingStatuses,
         servers: servers
@@ -145,30 +145,34 @@ struct MenuBuilder {
   }
 
   private func resolveStatusColor(
-    isTimerDisabled: Bool,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
     servers: [ServerConfig]
   ) -> (dotColor: NSColor, statusText: String) {
-    if isTimerDisabled {
-      return (.systemRed, "Blocking Disabled")
+    // 1. Any instance unreachable → red
+    let allReachable = servers.allSatisfy { connectionStatuses[$0.id] == .connected }
+    guard allReachable else {
+      return (.systemRed, "Instance Unreachable")
     }
-    let connectedIDs = servers.compactMap { config in
-      connectionStatuses[config.id] == .connected ? config.id : nil
-    }
-    if connectedIDs.isEmpty {
-      return (.systemRed, "Blocking Disabled")
-    }
-    let blockingConnectedIDs = connectedIDs.filter { id in
-      if case .enabled = blockingStatuses[id] { return true }
+
+    // 2. Check blocking state among reachable servers
+    let blockingCount = servers.filter { config in
+      if case .enabled = blockingStatuses[config.id] { return true }
       return false
-    }
-    if blockingConnectedIDs.count == connectedIDs.count {
+    }.count
+
+    let allBlocking = blockingCount == servers.count
+    let noneBlocking = blockingCount == 0
+
+    if !allBlocking && !noneBlocking {
+      // 3. Instances disagree → amber
+      return (statusAmber, "Blocking Partially Active")
+    } else if allBlocking {
+      // 4. All blocking → green
       return (.systemGreen, "Blocking Active")
-    } else if !blockingConnectedIDs.isEmpty {
-      return (.systemYellow, "Blocking Partially Active")
     } else {
-      return (.systemRed, "Blocking Disabled")
+      // 5. All confirmed off → gray
+      return (.systemGray, "Blocking Disabled")
     }
   }
 
@@ -194,7 +198,14 @@ struct MenuBuilder {
     for config in servers {
       let connected = connectionStatuses[config.id] == .connected
       let blocking = .enabled == blockingStatuses[config.id]
-      let dotColor: NSColor = (connected && blocking) ? .systemGreen : .systemRed
+      let dotColor: NSColor
+      if !connected {
+        dotColor = .systemRed
+      } else if blocking {
+        dotColor = .systemGreen
+      } else {
+        dotColor = .systemGray
+      }
 
       let item = NSMenuItem()
       if showStats, let summary = querySummaries[config.id] {
