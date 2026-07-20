@@ -43,12 +43,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     self.updateManager = updaterManager
     SettingsWindowController.shared.setUpdater(updaterManager.updater)
 
-    ServerStatusMonitor.shared.startPolling()
+    ServerStatusPoller.shared.startPolling()
 
     let timerManager = TimerManager()
     let serverManager = PiholeServerManager.shared
     let reachability = ReachabilityMonitor()
-    let statusMonitor = ServerStatusMonitor.shared
+    let statusMonitor = ServerStatusPoller.shared
     let localIPAddressResolver = LocalIPAddressResolver()
     let appFocusMonitor = AppFocusMonitor()
     let browserUrlFetcher = BrowserUrlFetcher()

@@ -11,7 +11,7 @@ final class MenuBarController: NSObject {
   private let timerManager: TimerManager
   private let serverManager: PiholeServerManager
   private let reachability: ReachabilityMonitor
-  private let statusMonitor: ServerStatusMonitor
+  private let statusMonitor: ServerStatusPoller
   private let browserTabCoordinator: BrowserTabCoordinator
   private let localIPAddressResolver: LocalIPAddressProviding
   private let updater: SPUUpdater
@@ -44,7 +44,7 @@ final class MenuBarController: NSObject {
     timerManager: TimerManager,
     serverManager: PiholeServerManager,
     reachability: ReachabilityMonitor,
-    statusMonitor: ServerStatusMonitor,
+    statusMonitor: ServerStatusPoller,
     browserTabCoordinator: BrowserTabCoordinator,
     localIPAddressResolver: LocalIPAddressProviding = LocalIPAddressResolver(),
     updater: SPUUpdater

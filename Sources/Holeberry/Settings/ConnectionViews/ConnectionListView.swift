@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ConnectionListView: View {
   let serverManager: PiholeServerManager
-  @ObservedObject private var monitor = ServerStatusMonitor.shared
+  @ObservedObject private var monitor = ServerStatusPoller.shared
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: ServerConfig?
