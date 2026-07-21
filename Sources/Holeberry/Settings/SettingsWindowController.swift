@@ -6,6 +6,7 @@ final class SettingsWindowController: NSWindowController {
   static let shared = SettingsWindowController()
 
   private var updater: SPUUpdater?
+  private var hasSetContentView = false
 
   private init() {
     let window = NSWindow(
@@ -24,7 +25,6 @@ final class SettingsWindowController: NSWindowController {
 
   func setUpdater(_ updater: SPUUpdater) {
     self.updater = updater
-    setupWindow()
   }
 
   private func setupWindow() {
@@ -33,7 +33,6 @@ final class SettingsWindowController: NSWindowController {
     window?.titlebarAppearsTransparent = false
     window?.titleVisibility = .visible
     window?.toolbarStyle = .unified
-    window?.contentView = NSHostingView(rootView: SettingsView(serverManager: .shared, updater: updater))
     window?.setFrameAutosaveName("Settings")
     window?.collectionBehavior = .managed
     window?.delegate = self
@@ -45,6 +44,17 @@ final class SettingsWindowController: NSWindowController {
       NSApp.activate(ignoringOtherApps: true)
       return
     }
+
+    // Lazily create the NSHostingView the first time the window is shown.
+    // With defer: false the window always has a default NSView as contentView,
+    // so we track this with a boolean flag instead of checking for nil.
+    if !hasSetContentView {
+      window?.contentView = NSHostingView(
+        rootView: SettingsView(serverManager: .shared, updater: updater)
+      )
+      hasSetContentView = true
+    }
+
     window?.center()
     window?.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
