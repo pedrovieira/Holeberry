@@ -26,14 +26,10 @@ enum SettingsTab: String, CaseIterable {
 }
 
 struct SettingsView: View {
-  @Default(.recentBlockedCount())
-  var recentBlockedCount
-  @Default(.launchAtLogin())
-  var launchAtLogin
-  @Default(.browserTabUnblockEnabled())
-  var browserTabUnblockEnabled
-  @Default(.showAllClientsRecentBlocked())
-  var showAllClientsRecentBlocked
+  @Default var recentBlockedCount: Int
+  @Default var launchAtLogin: Bool
+  @Default var browserTabUnblockEnabled: Bool
+  @Default var showAllClientsRecentBlocked: Bool
 
   @State private var isToggling = false
   @State private var requiresApproval = false
@@ -44,9 +40,18 @@ struct SettingsView: View {
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
-  init(serverManager: PiholeServerManager, initialTab: SettingsTab = .servers, updater: SPUUpdater? = nil) {
+  init(
+    serverManager: PiholeServerManager,
+    initialTab: SettingsTab = .servers,
+    updater: SPUUpdater? = nil,
+    defaultsSuite: UserDefaults = .standard
+  ) {
     self.serverManager = serverManager
     self.updater = updater
+    _recentBlockedCount = .init(.recentBlockedCount(suite: defaultsSuite))
+    _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
+    _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
+    _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
   }
 

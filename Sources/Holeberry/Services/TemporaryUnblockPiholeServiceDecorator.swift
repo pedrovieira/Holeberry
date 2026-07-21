@@ -26,14 +26,17 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
   private var expiryTasks: [String: Task<Void, Never>] = [:]
   private var retryTasks: [String: Task<Void, Never>] = [:]
   private let backoffIntervals: [TimeInterval]
+  private let defaultsSuite: UserDefaults
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "temp-unblock")
 
   init(
     service: PiholeServiceInternal,
-    backoffIntervals: [TimeInterval] = [10, 30, 120, 600]
+    backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
+    defaultsSuite: UserDefaults = .standard
   ) {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals
+    self.defaultsSuite = defaultsSuite
     self.activeRecords = restoreFromDefaults()
     if !activeRecords.isEmpty {
       Task { await reconcileWithServer() }
@@ -107,11 +110,11 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
   // MARK: - Persistence
 
   private func restoreFromDefaults() -> [TempUnblockRecord] {
-    Defaults[.tempUnblocks(for: wrapped.id)]
+    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)]
   }
 
   private func saveRecords() {
-    Defaults[.tempUnblocks(for: wrapped.id)] = activeRecords
+    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)] = activeRecords
   }
 
   // MARK: - Init-time reconciliation

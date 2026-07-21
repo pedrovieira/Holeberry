@@ -29,19 +29,21 @@ enum ResolvedBrowserTab: Equatable {
 final class BrowserTabCoordinator {
   private let monitor: AppFocusMonitor
   private let urlFetcher: BrowserUrlFetcher
+  private let defaultsSuite: UserDefaults
   private let strategyFactory = BrowserActiveUrlFetchingStrategyFactory()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-tab")
 
-  init(monitor: AppFocusMonitor, urlFetcher: BrowserUrlFetcher) {
+  init(monitor: AppFocusMonitor, urlFetcher: BrowserUrlFetcher, defaultsSuite: UserDefaults = .standard) {
     self.monitor = monitor
     self.urlFetcher = urlFetcher
+    self.defaultsSuite = defaultsSuite
   }
 
   // MARK: - Resolve (read-only)
 
   /// Resolves the current browser tab state without side effects.
   func resolve() -> ResolvedBrowserTab {
-    guard Defaults[.browserTabUnblockEnabled()] else {
+    guard Defaults[.browserTabUnblockEnabled(suite: defaultsSuite)] else {
       return .disabled
     }
 
@@ -70,7 +72,7 @@ final class BrowserTabCoordinator {
 
   /// Requests Automation permission (may show TCC dialog), then resolves.
   func requestPermissionAndResolve() -> ResolvedBrowserTab {
-    guard Defaults[.browserTabUnblockEnabled()] else {
+    guard Defaults[.browserTabUnblockEnabled(suite: defaultsSuite)] else {
       return .disabled
     }
 

@@ -52,7 +52,8 @@ final class PiholeServerManager: ObservableObject {
     let service = try serviceFactory.buildService(
       config: config,
       credential: credential,
-      session: session
+      session: session,
+      suite: suite
     )
 
     try await service.login()
@@ -134,7 +135,8 @@ final class PiholeServerManager: ObservableObject {
     if let rebuilt = try? serviceFactory.buildService(
       config: config,
       credential: currentCredential,
-      session: session
+      session: session,
+      suite: suite
     ) {
       services[id] = rebuilt
     }
@@ -440,7 +442,8 @@ final class PiholeServerManager: ObservableObject {
       if let rebuilt = try? serviceFactory.buildService(
         config: config,
         credential: credential,
-        session: session
+        session: session,
+        suite: suite
       ) {
         services[config.id] = rebuilt
       }
