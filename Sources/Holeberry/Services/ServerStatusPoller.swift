@@ -5,7 +5,9 @@ import OSLog
 
 @MainActor
 final class ServerStatusPoller: ObservableObject {
-  static let shared = ServerStatusPoller(manager: .shared, networkInterface: LocalIPAddressResolver())
+  static let shared = ServerStatusPoller(
+    manager: .shared, networkInterface: LocalIPAddressResolver(), defaultsSuite: .standard
+  )
 
   @Published var servers: [ServerConfig] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]
@@ -26,10 +28,17 @@ final class ServerStatusPoller: ObservableObject {
 
   let manager: PiholeServerManager
   let networkInterface: LocalIPAddressProviding
+  private let defaultsSuite: UserDefaults
 
-  init(manager: PiholeServerManager, networkInterface: LocalIPAddressProviding, pollingInterval: TimeInterval = 30) {
+  init(
+    manager: PiholeServerManager,
+    networkInterface: LocalIPAddressProviding,
+    pollingInterval: TimeInterval = 30,
+    defaultsSuite: UserDefaults = .standard
+  ) {
     self.manager = manager
     self.networkInterface = networkInterface
+    self.defaultsSuite = defaultsSuite
     self.pollingInterval = pollingInterval
     self.servers = manager.servers
 
@@ -162,7 +171,7 @@ final class ServerStatusPoller: ObservableObject {
     // Fetch recent blocked domains across all servers
     do {
       let clientIP = networkInterface.localIPAddress()
-      let showAll = Defaults[.showAllClientsRecentBlocked()]
+      let showAll = Defaults[.showAllClientsRecentBlocked(suite: defaultsSuite)]
       let interval = DateInterval(start: Date().addingTimeInterval(-3600), end: Date())
       let blocked = try await manager.getRecentBlocked(
         forClientIp: showAll ? nil : clientIP,

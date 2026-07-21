@@ -15,7 +15,8 @@ struct PiholeServiceFactory {
   func buildService(
     config: ServerConfig,
     credential: String,
-    session: URLSession
+    session: URLSession,
+    suite: UserDefaults = .standard
   ) throws -> PiholeServiceInternal {
     guard let url = URL(string: config.url) else {
       fatalError("Invalid URL in ServerConfig: \(config.url)")
@@ -47,6 +48,6 @@ struct PiholeServiceFactory {
         apiToken: credential
       )
     }
-    return TemporaryUnblockPiholeServiceDecorator(service: raw)
+    return TemporaryUnblockPiholeServiceDecorator(service: raw, defaultsSuite: suite)
   }
 }
