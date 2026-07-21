@@ -26,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var menuBarController: MenuBarController?
   private var shortcutController: ShortcutController?
   private var updateManager: UpdateManager?
+  private var settingsWindowController: SettingsWindowController?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
@@ -41,7 +42,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Start Sparkle updater
     let updaterManager = UpdateManager()
     self.updateManager = updaterManager
-    SettingsWindowController.shared.setUpdater(updaterManager.updater)
+
+    let discoveryService = PiholeDiscoveryService()
+    let settingsWindowController = SettingsWindowController(
+      serverManager: .shared,
+      updater: updaterManager.updater,
+      discoveryService: discoveryService
+    )
+    self.settingsWindowController = settingsWindowController
 
     ServerStatusPoller.shared.startPolling()
 
@@ -64,7 +72,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       statusMonitor: statusMonitor,
       browserTabCoordinator: browserTabCoordinator,
       localIPAddressResolver: localIPAddressResolver,
-      updater: updaterManager.updater
+      updater: updaterManager.updater,
+      settingsWindowController: settingsWindowController
     )
     shortcutController = ShortcutController(
       serverManager: serverManager,
@@ -114,7 +123,7 @@ extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
     if response.notification.request.content.categoryIdentifier == "SHORTCUT_ERROR" {
-      SettingsWindowController.shared.showWindow()
+      settingsWindowController?.showWindow()
     }
     completionHandler()
   }

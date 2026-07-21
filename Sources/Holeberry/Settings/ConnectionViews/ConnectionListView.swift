@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConnectionListView: View {
   let serverManager: PiholeServerManager
+  @ObservedObject var discoveryService: PiholeDiscoveryService
   @ObservedObject private var monitor = ServerStatusPoller.shared
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
@@ -11,8 +12,8 @@ struct ConnectionListView: View {
     monitor.connectionStatuses.values.filter { $0 == .connected }.count
   }
 
-  private var filteredInstances: [PiholeScanner.DiscoveredInstance] {
-    monitor.discoveredInstances.filter { instance in
+  private var filteredInstances: [PiholeDiscoveryService.DiscoveredInstance] {
+    discoveryService.discoveredInstances.filter { instance in
       !monitor.servers.contains { server in
         guard let components = URLComponents(string: server.url),
           let host = components.host
@@ -88,12 +89,12 @@ struct ConnectionListView: View {
 
     // --- Section 2: Instances Found ---
     Section {
-      if monitor.isScanning && filteredInstances.isEmpty {
+      if discoveryService.isScanning && filteredInstances.isEmpty {
         Text("Scanning your network...")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
           .frame(height: 30)
-      } else if !monitor.isScanning && filteredInstances.isEmpty && connectedCount < 2 {
+      } else if !discoveryService.isScanning && filteredInstances.isEmpty && connectedCount < 2 {
         Text("No Pi-hole instances found on your network")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
@@ -117,7 +118,7 @@ struct ConnectionListView: View {
         Text("Available Instances")
           .font(.headline)
         Spacer()
-        if monitor.isScanning {
+        if discoveryService.isScanning {
           ProgressView()
             .controlSize(.small)
         }
@@ -153,10 +154,10 @@ struct ConnectionListView: View {
     // --- Lifecycle ---
     .task {
       monitor.pollNow()
-      await monitor.runScanIfNeeded()
+      await discoveryService.scan()
     }
     .onChange(of: monitor.servers.count) {
-      Task { await monitor.runScanIfNeeded() }
+      Task { await discoveryService.scan() }
     }
   }
 }
@@ -164,7 +165,7 @@ struct ConnectionListView: View {
 // MARK: - Discovered Row
 
 private struct DiscoveredRow: View {
-  let instance: PiholeScanner.DiscoveredInstance
+  let instance: PiholeDiscoveryService.DiscoveredInstance
   let onAdd: () -> Void
 
   @State private var isHovering = false

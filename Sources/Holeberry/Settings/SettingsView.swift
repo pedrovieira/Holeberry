@@ -37,6 +37,7 @@ struct SettingsView: View {
 
   let serverManager: PiholeServerManager
   let updater: SPUUpdater?
+  let discoveryService: PiholeDiscoveryService
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
@@ -44,10 +45,12 @@ struct SettingsView: View {
     serverManager: PiholeServerManager,
     initialTab: SettingsTab = .servers,
     updater: SPUUpdater? = nil,
-    defaultsSuite: UserDefaults = .standard
+    defaultsSuite: UserDefaults = .standard,
+    discoveryService: PiholeDiscoveryService
   ) {
     self.serverManager = serverManager
     self.updater = updater
+    self.discoveryService = discoveryService
     _recentBlockedCount = .init(.recentBlockedCount(suite: defaultsSuite))
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
@@ -75,7 +78,7 @@ struct SettingsView: View {
       switch selectedTab {
       case .servers:
         Form {
-          ConnectionListView(serverManager: serverManager)
+          ConnectionListView(serverManager: serverManager, discoveryService: discoveryService)
         }
         .formStyle(.grouped)
       case .defaults:
