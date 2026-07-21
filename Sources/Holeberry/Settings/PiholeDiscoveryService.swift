@@ -1,8 +1,8 @@
 import Foundation
 
-enum PiholeScanner {
-  // MARK: - Model
+// MARK: - Model
 
+extension PiholeDiscoveryService {
   struct DiscoveredInstance: Identifiable {
     var id: String { addr }
     let addr: String
@@ -14,14 +14,34 @@ enum PiholeScanner {
       return url
     }
   }
+}
 
-  // MARK: - Public API
+// MARK: - Service
+
+@MainActor
+class PiholeDiscoveryService: ObservableObject {
+  @Published var discoveredInstances: [DiscoveredInstance] = []
+  @Published var isScanning = false
+
+  private let networkInterface: LocalIPAddressProviding
+
+  init(networkInterface: LocalIPAddressProviding = LocalIPAddressResolver()) {
+    self.networkInterface = networkInterface
+  }
+
+  func scan() async {
+    guard !isScanning else { return }
+    isScanning = true
+    discoveredInstances = await scanSubnet(localIPAddressResolver: networkInterface)
+    isScanning = false
+  }
+
+  // MARK: - Scanning
 
   /// Scans the local /24 subnet for Pi-hole admin endpoints.
-  /// Returns discovered instances ordered by IP ascending.
   /// Best-effort: unreachable IPs are silently skipped.
   /// Respects cooperative cancellation.
-  static func scan(localIPAddressResolver: LocalIPAddressProviding) async -> [DiscoveredInstance] {
+  private func scanSubnet(localIPAddressResolver: LocalIPAddressProviding) async -> [DiscoveredInstance] {
     guard let localIP = localIPAddressResolver.localIPAddress() else { return [] }
 
     let components = localIP.split(separator: ".")
@@ -31,9 +51,9 @@ enum PiholeScanner {
     return await withTaskGroup(of: DiscoveredInstance?.self) { group in
       for i in 1...254 {
         let addr = "\(prefix).\(i)"
-        group.addTask {
+        group.addTask { [weak self] in
           guard !Task.isCancelled else { return nil }
-          return await checkInstance(addr: addr)
+          return await self?.checkInstance(addr: addr)
         }
       }
 
@@ -52,9 +72,7 @@ enum PiholeScanner {
     }
   }
 
-  // MARK: - Private
-
-  private static func checkInstance(addr: String) async -> DiscoveredInstance? {
+  private func checkInstance(addr: String) async -> DiscoveredInstance? {
     guard let adminURL = URL(string: "http://\(addr)/admin/") else { return nil }
 
     var request = URLRequest(url: adminURL)

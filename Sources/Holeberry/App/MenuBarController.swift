@@ -16,6 +16,7 @@ final class MenuBarController: NSObject {
   private let localIPAddressResolver: LocalIPAddressProviding
   private let updater: SPUUpdater
   private let defaultsSuite: UserDefaults
+  private let settingsWindowController: SettingsWindowController
   private let menuBuilder = MenuBuilder()
 
   private var cancellables = Set<AnyCancellable>()
@@ -49,7 +50,8 @@ final class MenuBarController: NSObject {
     browserTabCoordinator: BrowserTabCoordinator,
     localIPAddressResolver: LocalIPAddressProviding = LocalIPAddressResolver(),
     updater: SPUUpdater,
-    defaultsSuite: UserDefaults = .standard
+    defaultsSuite: UserDefaults = .standard,
+    settingsWindowController: SettingsWindowController
   ) {
     self.timerManager = timerManager
     self.serverManager = serverManager
@@ -59,6 +61,7 @@ final class MenuBarController: NSObject {
     self.localIPAddressResolver = localIPAddressResolver
     self.updater = updater
     self.defaultsSuite = defaultsSuite
+    self.settingsWindowController = settingsWindowController
 
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -92,7 +95,7 @@ final class MenuBarController: NSObject {
     let browserIcon = browserTabStatus.browser.flatMap { resolveBrowserIcon(for: $0) }
     let menu = menuBuilder.buildMenu(
       actions: MenuActions(
-        openAppSettings: { SettingsWindowController.shared.showWindow() },
+        openAppSettings: { [settingsWindowController] in settingsWindowController.showWindow() },
         checkForUpdates: { [updater] in updater.checkForUpdates() },
         disableBlocking: { [serverManager, statusMonitor, timerManager, logger] duration in
           guard !serverManager.servers.isEmpty else { return }

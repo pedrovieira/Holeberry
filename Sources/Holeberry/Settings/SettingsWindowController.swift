@@ -3,28 +3,34 @@ import Sparkle
 import SwiftUI
 
 final class SettingsWindowController: NSWindowController {
-  static let shared = SettingsWindowController()
-
+  let discoveryService: PiholeDiscoveryService
+  private let serverManager: PiholeServerManager
+  private let defaultsSuite: UserDefaults
   private var updater: SPUUpdater?
   private var hasSetContentView = false
 
-  private init() {
+  init(
+    serverManager: PiholeServerManager,
+    updater: SPUUpdater?,
+    discoveryService: PiholeDiscoveryService,
+    defaultsSuite: UserDefaults = .standard
+  ) {
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 580, height: 420),
       styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
       backing: .buffered,
       defer: false
     )
+    self.discoveryService = discoveryService
+    self.serverManager = serverManager
+    self.defaultsSuite = defaultsSuite
+    self.updater = updater
     super.init(window: window)
     setupWindow()
   }
 
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
-  }
-
-  func setUpdater(_ updater: SPUUpdater) {
-    self.updater = updater
   }
 
   private func setupWindow() {
@@ -50,7 +56,7 @@ final class SettingsWindowController: NSWindowController {
     // so we track this with a boolean flag instead of checking for nil.
     if !hasSetContentView {
       window?.contentView = NSHostingView(
-        rootView: SettingsView(serverManager: .shared, updater: updater)
+        rootView: SettingsView(serverManager: serverManager, updater: updater, defaultsSuite: defaultsSuite, discoveryService: discoveryService)
       )
       hasSetContentView = true
     }

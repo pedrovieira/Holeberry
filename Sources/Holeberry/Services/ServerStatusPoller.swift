@@ -16,10 +16,6 @@ final class ServerStatusPoller: ObservableObject {
   @Published var lastPollError: String?
   @Published var recentBlocked: [BlockedDomain] = []
 
-  // Scanner state (persists across tab switches)
-  @Published var discoveredInstances: [PiholeScanner.DiscoveredInstance] = []
-  @Published var isScanning = false
-
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private let pollingInterval: TimeInterval
   private var pollingTask: Task<Void, Never>?
@@ -110,24 +106,6 @@ final class ServerStatusPoller: ObservableObject {
     }
   }
 
-  // MARK: - Scanning
-
-  private var connectedCount: Int {
-    connectionStatuses.values.filter { $0 == .connected }.count
-  }
-
-  func runScanIfNeeded() async {
-    guard !isScanning else { return }
-    guard connectedCount < 2 else {
-      discoveredInstances = []
-      isScanning = false
-      return
-    }
-
-    isScanning = true
-    discoveredInstances = await PiholeScanner.scan(localIPAddressResolver: networkInterface)
-    isScanning = false
-  }
 
   // MARK: - Polling Implementation
 
