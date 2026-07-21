@@ -24,6 +24,7 @@
 		43A7C259B9833484EA3728A0 /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47987F52F2D6124503B041A /* SoftwareUpdater.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
 		4C00449F1192A4D0D6BBE866 /* AuthSessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB5BC6EB79D2AB97E34607A3 /* AuthSessionFactory.swift */; };
+		4ED2C83F53511855981D2655 /* PiholeDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC143430B8C7654D5C5C9B4C /* PiholeDiscoveryService.swift */; };
 		541FB83C9023F440E4111378 /* BrowserActiveUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4CAFE10BF8FAFBC09CE71DB /* BrowserActiveUrlFetchingStrategy.swift */; };
 		57C51F7D8DE6AA3DAAF8F8C4 /* WordLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFD4AD3C75B5B745A796E95B /* WordLabel.swift */; };
 		59B7F0D47CA957D3925EA390 /* Bundle+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19084AE49A1C33ADD772E45C /* Bundle+Extensions.swift */; };
@@ -55,7 +56,6 @@
 		9BFC7720A8727E8050C27E07 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D57315C4CB1DD49992D6933 /* MenuBuilder.swift */; };
 		A056503432246A8DC2A9BE18 /* RecentlyBlockedMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06070B2F6062558A7C886BA9 /* RecentlyBlockedMenu.swift */; };
 		A994F095FB794E3A4442A994 /* PiholeError.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BBBA61BCC50C3234F83862 /* PiholeError.swift */; };
-		AAE897FC6536CFB0B362C864 /* PiholeDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EFAE60CFCA15FEC2418F67F /* PiholeDiscoveryService.swift */; };
 		AF5CA8F4111DE31F1D5E0143 /* LocalIPAddressResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE34D0881B2416F636EAF735 /* LocalIPAddressResolver.swift */; };
 		AFFF0487FAF7AF96E6D3C41A /* MainStatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7B0510F82B4477AFBA5C296 /* MainStatusBarMenu.swift */; };
 		B3B4B6C8F0805665C62CF8BC /* ConnectionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D0BFE31201149D164B93D34 /* ConnectionStatus.swift */; };
@@ -127,7 +127,6 @@
 		6641C7CD83A1BC1F023EC588 /* AppFocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFocusMonitor.swift; sourceTree = "<group>"; };
 		68FB57001D1A5C5B1A69814C /* Logger+Subsystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Subsystem.swift"; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
-		6EFAE60CFCA15FEC2418F67F /* PiholeDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeDiscoveryService.swift; sourceTree = "<group>"; };
 		740E0351B8319723BD1DD852 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariUrlFetchingStrategy.swift; sourceTree = "<group>"; };
 		7A5309DE45FB822B893A799B /* PiholeV6Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV6Service.swift; sourceTree = "<group>"; };
@@ -162,6 +161,7 @@
 		DFD4AD3C75B5B745A796E95B /* WordLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordLabel.swift; sourceTree = "<group>"; };
 		E77630FEB80F0E977ECE2C47 /* AppleScriptUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleScriptUrlFetchingStrategy.swift; sourceTree = "<group>"; };
 		EB5BC6EB79D2AB97E34607A3 /* AuthSessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionFactory.swift; sourceTree = "<group>"; };
+		EC143430B8C7654D5C5C9B4C /* PiholeDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeDiscoveryService.swift; sourceTree = "<group>"; };
 		EE34D0881B2416F636EAF735 /* LocalIPAddressResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalIPAddressResolver.swift; sourceTree = "<group>"; };
 		F20BC6E492A3D31D9FE4E1C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F4A8FD2E70DB2F738EDBD624 /* GeckoSessionStoreUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoSessionStoreUrlFetchingStrategy.swift; sourceTree = "<group>"; };
@@ -279,7 +279,6 @@
 		8BB69277240BEEB373A07922 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
-				6EFAE60CFCA15FEC2418F67F /* PiholeDiscoveryService.swift */,
 				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
 				4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */,
 				05E28E2794738F28F909ADBD /* ConnectionViews */,
@@ -313,6 +312,7 @@
 			isa = PBXGroup;
 			children = (
 				6346A47BAD76D67BC61D6D29 /* CertificateTrustDelegate.swift */,
+				EC143430B8C7654D5C5C9B4C /* PiholeDiscoveryService.swift */,
 				A2BBBA61BCC50C3234F83862 /* PiholeError.swift */,
 				0B7E22A89202908454F32B61 /* PiholeServerManager.swift */,
 				DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */,
@@ -559,7 +559,7 @@
 				9BFC7720A8727E8050C27E07 /* MenuBuilder.swift in Sources */,
 				EF377E2EC98FAC668E74B590 /* MenuItemFactory.swift in Sources */,
 				676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */,
-				AAE897FC6536CFB0B362C864 /* PiholeDiscoveryService.swift in Sources */,
+				4ED2C83F53511855981D2655 /* PiholeDiscoveryService.swift in Sources */,
 				A994F095FB794E3A4442A994 /* PiholeError.swift in Sources */,
 				1D48F5DE87DD5075BB010741 /* PiholeServerManager.swift in Sources */,
 				CBFB3F60995ED900BD1290BA /* PiholeServiceFactory.swift in Sources */,
