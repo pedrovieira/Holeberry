@@ -117,6 +117,7 @@ final class ServerStatusPoller: ObservableObject {
   }
 
   func runScanIfNeeded() async {
+    guard !isScanning else { return }
     guard connectedCount < 2 else {
       discoveredInstances = []
       isScanning = false
