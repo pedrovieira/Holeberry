@@ -6,6 +6,8 @@ excluded:
 strict: true
 
 disabled_rules:
+  - attributes
+  - blanket_disable_command
   - discarded_notification_center_observer
   - notification_center_detachment
   - opening_brace
@@ -15,7 +17,6 @@ disabled_rules:
 
 opt_in_rules:
   - array_init
-  - attributes
   - closure_end_indentation
   - closure_spacing
   - collection_alignment

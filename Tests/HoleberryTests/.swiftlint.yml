@@ -1,0 +1,21 @@
+disabled_rules:
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - line_length
+
+identifier_name:
+  min_length: 2
+  max_length: 60
+
+type_body_length:
+  warning: 600
+  error: 800
+
+file_length:
+  warning: 600
+  error: 800
+
+function_body_length:
+  warning: 120
+  error: 200
