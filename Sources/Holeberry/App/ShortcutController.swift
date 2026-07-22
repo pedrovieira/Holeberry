@@ -67,7 +67,7 @@ final class ShortcutController {
     }
 
     let results = await serverManager.setBlocking(enabled: enabled, duration: duration)
-    if let firstFailure = results.first { !$0.value } {
+    if let firstFailure = results.first(where: { !$0.value }) {
       let label = servers.first { $0.id == firstFailure.key }?.label ?? firstFailure.key.uuidString
       logger.warning("Shortcut setBlocking failed for \(label)")
       await postErrorNotification(action: enabled ? "enable" : "disable", error: "Failed for \(label)")
