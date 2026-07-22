@@ -9,7 +9,7 @@ import OSLog
 actor AuthV6SessionProvider: AuthSessionProviding {
   private let host: URL
   private let password: String
-  private let urlSession: URLSession
+  private let urlSession: any HTTPRequestable
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v6-session")
 
   private static let apiAuthPath = "/api/auth"
@@ -26,7 +26,7 @@ actor AuthV6SessionProvider: AuthSessionProviding {
   init(
     host: URL,
     password: String,
-    urlSession: URLSession
+    urlSession: any HTTPRequestable
   ) {
     self.host = host
     self.password = password

@@ -25,7 +25,7 @@ struct PiholeVersionDetector {
     return (json[Self.hintKey] as? String) ?? errorDict?[Self.hintKey] as? String
   }
 
-  func detect(baseURL: URL, session: URLSession) async throws -> ServerVersion {
+  func detect(baseURL: URL, session: any HTTPRequestable) async throws -> ServerVersion {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("/admin/api.php"),
       resolvingAgainstBaseURL: false

@@ -21,7 +21,7 @@ final class PiholeV5Service: PiholeServiceInternal {
 
   // MARK: - API
   private var baseURL: URL
-  private var session: URLSession
+  private var session: any HTTPRequestable
   private let apiToken: String
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
@@ -39,7 +39,7 @@ final class PiholeV5Service: PiholeServiceInternal {
     url: String,
     version: ServerVersion,
     baseURL: URL,
-    session: URLSession,
+    session: any HTTPRequestable,
     apiToken: String
   ) {
     self.id = id
