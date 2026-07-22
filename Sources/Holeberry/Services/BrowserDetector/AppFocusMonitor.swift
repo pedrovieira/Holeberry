@@ -6,7 +6,11 @@ import OSLog
 /// Observes NSWorkspace notifications to track the last-seen browser.
 /// The cache persists until a different browser is detected, the browser
 /// is quit, or this object is deallocated.
-final class AppFocusMonitor: ObservableObject, @unchecked Sendable {
+protocol AppFocusMonitoring: AnyObject, Sendable {
+  @MainActor var lastSeenBrowser: Browser? { get }
+}
+
+final class AppFocusMonitor: ObservableObject, AppFocusMonitoring, @unchecked Sendable {
   @MainActor @Published private(set) var lastSeenBrowser: Browser?
 
   private var activationObserver: NSObjectProtocol?

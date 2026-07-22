@@ -97,7 +97,7 @@ final class MenuBarController: NSObject {
       actions: MenuActions(
         openAppSettings: { [settingsWindowController] in settingsWindowController.showWindow() },
         checkForUpdates: { [updater] in updater.checkForUpdates() },
-        disableBlocking: { [serverManager, statusMonitor, timerManager, logger] duration in
+        disableBlocking: { [serverManager, statusMonitor, timerManager] duration in
           guard !serverManager.servers.isEmpty else { return }
           Task {
             await statusMonitor.applyBlockingChange(enabled: false, duration: duration)

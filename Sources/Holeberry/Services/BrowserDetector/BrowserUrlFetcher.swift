@@ -2,10 +2,23 @@ import AppKit
 import Foundation
 import OSLog
 
+// MARK: - Protocol
+
 @MainActor
-final class BrowserUrlFetcher {
+protocol BrowserUrlFetching {
+  func resolveCurrentTabDomain(for browser: Browser) -> String?
+}
+
+// MARK: - Concrete Implementation
+
+@MainActor
+final class BrowserUrlFetcher: BrowserUrlFetching {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-url")
-  private let strategyFactory = BrowserActiveUrlFetchingStrategyFactory()
+  private let strategyFactory: UrlFetchingStrategyFactory
+
+  init(strategyFactory: UrlFetchingStrategyFactory = BrowserActiveUrlFetchingStrategyFactory()) {
+    self.strategyFactory = strategyFactory
+  }
 
   /// Resolves the current tab domain for the given browser.
   /// - Returns: `nil` if permission denied, `""` if no URL available,

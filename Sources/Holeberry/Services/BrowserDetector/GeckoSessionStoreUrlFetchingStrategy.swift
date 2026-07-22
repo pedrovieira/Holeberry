@@ -56,15 +56,16 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
     guard let content = try? String(contentsOf: iniURL, encoding: .utf8) else { return nil }
 
     // Prefer [Install*] with Locked=1 (the actually active profile)
-    if let path = resolveProfileFromInstallSection(in: content) {
+    if let path = Self.resolveProfileFromInstallSection(in: content, supportDir: supportDir) {
       return path
     }
 
     // Fall back to [Profile*] with Default=1
-    return resolveProfileFromProfileSection(in: content)
+    return Self.resolveProfileFromProfileSection(in: content, supportDir: supportDir)
   }
 
-  private func resolveProfileFromInstallSection(in content: String) -> URL? {
+  /// Extracts the active profile path from `profiles.ini` content, looking for `[Install*]` with `Locked=1`.
+  static func resolveProfileFromInstallSection(in content: String, supportDir: URL) -> URL? {
     var inSection = false
     var path: String?
     var locked = false
@@ -73,7 +74,7 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
       let trimmed = line.trimmingCharacters(in: .whitespaces)
       if trimmed.hasPrefix("[") && trimmed.hasSuffix("]") {
         if inSection, locked, let resolved = path {
-          return resolvePath(resolved, isRelative: true)
+          return resolvePath(resolved, isRelative: true, supportDir: supportDir)
         }
         inSection = trimmed.hasPrefix("[Install")
         path = nil
@@ -87,12 +88,13 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
     }
 
     if inSection, locked, let resolved = path {
-      return resolvePath(resolved, isRelative: true)
+      return resolvePath(resolved, isRelative: true, supportDir: supportDir)
     }
     return nil
   }
 
-  private func resolveProfileFromProfileSection(in content: String) -> URL? {
+  /// Extracts the default profile path from `profiles.ini` content, looking for `[Profile*]` with `Default=1`.
+  static func resolveProfileFromProfileSection(in content: String, supportDir: URL) -> URL? {
     var pathValue: String?
     var isRelative: Bool?
     var foundDefault = false
@@ -101,7 +103,7 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
       let trimmed = line.trimmingCharacters(in: .whitespaces)
       if trimmed.hasPrefix("[") && trimmed.hasSuffix("]") {
         if foundDefault, let path = pathValue {
-          return resolvePath(path, isRelative: isRelative ?? true)
+          return resolvePath(path, isRelative: isRelative ?? true, supportDir: supportDir)
         }
         pathValue = nil
         isRelative = nil
@@ -118,12 +120,12 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
     }
 
     if foundDefault, let path = pathValue {
-      return resolvePath(path, isRelative: isRelative ?? true)
+      return resolvePath(path, isRelative: isRelative ?? true, supportDir: supportDir)
     }
     return nil
   }
 
-  private func resolvePath(_ path: String, isRelative: Bool) -> URL {
+  static func resolvePath(_ path: String, isRelative: Bool, supportDir: URL) -> URL {
     if isRelative {
       return supportDir.appendingPathComponent(path)
     }
@@ -132,16 +134,17 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
 
   // MARK: - mozLZ4 decompression
 
-  private func extractURL(from compressedData: Data) -> String? {
+  /// Decompresses and parses a Firefox sessionstore file (mozLZ4 format) to extract the current tab's URL.
+  /// - Parameter compressedData: Raw file data with mozLz40 header.
+  /// - Returns: The URL string of the active tab, or `nil` if parsing fails.
+  static func extractURL(from compressedData: Data) -> String? {
     // mozLZ4 header: 8 bytes magic "mozLz40\0" + 4 bytes uint32 LE uncompressed size = 12 bytes total
     guard compressedData.count > 12 else {
-      logger.warning("Sessionstore data too small: \(compressedData.count) bytes")
       return nil
     }
 
     let magic = compressedData.prefix(8)
     guard magic == Data("mozLz40\0".utf8) else {
-      logger.warning("Sessionstore has unexpected magic bytes")
       return nil
     }
 
@@ -165,7 +168,6 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
     }
 
     guard actualSize > 0, actualSize == Int(uncompressedSize) else {
-      logger.warning("LZ4 decompression failed: expected \(uncompressedSize), got \(actualSize)")
       return nil
     }
 
@@ -177,7 +179,6 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
       selectedIndex > 0,
       selectedIndex <= windows.count
     else {
-      logger.warning("Sessionstore JSON structure unexpected")
       return nil
     }
 
@@ -187,22 +188,24 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
       selectedTabIndex > 0,
       selectedTabIndex <= tabs.count
     else {
-      logger.warning("Sessionstore: no tabs in selected window")
       return nil
     }
 
     let tab = tabs[selectedTabIndex - 1]
     guard let entries = tab["entries"] as? [[String: Any]] else {
-      logger.warning("Sessionstore: no entries in selected tab")
       return nil
     }
     let activeIndex = (tab["index"] as? Int) ?? 1
     guard activeIndex > 0, activeIndex <= entries.count else {
-      logger.warning("Sessionstore: invalid active index \(activeIndex)")
       return nil
     }
 
     let entry = entries[activeIndex - 1]
     return entry["url"] as? String
+  }
+
+  /// Instance wrapper around the static `extractURL(from:)` for internal use.
+  private func extractURL(from compressedData: Data) -> String? {
+    Self.extractURL(from: compressedData)
   }
 }
