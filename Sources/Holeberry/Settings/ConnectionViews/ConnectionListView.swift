@@ -3,18 +3,18 @@ import SwiftUI
 struct ConnectionListView: View {
   let serverManager: PiholeServerManager
   @ObservedObject var discoveryService: PiholeDiscoveryService
-  @ObservedObject private var monitor = ServerStatusPoller.shared
+  @ObservedObject var statusPoller: ServerStatusPoller
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: ServerConfig?
 
   private var connectedCount: Int {
-    monitor.connectionStatuses.values.filter { $0 == .connected }.count
+    statusPoller.connectionStatuses.values.filter { $0 == .connected }.count
   }
 
   private var filteredInstances: [PiholeDiscoveryService.DiscoveredInstance] {
     discoveryService.discoveredInstances.filter { instance in
-      !monitor.servers.contains { server in
+      !statusPoller.servers.contains { server in
         guard let components = URLComponents(string: server.url),
           let host = components.host
         else {
@@ -28,10 +28,10 @@ struct ConnectionListView: View {
   var body: some View {
     // --- Section 1: Existing connections ---
     Section {
-      ForEach(monitor.servers) { server in
+      ForEach(statusPoller.servers) { server in
         ConnectionCardView(
           config: server,
-          status: monitor.connectionStatuses[server.id] ?? .unknown,
+          status: statusPoller.connectionStatuses[server.id] ?? .unknown,
           onEdit: { sheetMode = .edit(server) },
           onDelete: {
             serverToDelete = server
@@ -49,7 +49,7 @@ struct ConnectionListView: View {
         )
       }
 
-      if monitor.servers.count < 2 {
+      if statusPoller.servers.count < 2 {
         Button {
           sheetMode = .add(prefillURL: nil)
         } label: {
@@ -63,7 +63,7 @@ struct ConnectionListView: View {
         .padding(.vertical, 4)
       }
 
-      if monitor.servers.count >= 2 {
+      if statusPoller.servers.count >= 2 {
         HStack(spacing: 6) {
           Image(systemName: "plus")
           Text("Maximum connections reached")
@@ -135,7 +135,7 @@ struct ConnectionListView: View {
     .sheet(item: $sheetMode) { mode in
       ConnectionSheet(
         mode: mode,
-        serverCount: monitor.servers.count,
+        serverCount: statusPoller.servers.count,
         onDismiss: { sheetMode = nil },
         onCancel: { sheetMode = nil },
         serverManager: serverManager
@@ -153,10 +153,10 @@ struct ConnectionListView: View {
 
     // --- Lifecycle ---
     .task {
-      monitor.pollNow()
+      statusPoller.pollNow()
       await discoveryService.scan()
     }
-    .onChange(of: monitor.servers.count) {
+    .onChange(of: statusPoller.servers.count) {
       Task { await discoveryService.scan() }
     }
   }

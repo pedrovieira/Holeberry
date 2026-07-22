@@ -1,10 +1,6 @@
 import Foundation
 
 struct PiholeServiceFactory {
-  static let shared = PiholeServiceFactory(
-    authSessionFactory: ConcreteAuthSessionFactory.shared
-  )
-
   private let authSessionFactory: AuthSessionFactory
 
   init(authSessionFactory: AuthSessionFactory) {

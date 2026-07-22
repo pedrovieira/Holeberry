@@ -6,10 +6,8 @@ import OSLog
 @MainActor
 final class PiholeServerManager: ObservableObject {
   private static let maxServers = 2
-  private static let jsonEncoder = JSONEncoder()
-  static let shared = PiholeServerManager()
   @Published var servers: [ServerConfig] = []
-  private let keychain: KeychainManager
+  private let keychain: KeychainManaging
   private let serviceFactory: PiholeServiceFactory
   private let versionDetector: PiholeVersionDetector
   private let suite: UserDefaults
@@ -17,9 +15,9 @@ final class PiholeServerManager: ObservableObject {
   private var services: [UUID: PiholeServiceProtocol] = [:]
 
   init(
-    keychain: KeychainManager = .shared,
-    serviceFactory: PiholeServiceFactory = .shared,
-    versionDetector: PiholeVersionDetector = .shared,
+    keychain: KeychainManaging,
+    serviceFactory: PiholeServiceFactory,
+    versionDetector: PiholeVersionDetector,
     suite: UserDefaults = .standard
   ) {
     self.keychain = keychain

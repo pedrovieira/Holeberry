@@ -13,8 +13,6 @@ struct PiholeVersionDetector {
   private static let hintKey = "hint"
   private static let errorKey = "error"
 
-  static let shared = PiholeVersionDetector()
-
   private let logger = Logger(
     subsystem: Logger.appSubsystem,
     category: "version-detector"

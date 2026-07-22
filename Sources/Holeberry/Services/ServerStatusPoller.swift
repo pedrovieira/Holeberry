@@ -5,10 +5,6 @@ import OSLog
 
 @MainActor
 final class ServerStatusPoller: ObservableObject {
-  static let shared = ServerStatusPoller(
-    manager: .shared, networkInterface: LocalIPAddressResolver(), defaultsSuite: .standard
-  )
-
   @Published var servers: [ServerConfig] = []
   @Published var connectionStatuses: [UUID: ConnectionStatus] = [:]
   @Published var blockingStatuses: [UUID: BlockingStatus] = [:]
