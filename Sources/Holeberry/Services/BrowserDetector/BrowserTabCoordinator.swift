@@ -43,7 +43,7 @@ final class BrowserTabCoordinator: BrowserTabCoordinating {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-tab")
 
   init(
-    monitor: AppFocusMonitor,
+    monitor: AppFocusMonitoring,
     urlFetcher: BrowserUrlFetching,
     strategyFactory: UrlFetchingStrategyFactory = BrowserActiveUrlFetchingStrategyFactory(),
     defaultsSuite: UserDefaults = .standard

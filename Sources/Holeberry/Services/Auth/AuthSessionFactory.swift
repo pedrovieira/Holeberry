@@ -7,7 +7,7 @@ protocol AuthSessionFactory: Sendable {
   func makeSession(
     host: URL,
     password: String,
-    urlSession: URLSession,
+    urlSession: any HTTPRequestable,
     piHoleVersion: ServerVersion
   ) throws -> AuthSessionProviding
 }
@@ -16,7 +16,7 @@ struct ConcreteAuthSessionFactory: AuthSessionFactory {
   func makeSession(
     host: URL,
     password: String,
-    urlSession: URLSession,
+    urlSession: any HTTPRequestable,
     piHoleVersion: ServerVersion
   ) throws -> AuthSessionProviding {
     guard piHoleVersion == .v6 else {

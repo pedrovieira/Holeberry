@@ -16,7 +16,7 @@ final class PiholeV6Service: PiholeServiceInternal {
 
   // MARK: - API
   private var baseURL: URL
-  private var urlSession: URLSession
+  private var urlSession: any HTTPRequestable
   private let authSession: AuthSessionProviding
   private static let decoder = JSONDecoder()
   private static let encoder = JSONEncoder()
@@ -45,7 +45,7 @@ final class PiholeV6Service: PiholeServiceInternal {
     url: String,
     version: ServerVersion,
     baseURL: URL,
-    urlSession: URLSession,
+    urlSession: any HTTPRequestable,
     authSession: AuthSessionProviding
   ) {
     self.id = id

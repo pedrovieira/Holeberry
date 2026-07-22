@@ -11,7 +11,7 @@ struct PiholeServiceFactory {
   func buildService(
     config: ServerConfig,
     credential: String,
-    session: URLSession,
+    session: any HTTPRequestable,
     suite: UserDefaults = .standard
   ) throws -> PiholeServiceInternal {
     guard let url = URL(string: config.url) else {

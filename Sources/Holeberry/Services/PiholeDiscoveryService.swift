@@ -24,9 +24,14 @@ class PiholeDiscoveryService: ObservableObject {
   @Published var isScanning = false
 
   private let networkInterface: LocalIPAddressProviding
+  private let urlSession: any HTTPRequestable
 
-  init(networkInterface: LocalIPAddressProviding = LocalIPAddressResolver()) {
+  init(
+    networkInterface: LocalIPAddressProviding = LocalIPAddressResolver(),
+    urlSession: any HTTPRequestable = URLSession.shared
+  ) {
     self.networkInterface = networkInterface
+    self.urlSession = urlSession
   }
 
   func scan() async {
@@ -79,7 +84,7 @@ class PiholeDiscoveryService: ObservableObject {
     request.timeoutInterval = 2
 
     do {
-      let (data, response) = try await URLSession.shared.data(for: request)
+      let (data, response) = try await urlSession.data(for: request)
       guard let http = response as? HTTPURLResponse,
         http.statusCode == 200,
         let body = String(data: data, encoding: .utf8)
@@ -99,7 +104,7 @@ class PiholeDiscoveryService: ObservableObject {
     apiRequest.timeoutInterval = 2
 
     do {
-      let (data, response) = try await URLSession.shared.data(for: apiRequest)
+      let (data, response) = try await urlSession.data(for: apiRequest)
       guard let http = response as? HTTPURLResponse,
         http.statusCode == 200,
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
