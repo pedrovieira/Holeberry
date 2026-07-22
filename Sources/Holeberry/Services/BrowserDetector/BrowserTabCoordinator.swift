@@ -23,19 +23,34 @@ enum ResolvedBrowserTab: Equatable {
   }
 }
 
+// MARK: - Protocol
+
+@MainActor
+protocol BrowserTabCoordinating {
+  func resolve() -> ResolvedBrowserTab
+  func requestPermissionAndResolve() -> ResolvedBrowserTab
+  var lastSeenBrowser: Browser? { get }
+}
+
 /// Coordinates browser tab detection: tracks the last-seen browser via
 /// AppFocusMonitor, checks Automation permission, and fetches the URL.
 @MainActor
-final class BrowserTabCoordinator {
-  private let monitor: AppFocusMonitor
-  private let urlFetcher: BrowserUrlFetcher
+final class BrowserTabCoordinator: BrowserTabCoordinating {
+  private let monitor: AppFocusMonitoring
+  private let urlFetcher: BrowserUrlFetching
   private let defaultsSuite: UserDefaults
-  private let strategyFactory = BrowserActiveUrlFetchingStrategyFactory()
+  private let strategyFactory: UrlFetchingStrategyFactory
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-tab")
 
-  init(monitor: AppFocusMonitor, urlFetcher: BrowserUrlFetcher, defaultsSuite: UserDefaults = .standard) {
+  init(
+    monitor: AppFocusMonitor,
+    urlFetcher: BrowserUrlFetching,
+    strategyFactory: UrlFetchingStrategyFactory = BrowserActiveUrlFetchingStrategyFactory(),
+    defaultsSuite: UserDefaults = .standard
+  ) {
     self.monitor = monitor
     self.urlFetcher = urlFetcher
+    self.strategyFactory = strategyFactory
     self.defaultsSuite = defaultsSuite
   }
 

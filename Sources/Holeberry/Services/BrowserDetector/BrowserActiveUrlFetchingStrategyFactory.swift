@@ -1,6 +1,10 @@
 import Foundation
 
-struct BrowserActiveUrlFetchingStrategyFactory {
+protocol UrlFetchingStrategyFactory {
+  func strategy(for browser: Browser) -> BrowserActiveUrlFetchingStrategy
+}
+
+struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactory {
   func strategy(for browser: Browser) -> BrowserActiveUrlFetchingStrategy {
     switch browser {
     case .safari, .safariTechnologyPreview:
