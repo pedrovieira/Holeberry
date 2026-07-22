@@ -53,13 +53,6 @@ opt_in_rules:
   - vertical_whitespace_opening_braces
   - yoda_condition
 
-attributes:
-  always_on_same_line:
-    - "@IBSegueAction"
-    - "@IBAction"
-    - "@NSManaged"
-    - "@objc"
-
 force_cast: warning
 force_try: warning
 
