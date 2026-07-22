@@ -7,12 +7,14 @@ final class SettingsWindowController: NSWindowController {
   private let serverManager: PiholeServerManager
   private let defaultsSuite: UserDefaults
   private var updater: SPUUpdater?
+  private let statusPoller: ServerStatusPoller
   private var hasSetContentView = false
 
   init(
     serverManager: PiholeServerManager,
     updater: SPUUpdater?,
     discoveryService: PiholeDiscoveryService,
+    statusPoller: ServerStatusPoller,
     defaultsSuite: UserDefaults = .standard
   ) {
     let window = NSWindow(
@@ -25,6 +27,7 @@ final class SettingsWindowController: NSWindowController {
     self.serverManager = serverManager
     self.defaultsSuite = defaultsSuite
     self.updater = updater
+    self.statusPoller = statusPoller
     super.init(window: window)
     setupWindow()
   }
@@ -56,7 +59,13 @@ final class SettingsWindowController: NSWindowController {
     // so we track this with a boolean flag instead of checking for nil.
     if !hasSetContentView {
       window?.contentView = NSHostingView(
-        rootView: SettingsView(serverManager: serverManager, updater: updater, defaultsSuite: defaultsSuite, discoveryService: discoveryService)
+        rootView: SettingsView(
+          serverManager: serverManager,
+          updater: updater,
+          defaultsSuite: defaultsSuite,
+          discoveryService: discoveryService,
+          statusPoller: statusPoller
+        )
       )
       hasSetContentView = true
     }

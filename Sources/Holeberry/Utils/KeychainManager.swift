@@ -2,8 +2,17 @@ import Foundation
 import LocalAuthentication
 import SimpleKeychain
 
-final class KeychainManager: Sendable {
-  static let shared = KeychainManager()
+// MARK: - Protocol
+
+protocol KeychainManaging: Sendable {
+  func saveCredential(_ credential: String, for serverID: UUID) throws
+  func readCredential(for serverID: UUID) throws -> String?
+  func deleteCredential(for serverID: UUID) throws
+}
+
+// MARK: - Concrete Implementation
+
+final class KeychainManager: KeychainManaging {
   private let keychain: SimpleKeychain
 
   init() {

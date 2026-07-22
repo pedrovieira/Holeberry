@@ -28,6 +28,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var updateManager: UpdateManager?
   private var settingsWindowController: SettingsWindowController?
 
+  // MARK: - Composition Root (lazy var dependency graph)
+
+  private lazy var keychain = KeychainManager()
+  private lazy var authFactory = ConcreteAuthSessionFactory()
+  private lazy var serviceFactory = PiholeServiceFactory(authSessionFactory: authFactory)
+  private lazy var versionDetector = PiholeVersionDetector()
+  private lazy var serverManager = PiholeServerManager(
+    keychain: keychain,
+    serviceFactory: serviceFactory,
+    versionDetector: versionDetector
+  )
+  private lazy var localIPResolver = LocalIPAddressResolver()
+  private lazy var statusPoller = ServerStatusPoller(
+    manager: serverManager,
+    networkInterface: localIPResolver
+  )
+  private lazy var reachability = ReachabilityMonitor()
+  private lazy var timerManager = TimerManager()
+  private lazy var appFocusMonitor = AppFocusMonitor()
+  private lazy var browserUrlFetcher = BrowserUrlFetcher()
+  private lazy var browserTabCoordinator = BrowserTabCoordinator(
+    monitor: appFocusMonitor,
+    urlFetcher: browserUrlFetcher
+  )
+  private lazy var discoveryService = PiholeDiscoveryService(networkInterface: localIPResolver)
+
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
@@ -43,35 +69,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let updaterManager = UpdateManager()
     self.updateManager = updaterManager
 
-    let discoveryService = PiholeDiscoveryService()
     let settingsWindowController = SettingsWindowController(
-      serverManager: .shared,
+      serverManager: serverManager,
       updater: updaterManager.updater,
-      discoveryService: discoveryService
+      discoveryService: discoveryService,
+      statusPoller: statusPoller
     )
     self.settingsWindowController = settingsWindowController
 
-    ServerStatusPoller.shared.startPolling()
-
-    let timerManager = TimerManager()
-    let serverManager = PiholeServerManager.shared
-    let reachability = ReachabilityMonitor()
-    let statusMonitor = ServerStatusPoller.shared
-    let localIPAddressResolver = LocalIPAddressResolver()
-    let appFocusMonitor = AppFocusMonitor()
-    let browserUrlFetcher = BrowserUrlFetcher()
-    let browserTabCoordinator = BrowserTabCoordinator(
-      monitor: appFocusMonitor,
-      urlFetcher: browserUrlFetcher
-    )
+    statusPoller.startPolling()
 
     menuBarController = MenuBarController(
       timerManager: timerManager,
       serverManager: serverManager,
       reachability: reachability,
-      statusMonitor: statusMonitor,
+      statusMonitor: statusPoller,
       browserTabCoordinator: browserTabCoordinator,
-      localIPAddressResolver: localIPAddressResolver,
+      localIPAddressResolver: localIPResolver,
       updater: updaterManager.updater,
       settingsWindowController: settingsWindowController
     )
@@ -86,7 +100,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       do {
         try await withThrowingTaskGroup(of: Void.self) { group in
           group.addTask {
-            await PiholeServerManager.shared.logoutAll()
+            await self.serverManager.logoutAll()
           }
           group.addTask {
             try await Task.sleep(for: .seconds(5))

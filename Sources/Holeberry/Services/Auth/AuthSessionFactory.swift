@@ -13,8 +13,6 @@ protocol AuthSessionFactory: Sendable {
 }
 
 struct ConcreteAuthSessionFactory: AuthSessionFactory {
-  static let shared = ConcreteAuthSessionFactory()
-
   func makeSession(
     host: URL,
     password: String,
