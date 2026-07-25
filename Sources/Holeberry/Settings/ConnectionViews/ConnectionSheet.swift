@@ -123,7 +123,10 @@ struct ConnectionSheet: View {
         HStack(spacing: 4) {
           Text("Label")
             .frame(width: 85, alignment: .trailing)
-          TextField("", text: $label, prompt: Text(generatedLabel))
+          TextField("", text: Binding(
+              get: { label },
+              set: { label = String($0.prefix(20)) }
+            ), prompt: Text(generatedLabel))
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.leading)
             .labelsHidden()
