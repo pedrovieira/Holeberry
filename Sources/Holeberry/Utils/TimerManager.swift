@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 final class TimerManager: ObservableObject {
-  @Published var isDisabled = false
+  @Published var isRunning = false
   @Published var remainingSeconds: TimeInterval = 0
   @Published var totalDuration: TimeInterval?
 
@@ -10,7 +10,7 @@ final class TimerManager: ObservableObject {
   private var countdownTimer: AnyCancellable?
 
   var formattedTime: String {
-    guard isDisabled else { return "" }
+    guard isRunning else { return "" }
     let totalSeconds = Int(ceil(max(0, remainingSeconds)))
     if totalSeconds >= 60 {
       return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
@@ -19,8 +19,8 @@ final class TimerManager: ObservableObject {
     }
   }
 
-  func startDisable(duration: TimeInterval?) {
-    isDisabled = true
+  func start(duration: TimeInterval?) {
+    isRunning = true
     totalDuration = duration
     stopCountdown()
     if let duration {
@@ -33,29 +33,12 @@ final class TimerManager: ObservableObject {
     }
   }
 
-  func cancelDisable() {
-    isDisabled = false
+  func cancel() {
+    isRunning = false
     remainingSeconds = 0
     totalDuration = nil
     endTime = nil
     stopCountdown()
-  }
-
-  func syncFromRemote(_ blockingStatus: BlockingStatus) {
-    switch blockingStatus {
-    case .enabled:
-      cancelDisable()
-    case .disabled(let remaining):
-      if let remaining, remaining > 0 {
-        isDisabled = true
-        totalDuration = remaining
-        self.remainingSeconds = remaining
-        endTime = ContinuousClock.now + .seconds(remaining)
-        startCountdown()
-      } else {
-        startDisable(duration: nil)
-      }
-    }
   }
 
   private func startCountdown() {
@@ -69,7 +52,7 @@ final class TimerManager: ObservableObject {
         if endTime > now {
           self.remainingSeconds = (endTime - now) / .seconds(1)
         } else {
-          self.cancelDisable()
+          self.cancel()
         }
       }
   }
