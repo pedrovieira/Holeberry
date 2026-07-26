@@ -101,13 +101,13 @@ final class MenuBarController: NSObject {
           guard !serverManager.servers.isEmpty else { return }
           Task {
             await statusMonitor.applyBlockingChange(enabled: false, duration: duration)
-            if let duration { timerManager.startDisable(duration: duration) }
+            if let duration { timerManager.start(duration: duration) }
           }
         },
         reEnableBlocking: { [statusMonitor, timerManager] in
           Task {
             await statusMonitor.applyBlockingChange(enabled: true, duration: nil)
-            timerManager.cancelDisable()
+            timerManager.cancel()
           }
         },
         disableURL: { [weak self] domain, duration in
@@ -125,7 +125,7 @@ final class MenuBarController: NSObject {
           }
         }
       ),
-      isTimerDisabled: timerManager.isDisabled,
+      isTimerDisabled: timerManager.isRunning,
       recentBlockedProvider: { [statusMonitor] in statusMonitor.recentBlocked },
       userIP: localIPAddressResolver.localIPAddress(),
       showAllClients: Defaults[.showAllClientsRecentBlocked(suite: defaultsSuite)],
@@ -156,12 +156,12 @@ final class MenuBarController: NSObject {
   // MARK: - Timer Observation
 
   private func observeTimer() {
-    timerManager.$isDisabled
+    timerManager.$isRunning
       .combineLatest(timerManager.$remainingSeconds, timerManager.$totalDuration)
       .receive(on: DispatchQueue.main)
-      .sink { [weak self] isDisabled, remaining, totalDuration in
+      .sink { [weak self] isRunning, remaining, totalDuration in
         self?.updateDisplay(
-          isDisabled: isDisabled,
+          isRunning: isRunning,
           remaining: remaining,
           totalDuration: totalDuration
         )
@@ -185,8 +185,8 @@ final class MenuBarController: NSObject {
     statusItem.length = width
   }
 
-  private func updateDisplay(isDisabled: Bool, remaining: TimeInterval, totalDuration: TimeInterval?) {
-    if isDisabled && remaining > 0 {
+  private func updateDisplay(isRunning: Bool, remaining: TimeInterval, totalDuration: TimeInterval?) {
+    if isRunning && remaining > 0 {
       // Timed countdown — use custom view
       ensureCustomViewIsShowing()
       statusItemButton.update(
@@ -198,7 +198,7 @@ final class MenuBarController: NSObject {
       statusItemButton.setAccessibilityLabel(
         "Pi-hole disabled, \(timerManager.formattedTime) remaining"
       )
-    } else if isDisabled {
+    } else if isRunning {
       // Indefinite — use custom view with "∞"
       ensureCustomViewIsShowing()
       statusItemButton.update(
@@ -228,7 +228,16 @@ final class MenuBarController: NSObject {
     Task {
       let statuses = await serverManager.getBlockingStatus()
       if let status = statuses[server.id], let status {
-        timerManager.syncFromRemote(status)
+        switch status {
+        case .enabled:
+          timerManager.cancel()
+        case .disabled(let remaining):
+          if let remaining, remaining > 0 {
+            timerManager.start(duration: remaining)
+          } else {
+            timerManager.start(duration: nil)
+          }
+        }
       }
     }
   }

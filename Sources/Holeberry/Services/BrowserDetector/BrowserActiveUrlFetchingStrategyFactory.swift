@@ -13,8 +13,18 @@ struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactory {
       return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "Firefox", category: "firefox-sessionstore")
     case .zen:
       return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "zen", category: "zen-sessionstore")
-    default:
+
+    // Chromium-based browsers — all fall through to Chrome
+    case .edge, .edgeBeta, .edgeDev, .edgeCanary,
+      .brave, .braveBeta, .braveNightly,
+      .arc,
+      .opera, .operaNext, .operaDeveloper,
+      .vivaldi, .vivaldiSnapshot,
+      .chrome, .chromeBeta, .chromeDev, .chromeCanary:
       return ChromiumUrlFetchingStrategy(appName: browser.appName)
+
+    default:
+      fatalError("Unsupported browser: \(browser)")
     }
   }
 }
