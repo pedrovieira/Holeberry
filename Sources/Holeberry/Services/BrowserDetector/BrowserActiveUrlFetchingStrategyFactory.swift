@@ -5,10 +5,17 @@ protocol UrlFetchingStrategyFactory {
 }
 
 struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactory {
+  let permissionChecker: PermissionChecker
+  let scriptExecutor: AppleScriptExecutor
+
   func strategy(for browser: Browser) -> BrowserActiveUrlFetchingStrategy {
     switch browser {
     case .safari, .safariTechnologyPreview:
-      return SafariUrlFetchingStrategy(appName: browser.appName)
+      return SafariUrlFetchingStrategy(
+        appName: browser.appName,
+        permissionChecker: permissionChecker,
+        scriptExecutor: scriptExecutor
+      )
     case .firefox, .firefoxDeveloperEdition, .firefoxNightly:
       return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "Firefox", category: "firefox-sessionstore")
     case .zen:
@@ -21,7 +28,11 @@ struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactory {
       .opera, .operaNext, .operaDeveloper,
       .vivaldi, .vivaldiSnapshot,
       .chrome, .chromeBeta, .chromeDev, .chromeCanary:
-      return ChromiumUrlFetchingStrategy(appName: browser.appName)
+      return ChromiumUrlFetchingStrategy(
+        appName: browser.appName,
+        permissionChecker: permissionChecker,
+        scriptExecutor: scriptExecutor
+      )
 
     default:
       fatalError("Unsupported browser: \(browser)")

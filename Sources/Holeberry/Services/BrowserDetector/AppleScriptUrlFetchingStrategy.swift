@@ -1,16 +1,30 @@
-import AppKit
-import Carbon
 import Foundation
 import OSLog
 
-class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
-  private let appName: String
-  private let scriptCommand: String
-  private let logger = Logger(subsystem: Logger.appSubsystem, category: "applescript")
+// MARK: - AppleScript URL fetching strategy
 
-  init(appName: String, scriptCommand: String) {
-    self.appName = appName
-    self.scriptCommand = scriptCommand
+/// A refinement of `BrowserActiveUrlFetchingStrategy` for browsers whose
+/// active URL can be obtained via AppleScript.
+protocol AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
+  /// The `application` name used in the `tell` block, e.g. "Safari".
+  var appName: String { get }
+
+  /// The AppleScript command that returns the frontmost URL, e.g.
+  /// `"get URL of front document"`.
+  var scriptCommand: String { get }
+
+  /// The permission checker used to determine TCC Automation access.
+  var permissionChecker: PermissionChecker { get }
+
+  /// The AppleScript executor used to compile and run scripts.
+  var scriptExecutor: AppleScriptExecutor { get }
+}
+
+// MARK: - Default implementations
+
+extension AppleScriptUrlFetchingStrategy {
+  private var logger: Logger {
+    Logger(subsystem: Logger.appSubsystem, category: "applescript")
   }
 
   func getCurrentURL(for browser: Browser) -> String? {
@@ -22,9 +36,8 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
       end tell
       """
 
-    var error: NSDictionary?
-    let appleScript = NSAppleScript(source: script)
-    guard let result = appleScript?.executeAndReturnError(&error) else {
+    let (result, error) = scriptExecutor.execute(script)
+    guard let result else {
       logger.warning("AppleScript init failed for \(browser.bundleID)")
       return nil
     }
@@ -45,37 +58,10 @@ class AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
   // MARK: - Permission
 
   func isPermissionGranted(for browser: Browser) -> AutomationPermission {
-    resolvePermission(for: browser.bundleID, askUserIfNeeded: false)
+    permissionChecker.checkPermission(for: browser.bundleID, askUserIfNeeded: false)
   }
 
   func requestPermission(for browser: Browser) {
-    _ = resolvePermission(for: browser.bundleID, askUserIfNeeded: true)
-  }
-
-  /// Queries or requests the TCC Automation permission for a target bundle.
-  /// - Returns: `.allowed`, `.denied`, or `.notDetermined`.
-  private func resolvePermission(for bundleID: String, askUserIfNeeded: Bool) -> AutomationPermission {
-    var target = AEAddressDesc()
-    let createStatus = bundleID.withCString { cString in
-      AECreateDesc(
-        typeApplicationBundleID,
-        cString,
-        strlen(cString),
-        &target
-      )
-    }
-    guard createStatus == noErr else { return .denied }
-    defer { AEDisposeDesc(&target) }
-
-    // kAECoreSuite = 'core', kAEGetData = 'getd'
-    let result = AEDeterminePermissionToAutomateTarget(
-      &target,
-      0x636F_7265,  // 'core'
-      0x6765_7464,  // 'getd'
-      askUserIfNeeded
-    )
-    if result == noErr { return .allowed }
-    if result == errAEEventNotPermitted { return .denied }
-    return .notDetermined
+    _ = permissionChecker.checkPermission(for: browser.bundleID, askUserIfNeeded: true)
   }
 }

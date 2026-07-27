@@ -45,7 +45,7 @@ final class BrowserTabCoordinator: BrowserTabCoordinating {
   init(
     monitor: AppFocusMonitoring,
     urlFetcher: BrowserUrlFetching,
-    strategyFactory: UrlFetchingStrategyFactory = BrowserActiveUrlFetchingStrategyFactory(),
+    strategyFactory: UrlFetchingStrategyFactory,
     defaultsSuite: UserDefaults = .standard
   ) {
     self.monitor = monitor

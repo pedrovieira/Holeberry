@@ -16,7 +16,7 @@ final class BrowserUrlFetcher: BrowserUrlFetching {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-url")
   private let strategyFactory: UrlFetchingStrategyFactory
 
-  init(strategyFactory: UrlFetchingStrategyFactory = BrowserActiveUrlFetchingStrategyFactory()) {
+  init(strategyFactory: UrlFetchingStrategyFactory) {
     self.strategyFactory = strategyFactory
   }
 

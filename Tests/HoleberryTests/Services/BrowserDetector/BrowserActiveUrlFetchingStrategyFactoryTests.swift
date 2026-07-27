@@ -7,7 +7,10 @@ import Testing
 
 @Suite("BrowserActiveUrlFetchingStrategyFactory")
 struct BrowserActiveUrlFetchingStrategyFactoryTests {
-  private let factory = BrowserActiveUrlFetchingStrategyFactory()
+  private let factory = BrowserActiveUrlFetchingStrategyFactory(
+    permissionChecker: LivePermissionChecker(),
+    scriptExecutor: LiveAppleScriptExecutor()
+  )
 
   @Test("Safari uses SafariUrlFetchingStrategy")
   func safariStrategy() {
