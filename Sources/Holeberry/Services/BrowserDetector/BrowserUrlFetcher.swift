@@ -31,26 +31,14 @@ final class BrowserUrlFetcher: BrowserUrlFetching {
       return result  // nil → permission denied, "" → no URL
     }
 
-    if isInternalPage(urlString) {
+    // Non-http URLs are internal browser pages (about:, chrome:, etc.)
+    guard urlString.lowercased().hasPrefix("http://") || urlString.lowercased().hasPrefix("https://") else {
       return ""
     }
 
-    let string = urlString.hasPrefix("http") ? urlString : "https://\(urlString)"
-    guard let components = URLComponents(string: string),
+    guard let components = URLComponents(string: urlString),
       let host = components.host
     else { return "" }
     return host
-  }
-
-  private func isInternalPage(_ urlString: String) -> Bool {
-    let lowercased = urlString.lowercased()
-    let internalPrefixes = [
-      "about:", "chrome:", "chrome-extension:", "edge:",
-      "brave:", "opera:", "vivaldi:", "moz-extension:"
-    ]
-    for prefix in internalPrefixes where lowercased.hasPrefix(prefix) {
-      return true
-    }
-    return false
   }
 }
