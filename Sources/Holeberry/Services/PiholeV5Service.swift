@@ -23,6 +23,7 @@ final class PiholeV5Service: PiholeServiceInternal {
   private var baseURL: URL
   private var session: any HTTPRequestable
   private let apiToken: String
+  private let htmlParser: PiholeV5HTMLParsing
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
   /// Safety cap on the number of rows the server returns. The real filter is the time
@@ -40,7 +41,8 @@ final class PiholeV5Service: PiholeServiceInternal {
     version: ServerVersion,
     baseURL: URL,
     session: any HTTPRequestable,
-    apiToken: String
+    apiToken: String,
+    htmlParser: PiholeV5HTMLParsing = PiholeV5HTMLParser()
   ) {
     self.id = id
     self.label = label
@@ -49,6 +51,7 @@ final class PiholeV5Service: PiholeServiceInternal {
     self.baseURL = baseURL
     self.session = session
     self.apiToken = apiToken
+    self.htmlParser = htmlParser
   }
 
   func login() async throws {
@@ -263,64 +266,7 @@ final class PiholeV5Service: PiholeServiceInternal {
       return []
     }
 
-    return Self.parseDomainsFromHTML(html, type: typeValue)
-  }
-
-  static func parseDomainsFromHTML(_ html: String, type: Int) -> [DomainEntry] {
-    guard let tableRange = html.range(of: "(?i)<table[^>]*>", options: .regularExpression) else {
-      return []
-    }
-
-    let afterTable = html[tableRange.lowerBound...]
-    guard let tableEnd = afterTable.range(of: "</table>", options: .caseInsensitive) else {
-      return []
-    }
-
-    let tableContent = html[tableRange.lowerBound..<tableEnd.upperBound]
-
-    let pattern = "<tr[^>]*>(.*?)</tr>"
-    let rowOptions: NSRegularExpression.Options = [.dotMatchesLineSeparators, .caseInsensitive]
-    guard let rowRegex = try? NSRegularExpression(pattern: pattern, options: rowOptions) else {
-      return []
-    }
-
-    let nsTable = NSString(string: String(tableContent))
-    let rowMatches = rowRegex.matches(
-      in: String(tableContent),
-      options: [],
-      range: NSRange(location: 0, length: nsTable.length)
-    )
-
-    let cellPattern = "<td[^>]*>(.*?)</td>"
-    let cellOptions: NSRegularExpression.Options = [.dotMatchesLineSeparators, .caseInsensitive]
-    guard let cellRegex = try? NSRegularExpression(pattern: cellPattern, options: cellOptions) else {
-      return []
-    }
-
-    var entries: [DomainEntry] = []
-    for rowMatch in rowMatches {
-      let rowString = nsTable.substring(with: rowMatch.range)
-      let nsRow = NSString(string: rowString)
-      let cellMatches = cellRegex.matches(in: rowString, options: [], range: NSRange(location: 0, length: nsRow.length))
-      guard cellMatches.count >= 1 else { continue }
-
-      let firstCell = nsRow.substring(with: cellMatches[0].range(at: 1))
-      let domain = Self.stripHTMLTags(from: firstCell).trimmingCharacters(in: .whitespacesAndNewlines)
-      if !domain.isEmpty && domain != "Domain" {
-        entries.append(DomainEntry(id: nil, domain: domain, type: type, comment: nil))
-      }
-    }
-
-    return entries
-  }
-
-  private static func stripHTMLTags(from string: String) -> String {
-    guard let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: [.caseInsensitive]) else {
-      return string
-    }
-    let nsString = NSString(string: string)
-    let range = NSRange(location: 0, length: nsString.length)
-    return regex.stringByReplacingMatches(in: string, range: range, withTemplate: "")
+    return htmlParser.parseDomains(from: html, type: typeValue)
   }
 
   private func getRequest(path: String, params: [String: String?], method: HTTPMethod = .get) async throws -> (
