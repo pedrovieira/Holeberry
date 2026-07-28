@@ -46,7 +46,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   )
   private lazy var reachability = ReachabilityMonitor()
   private lazy var timerManager = TimerManager()
-  private lazy var appFocusMonitor = AppFocusMonitor()
+  private lazy var appFocusMonitor = AppFocusMonitor(
+    notificationCenter: NSWorkspace.shared.notificationCenter
+  ) { notification in
+    (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+  }
   private lazy var permissionChecker = LivePermissionChecker()
   private lazy var scriptExecutor = LiveAppleScriptExecutor()
   private lazy var urlFetchingStrategyFactory = BrowserActiveUrlFetchingStrategyFactory(
