@@ -28,7 +28,7 @@ enum ResolvedBrowserTab: Equatable {
 @MainActor
 protocol BrowserTabCoordinating {
   func resolve() -> ResolvedBrowserTab
-  func requestPermissionAndResolve() -> ResolvedBrowserTab
+  func requestPermissionIfNeededAndResolve() -> ResolvedBrowserTab
   var lastSeenBrowser: Browser? { get }
 }
 
@@ -85,33 +85,16 @@ final class BrowserTabCoordinator: BrowserTabCoordinating {
 
   // MARK: - Request Permission & Resolve
 
-  /// Requests Automation permission (may show TCC dialog), then resolves.
-  func requestPermissionAndResolve() -> ResolvedBrowserTab {
-    guard Defaults[.browserTabUnblockEnabled(suite: defaultsSuite)] else {
-      return .disabled
+  /// Requests Automation permission if needed (may show TCC dialog), then resolves.
+  func requestPermissionIfNeededAndResolve() -> ResolvedBrowserTab {
+    let result = resolve()
+    switch result {
+    case .permissionNeeded(let browser), .permissionDenied(let browser):
+      strategyFactory.strategy(for: browser).requestPermission(for: browser)
+      return resolve()
+    default:
+      return result
     }
-
-    guard let browser = monitor.lastSeenBrowser else {
-      return .noBrowser
-    }
-
-    let strategy = strategyFactory.strategy(for: browser)
-    strategy.requestPermission(for: browser)
-
-    switch strategy.isPermissionGranted(for: browser) {
-    case .allowed:
-      break
-    case .denied:
-      return .permissionDenied(browser)
-    case .notDetermined:
-      return .permissionNeeded(browser)
-    }
-
-    let domain = urlFetcher.resolveCurrentTabDomain(for: browser)
-    guard let domain, !domain.isEmpty else {
-      return .noURL(browser)
-    }
-    return .url(browser, domain)
   }
 
   // MARK: - Browser Icon
