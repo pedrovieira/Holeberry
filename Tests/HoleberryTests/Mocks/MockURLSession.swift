@@ -9,6 +9,9 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
   /// All requests made through this session, in order — for post-call verification.
   private(set) var requests: [URLRequest] = []
 
+  /// Tracks how many times `invalidateAndCancel` was called.
+  private(set) var invalidateAndCancelCallCount = 0
+
   func data(for request: URLRequest) async throws -> (Data, URLResponse) {
     requests.append(request)
     let handler = handlers.removeFirst()
@@ -16,5 +19,7 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
     return (data, response)
   }
 
-  func invalidateAndCancel() {}
+  func invalidateAndCancel() {
+    invalidateAndCancelCallCount += 1
+  }
 }
