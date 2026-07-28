@@ -2,9 +2,14 @@ import Foundation
 
 struct PiholeServiceFactory {
   private let authSessionFactory: AuthSessionFactory
+  private let htmlParser: PiholeV5HTMLParsing
 
-  init(authSessionFactory: AuthSessionFactory) {
+  init(
+    authSessionFactory: AuthSessionFactory,
+    htmlParser: PiholeV5HTMLParsing
+  ) {
     self.authSessionFactory = authSessionFactory
+    self.htmlParser = htmlParser
   }
 
   @MainActor
@@ -41,7 +46,8 @@ struct PiholeServiceFactory {
         version: config.version,
         baseURL: url,
         session: session,
-        apiToken: credential
+        apiToken: credential,
+        htmlParser: htmlParser
       )
     }
     return TemporaryUnblockPiholeServiceDecorator(service: raw, defaultsSuite: suite)
