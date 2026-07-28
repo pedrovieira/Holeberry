@@ -17,41 +17,41 @@ final class AppFocusMonitor: ObservableObject, AppFocusMonitoring, @unchecked Se
   private var terminationObserver: NSObjectProtocol?
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "app-focus")
 
-  init() {
-    let center = NSWorkspace.shared.notificationCenter
+  private let notificationCenter: NotificationCenter
+  private let bundleIDExtractor: (Notification) -> String?
 
-    activationObserver = center.addObserver(
+  init(
+    notificationCenter: NotificationCenter,
+    bundleIDExtractor: @escaping (Notification) -> String?
+  ) {
+    self.notificationCenter = notificationCenter
+    self.bundleIDExtractor = bundleIDExtractor
+
+    activationObserver = notificationCenter.addObserver(
       forName: NSWorkspace.didActivateApplicationNotification,
       object: nil,
       queue: .main
     ) { [weak self] notification in
       guard
         let self,
-        let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
-          as? NSRunningApplication,
-        let bundleID = app.bundleIdentifier,
+        let bundleID = self.bundleIDExtractor(notification),
         let browser = Browser(rawValue: bundleID)
-      else {
-        return
-      }
+      else { return }
       Task { @MainActor [weak self] in
         self?.lastSeenBrowser = browser
         self?.logger.debug("Browser detected: \(browser.appName) (\(bundleID, privacy: .public))")
       }
     }
 
-    terminationObserver = center.addObserver(
+    terminationObserver = notificationCenter.addObserver(
       forName: NSWorkspace.didTerminateApplicationNotification,
       object: nil,
       queue: .main
     ) { [weak self] notification in
       guard
         let self,
-        let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
-          as? NSRunningApplication,
-        let bundleID = app.bundleIdentifier
+        let bundleID = self.bundleIDExtractor(notification)
       else { return }
-
       Task { @MainActor [weak self] in
         guard let self else { return }
         if self.lastSeenBrowser?.bundleID == bundleID {
@@ -63,8 +63,7 @@ final class AppFocusMonitor: ObservableObject, AppFocusMonitoring, @unchecked Se
   }
 
   deinit {
-    let center = NSWorkspace.shared.notificationCenter
-    if let activationObserver { center.removeObserver(activationObserver) }
-    if let terminationObserver { center.removeObserver(terminationObserver) }
+    if let activationObserver { notificationCenter.removeObserver(activationObserver) }
+    if let terminationObserver { notificationCenter.removeObserver(terminationObserver) }
   }
 }
