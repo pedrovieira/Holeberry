@@ -340,7 +340,7 @@ final class MenuBarController: NSObject {
   // MARK: - Enable Browser Permission
 
   private func handleEnableBrowserPermission() {
-    _ = browserTabCoordinator.requestPermissionAndResolve()
+    _ = browserTabCoordinator.requestPermissionIfNeededAndResolve()
     // Rebuild the menu to show updated state
     handleClick()
   }
