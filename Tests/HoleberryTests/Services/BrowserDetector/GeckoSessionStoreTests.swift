@@ -80,8 +80,11 @@ struct GeckoSessionStoreTests {
       IsRelative=1
       """
     let path = GeckoSessionStoreUrlFetchingStrategy.resolveProfileFromProfileSection(in: ini, supportDir: supportDir)
-    #expect(path != nil)
-    #expect(path?.path?.contains("abcdef.default") ?? false)
+    guard let pathStr = path?.path else {
+      Issue.record("Expected non-nil path")
+      return
+    }
+    #expect(pathStr.contains("abcdef.default"))
   }
 
   @Test("resolves absolute path when IsRelative=0")

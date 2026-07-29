@@ -27,16 +27,19 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
   private var retryTasks: [String: Task<Void, Never>] = [:]
   private let backoffIntervals: [TimeInterval]
   private let defaultsSuite: UserDefaults
+  private let sleep: (TimeInterval) async throws -> Void
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "temp-unblock")
 
   init(
     service: PiholeServiceInternal,
     backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
-    defaultsSuite: UserDefaults = .standard
+    defaultsSuite: UserDefaults = .standard,
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
   ) {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals
     self.defaultsSuite = defaultsSuite
+    self.sleep = sleep
     self.activeRecords = restoreFromDefaults()
     if !activeRecords.isEmpty {
       Task { await reconcileWithServer() }
@@ -146,7 +149,7 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
 
   private func startExpiryTask(for record: TempUnblockRecord) {
     expiryTasks[record.uuid] = Task { [weak self] in
-      try? await Task.sleep(for: .seconds(record.durationSeconds))
+      try? await self?.sleep(record.durationSeconds)
       await self?.removeExpired(uuid: record.uuid)
     }
   }
@@ -180,7 +183,7 @@ final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
       guard let self else { return }
       let retryCount = self.activeRecords.first { $0.uuid == uuid }?.retryCount ?? 0
       let backoff = self.backoffIntervals[min(retryCount, self.backoffIntervals.count - 1)]
-      try? await Task.sleep(for: .seconds(backoff))
+      try? await self.sleep(backoff)
       await self.retryRemoval(uuid: uuid)
     }
   }

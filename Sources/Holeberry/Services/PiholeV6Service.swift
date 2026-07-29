@@ -97,7 +97,7 @@ final class PiholeV6Service: PiholeServiceInternal {
 
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
     let body = SetBlockingBody(blocking: enabled, timer: enabled ? nil : duration)
-    let (data, httpResponse) = try await authenticatedRequestWithRetry(
+    let (data, httpResponse) = try await authenticatedRequest(
       path: "/api/dns/blocking", method: .post, body: body
     )
 
@@ -185,7 +185,7 @@ final class PiholeV6Service: PiholeServiceInternal {
     let body = AddDomainBody(domain: domain, comment: comment)
     let listType = list == .allow ? "allow" : "deny"
     let path = "/api/domains/\(listType)/exact"
-    let (data, httpResponse) = try await authenticatedRequestWithRetry(
+    let (data, httpResponse) = try await authenticatedRequest(
       path: path, method: .post, body: body
     )
 
@@ -211,7 +211,7 @@ final class PiholeV6Service: PiholeServiceInternal {
     }
     let path = "/api/domains/allow/\(kind)/\(encodedDomain)"
     logger.debug("deleteDomain(domain:) DELETE \(path)")
-    let (data, httpResponse) = try await authenticatedRequestWithRetry(path: path, method: .delete)
+    let (data, httpResponse) = try await authenticatedRequest(path: path, method: .delete)
 
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
@@ -243,50 +243,6 @@ final class PiholeV6Service: PiholeServiceInternal {
       )
       throw PiholeError.decoding(error.localizedDescription)
     }
-  }
-
-  private static let maxRetries = 3
-  private static let backoffSeconds: [TimeInterval] = [1, 2, 4]
-
-  private func shouldRetry(_ error: Error) -> Bool {
-    if let piholeError = error as? PiholeError {
-      switch piholeError {
-      case .network:
-        return true
-      case .server(let code, _):
-        return (500...599).contains(code)
-      default:
-        return false
-      }
-    }
-    return false
-  }
-
-  /// Retry on server errors (5xx) — 401 retry is handled inside AuthV6SessionProvider.
-  private func authenticatedRequestWithRetry(
-    path: String,
-    method: HTTPMethod,
-    body: (any Encodable)? = nil
-  ) async throws -> (Data, HTTPURLResponse) {
-    var lastError: Error?
-    for attempt in 0..<Self.maxRetries {
-      do {
-        return try await authenticatedRequest(
-          path: path, method: method, body: body
-        )
-      } catch {
-        lastError = error
-        guard shouldRetry(error), attempt < Self.maxRetries - 1 else { throw error }
-        logger.debug(
-          """
-          Retrying \(path) after error (attempt \(attempt + 1)/\(Self.maxRetries)): \
-          \(error.localizedDescription, privacy: .public)
-          """
-        )
-        try? await Task.sleep(for: .seconds(Self.backoffSeconds[attempt]))
-      }
-    }
-    throw lastError ?? PiholeError.unknown("Retry exhausted")
   }
 
   private func authenticatedRequest(
