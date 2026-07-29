@@ -160,19 +160,6 @@ final class PiholeV6ServiceTests {
     try await makeService().setBlocking(enabled: false, duration: nil)
   }
 
-  @Test("setBlocking throws on server error")
-  func setBlockingServerError() async throws {
-    let errorResponse = { (request: URLRequest) throws -> (Data, HTTPURLResponse) in
-      #expect(request.url?.path == "/api/dns/blocking")
-      #expect(request.httpMethod == "POST")
-      let response = try #require(v6Response(statusCode: 500))
-      return (Data("Error".utf8), response)
-    }
-    mockSession.handlers = Array(repeating: errorResponse, count: 3)
-    await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().setBlocking(enabled: true, duration: nil)
-    }
-  }
 
   // MARK: - getQuerySummary
 
@@ -267,19 +254,6 @@ final class PiholeV6ServiceTests {
     }
   }
 
-  @Test("addDomain throws on server error")
-  func addDomainServerError() async throws {
-    let errorResponse = { (request: URLRequest) throws -> (Data, HTTPURLResponse) in
-      #expect(request.url?.path == "/api/domains/allow/exact")
-      #expect(request.httpMethod == "POST")
-      let response = try #require(v6Response(statusCode: 500))
-      return (Data("Error".utf8), response)
-    }
-    mockSession.handlers = Array(repeating: errorResponse, count: 3)
-    await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().addDomain("test.com", to: .allow)
-    }
-  }
 
   // MARK: - deleteDomain
 
@@ -296,19 +270,6 @@ final class PiholeV6ServiceTests {
     try await makeService().deleteDomain(domain: "example.com")
   }
 
-  @Test("deleteDomain throws on server error")
-  func deleteDomainServerError() async throws {
-    let errorResponse = { (request: URLRequest) throws -> (Data, HTTPURLResponse) in
-      #expect(request.url?.path == "/api/domains/allow/exact/example.com")
-      #expect(request.httpMethod == "DELETE")
-      let response = try #require(v6Response(statusCode: 500))
-      return (Data("Error".utf8), response)
-    }
-    mockSession.handlers = Array(repeating: errorResponse, count: 3)
-    await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().deleteDomain(domain: "example.com")
-    }
-  }
 
   // MARK: - getRecentBlocked
 

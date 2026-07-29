@@ -6,24 +6,16 @@ import Testing
 @MainActor
 @Suite("PiholeServerManager CRUD")
 struct PiholeServerManagerCRUDTests {
-  private let suite: UserDefaults
-  private let mockKeychain: MockKeychainManager
+  private let mockKeychain = MockKeychainManager()
+  private let mockServiceFactory = PiholeServiceFactory(
+    authSessionFactory: MockAuthSessionFactory(),
+    htmlParser: PiholeV5HTMLParser()
+  )
 
-  init() {
-    let id = UUID()
-    suite = UserDefaults(suiteName: "com.holeberry.tests.manager.\(id.uuidString)")!
-    suite.removePersistentDomain(forName: suite.suiteName!)
-    mockKeychain = MockKeychainManager()
-  }
-
-  deinit {
-    suite.removePersistentDomain(forName: suite.suiteName!)
-  }
-
-  private func makeManager() -> PiholeServerManager {
+  private func makeManager(suite: UserDefaults) -> PiholeServerManager {
     PiholeServerManager(
       keychain: mockKeychain,
-      serviceFactory: PiholeServiceFactory(authSessionFactory: MockAuthSessionFactory()),
+      serviceFactory: mockServiceFactory,
       versionDetector: PiholeVersionDetector(),
       suite: suite
     )
@@ -31,13 +23,13 @@ struct PiholeServerManagerCRUDTests {
 
   @Test("starts empty")
   func startsEmpty() {
-    let manager = makeManager()
+    let manager = makeManager(suite: TestDefaults.makeSuite())
     #expect(manager.servers.isEmpty)
   }
 
   @Test("delete server removes it")
   func deleteServer() {
-    let manager = makeManager()
+    let manager = makeManager(suite: TestDefaults.makeSuite())
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     manager.servers = [server]
     let id = manager.servers[0].id
@@ -47,7 +39,7 @@ struct PiholeServerManagerCRUDTests {
 
   @Test("update server changes properties")
   func updateServer() {
-    let manager = makeManager()
+    let manager = makeManager(suite: TestDefaults.makeSuite())
     let server = ServerConfig(label: "Old", url: "http://old.com", version: .v6)
     manager.servers = [server]
     guard let id = manager.servers.first?.id else {
@@ -62,7 +54,7 @@ struct PiholeServerManagerCRUDTests {
 
   @Test("update server with credential saves to keychain")
   func updateServerWithCredential() {
-    let manager = makeManager()
+    let manager = makeManager(suite: TestDefaults.makeSuite())
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     manager.servers = [server]
     guard let id = manager.servers.first?.id else {
@@ -76,7 +68,7 @@ struct PiholeServerManagerCRUDTests {
 
   @Test("delete server removes credential from keychain")
   func deleteServerRemovesCredential() {
-    let manager = makeManager()
+    let manager = makeManager(suite: TestDefaults.makeSuite())
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     manager.servers = [server]
     let id = manager.servers[0].id
@@ -90,7 +82,7 @@ struct PiholeServerManagerCRUDTests {
 
   @Test("max 2 servers enforced")
   func maxServersEnforced() async {
-    let manager = makeManager()
+    let manager = makeManager(suite: TestDefaults.makeSuite())
     let server1 = ServerConfig(label: "A", url: "http://a.com", version: .v6)
     let server2 = ServerConfig(label: "B", url: "http://b.com", version: .v6)
     manager.servers = [server1, server2]
@@ -104,31 +96,25 @@ struct PiholeServerManagerCRUDTests {
 @MainActor
 @Suite("PiholeServerManager - Domain Operations")
 struct PiholeServerManagerDomainTests {
-  private let suite: UserDefaults
-  private let mockService1: MockPiholeService
-  private let mockService2: MockPiholeService
-  private let manager: PiholeServerManager
+  private let mockService1 = MockPiholeService(id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
+  private let mockService2 = MockPiholeService(id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
+  private let mockServiceFactory = PiholeServiceFactory(
+    authSessionFactory: MockAuthSessionFactory(),
+    htmlParser: PiholeV5HTMLParser()
+  )
 
-  init() {
-    let id = UUID()
-    suite = UserDefaults(suiteName: "com.holeberry.tests.manager.domains.\(id.uuidString)")!
-    suite.removePersistentDomain(forName: suite.suiteName!)
-    mockService1 = MockPiholeService(id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
-    mockService2 = MockPiholeService(id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
-    manager = PiholeServerManager(
+  private func makeManager(suite: UserDefaults) -> PiholeServerManager {
+    PiholeServerManager(
       keychain: MockKeychainManager(),
-      serviceFactory: PiholeServiceFactory(authSessionFactory: MockAuthSessionFactory()),
+      serviceFactory: mockServiceFactory,
       versionDetector: PiholeVersionDetector(),
       suite: suite
     )
   }
 
-  deinit {
-    suite.removePersistentDomain(forName: suite.suiteName!)
-  }
-
   @Test("getRecentBlocked deduplicates by domain")
   func getRecentBlockedDeduplicates() async throws {
+    let suite = TestDefaults.makeSuite()
     let date = Date()
     mockService1.getRecentBlockedStub = .success([
       BlockedDomain(domain: "ads.com", timestamp: date, fromClientIp: "1.1.1.1"),
@@ -139,6 +125,7 @@ struct PiholeServerManagerDomainTests {
       BlockedDomain(domain: "malware.net", timestamp: date, fromClientIp: "2.2.2.2")
     ])
 
+    let manager = makeManager(suite: suite)
     // Inject services directly into the manager's services dict
     manager.servers = [
       ServerConfig(id: mockService1.id, label: "A", url: "http://a.local", version: .v6),
@@ -151,8 +138,8 @@ struct PiholeServerManagerDomainTests {
     // For now, verify the dedup logic directly:
 
     let interval = DateInterval(start: Date().addingTimeInterval(-3600), end: Date())
-    let blocked1 = try mockService1.getRecentBlocked(forClientIp: nil, interval: interval)
-    let blocked2 = try mockService2.getRecentBlocked(forClientIp: nil, interval: interval)
+    let blocked1 = try await mockService1.getRecentBlocked(forClientIp: nil, interval: interval)
+    let blocked2 = try await mockService2.getRecentBlocked(forClientIp: nil, interval: interval)
     let allBlocked: [BlockedDomain] = blocked1 + blocked2
 
     let deduped = Dictionary(grouping: allBlocked, by: \.domain)

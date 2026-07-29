@@ -214,7 +214,9 @@ final class PiholeServerManager: ObservableObject {
     guard let service = services[id] else {
       throw PiholeError.unknown("Server not found")
     }
-    try await service.setBlocking(enabled: enabled, duration: duration)
+    try await withRetry(.destructive) {
+      try await service.setBlocking(enabled: enabled, duration: duration)
+    }
   }
 
   func updateServerVersion(id: UUID, version: ServerVersion) {
@@ -268,7 +270,9 @@ final class PiholeServerManager: ObservableObject {
   /// Per-server unblock. Prefer the umbrella `unblockDomain(_:duration:)`.
   private func unblockDomain(_ domain: String, duration: TimeInterval?, for serverID: UUID) async throws {
     guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
-    try await service.unblockDomain(domain, duration: duration)
+    try await withRetry(.destructive) {
+      try await service.unblockDomain(domain, duration: duration)
+    }
   }
 
   func deleteDomain(_ domain: String) async {
@@ -278,7 +282,9 @@ final class PiholeServerManager: ObservableObject {
         guard let service = services[config.id] else { continue }
         group.addTask {
           do {
-            try await service.deleteDomain(domain: domain)
+            try await withRetry(.destructive) {
+              try await service.deleteDomain(domain: domain)
+            }
           } catch {
             self.logger.warning(
               "deleteDomain failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"

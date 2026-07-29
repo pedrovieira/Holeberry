@@ -62,6 +62,7 @@
 		727E3ABAD8B275F981C811C6 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0091C471D90246392D8A264 /* UpdateManager.swift */; };
 		769ACFD0A60ADB36887A1938 /* AppFocusMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940EB44FD6A95910F37EDA13 /* AppFocusMonitorTests.swift */; };
 		7914218930096F4DB12917C0 /* HTTPMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */; };
+		7B83B3BB37A0706EC2F4CC35 /* PiholeV5HTMLParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F04307EE6B99CFA455DF88DD /* PiholeV5HTMLParser.swift */; };
 		7B9757D8CBD6AE3D784E42C4 /* DurationPickerAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01CA02FBB83C18A92E629DBC /* DurationPickerAlert.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
 		81DE794E941B8F72B2D53151 /* BrowserUrlFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39565CB3B24FB9693EF4604 /* BrowserUrlFetcher.swift */; };
@@ -103,6 +104,7 @@
 		D65DA56F63A37EE93D59713B /* ServerStatusPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA1CE03586A265655C37420C /* ServerStatusPoller.swift */; };
 		D7EA6ED438B90006B76E4471 /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85BD5C9D1E8AA2311420E550 /* MenuActions.swift */; };
 		D8E3C678109A99C500F416AE /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = BBF2413FF86F8684BEC45DF6 /* Defaults */; };
+		D945B51B251D08AC998BB49B /* RetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59064DE55060B19BD441C88F /* RetryPolicy.swift */; };
 		D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C039DDD8F05E05A8D434F71 /* Assets.xcassets */; };
 		DA2BC53C13360CFAC5289BC7 /* DefaultsPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746C1182C10FD819D6F591C7 /* DefaultsPersistenceTests.swift */; };
 		DC13F423688AEE694D2B582D /* GeckoSessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5438BFDC75322BDC628D3BAA /* GeckoSessionStoreTests.swift */; };
@@ -113,12 +115,13 @@
 		E830E1B1A8E6128D7D335582 /* AuthV6SessionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A8E2CF4F5AA35BB686EBBD /* AuthV6SessionProvider.swift */; };
 		EDEEFD250744C2FFE323C513 /* DurationField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D846C1B254E9C3A61C56DB49 /* DurationField.swift */; };
 		EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */; };
-		EED1269CD884CB162162CCC1 /* PiholeV5Service+HTMLParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54CC11E93FDE0E2B11B32AB /* PiholeV5Service+HTMLParsingTests.swift */; };
 		EF377E2EC98FAC668E74B590 /* MenuItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC23106EDFED2519504E3E89 /* MenuItemFactory.swift */; };
 		F0729CDDF44805C4E9A7245D /* AppleScriptUrlFetchingStrategyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3415558B017AB80151AB2A3 /* AppleScriptUrlFetchingStrategyTests.swift */; };
 		F299A59FE6C0DB18013F2D3C /* PiholeServiceFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A782F2F026D983660B900E /* PiholeServiceFactoryTests.swift */; };
 		F807C9BD4C85EF6CED22A360 /* GeckoSessionStoreUrlFetchingStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A8FD2E70DB2F738EDBD624 /* GeckoSessionStoreUrlFetchingStrategy.swift */; };
+		F9687C8CF26CBE8DB38D52C7 /* RetryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC6AC9D6CFD70B99A2E5BAD /* RetryPolicyTests.swift */; };
 		FAD5590CC7B0568772EB01AD /* Browser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAE03C986FB57395AC64F527 /* Browser.swift */; };
+		FC2D2C820F1E5D00C05597B2 /* PiholeV5HTMLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883915E51427226D00345793 /* PiholeV5HTMLParserTests.swift */; };
 		FF653C48A5B5B764BD25F36F /* PiholeV6Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A5309DE45FB822B893A799B /* PiholeV6Service.swift */; };
 /* End PBXBuildFile section */
 
@@ -165,6 +168,7 @@
 		51561DC0F0B1342D035E539B /* BlockedDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockedDomain.swift; sourceTree = "<group>"; };
 		5438BFDC75322BDC628D3BAA /* GeckoSessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoSessionStoreTests.swift; sourceTree = "<group>"; };
 		5724AD38DCD61797817E923D /* ResolvedBrowserTabTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResolvedBrowserTabTests.swift; sourceTree = "<group>"; };
+		59064DE55060B19BD441C88F /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
 		5939E6E499C008726E9D6C9F /* ReachabilityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReachabilityMonitor.swift; sourceTree = "<group>"; };
 		5BA738DE1C8726AA4CB45965 /* ChromiumUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromiumUrlFetchingStrategy.swift; sourceTree = "<group>"; };
 		5D9EF31C6C8019D2B5B2874C /* MockBrowserActiveUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockBrowserActiveUrlFetchingStrategy.swift; sourceTree = "<group>"; };
@@ -183,11 +187,13 @@
 		78CA81066A39C59FE5C15FAB /* PiholeServerManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServerManagerTests.swift; sourceTree = "<group>"; };
 		799F6B067A620AEA47C1AB51 /* SafariUrlFetchingStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariUrlFetchingStrategy.swift; sourceTree = "<group>"; };
 		7A5309DE45FB822B893A799B /* PiholeV6Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV6Service.swift; sourceTree = "<group>"; };
+		7FC6AC9D6CFD70B99A2E5BAD /* RetryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicyTests.swift; sourceTree = "<group>"; };
 		80AA5D6BCDB36BD631A90DC2 /* TimerManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManagerTests.swift; sourceTree = "<group>"; };
 		829BDC324271095648955DB6 /* MockURLSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLSession.swift; sourceTree = "<group>"; };
 		855C1D493DDDE82A9062FA2D /* .swiftlint.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
 		85BD5C9D1E8AA2311420E550 /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		85F0D942A47029EC19A331ED /* MockPiholeServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPiholeServiceTests.swift; sourceTree = "<group>"; };
+		883915E51427226D00345793 /* PiholeV5HTMLParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV5HTMLParserTests.swift; sourceTree = "<group>"; };
 		8A5D9D07B8EC02852147638F /* Holeberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Holeberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		917949C61B29355B2512A98E /* AuthSessionFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionFactoryTests.swift; sourceTree = "<group>"; };
 		93C815F98508B897CEAC6814 /* MockAppFocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAppFocusMonitor.swift; sourceTree = "<group>"; };
@@ -208,7 +214,6 @@
 		BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedMenuButton.swift; sourceTree = "<group>"; };
 		C0A782F2F026D983660B900E /* PiholeServiceFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeServiceFactoryTests.swift; sourceTree = "<group>"; };
 		C47987F52F2D6124503B041A /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
-		C54CC11E93FDE0E2B11B32AB /* PiholeV5Service+HTMLParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PiholeV5Service+HTMLParsingTests.swift"; sourceTree = "<group>"; };
 		CBE5B03A555A3A6420A2DAED /* HTTPMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPMethod.swift; sourceTree = "<group>"; };
 		CC23106EDFED2519504E3E89 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		CF0A1D51C51B661825EDDDBC /* DomainEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainEntry.swift; sourceTree = "<group>"; };
@@ -233,6 +238,7 @@
 		EC143430B8C7654D5C5C9B4C /* PiholeDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeDiscoveryService.swift; sourceTree = "<group>"; };
 		ED7867CFEB03F274DD82C44A /* BrowserActiveUrlFetchingStrategyFactoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserActiveUrlFetchingStrategyFactoryTests.swift; sourceTree = "<group>"; };
 		EE34D0881B2416F636EAF735 /* LocalIPAddressResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalIPAddressResolver.swift; sourceTree = "<group>"; };
+		F04307EE6B99CFA455DF88DD /* PiholeV5HTMLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiholeV5HTMLParser.swift; sourceTree = "<group>"; };
 		F0BD39022157258EC4E95DFE /* HTTPURLResponseStatusCodesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPURLResponseStatusCodesTests.swift; sourceTree = "<group>"; };
 		F20BC6E492A3D31D9FE4E1C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F3415558B017AB80151AB2A3 /* AppleScriptUrlFetchingStrategyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleScriptUrlFetchingStrategyTests.swift; sourceTree = "<group>"; };
@@ -438,10 +444,11 @@
 				F895817C3028A06614009539 /* PiholeDiscoveryServiceTests.swift */,
 				78CA81066A39C59FE5C15FAB /* PiholeServerManagerTests.swift */,
 				C0A782F2F026D983660B900E /* PiholeServiceFactoryTests.swift */,
-				C54CC11E93FDE0E2B11B32AB /* PiholeV5Service+HTMLParsingTests.swift */,
+				883915E51427226D00345793 /* PiholeV5HTMLParserTests.swift */,
 				EB8C82445E1377DD02C1FBFE /* PiholeV5ServiceTests.swift */,
 				E2E3B8E84F819AA3F0A87806 /* PiholeV6ServiceTests.swift */,
 				3E562B536E740E68D47E6967 /* PiholeVersionDetectorTests.swift */,
+				7FC6AC9D6CFD70B99A2E5BAD /* RetryPolicyTests.swift */,
 				4026D0C1A94ED84EC52F6253 /* TemporaryUnblockPiholeServiceDecoratorTests.swift */,
 				9D24149CE790109A556432B6 /* Auth */,
 				DAFF2FCF8D4AF262F3C8ADD9 /* BrowserDetector */,
@@ -468,10 +475,12 @@
 				DC6FCCAE5B796AE3A83B588E /* PiholeServiceFactory.swift */,
 				205BFF3B90A59B4288D35097 /* PiholeServiceInternal.swift */,
 				BA6DF9213C6E6E08CBB7C131 /* PiholeServiceProtocol.swift */,
+				F04307EE6B99CFA455DF88DD /* PiholeV5HTMLParser.swift */,
 				B03C5D43567908E4F5F4F05C /* PiholeV5Service.swift */,
 				7A5309DE45FB822B893A799B /* PiholeV6Service.swift */,
 				DD3CA987B28094B70335ED14 /* PiholeVersionDetector.swift */,
 				5939E6E499C008726E9D6C9F /* ReachabilityMonitor.swift */,
+				59064DE55060B19BD441C88F /* RetryPolicy.swift */,
 				BA1CE03586A265655C37420C /* ServerStatusPoller.swift */,
 				01E3A2221DD64B23DCD681D9 /* TemporaryUnblockPiholeServiceDecorator.swift */,
 				F14D3A68403C16596E0B5E52 /* Auth */,
@@ -741,12 +750,14 @@
 				CBFB3F60995ED900BD1290BA /* PiholeServiceFactory.swift in Sources */,
 				5F25CC0C8B8B2B2BB816DA55 /* PiholeServiceInternal.swift in Sources */,
 				1DE30D02710B910B83AC8548 /* PiholeServiceProtocol.swift in Sources */,
+				7B83B3BB37A0706EC2F4CC35 /* PiholeV5HTMLParser.swift in Sources */,
 				228A3C5590D806C88BE2C624 /* PiholeV5Service.swift in Sources */,
 				FF653C48A5B5B764BD25F36F /* PiholeV6Service.swift in Sources */,
 				1C679E3674EA0D48615599F3 /* PiholeVersionDetector.swift in Sources */,
 				9BD659AE8A7F7C4106E502FB /* ReachabilityMonitor.swift in Sources */,
 				A056503432246A8DC2A9BE18 /* RecentlyBlockedMenu.swift in Sources */,
 				4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */,
+				D945B51B251D08AC998BB49B /* RetryPolicy.swift in Sources */,
 				8B0DF160023249B935D7C313 /* SafariUrlFetchingStrategy.swift in Sources */,
 				C8E0239329AEF874B5875C51 /* ServerConfig.swift in Sources */,
 				D65DA56F63A37EE93D59713B /* ServerStatusPoller.swift in Sources */,
@@ -797,11 +808,12 @@
 				383529E344E9C1EB77FCC996 /* PiholeErrorTests.swift in Sources */,
 				B51DC7C75756A7D4A9192C0C /* PiholeServerManagerTests.swift in Sources */,
 				F299A59FE6C0DB18013F2D3C /* PiholeServiceFactoryTests.swift in Sources */,
-				EED1269CD884CB162162CCC1 /* PiholeV5Service+HTMLParsingTests.swift in Sources */,
+				FC2D2C820F1E5D00C05597B2 /* PiholeV5HTMLParserTests.swift in Sources */,
 				6FDD325B6135272AAF762768 /* PiholeV5ServiceTests.swift in Sources */,
 				0CDC41DB7980091B5F8A9169 /* PiholeV6ServiceTests.swift in Sources */,
 				E7A946B6904084EBBC2B9CB0 /* PiholeVersionDetectorTests.swift in Sources */,
 				0C16DD88F3E0B4EF55775C48 /* ResolvedBrowserTabTests.swift in Sources */,
+				F9687C8CF26CBE8DB38D52C7 /* RetryPolicyTests.swift in Sources */,
 				3CE0EF08E997C389640A8CC4 /* ServerConfigTests.swift in Sources */,
 				631EC8440C70C323D17A4966 /* TempUnblockRecordTests.swift in Sources */,
 				5AE5AE547F6B94C5C70AE77F /* TemporaryUnblockPiholeServiceDecoratorTests.swift in Sources */,
