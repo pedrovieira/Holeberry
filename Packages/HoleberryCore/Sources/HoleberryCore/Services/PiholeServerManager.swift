@@ -161,14 +161,19 @@ public final class PiholeServerManager: ObservableObject {
 
   /// Returns blocking status for all servers. Each entry is `nil` if that server was unreachable.
   public func getBlockingStatus() async -> [UUID: BlockingStatus?] {
-    await withTaskGroup(of: (UUID, BlockingStatus?).self) { group in
-      for config in servers {
+    let configs = servers
+    let svcs = services
+    return await withTaskGroup(of: (UUID, BlockingStatus?).self) { group in
+      for config in configs {
+        let svc = svcs[config.id]
+        let id = config.id
         group.addTask {
           do {
-            let status = try await self.getBlockingStatus(for: config.id)
-            return (config.id, status)
+            guard let svc else { return (id, nil) }
+            let status = try await svc.checkStatus()
+            return (id, status)
           } catch {
-            return (config.id, nil)
+            return (id, nil)
           }
         }
       }
@@ -180,24 +185,23 @@ public final class PiholeServerManager: ObservableObject {
     }
   }
 
-  /// Per-server blocking check. Prefer the umbrella `getBlockingStatus()`.
-  private func getBlockingStatus(for id: UUID) async throws -> BlockingStatus {
-    guard let service = services[id] else {
-      throw PiholeError.unknown("Server not found")
-    }
-    return try await service.checkStatus()
-  }
-
   /// Toggle blocking on all servers. Returns per-server success/failure.
   public func setBlocking(enabled: Bool, duration: TimeInterval?) async -> [UUID: Bool] {
-    await withTaskGroup(of: (UUID, Bool).self) { group in
-      for config in servers {
+    let configs = servers
+    let svcs = services
+    return await withTaskGroup(of: (UUID, Bool).self) { group in
+      for config in configs {
+        let svc = svcs[config.id]
+        let id = config.id
         group.addTask {
           do {
-            try await self.setBlocking(for: config.id, enabled: enabled, duration: duration)
-            return (config.id, true)
+            guard let svc else { return (id, false) }
+            try await withRetry(.destructive) {
+              try await svc.setBlocking(enabled: enabled, duration: duration)
+            }
+            return (id, true)
           } catch {
-            return (config.id, false)
+            return (id, false)
           }
         }
       }
@@ -206,16 +210,6 @@ public final class PiholeServerManager: ObservableObject {
         results[id] = success
       }
       return results
-    }
-  }
-
-  /// Per-server blocking toggle. Prefer the umbrella `setBlocking(enabled:duration:)`.
-  private func setBlocking(for id: UUID, enabled: Bool, duration: TimeInterval?) async throws {
-    guard let service = services[id] else {
-      throw PiholeError.unknown("Server not found")
-    }
-    try await withRetry(.destructive) {
-      try await service.setBlocking(enabled: enabled, duration: duration)
     }
   }
 
@@ -248,14 +242,21 @@ public final class PiholeServerManager: ObservableObject {
   /// Unblock a domain on all servers. Returns per-server result (success or error).
   public func unblockDomain(_ domain: String, duration: TimeInterval?) async -> [UUID: Result<Void, any Error>] {
     let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
+    let configs = servers
+    let svcs = services
     return await withTaskGroup(of: (UUID, Result<Void, any Error>).self) { group in
-      for config in servers {
+      for config in configs {
+        let svc = svcs[config.id]
+        let id = config.id
         group.addTask {
           do {
-            try await self.unblockDomain(stripped, duration: duration, for: config.id)
-            return (config.id, .success(()))
+            guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
+            try await withRetry(.destructive) {
+              try await svc.unblockDomain(stripped, duration: duration)
+            }
+            return (id, .success(()))
           } catch {
-            return (config.id, .failure(error))
+            return (id, .failure(error))
           }
         }
       }
@@ -267,27 +268,22 @@ public final class PiholeServerManager: ObservableObject {
     }
   }
 
-  /// Per-server unblock. Prefer the umbrella `unblockDomain(_:duration:)`.
-  private func unblockDomain(_ domain: String, duration: TimeInterval?, for serverID: UUID) async throws {
-    guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
-    try await withRetry(.destructive) {
-      try await service.unblockDomain(domain, duration: duration)
-    }
-  }
-
   public func deleteDomain(_ domain: String) async {
     let serverList = servers
+    let svcs = services
+    let log = logger
     await withTaskGroup(of: Void.self) { group in
       for config in serverList {
-        guard let service = services[config.id] else { continue }
+        guard let service = svcs[config.id] else { continue }
+        let label = config.label ?? config.url
         group.addTask {
           do {
             try await withRetry(.destructive) {
               try await service.deleteDomain(domain: domain)
             }
           } catch {
-            self.logger.warning(
-              "deleteDomain failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+            log.warning(
+              "deleteDomain failed on \(label): \(error.localizedDescription, privacy: .public)"
             )
           }
         }
@@ -297,18 +293,22 @@ public final class PiholeServerManager: ObservableObject {
 
   public func getDomains() async throws -> [UUID: [DomainEntry]] {
     let serverList = servers
+    let svcs = services
+    let log = logger
     let collected: [(UUID, [DomainEntry])] = await withTaskGroup(
       of: (UUID, [DomainEntry])?.self
     ) { group in
       for config in serverList {
-        guard let service = services[config.id] else { continue }
+        guard let service = svcs[config.id] else { continue }
+        let id = config.id
+        let label = config.label ?? config.url
         group.addTask {
           do {
             let domains = try await service.getDomains()
-            return (config.id, domains)
+            return (id, domains)
           } catch {
-            self.logger.warning(
-              "getDomains failed on \(config.label ?? config.url): \(error.localizedDescription, privacy: .public)"
+            log.warning(
+              "getDomains failed on \(label): \(error.localizedDescription, privacy: .public)"
             )
             return nil
           }
@@ -328,17 +328,19 @@ public final class PiholeServerManager: ObservableObject {
 
   public func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
     let serverList = servers
+    let svcs = services
+    let log = logger
     let allBlocked: [BlockedDomain] = await withTaskGroup(
       of: [BlockedDomain].self
     ) { group in
       for config in serverList {
-        guard let service = services[config.id] else { continue }
+        guard let service = svcs[config.id] else { continue }
+        let label = config.label ?? config.url
         group.addTask {
           do {
             return try await service.getRecentBlocked(forClientIp: forClientIp, interval: interval)
           } catch {
-            let label = config.label ?? config.url
-            self.logger.warning(
+            log.warning(
               "getRecentBlocked failed on \(label): \(error.localizedDescription, privacy: .public)")
             return []
           }
@@ -368,14 +370,19 @@ public final class PiholeServerManager: ObservableObject {
 
   /// Returns query summaries for all servers. Each entry is `nil` if that server was unreachable.
   public func getQuerySummary() async -> [UUID: QuerySummary?] {
-    await withTaskGroup(of: (UUID, QuerySummary?).self) { group in
-      for config in servers {
+    let configs = servers
+    let svcs = services
+    return await withTaskGroup(of: (UUID, QuerySummary?).self) { group in
+      for config in configs {
+        let svc = svcs[config.id]
+        let id = config.id
         group.addTask {
           do {
-            let summary = try await self.getQuerySummary(for: config.id)
-            return (config.id, summary)
+            guard let svc else { return (id, nil) }
+            let summary = try await svc.getQuerySummary()
+            return (id, summary)
           } catch {
-            return (config.id, nil)
+            return (id, nil)
           }
         }
       }
@@ -385,12 +392,6 @@ public final class PiholeServerManager: ObservableObject {
       }
       return results
     }
-  }
-
-  /// Per-server query summary. Prefer the umbrella `getQuerySummary()`.
-  private func getQuerySummary(for serverID: UUID) async throws -> QuerySummary {
-    guard let service = services[serverID] else { throw PiholeError.unknown("Server not found") }
-    return try await service.getQuerySummary()
   }
 
   // MARK: - Multi-server workflows
