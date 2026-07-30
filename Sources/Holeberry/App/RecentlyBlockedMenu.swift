@@ -1,4 +1,5 @@
 import AppKit
+import HoleberryCore
 
 /// A submenu for recently-blocked domains that rebuilds its items from scratch
 /// each time it opens (via `menuNeedsUpdate`/`menuWillOpen`), so relative

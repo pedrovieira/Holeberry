@@ -1,5 +1,6 @@
 import AppKit
 import Defaults
+import HoleberryCore
 import KeyboardShortcuts
 import OSLog
 import UserNotifications

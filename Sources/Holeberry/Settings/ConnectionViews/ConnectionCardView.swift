@@ -1,3 +1,4 @@
+import HoleberryCore
 import SwiftUI
 
 struct ConnectionCardView: View {

@@ -1,4 +1,5 @@
 import Defaults
+import HoleberryCore
 import KeyboardShortcuts
 import OSLog
 import ServiceManagement

@@ -12,12 +12,8 @@ settings:
     "CODE_SIGN_IDENTITY[sdk=macosx*]": "${HOLEBERRY_CODE_SIGN_IDENTITY}"
 
 packages:
-  SimpleKeychain:
-    url: https://github.com/auth0/SimpleKeychain
-    from: 1.3.0
-  Defaults:
-    url: https://github.com/sindresorhus/Defaults
-    from: 9.0.0
+  HoleberryCore:
+    path: Packages/HoleberryCore
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: 2.4.0
@@ -54,8 +50,7 @@ targets:
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
     dependencies:
-      - package: SimpleKeychain
-      - package: Defaults
+      - package: HoleberryCore
       - package: KeyboardShortcuts
       - package: SymbolPicker
       - package: Sparkle
@@ -65,7 +60,7 @@ targets:
         script: |
           export PATH="$PATH:/opt/homebrew/bin"
           if which swiftlint > /dev/null; then
-            swiftlint --strict
+            swiftlint --strict Sources/ Packages/HoleberryCore/Sources/
           else
             echo "warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint"
           fi
@@ -74,21 +69,11 @@ targets:
         script: |
           FORMAT_BIN=$(xcrun --find swift-format 2>/dev/null)
           if [ -n "$FORMAT_BIN" ]; then
-            "$FORMAT_BIN" lint --recursive --strict Sources/
+            "$FORMAT_BIN" lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
             # Use relaxed rules for test files
-            "$FORMAT_BIN" lint --recursive --strict --configuration Tests/HoleberryTests/.swift-format Tests/
+            "$FORMAT_BIN" lint --recursive --strict --configuration Packages/HoleberryCore/Tests/HoleberryCoreTests/.swift-format Packages/HoleberryCore/Tests/
           else
             echo "warning: swift-format not found in Xcode toolchain"
           fi
 
-  HoleberryTests:
-    type: bundle.unit-test
-    platform: macOS
-    sources:
-      - path: Tests/HoleberryTests
-    dependencies:
-      - target: Holeberry
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry.tests
-        GENERATE_INFOPLIST_FILE: YES
+

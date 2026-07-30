@@ -1,4 +1,5 @@
 import AppKit
+import HoleberryCore
 import OSLog
 import Sparkle
 import SwiftUI
