@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Defaults
+import HoleberryCore
 import OSLog
 import Sparkle
 import UserNotifications
