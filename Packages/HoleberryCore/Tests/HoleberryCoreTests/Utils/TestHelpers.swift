@@ -1,5 +1,6 @@
 import Defaults
 import Foundation
+import Testing
 
 /// Shared JSON encoder/decoder instances for tests.
 /// Using a single instance avoids re-creating these lightweight but commonly-used objects.
@@ -22,5 +23,30 @@ enum TestDefaults {
       fatalError("Failed to create test UserDefaults suite")
     }
     return suite
+  }
+}
+
+/// Awaits until `condition` returns true, yielding the main actor between checks.
+/// Turn-based, not wall-clock: all test work is serialized on the main actor, so
+/// pending sink/`Task` work runs while this yields. `maxTurns` is a safety valve
+/// against an infinite loop, not a timing dependency.
+@MainActor
+func waitUntil(
+  maxTurns: Int = 10_000,
+  _ condition: @MainActor () -> Bool
+) async {
+  for _ in 0..<maxTurns {
+    if condition() { return }
+    await Task.yield()
+  }
+  Issue.record("waitUntil: condition not met after \(maxTurns) yields")
+}
+
+/// Yields enough main-actor turns for any pending sink-emitted work to run.
+/// Used for absence assertions (e.g. "no poll was triggered").
+@MainActor
+func settle(turns: Int = 100) async {
+  for _ in 0..<turns {
+    await Task.yield()
   }
 }
