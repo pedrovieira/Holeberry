@@ -1,12 +1,14 @@
+import Combine
 import Defaults
 import Foundation
 import OSLog
-// swiftlint:disable file_length
+// swiftlint:disable file_length type_body_length
 
 @MainActor
-public final class PiholeServerManager: ObservableObject {
+public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private static let maxServers = 2
   @Published public var servers: [ServerConfig] = []
+  public var serversPublisher: Published<[ServerConfig]>.Publisher { $servers }
   private let keychain: KeychainManaging
   private let serviceFactory: PiholeServiceFactory
   private let versionDetector: PiholeVersionDetector

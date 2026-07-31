@@ -14,27 +14,29 @@ public final class ServerStatusPoller: ObservableObject {
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private let pollingInterval: TimeInterval
-  private var pollingTask: Task<Void, Never>?
+  private let scheduler: any PollScheduler
   private var cancellables = Set<AnyCancellable>()
   private var isPolling = false
 
-  public let manager: PiholeServerManager
+  public let manager: any PiholeServerManaging
   public let networkInterface: LocalIPAddressProviding
   private let defaultsSuite: UserDefaults
 
   public init(
-    manager: PiholeServerManager,
+    manager: any PiholeServerManaging,
     networkInterface: LocalIPAddressProviding,
     pollingInterval: TimeInterval = 30,
-    defaultsSuite: UserDefaults = .standard
+    defaultsSuite: UserDefaults = .standard,
+    scheduler: any PollScheduler = TaskPollScheduler()
   ) {
     self.manager = manager
     self.networkInterface = networkInterface
     self.defaultsSuite = defaultsSuite
     self.pollingInterval = pollingInterval
+    self.scheduler = scheduler
     self.servers = manager.servers
 
-    manager.$servers
+    manager.serversPublisher
       .dropFirst()
       .receive(on: DispatchQueue.main)
       .sink { [weak self] newServers in
@@ -58,25 +60,22 @@ public final class ServerStatusPoller: ObservableObject {
   // MARK: - Polling Control
 
   public func startPolling() {
-    guard pollingTask == nil else { return }
-    pollingTask = Task { [weak self] in
-      while true {
-        guard let self, !Task.isCancelled else { return }
-        await self.performPoll()
-        try? await Task.sleep(for: .seconds(pollingInterval))
-      }
-    }
+    guard !scheduler.isRunning else { return }
+    startTicking()
   }
 
   public func stopPolling() {
-    pollingTask?.cancel()
-    pollingTask = nil
+    scheduler.stop()
   }
 
   public func pollNow() {
-    pollingTask?.cancel()
-    pollingTask = nil
-    startPolling()
+    startTicking()
+  }
+
+  private func startTicking() {
+    scheduler.start(interval: pollingInterval) { [weak self] in
+      await self?.performPoll()
+    }
   }
 
   // MARK: - Blocking Operations
