@@ -31,7 +31,7 @@ struct TempUnblockRecordTests {
       startDateUTC: Date(),
       durationSeconds: 60
     )
-    #expect(!record.pendingRemoval)
+    #expect(record.pendingRemoval == false)
     #expect(record.retryCount == 0)
   }
 }

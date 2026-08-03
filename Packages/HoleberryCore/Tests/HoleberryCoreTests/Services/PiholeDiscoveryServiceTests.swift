@@ -49,7 +49,7 @@ struct PiholeDiscoveryServiceScanTests {
 
     await service.scan()
 
-    #expect(!service.isScanning)
+    #expect(service.isScanning == false)
     #expect(service.discoveredInstances.isEmpty)
     #expect(mockSession.requests.isEmpty)
   }
@@ -75,7 +75,7 @@ struct PiholeDiscoveryServiceScanTests {
     await task2.value
 
     #expect(scanningDuring)
-    #expect(!service.isScanning)
+    #expect(service.isScanning == false)
     #expect(service.discoveredInstances.isEmpty)
   }
 
@@ -90,7 +90,7 @@ struct PiholeDiscoveryServiceScanTests {
     await service.scan()
 
     #expect(service.discoveredInstances.isEmpty)
-    #expect(!service.isScanning)
+    #expect(service.isScanning == false)
   }
 }
 

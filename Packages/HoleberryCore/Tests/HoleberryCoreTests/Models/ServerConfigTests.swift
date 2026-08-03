@@ -8,7 +8,7 @@ import Testing
 struct ServerConfigTests {
   @Test func defaults() {
     let server = ServerConfig(label: nil, url: "http://192.168.1.100:80", version: .v6)
-    #expect(!server.id.uuidString.isEmpty)
+    #expect(server.id.uuidString.isEmpty == false)
     #expect(server.label == nil)
     #expect(server.url == "http://192.168.1.100:80")
     #expect(server.version == .v6)

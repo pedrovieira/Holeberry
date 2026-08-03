@@ -9,17 +9,17 @@ struct WordLabelTests {
   func generateDefaultStyle() {
     let label = WordLabel.generate()
     #expect(label.contains("-"))
-    #expect(!label.contains("_"))
-    #expect(!label.contains(" "))
+    #expect(label.contains("_") == false)
+    #expect(label.contains(" ") == false)
     #expect(label.first?.isLowercase ?? false)
   }
 
   @Test("generates camelCase")
   func generateCamelCase() {
     let label = WordLabel.generate(style: .camelCase)
-    #expect(!label.contains("-"))
-    #expect(!label.contains("_"))
-    #expect(!label.contains(" "))
+    #expect(label.contains("-") == false)
+    #expect(label.contains("_") == false)
+    #expect(label.contains(" ") == false)
     #expect(label.first?.isLowercase ?? false)
   }
 
@@ -27,16 +27,16 @@ struct WordLabelTests {
   func generateSnakeCase() {
     let label = WordLabel.generate(style: .snakeCase)
     #expect(label.contains("_"))
-    #expect(!label.contains("-"))
-    #expect(!label.contains(" "))
+    #expect(label.contains("-") == false)
+    #expect(label.contains(" ") == false)
   }
 
   @Test("generates Spaced")
   func generateSpaced() {
     let label = WordLabel.generate(style: .spaced)
     #expect(label.contains(" "))
-    #expect(!label.contains("-"))
-    #expect(!label.contains("_"))
+    #expect(label.contains("-") == false)
+    #expect(label.contains("_") == false)
     let words = label.components(separatedBy: " ")
     #expect(words.count == 2)
     #expect(words[0].first?.isUppercase ?? false)
@@ -60,7 +60,7 @@ struct WordLabelTests {
   func allLabelsNonEmpty() {
     for _ in 0..<100 {
       let label = WordLabel.generate()
-      #expect(!label.isEmpty)
+      #expect(label.isEmpty == false)
     }
   }
 }
