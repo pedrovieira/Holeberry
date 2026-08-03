@@ -32,24 +32,24 @@ struct HTTPURLResponseStatusCodesTests {
   @Test("199 is not success")
   func status199() throws {
     let response = try #require(makeResponse(code: 199))
-    #expect(!response.isSuccess)
+    #expect(response.isSuccess == false)
   }
 
   @Test("300 is not success")
   func status300() throws {
     let response = try #require(makeResponse(code: 300))
-    #expect(!response.isSuccess)
+    #expect(response.isSuccess == false)
   }
 
   @Test("401 is not success")
   func status401() throws {
     let response = try #require(makeResponse(code: 401))
-    #expect(!response.isSuccess)
+    #expect(response.isSuccess == false)
   }
 
   @Test("500 is not success")
   func status500() throws {
     let response = try #require(makeResponse(code: 500))
-    #expect(!response.isSuccess)
+    #expect(response.isSuccess == false)
   }
 }

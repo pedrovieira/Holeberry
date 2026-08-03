@@ -8,7 +8,7 @@ struct TimerManagerTests {
   @Test("starts not running")
   func startsNotRunning() {
     let manager = TimerManager()
-    #expect(!manager.isRunning)
+    #expect(manager.isRunning == false)
     #expect(manager.remainingSeconds == 0)
     #expect(manager.totalDuration == nil)
   }
@@ -44,7 +44,7 @@ struct TimerManagerTests {
     manager.start(duration: nil)
     #expect(manager.isRunning)
     manager.cancel()
-    #expect(!manager.isRunning)
+    #expect(manager.isRunning == false)
     #expect(manager.remainingSeconds == 0)
     #expect(manager.totalDuration == nil)
     #expect(manager.formattedTime.isEmpty)

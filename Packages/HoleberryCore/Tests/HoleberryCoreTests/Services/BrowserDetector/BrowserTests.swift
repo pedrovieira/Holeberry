@@ -8,8 +8,8 @@ struct BrowserTests {
   @Test("all browsers have valid bundle IDs")
   func allHaveBundleIDs() {
     for browser in Browser.allCases {
-      #expect(!browser.bundleID.isEmpty)
-      #expect(!browser.appName.isEmpty)
+      #expect(browser.bundleID.isEmpty == false)
+      #expect(browser.appName.isEmpty == false)
     }
   }
 }
