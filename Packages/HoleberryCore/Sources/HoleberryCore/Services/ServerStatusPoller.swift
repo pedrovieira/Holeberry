@@ -19,12 +19,12 @@ public final class ServerStatusPoller: ObservableObject {
   private var isPolling = false
 
   public let manager: any PiholeServerManaging
-  public let networkInterface: LocalIPAddressProviding
+  public let networkInterface: any LocalIPAddressProviding
   private let defaultsSuite: UserDefaults
 
   public init(
     manager: any PiholeServerManaging,
-    networkInterface: LocalIPAddressProviding,
+    networkInterface: any LocalIPAddressProviding,
     pollingInterval: TimeInterval = 30,
     defaultsSuite: UserDefaults = .standard,
     scheduler: any PollScheduler = TaskPollScheduler()

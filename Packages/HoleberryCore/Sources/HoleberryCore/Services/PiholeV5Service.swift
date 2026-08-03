@@ -23,7 +23,7 @@ public final class PiholeV5Service: PiholeServiceInternal {
   private var baseURL: URL
   private var session: any HTTPRequestable
   private let apiToken: String
-  private let htmlParser: PiholeV5HTMLParsing
+  private let htmlParser: any PiholeV5HTMLParsing
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
   /// Safety cap on the number of rows the server returns. The real filter is the time
@@ -40,7 +40,7 @@ public final class PiholeV5Service: PiholeServiceInternal {
     baseURL: URL,
     session: any HTTPRequestable,
     apiToken: String,
-    htmlParser: PiholeV5HTMLParsing = PiholeV5HTMLParser()
+    htmlParser: any PiholeV5HTMLParsing
   ) {
     self.id = id
     self.label = label
