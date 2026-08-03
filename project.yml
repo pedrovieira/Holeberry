@@ -49,6 +49,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+        SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
     dependencies:
       - package: HoleberryCore
       - package: KeyboardShortcuts
