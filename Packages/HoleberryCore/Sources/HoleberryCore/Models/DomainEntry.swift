@@ -11,7 +11,7 @@ public struct DomainEntry: Codable, Equatable, Sendable {
     case id, domain, type, comment
   }
 
-  public init(from decoder: Decoder) throws {
+  public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     id = try container.decodeIfPresent(Int.self, forKey: .id)
     domain = try container.decode(String.self, forKey: .domain)
@@ -26,7 +26,7 @@ public struct DomainEntry: Codable, Equatable, Sendable {
     }
   }
 
-  public func encode(to encoder: Encoder) throws {
+  public func encode(to encoder: any Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encodeIfPresent(id, forKey: .id)
     try container.encode(domain, forKey: .domain)

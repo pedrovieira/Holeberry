@@ -23,11 +23,11 @@ public class PiholeDiscoveryService: ObservableObject {
   @Published public var discoveredInstances: [DiscoveredInstance] = []
   @Published public var isScanning = false
 
-  private let networkInterface: LocalIPAddressProviding
+  private let networkInterface: any LocalIPAddressProviding
   private let urlSession: any HTTPRequestable
 
   public init(
-    networkInterface: LocalIPAddressProviding = LocalIPAddressResolver(),
+    networkInterface: any LocalIPAddressProviding,
     urlSession: any HTTPRequestable = URLSession.shared
   ) {
     self.networkInterface = networkInterface
@@ -46,7 +46,7 @@ public class PiholeDiscoveryService: ObservableObject {
   /// Scans the local /24 subnet for Pi-hole admin endpoints.
   /// Best-effort: unreachable IPs are silently skipped.
   /// Respects cooperative cancellation.
-  private func scanSubnet(localIPAddressResolver: LocalIPAddressProviding) async -> [DiscoveredInstance] {
+  private func scanSubnet(localIPAddressResolver: any LocalIPAddressProviding) async -> [DiscoveredInstance] {
     guard let localIP = localIPAddressResolver.localIPAddress() else { return [] }
 
     let components = localIP.split(separator: ".")

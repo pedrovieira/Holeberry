@@ -17,7 +17,7 @@ public final class PiholeV6Service: PiholeServiceInternal {
   // MARK: - API
   private var baseURL: URL
   private var urlSession: any HTTPRequestable
-  private let authSession: AuthSessionProviding
+  private let authSession: any AuthSessionProviding
   private static let decoder = JSONDecoder()
   private static let encoder = JSONEncoder()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v6-service")
@@ -46,7 +46,7 @@ public final class PiholeV6Service: PiholeServiceInternal {
     version: ServerVersion,
     baseURL: URL,
     urlSession: any HTTPRequestable,
-    authSession: AuthSessionProviding
+    authSession: any AuthSessionProviding
   ) {
     self.id = id
     self.label = label

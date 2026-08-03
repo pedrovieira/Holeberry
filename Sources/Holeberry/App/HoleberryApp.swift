@@ -32,9 +32,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // MARK: - Composition Root (lazy var dependency graph)
 
   private lazy var keychain = KeychainManager()
-  private lazy var htmlParser: PiholeV5HTMLParsing = PiholeV5HTMLParser()
+  private lazy var htmlParser: any PiholeV5HTMLParsing = PiholeV5HTMLParser()
   private lazy var authFactory = ConcreteAuthSessionFactory()
-  private lazy var serviceFactory = PiholeServiceFactory(
+  private lazy var serviceFactory = ConcretePiholeServiceFactory(
     authSessionFactory: authFactory,
     htmlParser: htmlParser
   )

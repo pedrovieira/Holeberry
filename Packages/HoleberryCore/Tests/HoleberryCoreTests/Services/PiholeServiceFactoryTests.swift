@@ -11,7 +11,7 @@ struct PiholeServiceFactoryTests {
     let mockAuthFactory = MockAuthSessionFactory()
     let mockProvider = MockAuthSessionProvider()
     mockAuthFactory.stubbedProvider = mockProvider
-    let factory = PiholeServiceFactory(authSessionFactory: mockAuthFactory, htmlParser: PiholeV5HTMLParser())
+    let factory = ConcretePiholeServiceFactory(authSessionFactory: mockAuthFactory, htmlParser: PiholeV5HTMLParser())
 
     let config = ServerConfig(label: "Test", url: "http://test.local", version: .v6)
     let service = try factory.buildService(
@@ -31,7 +31,7 @@ struct PiholeServiceFactoryTests {
   @Test("v5 config creates PiholeV5Service wrapped in decorator")
   func v5CreatesV5Service() throws {
     let mockAuthFactory = MockAuthSessionFactory()
-    let factory = PiholeServiceFactory(authSessionFactory: mockAuthFactory, htmlParser: PiholeV5HTMLParser())
+    let factory = ConcretePiholeServiceFactory(authSessionFactory: mockAuthFactory, htmlParser: PiholeV5HTMLParser())
 
     let config = ServerConfig(label: "v5 Test", url: "http://v5.local", version: .v5)
     let service = try factory.buildService(

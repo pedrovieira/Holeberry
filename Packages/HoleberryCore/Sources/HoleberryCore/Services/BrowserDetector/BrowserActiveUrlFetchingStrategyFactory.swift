@@ -1,22 +1,22 @@
 import Foundation
 
 public protocol UrlFetchingStrategyFactory {
-  func strategy(for browser: Browser) -> BrowserActiveUrlFetchingStrategy
+  func strategy(for browser: Browser) -> any BrowserActiveUrlFetchingStrategy
 }
 
 public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactory {
-  public let permissionChecker: PermissionChecker
-  public let scriptExecutor: AppleScriptExecutor
+  public let permissionChecker: any PermissionChecker
+  public let scriptExecutor: any AppleScriptExecutor
 
   public init(
-    permissionChecker: PermissionChecker = LivePermissionChecker(),
-    scriptExecutor: AppleScriptExecutor = LiveAppleScriptExecutor()
+    permissionChecker: any PermissionChecker,
+    scriptExecutor: any AppleScriptExecutor
   ) {
     self.permissionChecker = permissionChecker
     self.scriptExecutor = scriptExecutor
   }
 
-  public func strategy(for browser: Browser) -> BrowserActiveUrlFetchingStrategy {
+  public func strategy(for browser: Browser) -> any BrowserActiveUrlFetchingStrategy {
     switch browser {
     case .safari, .safariTechnologyPreview:
       return SafariUrlFetchingStrategy(

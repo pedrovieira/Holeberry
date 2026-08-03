@@ -8,7 +8,14 @@ import OSLog
 ///   - **v6:**  HTTP 400 with `{"hint": "...the API is hosted at /api..."}`
 ///
 /// Any other response is treated as unreachable.
-public struct PiholeVersionDetector: Sendable {
+///
+/// The `PiholeVersionDetecting` seam lets `PiholeServerManager` and tests depend
+/// on the probe behavior without the concrete detector.
+public protocol PiholeVersionDetecting: Sendable {
+  func detect(baseURL: URL, session: any HTTPRequestable) async throws -> ServerVersion
+}
+
+public struct PiholeVersionDetector: PiholeVersionDetecting {
   public init() {}
 
   private static let versionKey = "version"

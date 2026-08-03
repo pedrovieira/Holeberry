@@ -36,16 +36,16 @@ public protocol BrowserTabCoordinating {
 /// AppFocusMonitor, checks Automation permission, and fetches the URL.
 @MainActor
 public final class BrowserTabCoordinator: BrowserTabCoordinating {
-  private let monitor: AppFocusMonitoring
-  private let urlFetcher: BrowserUrlFetching
+  private let monitor: any AppFocusMonitoring
+  private let urlFetcher: any BrowserUrlFetching
   private let defaultsSuite: UserDefaults
-  private let strategyFactory: UrlFetchingStrategyFactory
+  private let strategyFactory: any UrlFetchingStrategyFactory
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-tab")
 
   public init(
-    monitor: AppFocusMonitoring,
-    urlFetcher: BrowserUrlFetching,
-    strategyFactory: UrlFetchingStrategyFactory,
+    monitor: any AppFocusMonitoring,
+    urlFetcher: any BrowserUrlFetching,
+    strategyFactory: any UrlFetchingStrategyFactory,
     defaultsSuite: UserDefaults = .standard
   ) {
     self.monitor = monitor

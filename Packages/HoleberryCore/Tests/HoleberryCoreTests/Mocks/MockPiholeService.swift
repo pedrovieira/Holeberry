@@ -10,34 +10,34 @@ final class MockPiholeService: PiholeServiceInternal {
   var url: String
   var version: ServerVersion
 
-  var checkStatusStub: Result<BlockingStatus, Error> = .success(.enabled)
+  var checkStatusStub: Result<BlockingStatus, any Error> = .success(.enabled)
   private(set) var checkStatusCallCount = 0
 
-  var loginStub: Result<Void, Error> = .success(())
+  var loginStub: Result<Void, any Error> = .success(())
   private(set) var loginCallCount = 0
 
-  var setBlockingStub: Result<Void, Error> = .success(())
+  var setBlockingStub: Result<Void, any Error> = .success(())
   private(set) var setBlockingCallCount = 0
   var setBlockingLastEnabled: Bool?
   var setBlockingLastDuration: TimeInterval?
 
-  var getRecentBlockedStub: Result<[BlockedDomain], Error> = .success([])
+  var getRecentBlockedStub: Result<[BlockedDomain], any Error> = .success([])
   private(set) var getRecentBlockedCallCount = 0
 
-  var getQuerySummaryStub: Result<QuerySummary, Error> = .success(QuerySummary(totalQueries: 0, totalBlocked: 0))
+  var getQuerySummaryStub: Result<QuerySummary, any Error> = .success(QuerySummary(totalQueries: 0, totalBlocked: 0))
   private(set) var getQuerySummaryCallCount = 0
 
-  var addDomainStub: Result<DomainEntry, Error> = .success(
+  var addDomainStub: Result<DomainEntry, any Error> = .success(
     DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil))
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
 
-  var deleteDomainByNameStub: Result<Void, Error> = .success(())
+  var deleteDomainByNameStub: Result<Void, any Error> = .success(())
   private(set) var deleteDomainByNameCallCount = 0
 
-  var getDomainsStub: Result<[DomainEntry], Error> = .success([])
+  var getDomainsStub: Result<[DomainEntry], any Error> = .success([])
   private(set) var getDomainsCallCount = 0
 
   private(set) var logoutCallCount = 0

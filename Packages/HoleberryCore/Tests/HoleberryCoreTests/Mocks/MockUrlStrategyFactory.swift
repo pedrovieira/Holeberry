@@ -10,7 +10,7 @@ final class MockUrlStrategyFactory: UrlFetchingStrategyFactory {
     self.mockStrategy = mockStrategy
   }
 
-  func strategy(for browser: Browser) -> BrowserActiveUrlFetchingStrategy {
+  func strategy(for browser: Browser) -> any BrowserActiveUrlFetchingStrategy {
     mockStrategy
   }
 }

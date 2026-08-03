@@ -19,7 +19,7 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
 
   private var sid: String?
   private var csrf: String?
-  private var loginTask: Task<AuthResponse, Error>?
+  private var loginTask: Task<AuthResponse, any Error>?
 
   // MARK: - Init
 
@@ -96,7 +96,7 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
     if let existingTask = loginTask {
       authResponse = try await existingTask.value
     } else {
-      let task = Task<AuthResponse, Error> { [host, urlSession, password, logger] in
+      let task = Task<AuthResponse, any Error> { [host, urlSession, password, logger] in
         let url = host.appendingPathComponent(Self.apiAuthPath)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

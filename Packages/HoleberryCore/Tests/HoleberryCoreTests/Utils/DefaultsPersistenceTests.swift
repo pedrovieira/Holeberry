@@ -47,7 +47,7 @@ struct DefaultsPersistenceTests {
     // Can't write corrupted data through Defaults (it encodes properly),
     // so inject bad JSON directly via UserDefaults to test the error path.
     suite.set("<bad json>", forKey: "servers")
-    let mockFactory = PiholeServiceFactory(
+    let mockFactory = ConcretePiholeServiceFactory(
       authSessionFactory: MockAuthSessionFactory(),
       htmlParser: PiholeV5HTMLParser()
     )

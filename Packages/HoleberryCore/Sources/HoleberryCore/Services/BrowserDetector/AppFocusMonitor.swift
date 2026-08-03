@@ -13,8 +13,8 @@ public protocol AppFocusMonitoring: AnyObject, Sendable {
 public final class AppFocusMonitor: ObservableObject, AppFocusMonitoring, @unchecked Sendable {
   @MainActor @Published public private(set) var lastSeenBrowser: Browser?
 
-  private var activationObserver: NSObjectProtocol?
-  private var terminationObserver: NSObjectProtocol?
+  private var activationObserver: (any NSObjectProtocol)?
+  private var terminationObserver: (any NSObjectProtocol)?
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "app-focus")
 
   private let notificationCenter: NotificationCenter
