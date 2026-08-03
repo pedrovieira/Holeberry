@@ -13,7 +13,7 @@ private func v6Response(statusCode: Int = 200) -> HTTPURLResponse? {
 final class PiholeV6ServiceTests {
   private let mockSession = MockURLSession()
 
-  private func makeService(authSession: AuthSessionProviding? = nil) -> PiholeV6Service {
+  private func makeService(authSession: (any AuthSessionProviding)? = nil) -> PiholeV6Service {
     let mockAuth = authSession ?? MockAuthSessionProvider()
     return PiholeV6Service(
       id: UUID(),

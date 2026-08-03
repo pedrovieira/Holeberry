@@ -23,7 +23,8 @@ final class PiholeV5ServiceTests {
       version: .v5,
       baseURL: v5BaseURL,
       session: mockSession,
-      apiToken: "test-token"
+      apiToken: "test-token",
+      htmlParser: PiholeV5HTMLParser()
     )
   }
 

@@ -20,11 +20,17 @@ let package = Package(
             dependencies: [
                 .product(name: "SimpleKeychain", package: "SimpleKeychain"),
                 .product(name: "Defaults", package: "Defaults"),
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny"),
             ]
         ),
         .testTarget(
             name: "HoleberryCoreTests",
-            dependencies: ["HoleberryCore"]
+            dependencies: ["HoleberryCore"],
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny"),
+            ]
         ),
     ]
 )

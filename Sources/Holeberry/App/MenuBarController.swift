@@ -14,7 +14,7 @@ final class MenuBarController: NSObject {
   private let reachability: ReachabilityMonitor
   private let statusMonitor: ServerStatusPoller
   private let browserTabCoordinator: BrowserTabCoordinator
-  private let localIPAddressResolver: LocalIPAddressProviding
+  private let localIPAddressResolver: any LocalIPAddressProviding
   private let updater: SPUUpdater
   private let defaultsSuite: UserDefaults
   private let settingsWindowController: SettingsWindowController
@@ -49,7 +49,7 @@ final class MenuBarController: NSObject {
     reachability: ReachabilityMonitor,
     statusMonitor: ServerStatusPoller,
     browserTabCoordinator: BrowserTabCoordinator,
-    localIPAddressResolver: LocalIPAddressProviding = LocalIPAddressResolver(),
+    localIPAddressResolver: any LocalIPAddressProviding,
     updater: SPUUpdater,
     defaultsSuite: UserDefaults = .standard,
     settingsWindowController: SettingsWindowController

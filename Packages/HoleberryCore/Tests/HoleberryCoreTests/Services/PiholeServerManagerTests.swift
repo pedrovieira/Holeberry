@@ -7,16 +7,14 @@ import Testing
 @Suite("PiholeServerManager CRUD")
 struct PiholeServerManagerCRUDTests {
   private let mockKeychain = MockKeychainManager()
-  private let mockServiceFactory = ConcretePiholeServiceFactory(
-    authSessionFactory: MockAuthSessionFactory(),
-    htmlParser: PiholeV5HTMLParser()
-  )
+  private let mockServiceFactory = MockPiholeServiceFactory()
+  private let mockVersionDetector = MockPiholeVersionDetector()
 
   private func makeManager(suite: UserDefaults) -> PiholeServerManager {
     PiholeServerManager(
       keychain: mockKeychain,
       serviceFactory: mockServiceFactory,
-      versionDetector: PiholeVersionDetector(),
+      versionDetector: mockVersionDetector,
       suite: suite
     )
   }
@@ -98,16 +96,13 @@ struct PiholeServerManagerCRUDTests {
 struct PiholeServerManagerDomainTests {
   private let mockService1 = MockPiholeService(id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
   private let mockService2 = MockPiholeService(id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
-  private let mockServiceFactory = ConcretePiholeServiceFactory(
-    authSessionFactory: MockAuthSessionFactory(),
-    htmlParser: PiholeV5HTMLParser()
-  )
+  private let mockServiceFactory = MockPiholeServiceFactory()
 
   private func makeManager(suite: UserDefaults) -> PiholeServerManager {
     PiholeServerManager(
       keychain: MockKeychainManager(),
       serviceFactory: mockServiceFactory,
-      versionDetector: PiholeVersionDetector(),
+      versionDetector: MockPiholeVersionDetector(),
       suite: suite
     )
   }
