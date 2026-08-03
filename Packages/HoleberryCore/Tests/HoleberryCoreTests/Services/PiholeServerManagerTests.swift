@@ -7,7 +7,7 @@ import Testing
 @Suite("PiholeServerManager CRUD")
 struct PiholeServerManagerCRUDTests {
   private let mockKeychain = MockKeychainManager()
-  private let mockServiceFactory = PiholeServiceFactory(
+  private let mockServiceFactory = ConcretePiholeServiceFactory(
     authSessionFactory: MockAuthSessionFactory(),
     htmlParser: PiholeV5HTMLParser()
   )
@@ -98,7 +98,7 @@ struct PiholeServerManagerCRUDTests {
 struct PiholeServerManagerDomainTests {
   private let mockService1 = MockPiholeService(id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
   private let mockService2 = MockPiholeService(id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
-  private let mockServiceFactory = PiholeServiceFactory(
+  private let mockServiceFactory = ConcretePiholeServiceFactory(
     authSessionFactory: MockAuthSessionFactory(),
     htmlParser: PiholeV5HTMLParser()
   )

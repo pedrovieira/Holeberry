@@ -4,7 +4,7 @@ import OSLog
 
 @MainActor
 public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal {
-  private let wrapped: PiholeServiceInternal
+  private let wrapped: any PiholeServiceInternal
 
   // Identity — delegates to wrapped
   public var id: UUID { wrapped.id }
@@ -31,7 +31,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceInternal
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "temp-unblock")
 
   public init(
-    service: PiholeServiceInternal,
+    service: any PiholeServiceInternal,
     backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
     defaultsSuite: UserDefaults = .standard,
     sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }

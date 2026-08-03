@@ -9,7 +9,7 @@ public protocol AuthSessionFactory: Sendable {
     password: String,
     urlSession: any HTTPRequestable,
     piHoleVersion: ServerVersion
-  ) throws -> AuthSessionProviding
+  ) throws -> any AuthSessionProviding
 }
 
 public struct ConcreteAuthSessionFactory: AuthSessionFactory {
@@ -20,7 +20,7 @@ public struct ConcreteAuthSessionFactory: AuthSessionFactory {
     password: String,
     urlSession: any HTTPRequestable,
     piHoleVersion: ServerVersion
-  ) throws -> AuthSessionProviding {
+  ) throws -> any AuthSessionProviding {
     guard piHoleVersion == .v6 else {
       throw PiholeError.unknown("Auth session is only supported for Pi-hole v6")
     }

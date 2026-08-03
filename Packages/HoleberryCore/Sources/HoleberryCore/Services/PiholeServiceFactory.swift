@@ -1,29 +1,42 @@
 import Foundation
 
-public struct PiholeServiceFactory {
-  private let authSessionFactory: AuthSessionFactory
-  private let htmlParser: PiholeV5HTMLParsing
+/// Builds a `PiholeServiceInternal` for a given server configuration.
+///
+/// Extracted so `PiholeServerManager` depends on the seam and tests can inject
+/// a mock; the production implementation is `ConcretePiholeServiceFactory`.
+@MainActor
+public protocol PiholeServiceFactory {
+  func buildService(
+    config: ServerConfig,
+    credential: String,
+    session: any HTTPRequestable,
+    suite: UserDefaults
+  ) throws -> any PiholeServiceInternal
+}
+
+public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
+  private let authSessionFactory: any AuthSessionFactory
+  private let htmlParser: any PiholeV5HTMLParsing
 
   public init(
-    authSessionFactory: AuthSessionFactory,
-    htmlParser: PiholeV5HTMLParsing
+    authSessionFactory: any AuthSessionFactory,
+    htmlParser: any PiholeV5HTMLParsing
   ) {
     self.authSessionFactory = authSessionFactory
     self.htmlParser = htmlParser
   }
 
-  @MainActor
   public func buildService(
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
     suite: UserDefaults = .standard
-  ) throws -> PiholeServiceInternal {
+  ) throws -> any PiholeServiceInternal {
     guard let url = URL(string: config.url) else {
       fatalError("Invalid URL in ServerConfig: \(config.url)")
     }
 
-    let raw: PiholeServiceInternal
+    let raw: any PiholeServiceInternal
     switch config.version {
     case .v6:
       let authSession = try authSessionFactory.makeSession(

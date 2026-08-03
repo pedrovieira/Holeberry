@@ -21,7 +21,7 @@ final class MockPiholeServerManager: PiholeServerManaging {
   var getQuerySummaryStub: [UUID: QuerySummary?] = [:]
   private(set) var getQuerySummaryCallCount = 0
 
-  var getRecentBlockedStub: Result<[BlockedDomain], Error> = .success([])
+  var getRecentBlockedStub: Result<[BlockedDomain], any Error> = .success([])
   private(set) var getRecentBlockedCallCount = 0
   private(set) var getRecentBlockedLastClientIp: String?
 

@@ -15,8 +15,8 @@ private enum AppleScriptStrategyCase: Sendable {
   }
 
   func makeStrategy(
-    permissionChecker: PermissionChecker = LivePermissionChecker(),
-    scriptExecutor: AppleScriptExecutor = LiveAppleScriptExecutor()
+    permissionChecker: any PermissionChecker,
+    scriptExecutor: any AppleScriptExecutor
   ) -> any AppleScriptUrlFetchingStrategy {
     switch self {
     case .chromium(let appName):
@@ -72,7 +72,10 @@ struct AppleScriptUrlFetchingStrategyTests {
   @Test("Returns nil when AppleScript init fails")
   func initFailureReturnsNil() {
     let mockExecutor = MockAppleScriptExecutor()
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", scriptExecutor: mockExecutor)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: MockPermissionChecker(),
+      scriptExecutor: mockExecutor)
     #expect(strategy.getCurrentURL(for: .chrome) == nil)
   }
 
@@ -82,7 +85,10 @@ struct AppleScriptUrlFetchingStrategyTests {
     let descriptor = NSAppleEventDescriptor(string: "some value")
     mockExecutor.stubbedResult = descriptor
     mockExecutor.stubbedError = [NSAppleScript.errorNumber: -1743]
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", scriptExecutor: mockExecutor)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: MockPermissionChecker(),
+      scriptExecutor: mockExecutor)
     #expect(strategy.getCurrentURL(for: .chrome) == nil)
   }
 
@@ -92,7 +98,10 @@ struct AppleScriptUrlFetchingStrategyTests {
     let descriptor = NSAppleEventDescriptor(string: "some value")
     mockExecutor.stubbedResult = descriptor
     mockExecutor.stubbedError = [NSAppleScript.errorNumber: -1753]
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", scriptExecutor: mockExecutor)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: MockPermissionChecker(),
+      scriptExecutor: mockExecutor)
     #expect(strategy.getCurrentURL(for: .chrome)?.isEmpty == true)
   }
 
@@ -100,7 +109,10 @@ struct AppleScriptUrlFetchingStrategyTests {
   func successReturnsURL() {
     let mockExecutor = MockAppleScriptExecutor()
     mockExecutor.stubbedResult = NSAppleEventDescriptor(string: "https://example.com/page")
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", scriptExecutor: mockExecutor)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: MockPermissionChecker(),
+      scriptExecutor: mockExecutor)
     #expect(strategy.getCurrentURL(for: .chrome) == "https://example.com/page")
   }
 
@@ -109,7 +121,10 @@ struct AppleScriptUrlFetchingStrategyTests {
     let mockExecutor = MockAppleScriptExecutor()
     // NSAppleEventDescriptor with no string value
     mockExecutor.stubbedResult = NSAppleEventDescriptor.list()
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", scriptExecutor: mockExecutor)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: MockPermissionChecker(),
+      scriptExecutor: mockExecutor)
     #expect(strategy.getCurrentURL(for: .chrome)?.isEmpty == true)
   }
 
@@ -119,7 +134,10 @@ struct AppleScriptUrlFetchingStrategyTests {
   func permissionAllowed() {
     let mockChecker = MockPermissionChecker()
     mockChecker.stubbedPermission = .allowed
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", permissionChecker: mockChecker)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: mockChecker,
+      scriptExecutor: MockAppleScriptExecutor())
     #expect(strategy.isPermissionGranted(for: .chrome) == .allowed)
   }
 
@@ -127,7 +145,10 @@ struct AppleScriptUrlFetchingStrategyTests {
   func permissionDenied() {
     let mockChecker = MockPermissionChecker()
     mockChecker.stubbedPermission = .denied
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", permissionChecker: mockChecker)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: mockChecker,
+      scriptExecutor: MockAppleScriptExecutor())
     #expect(strategy.isPermissionGranted(for: .chrome) == .denied)
   }
 
@@ -135,14 +156,20 @@ struct AppleScriptUrlFetchingStrategyTests {
   func permissionNotDetermined() {
     let mockChecker = MockPermissionChecker()
     mockChecker.stubbedPermission = .notDetermined
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", permissionChecker: mockChecker)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: mockChecker,
+      scriptExecutor: MockAppleScriptExecutor())
     #expect(strategy.isPermissionGranted(for: .chrome) == .notDetermined)
   }
 
   @Test("Request permission delegates to checker with askUserIfNeeded=true")
   func requestPermissionPassesAskUserIfNeeded() {
     let mockChecker = MockPermissionChecker()
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", permissionChecker: mockChecker)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: mockChecker,
+      scriptExecutor: MockAppleScriptExecutor())
     strategy.requestPermission(for: .chrome)
     #expect(mockChecker.lastAskUserIfNeeded == true)
     #expect(mockChecker.checkPermissionCallCount == 1)
@@ -151,7 +178,10 @@ struct AppleScriptUrlFetchingStrategyTests {
   @Test("IsPermissionGranted delegates to checker with askUserIfNeeded=false")
   func isPermissionGrantedPassesAskUserIfNeeded() {
     let mockChecker = MockPermissionChecker()
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", permissionChecker: mockChecker)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: mockChecker,
+      scriptExecutor: MockAppleScriptExecutor())
     _ = strategy.isPermissionGranted(for: .chrome)
     #expect(mockChecker.lastAskUserIfNeeded == false)
     #expect(mockChecker.checkPermissionCallCount == 1)
@@ -160,7 +190,10 @@ struct AppleScriptUrlFetchingStrategyTests {
   @Test("Passes correct bundleID to permission checker")
   func permissionCheckerReceivesCorrectBundleID() {
     let mockChecker = MockPermissionChecker()
-    let strategy = ChromiumUrlFetchingStrategy(appName: "Test", permissionChecker: mockChecker)
+    let strategy = ChromiumUrlFetchingStrategy(
+      appName: "Test",
+      permissionChecker: mockChecker,
+      scriptExecutor: MockAppleScriptExecutor())
     _ = strategy.isPermissionGranted(for: .chrome)
     #expect(mockChecker.lastBundleID == Browser.chrome.bundleID)
   }

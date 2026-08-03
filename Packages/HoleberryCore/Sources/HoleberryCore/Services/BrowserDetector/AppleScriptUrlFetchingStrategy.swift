@@ -14,10 +14,10 @@ public protocol AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy
   var scriptCommand: String { get }
 
   /// The permission checker used to determine TCC Automation access.
-  var permissionChecker: PermissionChecker { get }
+  var permissionChecker: any PermissionChecker { get }
 
   /// The AppleScript executor used to compile and run scripts.
-  var scriptExecutor: AppleScriptExecutor { get }
+  var scriptExecutor: any AppleScriptExecutor { get }
 }
 
 // MARK: - Default implementations

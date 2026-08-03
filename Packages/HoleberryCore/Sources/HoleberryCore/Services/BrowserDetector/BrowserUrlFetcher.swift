@@ -14,9 +14,9 @@ public protocol BrowserUrlFetching {
 @MainActor
 public final class BrowserUrlFetcher: BrowserUrlFetching {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-url")
-  private let strategyFactory: UrlFetchingStrategyFactory
+  private let strategyFactory: any UrlFetchingStrategyFactory
 
-  public init(strategyFactory: UrlFetchingStrategyFactory) {
+  public init(strategyFactory: any UrlFetchingStrategyFactory) {
     self.strategyFactory = strategyFactory
   }
 

@@ -216,7 +216,7 @@ struct BrowserTabCoordinatorTests {
     makeCoordinator(monitor: MockAppFocusMonitor(), suite: suite)
   }
 
-  private func makeCoordinator(monitor: AppFocusMonitoring, suite: UserDefaults) -> BrowserTabCoordinator {
+  private func makeCoordinator(monitor: any AppFocusMonitoring, suite: UserDefaults) -> BrowserTabCoordinator {
     BrowserTabCoordinator(
       monitor: monitor,
       urlFetcher: BrowserUrlFetcher(strategyFactory: MockUrlStrategyFactory()),

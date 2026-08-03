@@ -8,7 +8,7 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
   var storedCredentials: [String: String] = [:]
 
   /// If non-nil, all operations throw this error.
-  var errorStub: Error?
+  var errorStub: (any Error)?
 
   func saveCredential(_ credential: String, for serverID: UUID) throws {
     if let errorStub { throw errorStub }

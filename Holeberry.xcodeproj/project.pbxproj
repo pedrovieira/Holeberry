@@ -432,6 +432,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.holeberry;
 				SDKROOT = macosx;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
 			};
 			name = Release;
 		};
@@ -508,6 +509,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.holeberry;
 				SDKROOT = macosx;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
 			};
 			name = Debug;
 		};

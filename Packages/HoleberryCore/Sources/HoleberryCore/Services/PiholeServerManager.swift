@@ -9,17 +9,17 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private static let maxServers = 2
   @Published public var servers: [ServerConfig] = []
   public var serversPublisher: Published<[ServerConfig]>.Publisher { $servers }
-  private let keychain: KeychainManaging
-  private let serviceFactory: PiholeServiceFactory
-  private let versionDetector: PiholeVersionDetector
+  private let keychain: any KeychainManaging
+  private let serviceFactory: any PiholeServiceFactory
+  private let versionDetector: any PiholeVersionDetecting
   private let suite: UserDefaults
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
-  private var services: [UUID: PiholeServiceProtocol] = [:]
+  private var services: [UUID: any PiholeServiceProtocol] = [:]
 
   public init(
-    keychain: KeychainManaging,
-    serviceFactory: PiholeServiceFactory,
-    versionDetector: PiholeVersionDetector,
+    keychain: any KeychainManaging,
+    serviceFactory: any PiholeServiceFactory,
+    versionDetector: any PiholeVersionDetecting,
     suite: UserDefaults = .standard
   ) {
     self.keychain = keychain
@@ -117,7 +117,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Helpers
 
   private func reconnectExistingService(
-    _ existingService: PiholeServiceProtocol,
+    _ existingService: any PiholeServiceProtocol,
     id: UUID,
     url: String,
     credential: String?

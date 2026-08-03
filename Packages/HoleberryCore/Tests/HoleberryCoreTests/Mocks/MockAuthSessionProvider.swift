@@ -9,7 +9,7 @@ final class MockAuthSessionProvider: AuthSessionProviding, @unchecked Sendable {
   var authorizedRequestStub: (@Sendable (String) async throws -> (Data, HTTPURLResponse))?
 
   /// If set, `login` throws this error; otherwise succeeds.
-  var loginError: Error?
+  var loginError: (any Error)?
 
   /// Tracks how many times `login` was called.
   private(set) var loginCallCount = 0

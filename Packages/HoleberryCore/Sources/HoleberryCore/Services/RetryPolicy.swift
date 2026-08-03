@@ -7,12 +7,12 @@ public struct RetryPolicy: Sendable {
   /// Backoff duration for the given attempt index (0-based).
   let backoff: @Sendable (Int) -> Duration
   /// Whether the error should trigger a retry.
-  let shouldRetry: @Sendable (Error) -> Bool
+  let shouldRetry: @Sendable (any Error) -> Bool
 
   public init(
     maxAttempts: Int,
     backoff: @escaping @Sendable (Int) -> Duration,
-    shouldRetry: @escaping @Sendable (Error) -> Bool
+    shouldRetry: @escaping @Sendable (any Error) -> Bool
   ) {
     self.maxAttempts = maxAttempts
     self.backoff = backoff
