@@ -204,4 +204,202 @@ final class PiholeV5ServiceTests {
     try await makeService().deleteDomain(domain: "example.com")
     #expect(mockSession.requests.count == 3)
   }
+
+  // MARK: - Auth lifecycle
+
+  @Test("login is a no-op for token auth")
+  func login() async throws {
+    try await makeService().login()
+  }
+
+  @Test("logout invalidates the session")
+  func logout() async {
+    await makeService().logout()
+    #expect(mockSession.invalidateAndCancelCallCount == 1)
+  }
+
+  // MARK: - unblockDomain
+
+  @Test("unblockDomain adds domain to allow list")
+  func unblockDomain() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.absoluteString.contains("list=white") == true)
+        #expect(request.url?.absoluteString.contains("add=example.com") == true)
+        let response = try #require(v5Response())
+        return (Data("OK".utf8), response)
+      }
+    ]
+    try await makeService().unblockDomain("example.com", duration: 300)
+  }
+
+  // MARK: - Error branches
+
+  @Test("checkStatus throws on decode failure")
+  func checkStatusDecodeFailure() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response())
+        return (Data("not json".utf8), response)
+      }
+    ]
+    await #expect {
+      try await makeService().checkStatus()
+    } throws: { error in
+      guard case PiholeError.decoding = error else {
+        Issue.record("Expected decoding error, got \(error)")
+        return false
+      }
+      return true
+    }
+  }
+
+  @Test("getQuerySummary throws on server error")
+  func getQuerySummaryServerError() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().getQuerySummary()
+    }
+  }
+
+  @Test("setBlocking throws on server error")
+  func setBlockingServerError() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      },
+      { _ in
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    let service = makeService()
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await service.setBlocking(enabled: true, duration: nil)
+    }
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await service.setBlocking(enabled: false, duration: 300)
+    }
+  }
+
+  @Test("getRecentBlocked throws on server error")
+  func getRecentBlockedServerError() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().getRecentBlocked(
+        forClientIp: nil,
+        interval: DateInterval(start: Date().addingTimeInterval(-3600), end: Date())
+      )
+    }
+  }
+
+  @Test("getRecentBlocked returns empty on malformed rows")
+  func getRecentBlockedMalformedRows() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response())
+        return (Data(#"{"not":"an array"}"#.utf8), response)
+      }
+    ]
+    let blocked = try await makeService().getRecentBlocked(
+      forClientIp: nil,
+      interval: DateInterval(start: Date().addingTimeInterval(-3600), end: Date())
+    )
+    #expect(blocked.isEmpty)
+  }
+
+  @Test("getRecentBlocked passes client IP filter")
+  func getRecentBlockedClientIP() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.absoluteString.contains("client=192.168.1.50") == true)
+        let response = try #require(v5Response())
+        return (Data("[]".utf8), response)
+      }
+    ]
+    let blocked = try await makeService().getRecentBlocked(
+      forClientIp: "192.168.1.50",
+      interval: DateInterval(start: Date().addingTimeInterval(-3600), end: Date())
+    )
+    #expect(blocked.isEmpty)
+  }
+
+  @Test("addDomain throws on server error")
+  func addDomainServerError() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().addDomain("example.com", to: .allow)
+    }
+  }
+
+  @Test("deleteDomain throws on server error")
+  func deleteDomainServerError() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response())
+        return (Data("<table><tr><td>example.com</td></tr></table>".utf8), response)
+      },
+      { _ in
+        let response = try #require(v5Response())
+        return (Data("<table></table>".utf8), response)
+      },
+      { _ in
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().deleteDomain(domain: "example.com")
+    }
+  }
+
+  @Test("getDomains skips lists that fail to fetch")
+  func getDomainsListFetchFailure() async throws {
+    mockSession.handlers = [
+      { _ in
+        // White list fetch fails with 500 → parseDomainList returns []
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      },
+      { _ in
+        let response = try #require(v5Response())
+        return (Data("<table><tr><td>blocked.com</td></tr></table>".utf8), response)
+      }
+    ]
+    let domains = try await makeService().getDomains()
+    #expect(domains.count == 1)
+    #expect(domains[0].domain == "blocked.com")
+  }
+
+  @Test("getDomains skips lists with non-UTF8 HTML")
+  func getDomainsNonUTF8HTML() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response())
+        return (Data([0xFF, 0xFE, 0x80, 0x81]), response)
+      },
+      { _ in
+        let response = try #require(v5Response())
+        return (Data("<table></table>".utf8), response)
+      }
+    ]
+    let domains = try await makeService().getDomains()
+    #expect(domains.isEmpty)
+  }
 }

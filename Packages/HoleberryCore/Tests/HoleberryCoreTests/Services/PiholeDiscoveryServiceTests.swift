@@ -34,6 +34,46 @@ struct PiholeDiscoveryServiceModelTests {
   }
 }
 
+// MARK: - Handler helpers
+
+/// Wraps a response closure so it only serves requests for `addr`; requests for
+/// other hosts decline (the handler stays in the queue for its own host).
+private func handler(
+  forAddr addr: String,
+  _ body: @escaping (URLRequest) throws -> (Data, HTTPURLResponse)
+) -> (URLRequest) throws -> (Data, HTTPURLResponse) {
+  { request in
+    guard request.url?.host() == addr else { throw MockURLSession.Mismatch.declined }
+    return try body(request)
+  }
+}
+
+/// Builds the handler queue for a full subnet scan: every host in
+/// 192.168.1.1...254 gets a host-guarded handler; hosts in `responders` serve
+/// their own requests, the rest simulate an unreachable host.
+/// Hosts in `twoCallHosts` get a second identical copy of their handler because
+/// `checkInstance` retries via `/api/info` when the admin page has no Pi-hole
+/// content — those handlers must be path-aware.
+private func scanHandlers(
+  responders: [Int: (URLRequest) throws -> (Data, HTTPURLResponse)],
+  twoCallHosts: Set<Int> = []
+) -> [(URLRequest) throws -> (Data, HTTPURLResponse)] {
+  (1...254).flatMap { idx -> [(URLRequest) throws -> (Data, HTTPURLResponse)] in
+    let addr = "192.168.1.\(idx)"
+    let handler = handler(forAddr: addr) { request in
+      if let respond = responders[idx] {
+        return try respond(request)
+      }
+      throw URLError(.notConnectedToInternet)
+    }
+    return twoCallHosts.contains(idx) ? [handler, handler] : [handler]
+  }
+}
+
+private func unreachableHandlers() -> [(URLRequest) throws -> (Data, HTTPURLResponse)] {
+  scanHandlers(responders: [:])
+}
+
 // MARK: - Scanning
 
 @MainActor
@@ -61,7 +101,7 @@ struct PiholeDiscoveryServiceScanTests {
     let service = PiholeDiscoveryService(networkInterface: mockNetwork, urlSession: mockSession)
 
     // All 254 checks will throw, completing quickly
-    mockSession.handlers = Array(repeating: { _ in throw URLError(.notConnectedToInternet) }, count: 254)
+    mockSession.handlers = unreachableHandlers()
 
     let task1 = Task { await service.scan() }
     try? await Task.sleep(for: .milliseconds(50))
@@ -85,7 +125,7 @@ struct PiholeDiscoveryServiceScanTests {
     mockNetwork.stubbedIP = "192.168.1.100"
     let service = PiholeDiscoveryService(networkInterface: mockNetwork, urlSession: mockSession)
 
-    mockSession.handlers = Array(repeating: { _ in throw URLError(.notConnectedToInternet) }, count: 254)
+    mockSession.handlers = unreachableHandlers()
 
     await service.scan()
 
@@ -133,16 +173,13 @@ struct PiholeDiscoveryServiceDetectionTests {
 
   @Test("detects Pi-hole via admin page title")
   func adminPageTitleMatch() async {
-    mockSession.handlers = (1...254).map { idx in
-      { request in
+    mockSession.handlers = scanHandlers(responders: [
+      42: { request in
         let url = try #require(request.url)
-        if idx == 42 {
-          let response = try #require(self.makeResponse(url: url))
-          return (piholeAdminPageHTML(), response)
-        }
-        throw URLError(.notConnectedToInternet)
+        let response = try #require(self.makeResponse(url: url))
+        return (piholeAdminPageHTML(), response)
       }
-    }
+    ])
 
     await service.scan()
 
@@ -152,16 +189,13 @@ struct PiholeDiscoveryServiceDetectionTests {
 
   @Test("detects Pi-hole via body text (case-insensitive)")
   func bodyTextMatch() async {
-    mockSession.handlers = (1...254).map { idx in
-      { request in
+    mockSession.handlers = scanHandlers(responders: [
+      99: { request in
         let url = try #require(request.url)
-        if idx == 99 {
-          let response = try #require(self.makeResponse(url: url))
-          return (piholeBodyPageHTML(), response)
-        }
-        throw URLError(.notConnectedToInternet)
+        let response = try #require(self.makeResponse(url: url))
+        return (piholeBodyPageHTML(), response)
       }
-    }
+    ])
 
     await service.scan()
 
@@ -171,19 +205,22 @@ struct PiholeDiscoveryServiceDetectionTests {
 
   @Test("falls back to v6 /api/info when admin page has no Pi-hole content")
   func v6ApiFallback() async {
-    mockSession.handlers = (1...254).map { idx in
-      { request in
-        let url = try #require(request.url)
-        if idx != 77 { throw URLError(.notConnectedToInternet) }
-        if request.url?.path == "/admin/" || request.url?.path.hasPrefix("/admin") == true {
+    mockSession.handlers = scanHandlers(
+      responders: [
+        77: { request in
+          if request.url?.path.hasPrefix("/admin") == true {
+            let url = try #require(request.url)
+            let response = try #require(self.makeResponse(url: url))
+            return (genericPageHTML(), response)
+          }
+          #expect(request.url?.path == "/api/info")
+          let url = try #require(request.url)
           let response = try #require(self.makeResponse(url: url))
-          return (genericPageHTML(), response)
+          return (apiInfoData(), response)
         }
-        #expect(request.url?.path == "/api/info")
-        let response = try #require(self.makeResponse(url: url))
-        return (apiInfoData(), response)
-      }
-    }
+      ],
+      twoCallHosts: [77]
+    )
 
     await service.scan()
 
@@ -193,16 +230,13 @@ struct PiholeDiscoveryServiceDetectionTests {
 
   @Test("admin page with non-200 status does not match")
   func adminPageNon200() async {
-    mockSession.handlers = (1...254).map { idx in
-      { request in
+    mockSession.handlers = scanHandlers(responders: [
+      55: { request in
         let url = try #require(request.url)
-        if idx == 55 {
-          let response = try #require(self.makeResponse(statusCode: 404, url: url))
-          return (Data("Not Found".utf8), response)
-        }
-        throw URLError(.notConnectedToInternet)
+        let response = try #require(self.makeResponse(statusCode: 404, url: url))
+        return (Data("Not Found".utf8), response)
       }
-    }
+    ])
 
     await service.scan()
     #expect(service.discoveredInstances.isEmpty)
@@ -210,44 +244,52 @@ struct PiholeDiscoveryServiceDetectionTests {
 
   @Test("discovers multiple instances of different versions in one scan")
   func multipleInstancesMixedVersions() async {
-    mockSession.handlers = (1...254).map { idx in
-      { request in
-        let url = try #require(request.url)
-        switch idx {
-        case 10:
+    mockSession.handlers = scanHandlers(
+      responders: [
+        10: { request in
           // v5-style: admin page with Pi-hole in title
+          let url = try #require(request.url)
           let response = try #require(self.makeResponse(url: url))
           return (piholeAdminPageHTML(), response)
-        case 42:
+        },
+        42: { request in
           // v5-style: admin page with case-insensitive body match
+          let url = try #require(request.url)
           let response = try #require(self.makeResponse(url: url))
           return (piholeBodyPageHTML(body: "PiHole Dashboard"), response)
-        case 77:
+        },
+        77: { request in
           // v6-style: admin page non-Pi-hole → fallback to /api/info
-          if request.url?.path == "/admin/" || request.url?.path.hasPrefix("/admin") == true {
+          if request.url?.path.hasPrefix("/admin") == true {
+            let url = try #require(request.url)
             let response = try #require(self.makeResponse(url: url))
             return (genericPageHTML(body: "Some other page"), response)
           }
           #expect(request.url?.path == "/api/info")
+          let url = try #require(request.url)
           let response = try #require(self.makeResponse(url: url))
           return (apiInfoData(), response)
-        case 128:
+        },
+        128: { request in
           // v6-style: fallback to /api/info
-          if request.url?.path == "/admin/" || request.url?.path.hasPrefix("/admin") == true {
+          if request.url?.path.hasPrefix("/admin") == true {
+            let url = try #require(request.url)
             let response = try #require(self.makeResponse(url: url))
             return (genericPageHTML(body: "Nginx default page"), response)
           }
+          let url = try #require(request.url)
           let response = try #require(self.makeResponse(url: url))
           return (apiInfoData(version: "v5.15"), response)
-        case 200:
+        },
+        200: { request in
           // v5-style: admin page with "pihole" in body text
+          let url = try #require(request.url)
           let response = try #require(self.makeResponse(url: url))
           return (piholeBodyPageHTML(body: "Welcome to pihole"), response)
-        default:
-          throw URLError(.notConnectedToInternet)
         }
-      }
-    }
+      ],
+      twoCallHosts: [77, 128]
+    )
 
     await service.scan()
 
