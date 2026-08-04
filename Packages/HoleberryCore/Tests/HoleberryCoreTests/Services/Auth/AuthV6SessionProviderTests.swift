@@ -358,4 +358,30 @@ final class AuthV6SessionProviderTests {
 
     #expect(mockSession.requests.count == 1, "Should have only made the login request")
   }
+
+  // MARK: - Concurrency
+
+  @Test("Concurrent authorizedRequest calls coalesce into one login")
+  func concurrentLoginCoalescing() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/auth")
+        #expect(request.httpMethod == "POST")
+        guard let response = makeHTTPResponse() else {
+          throw PiholeError.unknown("Failed to create response")
+        }
+        return (makeAuthResponse(), response)
+      }
+    ]
+
+    let session = makeSession()
+
+    async let first = session.authorizedRequest(Self.alwaysSucceed)
+    async let second = session.authorizedRequest(Self.alwaysSucceed)
+    let (a, b) = try await (first, second)
+
+    #expect(a == "test-sid")
+    #expect(b == "test-sid")
+    #expect(mockSession.requests.count == 1, "Both callers should share a single login request")
+  }
 }
