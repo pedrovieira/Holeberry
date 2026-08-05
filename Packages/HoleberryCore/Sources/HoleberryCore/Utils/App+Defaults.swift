@@ -6,7 +6,6 @@ import Foundation
 // All persistent storage keys in one place. Usage:
 //   Defaults[.servers()]              // get/set [ServerConfig]
 //   Defaults[.servers(suite:)]        // with custom suite
-//   Defaults[.recentBlockedCount()]   // get/set Int
 //   @Default(.launchAtLogin()) var launchAtLogin: Bool
 //
 // These replace all direct UserDefaults access and @AppStorage usage.
@@ -16,11 +15,6 @@ extension Defaults.Keys {
   /// List of configured Pi-hole instances.
   public static func servers(suite: UserDefaults = .standard) -> Defaults.Key<[ServerConfig]> {
     Defaults.Key<[ServerConfig]>("servers", default: [], suite: suite)
-  }
-
-  /// How many recent blocked queries to fetch (persisted slider value).
-  public static func recentBlockedCount(suite: UserDefaults = .standard) -> Defaults.Key<Int> {
-    Defaults.Key<Int>("recentBlockedCount", default: 20, suite: suite)
   }
 
   /// Whether the app should launch at login.

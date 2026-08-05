@@ -8,7 +8,7 @@ import SwiftUI
 
 enum SettingsTab: String, CaseIterable {
   case servers = "Servers"
-  case defaults = "Defaults"
+  case defaults = "General"
   case shortcuts = "Shortcuts"
   case advanced = "Advanced"
   case notifications = "Notifications"
@@ -27,7 +27,6 @@ enum SettingsTab: String, CaseIterable {
 }
 
 struct SettingsView: View {
-  @Default var recentBlockedCount: Int
   @Default var launchAtLogin: Bool
   @Default var browserTabUnblockEnabled: Bool
   @Default var showAllClientsRecentBlocked: Bool
@@ -55,7 +54,6 @@ struct SettingsView: View {
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
-    _recentBlockedCount = .init(.recentBlockedCount(suite: defaultsSuite))
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
@@ -90,7 +88,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
       case .defaults:
-        Form { defaultsSection }
+        Form { generalSection }
           .formStyle(.grouped)
       case .shortcuts:
         Form { shortcutsSection }
@@ -152,14 +150,31 @@ struct SettingsView: View {
     }
   }
 
-  private var defaultsSection: some View {
-    Section("Defaults") {
-      HStack {
-        Text("Recent blocked count")
-        Spacer()
-        TextField("", value: $recentBlockedCount, format: .number)
-          .textFieldStyle(.roundedBorder)
-          .frame(width: 70)
+  private var generalSection: some View {
+    Section("General") {
+      VStack(alignment: .leading) {
+        Toggle("Launch at login", isOn: $launchAtLogin)
+          .disabled(isToggling)
+
+        Text("Automatically start Holeberry when you log in to your Mac.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+      }
+
+      if launchAtLogin {
+        HStack(spacing: 4) {
+          if requiresApproval {
+            Text("Approval needed —")
+              .font(.caption)
+              .foregroundColor(.secondary)
+          }
+          Button("System Settings > General > Login Items") {
+            SMAppService.openSystemSettingsLoginItems()
+          }
+          .buttonStyle(.plain)
+          .controlSize(.small)
+          .foregroundColor(.accentColor)
+        }
       }
     }
   }
@@ -187,34 +202,6 @@ struct SettingsView: View {
 
   private var advancedSection: some View {
     Section("Advanced") {
-      VStack(alignment: .leading) {
-        Toggle("Launch at login", isOn: $launchAtLogin)
-          .disabled(isToggling)
-
-        Text("Automatically start Holeberry when you log in to your Mac.")
-          .font(.callout)
-          .foregroundColor(.secondary)
-      }
-
-      if launchAtLogin {
-        HStack(spacing: 4) {
-          if requiresApproval {
-            Text("Approval needed —")
-              .font(.caption)
-              .foregroundColor(.secondary)
-          }
-          Button("System Settings > General > Login Items") {
-            SMAppService.openSystemSettingsLoginItems()
-          }
-          .buttonStyle(.plain)
-          .controlSize(.small)
-          .foregroundColor(.accentColor)
-        }
-      }
-
-      Divider()
-        .padding(.vertical, 4)
-
       VStack(alignment: .leading) {
         Toggle("Enable browser tab unblocking", isOn: $browserTabUnblockEnabled)
 
@@ -325,6 +312,16 @@ struct SettingsView: View {
           }
           Spacer(minLength: 0)
         }
+      }
+
+      Section {
+      } footer: {
+        Text(
+          "Pi-hole® is a registered trademark of Pi-hole LLC. "
+            + "Holeberry is an independent project and is not affiliated with Pi-hole LLC."
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
       }
     }
     .formStyle(.grouped)
