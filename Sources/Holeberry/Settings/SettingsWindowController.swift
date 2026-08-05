@@ -19,7 +19,7 @@ final class SettingsWindowController: NSWindowController {
     defaultsSuite: UserDefaults = .standard
   ) {
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 580, height: 420),
+      contentRect: NSRect(x: 0, y: 0, width: 580, height: 520),
       styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
       backing: .buffered,
       defer: false

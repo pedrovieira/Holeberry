@@ -13,6 +13,7 @@
 		36357A5F6339E0CDECE388F0 /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE0C8995AFF37E857F057B0 /* ShortcutNames.swift */; };
 		43A7C259B9833484EA3728A0 /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47987F52F2D6124503B041A /* SoftwareUpdater.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
+		5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */; };
 		626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */; };
 		63DF3275E31EAD0B223E7F24 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA59B4AFC88CEF8A1724B7CD /* ShortcutController.swift */; };
 		676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */; };
@@ -55,6 +56,7 @@
 		85BD5C9D1E8AA2311420E550 /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		8A5D9D07B8EC02852147638F /* Holeberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Holeberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A448330B12ABCB4F06CFCB5C /* HoleberryCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HoleberryCore; path = Packages/HoleberryCore; sourceTree = SOURCE_ROOT; };
+		ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationsSettingsView.swift; sourceTree = "<group>"; };
 		B0091C471D90246392D8A264 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 		B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSRunningApplication+Icon.swift"; sourceTree = "<group>"; };
 		BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedMenuButton.swift; sourceTree = "<group>"; };
@@ -165,6 +167,7 @@
 		8BB69277240BEEB373A07922 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */,
 				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
 				4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */,
 				05E28E2794738F28F909ADBD /* ConnectionViews */,
@@ -330,6 +333,7 @@
 				681AA60A9BF64FF09E7D4A6F /* ConnectionStatus+Colors.swift in Sources */,
 				EDEEFD250744C2FFE323C513 /* DurationField.swift in Sources */,
 				7B9757D8CBD6AE3D784E42C4 /* DurationPickerAlert.swift in Sources */,
+				5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */,
 				7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */,
 				AFFF0487FAF7AF96E6D3C41A /* MainStatusBarMenu.swift in Sources */,
 				D7EA6ED438B90006B76E4471 /* MenuActions.swift in Sources */,

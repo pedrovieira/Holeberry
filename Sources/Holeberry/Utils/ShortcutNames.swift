@@ -1,3 +1,4 @@
+import HoleberryCore
 import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
@@ -8,4 +9,18 @@ extension KeyboardShortcuts.Name {
   static let disableCustom = Self("disableCustom")
   static let reEnableBlocking = Self("reEnableBlocking")
   static let unblockCurrentTab = Self("unblockCurrentTab")
+
+  /// The shortcut name bound to a stored duration entry.
+  ///
+  /// The three default entries keep their legacy names so existing users'
+  /// bindings survive the migration to configurable durations. Custom
+  /// entries get a name derived from their stable id.
+  static func durationShortcutName(for entry: UnblockDurationEntry) -> KeyboardShortcuts.Name {
+    switch entry.id {
+    case UnblockDurationEntry.default10sID: return .disable10s
+    case UnblockDurationEntry.default30sID: return .disable30s
+    case UnblockDurationEntry.default5mID: return .disable5m
+    default: return Self("unblockDuration-\(entry.id.uuidString)")
+    }
+  }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Defaults
 import HoleberryCore
 import KeyboardShortcuts
@@ -10,10 +11,19 @@ final class ShortcutController {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "shortcuts")
   private let serverManager: PiholeServerManager
   private let browserTabCoordinator: BrowserTabCoordinator
+  private let defaultsSuite: UserDefaults
+  private var registeredDurationNames = Set<KeyboardShortcuts.Name>()
+  private var everRegisteredDurationNames = Set<KeyboardShortcuts.Name>()
+  private var cancellables = Set<AnyCancellable>()
 
-  init(serverManager: PiholeServerManager, browserTabCoordinator: BrowserTabCoordinator) {
+  init(
+    serverManager: PiholeServerManager,
+    browserTabCoordinator: BrowserTabCoordinator,
+    defaultsSuite: UserDefaults = .standard
+  ) {
     self.serverManager = serverManager
     self.browserTabCoordinator = browserTabCoordinator
+    self.defaultsSuite = defaultsSuite
     registerShortcuts()
   }
 
@@ -22,15 +32,6 @@ final class ShortcutController {
   private func registerShortcuts() {
     KeyboardShortcuts.onKeyDown(for: .disableIndefinitely) { [weak self] in
       Task { await self?.setBlockingOnAll(enabled: false, duration: nil) }
-    }
-    KeyboardShortcuts.onKeyDown(for: .disable10s) { [weak self] in
-      Task { await self?.setBlockingOnAll(enabled: false, duration: 10) }
-    }
-    KeyboardShortcuts.onKeyDown(for: .disable30s) { [weak self] in
-      Task { await self?.setBlockingOnAll(enabled: false, duration: 30) }
-    }
-    KeyboardShortcuts.onKeyDown(for: .disable5m) { [weak self] in
-      Task { await self?.setBlockingOnAll(enabled: false, duration: 300) }
     }
     KeyboardShortcuts.onKeyDown(for: .disableCustom) { [weak self] in
       Task { await self?.promptCustomDurationThenSetBlocking() }
@@ -54,6 +55,41 @@ final class ShortcutController {
       Task {
         await self.unblockOnAllServers(domain: domain, duration: 300)
       }
+    }
+
+    registerDurationShortcuts()
+
+    Defaults.publisher(.unblockDurations(suite: defaultsSuite))
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.registerDurationShortcuts()
+      }
+      .store(in: &cancellables)
+  }
+
+  /// Registers one handler per stored duration and resets shortcuts that
+  /// were removed. Idempotent: a name is only ever registered once per
+  /// process, because the KeyboardShortcuts library appends handlers and
+  /// has no removal API — re-registering a name would double-fire.
+  /// Entries are immutable, so a stable id always maps to the same seconds
+  /// value and the original handler remains correct.
+  private func registerDurationShortcuts() {
+    let entries = Defaults[.unblockDurations(suite: defaultsSuite)]
+    let currentNames = Set(entries.map { KeyboardShortcuts.Name.durationShortcutName(for: $0) })
+
+    for entry in entries {
+      let name = KeyboardShortcuts.Name.durationShortcutName(for: entry)
+      guard !everRegisteredDurationNames.contains(name) else { continue }
+      KeyboardShortcuts.onKeyDown(for: name) { [weak self] in
+        Task { await self?.setBlockingOnAll(enabled: false, duration: entry.seconds) }
+      }
+      registeredDurationNames.insert(name)
+      everRegisteredDurationNames.insert(name)
+    }
+
+    for name in registeredDurationNames.subtracting(currentNames) {
+      KeyboardShortcuts.reset(name)
+      registeredDurationNames.remove(name)
     }
   }
 

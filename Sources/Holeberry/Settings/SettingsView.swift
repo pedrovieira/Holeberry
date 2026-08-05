@@ -10,6 +10,7 @@ enum SettingsTab: String, CaseIterable {
   case servers = "Servers"
   case defaults = "General"
   case shortcuts = "Shortcuts"
+  case durations = "Durations"
   case advanced = "Advanced"
   case notifications = "Notifications"
   case about = "About"
@@ -19,6 +20,7 @@ enum SettingsTab: String, CaseIterable {
     case .servers: return Image("Pi-hole")
     case .defaults: return Image(systemName: "slider.horizontal.3")
     case .shortcuts: return Image(systemName: "keyboard")
+    case .durations: return Image(systemName: "timer")
     case .advanced: return Image(systemName: "gearshape.2")
     case .notifications: return Image(systemName: "bell")
     case .about: return Image(systemName: "info.circle")
@@ -42,6 +44,8 @@ struct SettingsView: View {
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
+  private let defaultsSuite: UserDefaults
+
   init(
     serverManager: PiholeServerManager,
     initialTab: SettingsTab = .servers,
@@ -54,6 +58,7 @@ struct SettingsView: View {
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
+    self.defaultsSuite = defaultsSuite
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
@@ -93,6 +98,9 @@ struct SettingsView: View {
       case .shortcuts:
         Form { shortcutsSection }
           .formStyle(.grouped)
+      case .durations:
+        Form { DurationsSettingsView(defaultsSuite: defaultsSuite) }
+          .formStyle(.grouped)
       case .advanced:
         Form { advancedSection }
           .formStyle(.grouped)
@@ -123,7 +131,7 @@ struct SettingsView: View {
       }
       .ignoresSafeArea()
     }
-    .frame(width: 580, height: 420)
+    .frame(width: 580, height: 520)
     .onAppear {
       syncLaunchAtLoginFromSystem()
     }
@@ -181,11 +189,6 @@ struct SettingsView: View {
 
   private var shortcutsSection: some View {
     Section {
-      KeyboardShortcuts.Recorder("Disable Indefinitely:", name: .disableIndefinitely)
-      KeyboardShortcuts.Recorder("Disable 10 seconds:", name: .disable10s)
-      KeyboardShortcuts.Recorder("Disable 30 seconds:", name: .disable30s)
-      KeyboardShortcuts.Recorder("Disable 5 minutes:", name: .disable5m)
-      KeyboardShortcuts.Recorder("Custom duration...:", name: .disableCustom)
       KeyboardShortcuts.Recorder("Re-enable Blocking:", name: .reEnableBlocking)
     } header: {
       Text("Global Shortcuts")
