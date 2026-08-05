@@ -2,7 +2,7 @@
 
 > `AGENTS.md` is a symlink to this file — they are the same file. Edit this one, never the symlink.
 
-Guidance for AI coding agents working on Holeberry. PRs target the `dev` branch; `main` is released.
+Guidance for AI coding agents working on Holeberry. PRs target `main` (there is no separate `dev` branch yet).
 
 ## Project
 
@@ -42,6 +42,7 @@ swift-format lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
 - **Browser tab detection** — `BrowserTabCoordinator` state machine; Safari/Chromium via AppleScript (`-1743` error = permission denied), Firefox/Zen via `sessionstore.jsonlz4` parsing; permission checks via Carbon `AEDeterminePermissionToAutomateTarget`. Keep the strategy seams (`BrowserActiveUrlFetchingStrategyFactory`).
 - **Persistence** — typed `Defaults` keys centralized in `HoleberryCore/Utils/App+Defaults.swift`; secrets via `KeychainManager` (keyed by server UUID) — never plaintext on disk.
 - **Updates** — Sparkle; `Updates/appcast.xml` is committed and CI-regenerated on release.
+- **Server limits** — max 2 servers (`PiholeServerManager`).
 
 ## Conventions
 
@@ -61,9 +62,11 @@ swift-format lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
 
 ## Contribution process
 
-- PRs target `dev`. Open an issue first for substantial work (per README).
+- PRs target `main`. Open an issue first for substantial work (per README).
+- AI-assisted contributions are welcome — this project is itself AI-assisted (see the README's "AI-assisted development" section). PRs produced with AI assistance MUST disclose it in the PR description, including which tool/model was used.
 - README exists in en / zh-CN / ja — doc changes should update all three, or note that translation is pending.
 - Release: tagging `v*` triggers `.github/workflows/release.yml` (build → DMG → GitHub Release → appcast update).
-- Max 2 servers (`PiholeServerManager`). Pi-hole® is a registered trademark of Pi-hole LLC.
 
 ## Notes
+
+- Roadmap (see README "What's next?"): other DNS providers (AdGuard Home, Technitium) and mixed setups are possible future directions, gated on community demand via issues — don't implement them speculatively.
