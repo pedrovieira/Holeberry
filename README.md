@@ -108,6 +108,15 @@ The name? Pi-hole runs on a Raspberry Pi, and well — *berry* felt right.
 
 It's also a labor of love in engineering: Swift 6 with strict concurrency, a protocol-driven core extracted into a local Swift package (`HoleberryCore`), and a heavily tested service layer — the kind of codebase I'd want to read as an open-source contributor.
 
+## What's next?
+
+Holeberry is a Pi-hole app today, but the menu bar workflow doesn't have to stop there. If there's enough community interest, future versions could add:
+
+- **Support for other DNS providers** — AdGuard Home and Technitium are natural candidates, for people who don't run Pi-hole.
+- **Mixed setups** — connect Pi-hole and AdGuard Home (or any combination) side by side, with per-instance status, aggregated stats, and the same one-click controls across providers.
+
+None of this is a commitment — it's a wishlist, and demand decides the order. If you'd like to see any of these, open an [issue](https://github.com/pedrovieira/Holeberry/issues) and say so; the more support an idea gets, the higher it climbs.
+
 ## Getting started
 
 1. **Add your Pi-hole** — via auto-discovery or manually (URL, API token / password, and an optional label and icon).
@@ -161,7 +170,7 @@ Notes for contributors:
 
 ## Contributing
 
-Bug reports and feature requests are welcome via [issues](https://github.com/pedrovieira/Holeberry/issues). PRs should target the `dev` branch, and the existing test suites should pass. Please open an issue first if you're planning something substantial — it saves both of us time.
+Bug reports and feature requests are welcome via [issues](https://github.com/pedrovieira/Holeberry/issues). PRs should target the `main` branch, and the existing test suites should pass. AI-assisted contributions are welcome — if your PR was produced with AI assistance, please note it in the PR description and name the tool you used. Please open an issue first if you're planning something substantial — it saves both of us time.
 
 ## AI-assisted development
 
