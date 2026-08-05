@@ -250,12 +250,13 @@ struct MenuBuilder {
     } else {
       let submenu = NSMenu()
 
-      addDisableDurationItem(to: submenu, duration: nil, title: "Indefinitely", target: target)
       addDisableDurationItem(to: submenu, duration: 10, title: "10 seconds", target: target)
       addDisableDurationItem(to: submenu, duration: 30, title: "30 seconds", target: target)
       addDisableDurationItem(to: submenu, duration: 300, title: "5 minutes", target: target)
 
       submenu.addItem(.separator())
+
+      addDisableDurationItem(to: submenu, duration: nil, title: "Indefinitely", target: target)
 
       let customItem = NSMenuItem(
         title: "Custom...",
