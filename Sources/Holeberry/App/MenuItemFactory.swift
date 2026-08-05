@@ -146,6 +146,12 @@ enum MenuItemFactory {
     // Line break
     result.append(NSAttributedString(string: "\n"))
 
+    // Extra breathing room between the instance name and its stats line.
+    let firstLineRange = NSRange(location: 0, length: result.length)
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.paragraphSpacing = 4
+    result.addAttribute(.paragraphStyle, value: paragraphStyle, range: firstLineRange)
+
     // Line 2: stats in small secondary text
     let queriesText = totalQueries.formatted(.number.notation(.compactName))
     let blockedText = totalBlocked.formatted(.number.notation(.compactName))
