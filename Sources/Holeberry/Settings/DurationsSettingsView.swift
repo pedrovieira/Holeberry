@@ -28,8 +28,8 @@ struct DurationsSettingsView: View {
     Section("Unblock Durations") {
       VStack(alignment: .leading, spacing: 10) {
         Text(
-          "These durations appear in the Disable Blocking ▸ and Unblock <domain> ▸ menus. "
-            + "Hover a duration to drag it or delete it. Indefinitely and Custom… are always included."
+          "These durations appear in the Disable Blocking and Unblock menus. "
+            + "Drag to reorder, hover to delete. Indefinitely and Custom… are always included."
         )
         .font(.callout)
         .foregroundColor(.secondary)
@@ -40,7 +40,7 @@ struct DurationsSettingsView: View {
         reAddChipsRow
 
         HStack {
-          Button("Reset to Defaults…") {
+          Button("Reset to Defaults") {
             showResetConfirmation = true
           }
           .confirmationDialog(
@@ -56,7 +56,7 @@ struct DurationsSettingsView: View {
             Text("This removes your custom durations.")
           }
           Spacer()
-          Button("+ Add Duration", action: addDuration)
+          Button("Add Duration", action: addDuration)
             .buttonStyle(.borderedProminent)
             .disabled(durations.count >= UnblockDurationEntry.maxCount)
         }
@@ -66,11 +66,6 @@ struct DurationsSettingsView: View {
             .font(.caption)
             .foregroundColor(.secondary)
         }
-
-        Text("The Unblock <domain> ▸ menus show the same durations, with “Add to allowlist” instead of Indefinitely.")
-          .font(.caption)
-          .foregroundColor(.secondary)
-          .frame(maxWidth: .infinity, alignment: .center)
       }
       // Background drop target: clears the drag state whenever a drag ends
       // over the tab (rows clear it themselves via their own delegate).
@@ -114,12 +109,10 @@ struct DurationsSettingsView: View {
       confirmButton: "Add",
       defaultDuration: 5 * 60
     )
-    // Reject duplicates while the picker is still open: the alert wiggles
-    // and stays up instead of dismissing.
-    alert.validate = { seconds in
-      !durations.contains { $0.seconds == seconds }
-    }
     guard let seconds = alert.runDurationPicker() else { return }
+    // Ignore values already covered by an existing entry — no duplicates.
+    let isDuplicate = durations.contains { $0.seconds == seconds }
+    guard !isDuplicate else { return }
     durations.append(UnblockDurationEntry(seconds: seconds))
   }
 
@@ -144,18 +137,23 @@ struct DurationsSettingsView: View {
     }
     .padding(5)
     // The menu panel uses the native menu material so it adapts to the
-    // system appearance, like a real macOS menu.
+    // system appearance, like a real macOS menu. The corner radius (12pt)
+    // and hairline border match the look of Sonoma-era NSMenu panels.
     .background(
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .fill(.ultraThinMaterial)
+      RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .fill(.regularMaterial)
+        .overlay(
+          RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+        )
         .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
     )
-    .frame(maxWidth: 320)
+    .frame(maxWidth: 220)
     // Squared NSVisualEffectView stage, edge to edge behind the menu.
     .padding(14)
     .frame(maxWidth: .infinity)
     .background {
-      VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
+      VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
     }
     .overlay(
       Rectangle()
@@ -224,6 +222,7 @@ struct DurationsSettingsView: View {
       Image(systemName: "lock.fill")
         .font(.system(size: 9))
         .foregroundStyle(.tertiary)
+        .frame(width: 15, height: 15)
     }
     .padding(.horizontal, 8)
     .padding(.vertical, 5)
@@ -231,13 +230,17 @@ struct DurationsSettingsView: View {
 
   // MARK: - Re-add chips
 
+  @ViewBuilder
   private var reAddChipsRow: some View {
-    HStack(spacing: 8) {
-      Text("Re-add:")
-        .font(.callout)
-        .foregroundColor(.secondary)
-      ForEach(UnblockDurationEntry.defaultEntries) { defaultEntry in
-        if !durations.contains(where: { $0.seconds == defaultEntry.seconds }) {
+    let missingDefaults = UnblockDurationEntry.defaultEntries.filter { defaultEntry in
+      !durations.contains { $0.seconds == defaultEntry.seconds }
+    }
+    if !missingDefaults.isEmpty {
+      HStack(spacing: 8) {
+        Text("Re-add:")
+          .font(.callout)
+          .foregroundColor(.secondary)
+        ForEach(missingDefaults) { defaultEntry in
           Button {
             guard durations.count < UnblockDurationEntry.maxCount else { return }
             durations.append(UnblockDurationEntry(seconds: defaultEntry.seconds))
@@ -253,8 +256,8 @@ struct DurationsSettingsView: View {
           .buttonStyle(.plain)
           .foregroundStyle(.tint)
         }
+        Spacer()
       }
-      Spacer()
     }
   }
 
