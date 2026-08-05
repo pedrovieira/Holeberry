@@ -7,7 +7,7 @@ import Foundation
 /// `MockPiholeService` for the requested config.
 @MainActor
 final class MockPiholeServiceFactory: PiholeServiceFactory {
-  var buildServiceStub: (any PiholeServiceInternal)?
+  var buildServiceStub: (any PiholeServiceCommentAdding)?
   var buildServiceError: (any Error)?
   private(set) var buildServiceCallCount = 0
   private(set) var buildServiceLastConfig: ServerConfig?
@@ -17,7 +17,7 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
     credential: String,
     session: any HTTPRequestable,
     suite: UserDefaults
-  ) throws -> any PiholeServiceInternal {
+  ) throws -> any PiholeServiceCommentAdding {
     buildServiceCallCount += 1
     buildServiceLastConfig = config
     if let buildServiceError {

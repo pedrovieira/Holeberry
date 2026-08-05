@@ -6,9 +6,9 @@ public struct QuerySummary: Sendable {
 }
 
 /// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
-/// No `comment` parameter — that's internal (see `PiholeServiceInternal`).
+/// No `comment` parameter — that's internal (see `PiholeServiceCommentAdding`).
 @MainActor
-public protocol PiholeServiceProtocol: AnyObject, Sendable {
+public protocol PiholeServiceProviding: AnyObject, Sendable {
   var id: UUID { get }
   var label: String? { get set }
   var url: String { get set }
