@@ -168,6 +168,29 @@ open Holeberry.xcodeproj
 - アプリターゲットには [SwiftLint](https://github.com/realm/SwiftLint) と `swift-format` を strict モードで実行するプリビルドスクリプトがあります。インストールしていないとビルドが警告を出します。
 - コアロジックは `HoleberryCore` Swift パッケージにあり、独自のテストスイートがあります——`cd Packages/HoleberryCore && swift test`。
 
+## プロジェクト構成
+
+```
+Holeberry/
+├── project.yml                  # XcodeGen 設定 — `xcodegen generate` で再生成
+├── Sources/Holeberry/           # アプリターゲット（メニューバー UI のみ）
+│   ├── App/                     # アプリのライフサイクルとアップデーター
+│   ├── MenuBar/                 # メニューバーのコントローラー・ビルダー
+│   ├── Components/              # 再利用可能な UI ビュー
+│   ├── Shortcuts/               # グローバルキーボードショートカット
+│   ├── Settings/                # 設定ウィンドウの UI
+│   ├── Support/                 # Info.plist、entitlements
+│   └── Resources/               # アセット、アプリアイコン
+└── Packages/HoleberryCore/      # ビジネスロジックとテストスイート
+    ├── Sources/HoleberryCore/
+    │   ├── Models/              # 値型
+    │   ├── Networking/          # HTTP 層、到達可能性、リトライ
+    │   ├── Persistence/         # キーチェーンとデフォルトキー
+    │   ├── Services/            # Auth、BrowserDetector、Pihole サービス
+    │   └── Utils/               # 汎用ユーティリティ
+    └── Tests/HoleberryCoreTests/
+```
+
 ## コントリビュート
 
 バグ報告や機能リクエストは [issues](https://github.com/pedrovieira/Holeberry/issues) へお寄せください。PR は `main` ブランチをターゲットにし、既存のテストスイートが通るようにしてください。AI を利用したコントリビューションも歓迎します——AI 支援で作成した PR には、その旨と使用したツールを PR の説明に明記してください。大きな変更を計画している場合は、まず issue を開いてください——お互いの時間の節約になります。

@@ -31,7 +31,7 @@ targets:
     sources:
       - path: Sources/Holeberry
     info:
-      path: Sources/Holeberry/Info.plist
+      path: Sources/Holeberry/Support/Info.plist
       properties:
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "1"
@@ -45,7 +45,7 @@ targets:
         SUPublicEDKey: "xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM="
     settings:
       base:
-        CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Resources/Holeberry.entitlements
+        CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Support/Holeberry.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
@@ -72,7 +72,7 @@ targets:
           if [ -n "$FORMAT_BIN" ]; then
             "$FORMAT_BIN" lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
             # Use relaxed rules for test files
-            "$FORMAT_BIN" lint --recursive --strict --configuration Packages/HoleberryCore/Tests/HoleberryCoreTests/.swift-format Packages/HoleberryCore/Tests/
+            "$FORMAT_BIN" lint --recursive --strict --configuration Packages/HoleberryCore/.swift-format Packages/HoleberryCore/Tests/
           else
             echo "warning: swift-format not found in Xcode toolchain"
           fi

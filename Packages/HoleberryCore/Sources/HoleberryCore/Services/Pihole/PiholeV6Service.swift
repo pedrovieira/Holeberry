@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
-public final class PiholeV6Service: PiholeServiceInternal {
+public final class PiholeV6Service: PiholeServiceCommentAdding {
   private static let blockedStatus = "GRAVITY"
   /// Safety cap on the number of rows the server returns. The real filter is the time
   /// range (`from`/`until`), but a large limit prevents unbounded responses.
