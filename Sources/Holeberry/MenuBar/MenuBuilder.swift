@@ -1,7 +1,7 @@
 import AppKit
 import HoleberryCore
 
-// swiftlint:disable file_length
+// swiftlint:disable file_length type_body_length
 
 /// Amber color (#ff9f0a) for the "instances disagree" state.
 private let statusAmber = NSColor(calibratedRed: 1.0, green: 0.624, blue: 0.039, alpha: 1.0)
@@ -20,6 +20,7 @@ struct MenuBuilder {
     recentBlockedProvider: @escaping () -> [BlockedDomain],
     userIP: String?,
     showAllClients: Bool,
+    durations: [UnblockDurationEntry],
     error: String?,
     isConnected: Bool,
     connectionStatuses: [UUID: ConnectionStatus],
@@ -58,12 +59,19 @@ struct MenuBuilder {
       isTimerDisabled: isTimerDisabled,
       hasServers: !servers.isEmpty,
       isConnected: isConnected,
+      durations: durations,
       target: target
     )
 
     if browserTabStatus != .disabled {
       menu.addItem(.separator())
-      addBrowserTabSection(to: menu, browserStatus: browserTabStatus, browserIcon: browserIcon, target: target)
+      addBrowserTabSection(
+        to: menu,
+        browserStatus: browserTabStatus,
+        browserIcon: browserIcon,
+        durations: durations,
+        target: target
+      )
     }
 
     menu.addItem(.separator())
@@ -72,6 +80,7 @@ struct MenuBuilder {
       recentBlockedProvider: recentBlockedProvider,
       userIP: userIP,
       showAllClients: showAllClients,
+      durations: durations,
       isConnected: isConnected,
       target: target
     )
@@ -231,11 +240,13 @@ struct MenuBuilder {
 
   // MARK: - Blocking controls
 
+  // swiftlint:disable:next function_parameter_count
   private func addBlockingControls(
     to menu: NSMenu,
     isTimerDisabled: Bool,
     hasServers: Bool,
     isConnected: Bool,
+    durations: [UnblockDurationEntry],
     target: MenuActionTarget
   ) {
     if isTimerDisabled {
@@ -250,9 +261,14 @@ struct MenuBuilder {
     } else {
       let submenu = NSMenu()
 
-      addDisableDurationItem(to: submenu, duration: 10, title: "10 seconds", target: target)
-      addDisableDurationItem(to: submenu, duration: 30, title: "30 seconds", target: target)
-      addDisableDurationItem(to: submenu, duration: 300, title: "5 minutes", target: target)
+      for entry in durations {
+        addDisableDurationItem(
+          to: submenu,
+          duration: entry.seconds,
+          title: UnblockDurationFormatter.string(from: entry.seconds),
+          target: target
+        )
+      }
 
       submenu.addItem(.separator())
 
@@ -302,6 +318,7 @@ struct MenuBuilder {
     recentBlockedProvider: @escaping () -> [BlockedDomain],
     userIP: String?,
     showAllClients: Bool,
+    durations: [UnblockDurationEntry],
     isConnected: Bool,
     target: MenuActionTarget
   ) {
@@ -311,8 +328,8 @@ struct MenuBuilder {
       fetchBlocked: recentBlockedProvider,
       userIP: userIP,
       showAllClients: showAllClients
-    ) { [self, target] domain in
-      self.buildDurationSubmenu(for: domain, target: target)
+    ) { [self, target, durations] domain in
+      self.buildDurationSubmenu(for: domain, durations: durations, target: target)
     }
 
     let item = NSMenuItem(title: "Recently Blocked...", action: nil, keyEquivalent: "")
@@ -324,12 +341,22 @@ struct MenuBuilder {
 
   // MARK: - Duration submenu (shared for browser tab + recently blocked)
 
-  private func buildDurationSubmenu(for domain: String, target: MenuActionTarget) -> NSMenu {
+  private func buildDurationSubmenu(
+    for domain: String,
+    durations: [UnblockDurationEntry],
+    target: MenuActionTarget
+  ) -> NSMenu {
     let submenu = NSMenu()
 
-    addDurationItem(to: submenu, domain: domain, duration: 10, title: "10 seconds", target: target)
-    addDurationItem(to: submenu, domain: domain, duration: 30, title: "30 seconds", target: target)
-    addDurationItem(to: submenu, domain: domain, duration: 300, title: "5 minutes", target: target)
+    for entry in durations {
+      addDurationItem(
+        to: submenu,
+        domain: domain,
+        duration: entry.seconds,
+        title: UnblockDurationFormatter.string(from: entry.seconds),
+        target: target
+      )
+    }
 
     submenu.addItem(.separator())
 
@@ -377,6 +404,7 @@ struct MenuBuilder {
     to menu: NSMenu,
     browserStatus: ResolvedBrowserTab,
     browserIcon: NSImage?,
+    durations: [UnblockDurationEntry],
     target: MenuActionTarget
   ) {
     switch browserStatus {
@@ -422,7 +450,7 @@ struct MenuBuilder {
       let item = NSMenuItem(title: "Unblock \(domain)", action: nil, keyEquivalent: "")
       item.isEnabled = true
       item.image = browserIcon
-      item.submenu = buildDurationSubmenu(for: domain, target: target)
+      item.submenu = buildDurationSubmenu(for: domain, durations: durations, target: target)
       menu.addItem(item)
     }
   }
