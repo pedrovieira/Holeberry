@@ -108,6 +108,15 @@ Pi-hole 的网页界面很棒——前提是你已经在浏览器里。但每一
 
 它在工程上也是一份心血之作：Swift 6 严格并发、抽取到本地 Swift 包（`HoleberryCore`）的协议驱动核心，以及经过大量测试的服务层——这正是我作为开源贡献者愿意去读的那种代码库。
 
+## 未来计划
+
+Holeberry 目前是一款面向 Pi-hole 的应用，但菜单栏的工作流不必止步于此。如果有足够的社区需求，未来的版本可能会加入：
+
+- **对其他 DNS 提供商的支持** —— AdGuard Home 和 Technitium 是自然而然的选择，适合不使用 Pi-hole 的用户。
+- **混合部署** —— 同时连接 Pi-hole 与 AdGuard Home（或任意组合），按实例显示状态、汇总统计，并在不同提供商之间提供一致的一键操作。
+
+这些都不是承诺——这是一份愿望清单，优先级由社区需求决定。如果你想看到其中任何一项，请开一个 [issue](https://github.com/pedrovieira/Holeberry/issues) 告诉我们；支持的声音越多，优先级就越高。
+
 ## 快速上手
 
 1. **添加你的 Pi-hole** —— 通过自动发现，或手动添加（URL、API Token / 密码，以及可选的名称和图标）。
@@ -161,7 +170,7 @@ open Holeberry.xcodeproj
 
 ## 参与贡献
 
-欢迎通过 [issues](https://github.com/pedrovieira/Holeberry/issues) 提交 bug 报告和功能请求。PR 请以 `dev` 分支为目标，并确保现有测试套件通过。如果你计划较大的改动，请先开一个 issue 沟通——这对我们双方都省时间。
+欢迎通过 [issues](https://github.com/pedrovieira/Holeberry/issues) 提交 bug 报告和功能请求。PR 请以 `main` 分支为目标，并确保现有测试套件通过。欢迎 AI 辅助的贡献——如果你的 PR 由 AI 辅助完成，请在 PR 描述中注明这一点，并说明所使用的工具。如果你计划较大的改动，请先开一个 issue 沟通——这对我们双方都省时间。
 
 ## AI 辅助开发
 
