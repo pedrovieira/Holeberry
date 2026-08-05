@@ -18,6 +18,11 @@ final class DurationField: NSView {
   /// Called whenever the user changes any segment.
   var onChange: ((TimeInterval) -> Void)?
 
+  /// Called when the user presses Return to confirm. When set, it replaces
+  /// the default "stop modal as confirmed" behavior so the host can
+  /// validate the duration first (e.g. reject duplicates with a wiggle).
+  var onConfirm: (() -> Void)?
+
   // MARK: - Constants
 
   private static let digitFontSize: CGFloat = 32
@@ -143,7 +148,11 @@ final class DurationField: NSView {
   override func keyDown(with event: NSEvent) {
     switch event.keyCode {
     case 36:  // Return — confirm
-      NSApp.stopModal(withCode: .alertFirstButtonReturn)
+      if let onConfirm {
+        onConfirm()
+      } else {
+        NSApp.stopModal(withCode: .alertFirstButtonReturn)
+      }
     case 53:  // Escape — cancel
       NSApp.stopModal(withCode: .alertSecondButtonReturn)
     case 123: moveActive(by: -1)  // ←
