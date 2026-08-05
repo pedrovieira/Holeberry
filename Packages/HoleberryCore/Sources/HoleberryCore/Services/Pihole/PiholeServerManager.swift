@@ -14,7 +14,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let versionDetector: any PiholeVersionDetecting
   private let suite: UserDefaults
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
-  private var services: [UUID: any PiholeServiceProtocol] = [:]
+  private var services: [UUID: any PiholeServiceProviding] = [:]
 
   public init(
     keychain: any KeychainManaging,
@@ -117,7 +117,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Helpers
 
   private func reconnectExistingService(
-    _ existingService: any PiholeServiceProtocol,
+    _ existingService: any PiholeServiceProviding,
     id: UUID,
     url: String,
     credential: String?

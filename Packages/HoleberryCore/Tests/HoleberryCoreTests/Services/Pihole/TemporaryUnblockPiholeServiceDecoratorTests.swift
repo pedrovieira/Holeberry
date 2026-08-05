@@ -10,7 +10,7 @@ import Testing
 @Suite("TemporaryUnblockPiholeServiceDecorator")
 struct TemporaryUnblockPiholeServiceDecoratorTests {
   private func makeDecorator(
-    service: any PiholeServiceInternal,
+    service: any PiholeServiceCommentAdding,
     suite: UserDefaults = TestDefaults.makeSuite()
   ) -> TemporaryUnblockPiholeServiceDecorator {
     TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in }

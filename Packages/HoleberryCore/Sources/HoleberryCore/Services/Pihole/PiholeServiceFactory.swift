@@ -1,6 +1,6 @@
 import Foundation
 
-/// Builds a `PiholeServiceInternal` for a given server configuration.
+/// Builds a `PiholeServiceCommentAdding` for a given server configuration.
 ///
 /// Extracted so `PiholeServerManager` depends on the seam and tests can inject
 /// a mock; the production implementation is `ConcretePiholeServiceFactory`.
@@ -11,7 +11,7 @@ public protocol PiholeServiceFactory {
     credential: String,
     session: any HTTPRequestable,
     suite: UserDefaults
-  ) throws -> any PiholeServiceInternal
+  ) throws -> any PiholeServiceCommentAdding
 }
 
 public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
@@ -31,12 +31,12 @@ public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
     credential: String,
     session: any HTTPRequestable,
     suite: UserDefaults = .standard
-  ) throws -> any PiholeServiceInternal {
+  ) throws -> any PiholeServiceCommentAdding {
     guard let url = URL(string: config.url) else {
       fatalError("Invalid URL in ServerConfig: \(config.url)")
     }
 
-    let raw: any PiholeServiceInternal
+    let raw: any PiholeServiceCommentAdding
     switch config.version {
     case .v6:
       let authSession = try authSessionFactory.makeSession(
