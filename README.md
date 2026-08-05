@@ -5,6 +5,13 @@
 <h1 align="center">Holeberry</h1>
 
 <p align="center">
+  <a href="README.md">English</a> ·
+  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="README.ja.md">日本語</a> ·
+  <a href="https://holeberryapp.com">Website</a>
+</p>
+
+<p align="center">
   <b>Your Pi-hole, right in the menu bar.</b><br />
   A native and modern macOS menu bar app to monitor and control your Pi-hole instances — no browser tab required.
 </p>
