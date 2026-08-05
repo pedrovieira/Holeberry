@@ -88,6 +88,7 @@ final class MenuBarController: NSObject {
   }
 
 
+  // swiftlint:disable:next function_body_length
   @objc private func handleClick() {
     // Refresh data in the background for next time, but show the menu now with cached data
     statusMonitor.pollNow()
@@ -130,6 +131,7 @@ final class MenuBarController: NSObject {
       recentBlockedProvider: { [statusMonitor] in statusMonitor.recentBlocked },
       userIP: localIPAddressResolver.localIPAddress(),
       showAllClients: Defaults[.showAllClientsRecentBlocked(suite: defaultsSuite)],
+      durations: Defaults[.unblockDurations(suite: defaultsSuite)],
       error: errorMessage,
       isConnected: reachability.isConnected,
       connectionStatuses: statusMonitor.connectionStatuses,

@@ -32,6 +32,17 @@ extension Defaults.Keys {
     Defaults.Key<Bool>("showAllClientsRecentBlocked", default: false, suite: suite)
   }
 
+  /// Ordered list of numeric unblock durations shown in the duration menus.
+  public static func unblockDurations(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<[UnblockDurationEntry]> {
+    Defaults.Key<[UnblockDurationEntry]>(
+      "unblockDurations",
+      default: UnblockDurationEntry.defaultEntries,
+      suite: suite
+    )
+  }
+
   /// Returns a per-server key for temp-unblock records.
   public static func tempUnblocks(
     for serverID: UUID, suite: UserDefaults = .standard
