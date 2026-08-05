@@ -43,6 +43,7 @@ struct DurationsSettingsView: View {
           Button("Reset to Defaults") {
             showResetConfirmation = true
           }
+          .disabled(isAtDefaults)
           .confirmationDialog(
             "Restore default durations?",
             isPresented: $showResetConfirmation,
@@ -99,6 +100,12 @@ struct DurationsSettingsView: View {
     return "Delete \(UnblockDurationFormatter.string(from: entryPendingDeletion.seconds))?"
   }
 
+  /// True when the list is exactly the default entries (same values, same
+  /// order, same stable ids) — Reset would be a no-op.
+  private var isAtDefaults: Bool {
+    durations == UnblockDurationEntry.defaultEntries
+  }
+
   // MARK: - Actions
 
   private func addDuration() {
@@ -149,14 +156,19 @@ struct DurationsSettingsView: View {
         .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
     )
     .frame(maxWidth: 220)
-    // Squared NSVisualEffectView stage, edge to edge behind the menu.
-    .padding(14)
+    // Squared NSVisualEffectView stage, edge to edge behind the menu, with
+    // a small corner radius and matching hairline border.
+    // Vertical padding is taller than horizontal so the stage reads as a
+    // generous backdrop around the menu panel.
+    .padding(.horizontal, 14)
+    .padding(.vertical, 34)
     .frame(maxWidth: .infinity)
     .background {
       VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
     }
+    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     .overlay(
-      Rectangle()
+      RoundedRectangle(cornerRadius: 8, style: .continuous)
         .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
     )
   }
