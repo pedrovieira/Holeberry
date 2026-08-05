@@ -9,10 +9,6 @@ struct ConnectionListView: View {
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: ServerConfig?
 
-  private var connectedCount: Int {
-    statusPoller.connectionStatuses.values.filter { $0 == .connected }.count
-  }
-
   private var filteredInstances: [PiholeDiscoveryService.DiscoveredInstance] {
     discoveryService.discoveredInstances.filter { instance in
       !statusPoller.servers.contains { server in
@@ -90,20 +86,18 @@ struct ConnectionListView: View {
 
     // --- Section 2: Instances Found ---
     Section {
-      if discoveryService.isScanning && filteredInstances.isEmpty {
+      if statusPoller.servers.count >= 2 {
+        Text("All connection slots filled")
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+          .frame(height: 30)
+      } else if discoveryService.isScanning && filteredInstances.isEmpty {
         Text("Scanning your network...")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
           .frame(height: 30)
-      } else if !discoveryService.isScanning && filteredInstances.isEmpty && connectedCount < 2 {
+      } else if !discoveryService.isScanning && filteredInstances.isEmpty {
         Text("No Pi-hole instances found on your network")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-          .frame(height: 30)
-      }
-
-      if connectedCount >= 2 {
-        Text("All connection slots filled")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
           .frame(height: 30)
@@ -155,9 +149,12 @@ struct ConnectionListView: View {
     // --- Lifecycle ---
     .task {
       statusPoller.pollNow()
-      await discoveryService.scan()
+      if statusPoller.servers.count < 2 {
+        await discoveryService.scan()
+      }
     }
     .onChange(of: statusPoller.servers.count) {
+      guard statusPoller.servers.count < 2 else { return }
       Task { await discoveryService.scan() }
     }
   }
