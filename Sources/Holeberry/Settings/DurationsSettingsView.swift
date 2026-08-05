@@ -1,6 +1,5 @@
 import Defaults
 import HoleberryCore
-import KeyboardShortcuts
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -8,8 +7,8 @@ import UniformTypeIdentifiers
 /// shown in the "Disable Blocking ▸" and "Unblock <domain> ▸" menus.
 ///
 /// The fake menu is two layers: a squared `NSVisualEffectView` stage that
-/// spans the section edge to edge (vibrancy surface), with an opaque, light,
-/// rounded-corner menu panel on top that mimics an NSMenu. Numeric rows are
+/// spans the section edge to edge (vibrancy surface), with a rounded-corner
+/// menu panel on top that uses the native menu material. Numeric rows are
 /// draggable (hover-reveal handle) and deletable (hover-reveal ✕);
 /// "Indefinitely" and "Custom…" are locked rows rendered below a separator.
 struct DurationsSettingsView: View {
@@ -140,19 +139,17 @@ struct DurationsSettingsView: View {
           .padding(.horizontal, 8)
           .padding(.vertical, 4)
       }
-      lockedRow(title: "Indefinitely", shortcutName: .disableIndefinitely)
-      lockedRow(title: "Custom…", shortcutName: .disableCustom)
+      lockedRow(title: "Indefinitely")
+      lockedRow(title: "Custom…")
     }
     .padding(5)
-    // The menu panel is opaque and light, like a real (Sonoma-era) NSMenu.
+    // The menu panel uses the native menu material so it adapts to the
+    // system appearance, like a real macOS menu.
     .background(
       RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .fill(Color(red: 0.96, green: 0.96, blue: 0.97))
+        .fill(.ultraThinMaterial)
         .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
     )
-    // Render the panel's content in light mode so text stays dark on the
-    // fixed light menu background, regardless of the app's appearance.
-    .environment(\.colorScheme, .light)
     .frame(maxWidth: 320)
     // Squared NSVisualEffectView stage, edge to edge behind the menu.
     .padding(14)
@@ -178,7 +175,6 @@ struct DurationsSettingsView: View {
       Text(UnblockDurationFormatter.string(from: entry.seconds))
         .font(.system(size: 13))
         .frame(maxWidth: .infinity, alignment: .leading)
-      KeyboardShortcuts.Recorder(for: KeyboardShortcuts.Name.durationShortcutName(for: entry))
       Button {
         entryPendingDeletion = entry
         showDeleteConfirmation = true
@@ -219,13 +215,12 @@ struct DurationsSettingsView: View {
     )
   }
 
-  private func lockedRow(title: String, shortcutName: KeyboardShortcuts.Name) -> some View {
+  private func lockedRow(title: String) -> some View {
     HStack(spacing: 6) {
       Color.clear.frame(width: 14)
       Text(title)
         .font(.system(size: 13))
         .frame(maxWidth: .infinity, alignment: .leading)
-      KeyboardShortcuts.Recorder(for: shortcutName)
       Image(systemName: "lock.fill")
         .font(.system(size: 9))
         .foregroundStyle(.tertiary)

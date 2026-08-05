@@ -32,6 +32,7 @@ struct SettingsView: View {
   @Default var launchAtLogin: Bool
   @Default var browserTabUnblockEnabled: Bool
   @Default var showAllClientsRecentBlocked: Bool
+  @Default var durations: [UnblockDurationEntry]
 
   @State private var isToggling = false
   @State private var requiresApproval = false
@@ -62,6 +63,7 @@ struct SettingsView: View {
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
+    _durations = .init(.unblockDurations(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
   }
 
@@ -187,6 +189,7 @@ struct SettingsView: View {
     }
   }
 
+  @ViewBuilder
   private var shortcutsSection: some View {
     Section {
       KeyboardShortcuts.Recorder("Re-enable Blocking:", name: .reEnableBlocking)
@@ -200,6 +203,22 @@ struct SettingsView: View {
         """
       )
       .foregroundStyle(.secondary)
+    }
+
+    Section {
+      ForEach(durations) { entry in
+        KeyboardShortcuts.Recorder(
+          "Disable \(UnblockDurationFormatter.string(from: entry.seconds)):",
+          name: KeyboardShortcuts.Name.durationShortcutName(for: entry)
+        )
+      }
+      KeyboardShortcuts.Recorder("Disable Indefinitely:", name: .disableIndefinitely)
+      KeyboardShortcuts.Recorder("Custom duration...:", name: .disableCustom)
+    } header: {
+      Text("Unblock Durations")
+    } footer: {
+      Text("Synced with the durations configured in the Durations tab.")
+        .foregroundStyle(.secondary)
     }
   }
 
