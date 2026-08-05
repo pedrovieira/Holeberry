@@ -168,6 +168,29 @@ Notes for contributors:
 - The app target has pre-build scripts running [SwiftLint](https://github.com/realm/SwiftLint) and `swift-format` in strict mode; install them or the build will warn.
 - Core logic lives in the `HoleberryCore` Swift package with its own test suite — `cd Packages/HoleberryCore && swift test`.
 
+## Project structure
+
+```
+Holeberry/
+├── project.yml                  # XcodeGen spec — regenerate with `xcodegen generate`
+├── Sources/Holeberry/           # App target (menu bar UI only)
+│   ├── App/                     # app lifecycle + updater
+│   ├── MenuBar/                 # menu bar controllers & builders
+│   ├── Components/              # reusable UI views
+│   ├── Shortcuts/               # global keyboard shortcuts
+│   ├── Settings/                # settings window UI
+│   ├── Support/                 # Info.plist, entitlements
+│   └── Resources/               # assets, app icon
+└── Packages/HoleberryCore/      # business logic, with its own test suite
+    ├── Sources/HoleberryCore/
+    │   ├── Models/              # value types
+    │   ├── Networking/          # HTTP layer, reachability, retry
+    │   ├── Persistence/         # keychain + defaults keys
+    │   ├── Services/            # Auth, BrowserDetector, Pihole services
+    │   └── Utils/               # generic utilities
+    └── Tests/HoleberryCoreTests/
+```
+
 ## Contributing
 
 Bug reports and feature requests are welcome via [issues](https://github.com/pedrovieira/Holeberry/issues). PRs should target the `main` branch, and the existing test suites should pass. AI-assisted contributions are welcome — if your PR was produced with AI assistance, please note it in the PR description and name the tool you used. Please open an issue first if you're planning something substantial — it saves both of us time.

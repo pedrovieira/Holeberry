@@ -1,0 +1,25 @@
+name: Project Drift
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Verify generated project is up to date
+        run: |
+          xcodegen generate
+          git diff --exit-code -- Holeberry.xcodeproj Sources/Holeberry/Support/Info.plist

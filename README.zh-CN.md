@@ -168,6 +168,29 @@ open Holeberry.xcodeproj
 - 应用 target 带有预构建脚本，以严格模式运行 [SwiftLint](https://github.com/realm/SwiftLint) 和 `swift-format`；请先安装它们，否则构建会发出警告。
 - 核心逻辑位于 `HoleberryCore` Swift 包中，自带测试套件 —— `cd Packages/HoleberryCore && swift test`。
 
+## 项目结构
+
+```
+Holeberry/
+├── project.yml                  # XcodeGen 配置 — 修改后运行 `xcodegen generate` 重新生成
+├── Sources/Holeberry/           # App target（仅菜单栏 UI）
+│   ├── App/                     # 应用生命周期与更新器
+│   ├── MenuBar/                 # 菜单栏控制器与构建器
+│   ├── Components/              # 可复用的 UI 视图
+│   ├── Shortcuts/               # 全局键盘快捷键
+│   ├── Settings/                # 设置窗口 UI
+│   ├── Support/                 # Info.plist、entitlements
+│   └── Resources/               # 资源与 App 图标
+└── Packages/HoleberryCore/      # 业务逻辑与测试套件
+    ├── Sources/HoleberryCore/
+    │   ├── Models/              # 值类型
+    │   ├── Networking/          # HTTP 层、可达性、重试
+    │   ├── Persistence/         # 钥匙串与默认键
+    │   ├── Services/            # Auth、BrowserDetector、Pihole 服务
+    │   └── Utils/               # 通用工具
+    └── Tests/HoleberryCoreTests/
+```
+
 ## 参与贡献
 
 欢迎通过 [issues](https://github.com/pedrovieira/Holeberry/issues) 提交 bug 报告和功能请求。PR 请以 `main` 分支为目标，并确保现有测试套件通过。欢迎 AI 辅助的贡献——如果你的 PR 由 AI 辅助完成，请在 PR 描述中注明这一点，并说明所使用的工具。如果你计划较大的改动，请先开一个 issue 沟通——这对我们双方都省时间。

@@ -12,7 +12,7 @@ private enum V5QueryStatus: String, CaseIterable {
 }
 
 /// Pi-hole v5 API implementation using static token auth and query-string endpoints. HTML parsing for domain lists.
-public final class PiholeV5Service: PiholeServiceInternal {
+public final class PiholeV5Service: PiholeServiceCommentAdding {
   // MARK: - Identity & Config
   public let id: UUID
   public var label: String?

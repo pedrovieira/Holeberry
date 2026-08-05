@@ -2,9 +2,9 @@ import Foundation
 
 @testable import HoleberryCore
 
-/// Configurable mock implementing `PiholeServiceInternal` with stub injection, call-count tracking, and failure injection.
+/// Configurable mock implementing `PiholeServiceCommentAdding` with stub injection, call-count tracking, and failure injection.
 @MainActor
-final class MockPiholeService: PiholeServiceInternal {
+final class MockPiholeService: PiholeServiceCommentAdding {
   let id: UUID
   var label: String?
   var url: String
