@@ -96,7 +96,7 @@ Assign global shortcuts to disable blocking (10s / 30s / 5 min / custom / indefi
 
 ### Auto-discovery
 
-Holeberry finds Pi-hole instances on your local network automatically, so getting set up is often just "click and connect".
+Holeberry finds Pi-hole instances automatically — by scanning your local network and checking the DNS servers your Mac is currently using (so remote setups like a Pi-hole over Tailscale or a VPN are found too). Getting set up is often just "click and connect".
 
 ## Why Holeberry?
 

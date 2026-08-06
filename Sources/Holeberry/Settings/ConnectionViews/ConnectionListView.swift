@@ -97,7 +97,7 @@ struct ConnectionListView: View {
           .foregroundColor(.secondary)
           .frame(height: 30)
       } else if !discoveryService.isScanning && filteredInstances.isEmpty {
-        Text("No Pi-hole instances found on your network")
+        Text("No Pi-hole instances found")
           .font(.system(size: 11))
           .foregroundColor(.secondary)
           .frame(height: 30)
@@ -120,7 +120,7 @@ struct ConnectionListView: View {
       }
       .textCase(nil)
     } footer: {
-      Text("Scans your local network when you visit this tab.")
+      Text("Scans your local network and DNS servers when you visit this tab.")
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .textCase(nil)

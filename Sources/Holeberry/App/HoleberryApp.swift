@@ -45,6 +45,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     versionDetector: versionDetector
   )
   private lazy var localIPResolver = LocalIPAddressResolver()
+  private lazy var dnsServerResolver = EffectiveDNSServerResolver()
   private lazy var statusPoller = ServerStatusPoller(
     manager: serverManager,
     networkInterface: localIPResolver
@@ -68,7 +69,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     urlFetcher: browserUrlFetcher,
     strategyFactory: urlFetchingStrategyFactory
   )
-  private lazy var discoveryService = PiholeDiscoveryService(networkInterface: localIPResolver)
+  private lazy var discoveryService = PiholeDiscoveryService(
+    networkInterface: localIPResolver,
+    dnsServerResolver: dnsServerResolver
+  )
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
