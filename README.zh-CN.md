@@ -96,7 +96,7 @@ Holeberry 会自动检测 Pi-hole 版本，并以正确的方式与每个实例�
 
 ### 自动发现
 
-Holeberry 会自动发现本地网络中的 Pi-hole 实例，设置过程常常就是「点击即连接」。
+Holeberry 会自动发现 Pi-hole 实例——通过扫描本地网络以及检查 Mac 当前使用的 DNS 服务器（因此也能找到通过 Tailscale 或 VPN 访问的远程实例）。设置过程常常就是「点击即连接」。
 
 ## 为什么做 Holeberry？
 

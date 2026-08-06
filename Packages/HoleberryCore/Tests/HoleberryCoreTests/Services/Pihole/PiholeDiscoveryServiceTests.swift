@@ -80,12 +80,14 @@ private func unreachableHandlers() -> [(URLRequest) throws -> (Data, HTTPURLResp
 @Suite("PiholeDiscoveryService — scanning")
 struct PiholeDiscoveryServiceScanTests {
   private let mockSession = MockURLSession()
+  private let mockDNS = MockEffectiveDNSServerResolver()
 
   @Test("returns empty when localIP is nil — no network calls")
   func nilLocalIP() async {
     let mockNetwork = MockLocalIPAddressResolver()
     mockNetwork.stubbedIP = nil
-    let service = PiholeDiscoveryService(networkInterface: mockNetwork, urlSession: mockSession)
+    let service = PiholeDiscoveryService(
+      networkInterface: mockNetwork, dnsServerResolver: mockDNS, urlSession: mockSession)
 
     await service.scan()
 
@@ -98,7 +100,8 @@ struct PiholeDiscoveryServiceScanTests {
   func concurrentGuard() async {
     let mockNetwork = MockLocalIPAddressResolver()
     mockNetwork.stubbedIP = "192.168.1.100"
-    let service = PiholeDiscoveryService(networkInterface: mockNetwork, urlSession: mockSession)
+    let service = PiholeDiscoveryService(
+      networkInterface: mockNetwork, dnsServerResolver: mockDNS, urlSession: mockSession)
 
     // All 254 checks will throw, completing quickly
     mockSession.handlers = unreachableHandlers()
@@ -123,7 +126,8 @@ struct PiholeDiscoveryServiceScanTests {
   func allUnreachable() async {
     let mockNetwork = MockLocalIPAddressResolver()
     mockNetwork.stubbedIP = "192.168.1.100"
-    let service = PiholeDiscoveryService(networkInterface: mockNetwork, urlSession: mockSession)
+    let service = PiholeDiscoveryService(
+      networkInterface: mockNetwork, dnsServerResolver: mockDNS, urlSession: mockSession)
 
     mockSession.handlers = unreachableHandlers()
 
@@ -140,13 +144,14 @@ struct PiholeDiscoveryServiceScanTests {
 @Suite("PiholeDiscoveryService — instance detection")
 struct PiholeDiscoveryServiceDetectionTests {
   private let mockSession = MockURLSession()
+  private let mockDNS = MockEffectiveDNSServerResolver()
   private let mockNetwork: MockLocalIPAddressResolver
   private let service: PiholeDiscoveryService
 
   init() {
     mockNetwork = MockLocalIPAddressResolver()
     mockNetwork.stubbedIP = "192.168.1.100"
-    service = PiholeDiscoveryService(networkInterface: mockNetwork, urlSession: mockSession)
+    service = PiholeDiscoveryService(networkInterface: mockNetwork, dnsServerResolver: mockDNS, urlSession: mockSession)
   }
 
   private func makeResponse(statusCode: Int = 200, url: URL) -> HTTPURLResponse? {
@@ -299,5 +304,158 @@ struct PiholeDiscoveryServiceDetectionTests {
     #expect(service.discoveredInstances[2].addr == "192.168.1.77")
     #expect(service.discoveredInstances[3].addr == "192.168.1.128")
     #expect(service.discoveredInstances[4].addr == "192.168.1.200")
+  }
+}
+
+// MARK: - DNS server discovery
+
+@MainActor
+@Suite("PiholeDiscoveryService — DNS server discovery")
+struct PiholeDiscoveryServiceDNSTests {
+  private let mockSession = MockURLSession()
+  private let mockDNS = MockEffectiveDNSServerResolver()
+
+  private func makeService(localIP: String?) -> PiholeDiscoveryService {
+    let mockNetwork = MockLocalIPAddressResolver()
+    mockNetwork.stubbedIP = localIP
+    return PiholeDiscoveryService(
+      networkInterface: mockNetwork,
+      dnsServerResolver: mockDNS,
+      urlSession: mockSession
+    )
+  }
+
+  private func makeResponse(url: URL, statusCode: Int = 200) -> HTTPURLResponse {
+    HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: "HTTP/1.1", headerFields: nil)!
+  }
+
+  private func piholeAdminPage() -> Data {
+    Data("<html><title>Pi-hole Admin</title></html>".utf8)
+  }
+
+  @Test("discovers a remote Pi-hole via effective DNS servers when no local network")
+  func discoversViaDNS() async {
+    mockDNS.stubbedServers = ["10.0.0.5"]
+    mockSession.handlers = [
+      handler(forAddr: "10.0.0.5") { request in
+        let url = try #require(request.url)
+        return (piholeAdminPage(), makeResponse(url: url))
+      }
+    ]
+
+    let service = makeService(localIP: nil)
+    await service.scan()
+
+    #expect(service.discoveredInstances.count == 1)
+    #expect(service.discoveredInstances[0].addr == "10.0.0.5")
+    #expect(mockSession.requests.count == 1)
+    #expect(mockSession.requests[0].url?.host() == "10.0.0.5")
+  }
+
+  @Test("never probes well-known public resolvers")
+  func skipsIgnoredResolvers() async {
+    mockDNS.stubbedServers = ["1.1.1.1", "8.8.8.8", "9.9.9.9", "208.67.222.222"]
+    mockSession.handlers = []
+
+    let service = makeService(localIP: nil)
+    await service.scan()
+
+    #expect(mockSession.requests.isEmpty)
+    #expect(service.discoveredInstances.isEmpty)
+  }
+
+  @Test("skips IPv6 DNS servers")
+  func skipsIPv6Servers() async {
+    mockDNS.stubbedServers = ["fe80::1%en0", "2001:4860:4860::8888", "fd00::1"]
+    mockSession.handlers = []
+
+    let service = makeService(localIP: nil)
+    await service.scan()
+
+    #expect(mockSession.requests.isEmpty)
+  }
+
+  @Test("filters non-canonical IPv4 forms from DNS candidates")
+  func filtersNonCanonicalIPv4() async {
+    mockDNS.stubbedServers = ["1.1.1.01", "010.0.0.1", "999.1.1.1", "10.0.0.5", "10.0.0.6"]
+    mockSession.handlers = [
+      handler(forAddr: "10.0.0.5") { request in
+        let url = try #require(request.url)
+        return (piholeAdminPage(), makeResponse(url: url))
+      },
+      handler(forAddr: "10.0.0.6") { request in
+        let url = try #require(request.url)
+        return (piholeAdminPage(), makeResponse(url: url))
+      }
+    ]
+
+    let service = makeService(localIP: nil)
+    await service.scan()
+
+    #expect(service.discoveredInstances.map(\.addr) == ["10.0.0.5", "10.0.0.6"])
+    let probedHosts = Set(mockSession.requests.compactMap { $0.url?.host() })
+    #expect(probedHosts == ["10.0.0.5", "10.0.0.6"])
+  }
+
+  @Test("probes a DNS candidate overlapping the subnet only once")
+  func dedupesAgainstSubnet() async {
+    mockDNS.stubbedServers = ["192.168.1.42"]
+    mockSession.handlers = scanHandlers(responders: [
+      42: { request in
+        let url = try #require(request.url)
+        return (piholeAdminPage(), makeResponse(url: url))
+      }
+    ])
+
+    let service = makeService(localIP: "192.168.1.100")
+    await service.scan()
+
+    #expect(service.discoveredInstances.count == 1)
+    #expect(service.discoveredInstances[0].addr == "192.168.1.42")
+    let requestsTo42 = mockSession.requests.filter { $0.url?.host() == "192.168.1.42" }
+    #expect(requestsTo42.count == 1)
+  }
+
+  @Test("non-Pi-hole DNS server is not discovered")
+  func skipsNonPihole() async {
+    mockDNS.stubbedServers = ["10.0.0.9"]
+    let nonPihole = handler(forAddr: "10.0.0.9") { request in
+      let url = try #require(request.url)
+      if request.url?.path.hasPrefix("/admin") == true {
+        return (Data("<html>Generic server page</html>".utf8), makeResponse(url: url))
+      }
+      #expect(request.url?.path == "/api/info")
+      return (Data("not json".utf8), makeResponse(url: url))
+    }
+    mockSession.handlers = [nonPihole, nonPihole]
+
+    let service = makeService(localIP: nil)
+    await service.scan()
+
+    #expect(service.discoveredInstances.isEmpty)
+  }
+
+  @Test("merges subnet and DNS results, sorted")
+  func mergesSources() async {
+    mockDNS.stubbedServers = ["10.0.0.5"]
+    mockSession.handlers =
+      scanHandlers(responders: [
+        42: { request in
+          let url = try #require(request.url)
+          return (piholeAdminPage(), makeResponse(url: url))
+        }
+      ]) + [
+        handler(forAddr: "10.0.0.5") { request in
+          let url = try #require(request.url)
+          return (piholeAdminPage(), makeResponse(url: url))
+        }
+      ]
+
+    let service = makeService(localIP: "192.168.1.100")
+    await service.scan()
+
+    #expect(service.discoveredInstances.count == 2)
+    #expect(service.discoveredInstances[0].addr == "10.0.0.5")
+    #expect(service.discoveredInstances[1].addr == "192.168.1.42")
   }
 }
