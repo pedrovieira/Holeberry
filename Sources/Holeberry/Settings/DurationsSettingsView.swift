@@ -318,6 +318,12 @@ struct DurationsSettingsView: View {
       onDragEnd()
     }
 
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+      // Propose a move (not the default copy) so the cursor doesn't show
+      // the green "+" badge while dragging a row across the stage.
+      DropProposal(operation: .move)
+    }
+
     func performDrop(info: DropInfo) -> Bool {
       onDragEnd()
       return true
