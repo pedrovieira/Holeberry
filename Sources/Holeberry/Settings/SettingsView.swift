@@ -9,9 +9,8 @@ import SwiftUI
 enum SettingsTab: String, CaseIterable {
   case servers = "Servers"
   case defaults = "General"
-  case shortcuts = "Shortcuts"
   case durations = "Durations"
-  case advanced = "Advanced"
+  case shortcuts = "Shortcuts"
   case notifications = "Notifications"
   case about = "About"
 
@@ -19,9 +18,8 @@ enum SettingsTab: String, CaseIterable {
     switch self {
     case .servers: return Image("Pi-hole")
     case .defaults: return Image(systemName: "slider.horizontal.3")
-    case .shortcuts: return Image(systemName: "keyboard")
     case .durations: return Image(systemName: "timer")
-    case .advanced: return Image(systemName: "gearshape.2")
+    case .shortcuts: return Image(systemName: "keyboard")
     case .notifications: return Image(systemName: "bell")
     case .about: return Image(systemName: "info.circle")
     }
@@ -106,9 +104,6 @@ struct SettingsView: View {
       case .durations:
         Form { DurationsSettingsView(defaultsSuite: defaultsSuite) }
           .formStyle(.grouped)
-      case .advanced:
-        Form { advancedSection }
-          .formStyle(.grouped)
       case .notifications:
         Form {
           NotificationsSettingsView(
@@ -164,7 +159,7 @@ struct SettingsView: View {
     }
   }
 
-  private var generalSection: some View {
+  @ViewBuilder private var generalSection: some View {
     Section("General") {
       VStack(alignment: .leading) {
         Toggle("Launch at login", isOn: $launchAtLogin)
@@ -191,12 +186,41 @@ struct SettingsView: View {
         }
       }
     }
+
+    BrowserTabSettingsView(isEnabled: $browserTabUnblockEnabled)
+
+    Section("Recently Blocked") {
+      VStack(alignment: .leading) {
+        Toggle("Show recently blocked for all clients", isOn: $showAllClientsRecentBlocked)
+
+        (Text("Show blocked domains from all network devices. ")
+          + Text("This Mac's blocks are marked with ")
+          + Text(Image(systemName: "person.circle"))
+          + Text("."))
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
   }
 
   @ViewBuilder
   private var shortcutsSection: some View {
     Section {
       KeyboardShortcuts.Recorder("Re-enable Blocking:", name: .reEnableBlocking)
+
+      LabeledContent {
+        ShortcutRecorder(name: .unblockCurrentTab)
+          .disabled(!browserTabUnblockEnabled)
+      } label: {
+        Text("Unblock Current Tab:")
+      }
+
+      if !browserTabUnblockEnabled {
+        Text("Enable browser tab unblocking in General to use this shortcut.")
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
     } header: {
       Text("Global Shortcuts")
     } footer: {
@@ -226,35 +250,20 @@ struct SettingsView: View {
     }
   }
 
-  private var advancedSection: some View {
-    Section("Advanced") {
-      VStack(alignment: .leading) {
-        Toggle("Enable browser tab unblocking", isOn: $browserTabUnblockEnabled)
+  /// Wraps `KeyboardShortcuts.RecorderCocoa` so SwiftUI's `.disabled` state
+  /// actually propagates to the underlying `NSSearchField` (the library's
+  /// `Recorder` view does not read `isEnabled` from the environment).
+  private struct ShortcutRecorder: NSViewRepresentable {
+    let name: KeyboardShortcuts.Name
 
-        Text("Let Holeberry read the current browser tab URL to quickly unblock it. Requires Automation permission.")
-          .font(.callout)
-          .foregroundColor(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
+    @Environment(\.isEnabled) private var isEnabled
 
-      if browserTabUnblockEnabled {
-        KeyboardShortcuts.Recorder("Unblock Current Tab:", name: .unblockCurrentTab)
-      }
+    func makeNSView(context: Context) -> KeyboardShortcuts.RecorderCocoa {
+      KeyboardShortcuts.RecorderCocoa(for: name)
+    }
 
-      Divider()
-        .padding(.vertical, 4)
-
-      VStack(alignment: .leading) {
-        Toggle("Show recently blocked for all clients", isOn: $showAllClientsRecentBlocked)
-
-        (Text("Show blocked domains from all network devices. ")
-          + Text("This Mac's blocks are marked with ")
-          + Text(Image(systemName: "person.circle"))
-          + Text("."))
-          .font(.callout)
-          .foregroundColor(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
+    func updateNSView(_ nsView: KeyboardShortcuts.RecorderCocoa, context: Context) {
+      nsView.isEnabled = isEnabled
     }
   }
 

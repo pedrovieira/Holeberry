@@ -447,12 +447,25 @@ struct MenuBuilder {
       menu.addItem(item)
 
     case .url(_, let domain):
-      let item = NSMenuItem(title: "Unblock \(domain)", action: nil, keyEquivalent: "")
+      let item = NSMenuItem(
+        title: "Unblock \(menuLabelDomain(for: domain))",
+        action: nil,
+        keyEquivalent: ""
+      )
       item.isEnabled = true
       item.image = browserIcon
       item.submenu = buildDurationSubmenu(for: domain, durations: durations, target: target)
       menu.addItem(item)
     }
+  }
+
+  /// Strips a leading "www." for display only. The domain used for unblocking
+  /// keeps its original form.
+  private func menuLabelDomain(for domain: String) -> String {
+    guard domain.count > 4, domain.lowercased().hasPrefix("www.") else {
+      return domain
+    }
+    return String(domain.dropFirst(4))
   }
 
   // MARK: - Settings / Quit

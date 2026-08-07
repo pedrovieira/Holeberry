@@ -434,7 +434,7 @@ struct CredentialInfoPopover: View {
 
         Text("Pi-hole v6:")
           .font(.system(size: 11, weight: .semibold))
-        Text("Use your web interface password. The app handles session-based auth automatically.")
+        Text("Use your web interface password, or create an app password in Pi-hole Settings → API → App password.")
           .font(.system(size: 10))
           .foregroundColor(.secondary)
       }
