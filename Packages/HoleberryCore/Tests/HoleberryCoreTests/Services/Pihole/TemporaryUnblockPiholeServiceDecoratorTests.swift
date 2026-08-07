@@ -111,6 +111,11 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
   // MARK: - Retry
 
+  /// Lets the test deterministically release a parked retry backoff.
+  private final class RetryGate: @unchecked Sendable {
+    var isOpen = false
+  }
+
   @Test("Retry succeeds after transient expiry failure")
   func retrySucceedsAfterTransientFailure() async throws {
     let mock = MockPiholeService()
@@ -120,15 +125,17 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     mock.deleteDomainByNameStub = .failure(PiholeError.server(500, "Overloaded"))
 
     let suite = TestDefaults.makeSuite()
-    var sleeps = 0
+    let gate = RetryGate()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
       defaultsSuite: suite
     ) { duration in
-      sleeps += 1
-      // Expiry delay (0.5s) and the first few backoffs return immediately
-      if duration < 10 || sleeps <= 3 { return }
-      try await Task.sleep(for: .milliseconds(60000))
+      // Expiry delay (0.5s) returns immediately; every retry backoff parks on
+      // the gate so the test can swap the stub before the retry runs.
+      if duration < 10 { return }
+      while !gate.isOpen {
+        try await Task.sleep(for: .milliseconds(10))
+      }
     }
     try await decorator.unblockDomain("test.com", duration: 0.5)
 
@@ -136,6 +143,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(await eventually { mock.deleteDomainByNameCallCount >= 1 })
     // …then the retry succeeds and the record is cleaned up
     mock.deleteDomainByNameStub = .success(())
+    gate.isOpen = true
     #expect(await eventually { mock.deleteDomainByNameCallCount >= 2 })
     #expect(
       Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty,
@@ -180,24 +188,101 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     mock.deleteDomainByNameStub = .failure(PiholeError.server(500, "Overloaded"))
 
     let suite = TestDefaults.makeSuite()
-    var sleeps = 0
+    let gate = RetryGate()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
       defaultsSuite: suite
     ) { duration in
-      sleeps += 1
-      if duration < 10 || sleeps <= 3 { return }
-      try await Task.sleep(for: .milliseconds(60000))
+      if duration < 10 { return }
+      while !gate.isOpen {
+        try await Task.sleep(for: .milliseconds(10))
+      }
     }
     try await decorator.unblockDomain("test.com", duration: 0.5)
 
     #expect(await eventually { mock.deleteDomainByNameCallCount >= 1 })
     mock.deleteDomainByNameStub = .failure(PiholeError.unknown("Domain not found"))
+    gate.isOpen = true
     #expect(await eventually { mock.deleteDomainByNameCallCount >= 2 })
     #expect(
       Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty,
       "Unknown error should drop the record without further retries"
     )
+  }
+
+  // MARK: - Expiry notifications
+
+  /// Thread-safe box for capturing posted notification payloads in tests.
+  private final class PostedDomainsBox: @unchecked Sendable {
+    var domains: [String] = []
+  }
+
+  @Test("Auto-expiry posts domainUnblockExpired")
+  func autoExpiryPostsNotification() async throws {
+    let mock = MockPiholeService()
+    mock.addDomainStub = .success(
+      DomainEntry(id: 42, domain: "notify-expiry.com", type: 0, comment: "via holeberryapp.com / uuid-n1")
+    )
+    mock.deleteDomainByNameStub = .success(())
+
+    let center = NotificationCenter()
+    let posted = PostedDomainsBox()
+    let token = center.addObserver(forName: .domainUnblockExpired, object: nil, queue: nil) { notification in
+      if let domain = notification.userInfo?["domain"] as? String {
+        posted.domains.append(domain)
+      }
+    }
+    defer { center.removeObserver(token) }
+
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock,
+      defaultsSuite: TestDefaults.makeSuite(),
+      notificationCenter: center
+    ) { _ in }
+    try await decorator.unblockDomain("notify-expiry.com", duration: 0.5)
+
+    #expect(
+      await eventually { posted.domains.contains("notify-expiry.com") },
+      "Expiry should post .domainUnblockExpired with the domain"
+    )
+  }
+
+  @Test("Manual deleteDomain does not post domainUnblockExpired")
+  func manualDeleteDoesNotPostExpiryNotification() async throws {
+    let mock = MockPiholeService()
+    mock.addDomainStub = .success(
+      DomainEntry(id: 42, domain: "manual-delete.com", type: 0, comment: "via holeberryapp.com / uuid-n2")
+    )
+    mock.deleteDomainByNameStub = .success(())
+
+    let suite = TestDefaults.makeSuite()
+    let center = NotificationCenter()
+    let posted = PostedDomainsBox()
+    let token = center.addObserver(forName: .domainUnblockExpired, object: nil, queue: nil) { notification in
+      if let domain = notification.userInfo?["domain"] as? String {
+        posted.domains.append(domain)
+      }
+    }
+    defer { center.removeObserver(token) }
+
+    // Long duration with an elongated sleep so the expiry task never fires
+    // during the test — the removal below is the user's own action.
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock,
+      defaultsSuite: suite,
+      notificationCenter: center
+    ) { duration in
+      if duration < 10 { return }
+      try await Task.sleep(for: .milliseconds(60000))
+    }
+    try await decorator.unblockDomain("manual-delete.com", duration: 3600)
+    try await decorator.deleteDomain(domain: "manual-delete.com")
+
+    #expect(
+      Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty,
+      "Manual removal should drop the record"
+    )
+    #expect(posted.domains.isEmpty, "Manual removal should not post .domainUnblockExpired")
   }
 
   // MARK: - Passthrough

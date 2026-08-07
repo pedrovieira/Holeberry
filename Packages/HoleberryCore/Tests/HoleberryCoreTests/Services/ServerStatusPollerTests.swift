@@ -255,6 +255,133 @@ struct ServerStatusPollerTests {
     #expect(poller.blockingStatuses[id] == nil)
   }
 
+  @Test("applyBlockingChange owns the countdown pill")
+  func applyBlockingChangeOwnsCountdownPill() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+
+    let timer = TimerManager()
+    let poller = ServerStatusPoller(
+      manager: mockManager,
+      networkInterface: mockNetwork,
+      pollingInterval: 3600,
+      defaultsSuite: testSuite,
+      scheduler: scheduler,
+      timerManager: timer
+    )
+
+    // Time-boxed disable starts the countdown pill...
+    await poller.applyBlockingChange(enabled: false, duration: 300)
+    #expect(timer.isRunning == true)
+    #expect(timer.totalDuration == 300)
+
+    // ...re-enable cancels it.
+    await poller.applyBlockingChange(enabled: true, duration: nil)
+    #expect(timer.isRunning == false)
+  }
+
+  // MARK: - Auto Re-enable Detection
+
+  @Test("poll-observed disabled→enabled fires onBlockingAutoReenabled")
+  func pollObservedReenableFiresCallback() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    let poller = makePoller()
+    var firedIDs: Set<UUID>?
+    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    poller.startPolling()
+
+    await scheduler.fireTick()
+    #expect(firedIDs == nil)
+
+    mockManager.getBlockingStatusStub = [id: .enabled]
+    await scheduler.fireTick()
+
+    #expect(firedIDs == [id])
+  }
+
+  @Test("manual re-enable through applyBlockingChange never fires")
+  func manualReenableDoesNotFire() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    let poller = makePoller()
+    var fired = false
+    poller.onBlockingAutoReenabled = { _ in fired = true }
+    poller.startPolling()
+
+    // Unblock via the funnel, then the user re-enables manually...
+    await poller.applyBlockingChange(enabled: false, duration: 300)
+    await scheduler.fireTick()
+    #expect(fired == false)
+
+    await poller.applyBlockingChange(enabled: true, duration: nil)
+    // ...so even when the server reports enabled, the local reflection
+    // already happened and no transition is observed.
+    mockManager.getBlockingStatusStub = [id: .enabled]
+    await scheduler.fireTick()
+
+    #expect(fired == false)
+  }
+
+  @Test("fires only when the last disabled server re-enables")
+  func firesWhenLastDisabledServerReenables() async {
+    let idA = UUID()
+    let idB = UUID()
+    mockManager.servers = [
+      ServerConfig(id: idA, url: "http://a.local", version: .v6),
+      ServerConfig(id: idB, url: "http://b.local", version: .v6)
+    ]
+    mockManager.getBlockingStatusStub = [
+      idA: .disabled(remainingSeconds: 300),
+      idB: .disabled(remainingSeconds: 300)
+    ]
+    let poller = makePoller()
+    var firedIDs: Set<UUID>?
+    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    poller.startPolling()
+
+    await scheduler.fireTick()
+    #expect(firedIDs == nil)
+
+    // One server re-enables; the unblock is still active on the other.
+    mockManager.getBlockingStatusStub = [idA: .enabled, idB: .disabled(remainingSeconds: 60)]
+    await scheduler.fireTick()
+    #expect(firedIDs == nil)
+
+    // The last one re-enables → exactly one event.
+    mockManager.getBlockingStatusStub = [idA: .enabled, idB: .enabled]
+    await scheduler.fireTick()
+    #expect(firedIDs == [idB])
+  }
+
+  @Test("failed manual re-enable does not fire when a later poll sees enabled")
+  func failedManualReenableDoesNotFire() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    let poller = makePoller()
+    var fired = false
+    poller.onBlockingAutoReenabled = { _ in fired = true }
+
+    await poller.applyBlockingChange(enabled: false, duration: 300)
+
+    // The manual re-enable attempt fails: local state is dropped, so the
+    // poll observing `.enabled` is not a disabled→enabled transition.
+    mockManager.setBlockingStub = [id: false]
+    await poller.applyBlockingChange(enabled: true, duration: nil)
+
+    poller.startPolling()
+    mockManager.getBlockingStatusStub = [id: .enabled]
+    await scheduler.fireTick()
+
+    #expect(fired == false)
+  }
+
   // MARK: - Server Change Observation
 
   @Test("structural server change triggers poll")

@@ -4,7 +4,6 @@ import Defaults
 import HoleberryCore
 import OSLog
 import Sparkle
-import UserNotifications
 
 @MainActor
 final class MenuBarController: NSObject {
@@ -72,7 +71,6 @@ final class MenuBarController: NSObject {
     observeTimer()
     pollInitialStatus()
     setupReachability()
-    observeTotpNotifications()
   }
 
   // MARK: - Status Item
@@ -88,7 +86,6 @@ final class MenuBarController: NSObject {
   }
 
 
-  // swiftlint:disable:next function_body_length
   @objc private func handleClick() {
     // Refresh data in the background for next time, but show the menu now with cached data
     statusMonitor.pollNow()
@@ -99,17 +96,15 @@ final class MenuBarController: NSObject {
       actions: MenuActions(
         openAppSettings: { [settingsWindowController] in settingsWindowController.showWindow() },
         checkForUpdates: { [updater] in updater.checkForUpdates() },
-        disableBlocking: { [serverManager, statusMonitor, timerManager] duration in
+        disableBlocking: { [serverManager, statusMonitor] duration in
           guard !serverManager.servers.isEmpty else { return }
           Task {
             await statusMonitor.applyBlockingChange(enabled: false, duration: duration)
-            if let duration { timerManager.start(duration: duration) }
           }
         },
-        reEnableBlocking: { [statusMonitor, timerManager] in
+        reEnableBlocking: { [statusMonitor] in
           Task {
             await statusMonitor.applyBlockingChange(enabled: true, duration: nil)
-            timerManager.cancel()
           }
         },
         disableURL: { [weak self] domain, duration in
@@ -250,49 +245,6 @@ final class MenuBarController: NSObject {
   private func setupReachability() {
     reachability.onConnect = { [weak self] in
       Task { self?.statusMonitor.pollNow() }
-    }
-  }
-
-  // MARK: - TOTP Notifications
-
-  private func observeTotpNotifications() {
-    NotificationCenter.default.addObserver(
-      forName: .v6SessionTotpRequired,
-      object: nil,
-      queue: .main
-    ) { [weak self] notification in
-      guard let self else { return }
-      let serverHost: String
-      let serverURL = notification.userInfo?["serverURL"] as? String
-      let extractedHost = serverURL.flatMap { URL(string: $0)?.host }
-      if let extractedHost {
-        serverHost = extractedHost
-      } else {
-        serverHost = "your Pi-hole"
-      }
-      Task { @MainActor in
-        self.showError("TOTP required — update credential in Settings", persistent: true)
-        self.sendTotpUserNotification(host: serverHost)
-      }
-    }
-  }
-
-  private func sendTotpUserNotification(host: String) {
-    let content = UNMutableNotificationContent()
-    content.title = "Holeberry"
-    content.body = "TOTP is required for \(host). Open Settings and use an Application Password."
-    content.sound = .default
-    content.categoryIdentifier = "SHORTCUT_ERROR"
-
-    let request = UNNotificationRequest(
-      identifier: "totp-required-\(host)",
-      content: content,
-      trigger: nil
-    )
-    UNUserNotificationCenter.current().add(request) { error in
-      if let error {
-        self.logger.warning("Failed to deliver TOTP notification: \(error.localizedDescription, privacy: .public)")
-      }
     }
   }
 

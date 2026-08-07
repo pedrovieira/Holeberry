@@ -9,6 +9,7 @@ final class SettingsWindowController: NSWindowController {
   private let defaultsSuite: UserDefaults
   private var updater: SPUUpdater?
   private let statusPoller: ServerStatusPoller
+  private let notificationCoordinator: NotificationCoordinator
   private var hasSetContentView = false
 
   init(
@@ -16,6 +17,7 @@ final class SettingsWindowController: NSWindowController {
     updater: SPUUpdater?,
     discoveryService: PiholeDiscoveryService,
     statusPoller: ServerStatusPoller,
+    notificationCoordinator: NotificationCoordinator,
     defaultsSuite: UserDefaults = .standard
   ) {
     let window = NSWindow(
@@ -29,6 +31,7 @@ final class SettingsWindowController: NSWindowController {
     self.defaultsSuite = defaultsSuite
     self.updater = updater
     self.statusPoller = statusPoller
+    self.notificationCoordinator = notificationCoordinator
     super.init(window: window)
     setupWindow()
   }
@@ -65,7 +68,8 @@ final class SettingsWindowController: NSWindowController {
           updater: updater,
           defaultsSuite: defaultsSuite,
           discoveryService: discoveryService,
-          statusPoller: statusPoller
+          statusPoller: statusPoller,
+          notificationCoordinator: notificationCoordinator
         )
       )
       hasSetContentView = true

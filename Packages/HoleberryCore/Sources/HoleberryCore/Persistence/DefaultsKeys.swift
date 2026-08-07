@@ -32,6 +32,19 @@ extension Defaults.Keys {
     Defaults.Key<Bool>("showAllClientsRecentBlocked", default: false, suite: suite)
   }
 
+  /// Whether to notify when a temporary unblock ends on its own (on by default).
+  /// Never fires when the user re-enables blocking manually.
+  public static func notifyWhenUnblockEnds(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("notifyWhenUnblockEnds", default: true, suite: suite)
+  }
+
+  /// Whether to notify when a temporary unblock for a specific domain ends on
+  /// its own (on by default). Applies to domain unblocks from the Recently
+  /// Blocked menu and the browser tab.
+  public static func notifyWhenDomainUnblockEnds(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("notifyWhenDomainUnblockEnds", default: true, suite: suite)
+  }
+
   /// Ordered list of numeric unblock durations shown in the duration menus.
   public static func unblockDurations(
     suite: UserDefaults = .standard
