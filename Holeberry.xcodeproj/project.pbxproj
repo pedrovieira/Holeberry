@@ -17,6 +17,7 @@
 		1E4C2C53C279A2F1E82D3594 /* RecentlyBlockedMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */; };
 		208911EBF1F6B4A2D6038E83 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */; };
 		247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */; };
+		2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */; };
 		2D274003B08DCE0B66A48C96 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02F9A5864E11136906AE2FF /* ShortcutController.swift */; };
 		3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
@@ -44,6 +45,7 @@
 
 /* Begin PBXFileReference section */
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabSettingsView.swift; sourceTree = "<group>"; };
 		2A6D689F10D80D71CAF6934F /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
 		2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationPickerAlert.swift; sourceTree = "<group>"; };
 		34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnblockEndedNotifier.swift; sourceTree = "<group>"; };
@@ -200,6 +202,7 @@
 		8BB69277240BEEB373A07922 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */,
 				ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */,
 				DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */,
 				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
@@ -371,6 +374,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */,
 				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,
 				CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */,
 				626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */,

@@ -53,6 +53,6 @@ fastlane/test_output
 *~
 .DS_Store?
 
-docs/
+docs/superpowers/
 .reasonix/
 .superpowers/

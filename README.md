@@ -141,7 +141,7 @@ In the macOS **Keychain** — the same secure storage used by Mail, Safari, and 
 
 ### What permissions does Holeberry need, and why?
 - **Local Network**: required to connect to your Pi-hole instances.
-- **Automation** (browser access): optional, only used when browser-tab unblocking is enabled. You can disable it anytime in Settings → Advanced.
+- **Automation** (browser access): optional, only used when browser-tab unblocking is enabled. You can disable it anytime in Settings → General.
 
 ### Does Holeberry replace the Pi-hole web interface?
 No — and it's not meant to. Holeberry is the remote control for the actions you take daily: status, toggling, and targeted unblocking. For deep configuration (adlists, DHCP, gravity updates), the web interface remains the tool.
@@ -150,7 +150,7 @@ No — and it's not meant to. Holeberry is the remote control for the actions yo
 Yes — it's open source under the [MIT license](LICENSE), free to use, fork, and learn from.
 
 ### Why doesn't my browser tab appear?
-Browser-tab unblocking must be enabled in Settings → Advanced, and Holeberry needs Automation permission for your browser (granted via System Settings on first use).
+Browser-tab unblocking must be enabled in Settings → General, and Holeberry needs Automation permission for your browser (granted via System Settings on first use).
 
 ## Building from source
 
