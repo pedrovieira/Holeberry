@@ -27,6 +27,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
   private var retryTasks: [String: Task<Void, Never>] = [:]
   private let backoffIntervals: [TimeInterval]
   private let defaultsSuite: UserDefaults
+  private let notificationCenter: NotificationCenter
   private let sleep: (TimeInterval) async throws -> Void
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "temp-unblock")
 
@@ -34,11 +35,13 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     service: any PiholeServiceCommentAdding,
     backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
     defaultsSuite: UserDefaults = .standard,
+    notificationCenter: NotificationCenter = .default,
     sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
   ) {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals
     self.defaultsSuite = defaultsSuite
+    self.notificationCenter = notificationCenter
     self.sleep = sleep
     self.activeRecords = restoreFromDefaults()
     if !activeRecords.isEmpty {
@@ -159,14 +162,9 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
 
     do {
       try await wrapped.deleteDomain(domain: record.domain)
-      expiryTasks.removeValue(forKey: uuid)
-      retryTasks.removeValue(forKey: uuid)
-      activeRecords.removeAll { $0.uuid == uuid }
-      saveRecords()
+      finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch PiholeError.unknown {
-      expiryTasks.removeValue(forKey: uuid)
-      activeRecords.removeAll { $0.uuid == uuid }
-      saveRecords()
+      finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch {
       logger.warning("Expiry cleanup failed: \(error.localizedDescription)")
       if let idx = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
@@ -195,15 +193,9 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
 
     do {
       try await wrapped.deleteDomain(domain: record.domain)
-      retryTasks.removeValue(forKey: uuid)
-      expiryTasks.removeValue(forKey: uuid)
-      activeRecords.removeAll { $0.uuid == uuid }
-      saveRecords()
+      finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch PiholeError.unknown {
-      retryTasks.removeValue(forKey: uuid)
-      expiryTasks.removeValue(forKey: uuid)
-      activeRecords.removeAll { $0.uuid == uuid }
-      saveRecords()
+      finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch {
       if let idx = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
         activeRecords[idx].retryCount += 1
@@ -211,5 +203,20 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
         scheduleRetry(uuid: uuid)
       }
     }
+  }
+
+  /// Drops the record after a successful (or server-confirmed) expiry cleanup
+  /// and posts `.domainUnblockExpired` so the app can notify the user that the
+  /// unblock ended on its own.
+  private func finalizeExpiry(uuid: String, domain: String) {
+    expiryTasks.removeValue(forKey: uuid)
+    retryTasks.removeValue(forKey: uuid)
+    activeRecords.removeAll { $0.uuid == uuid }
+    saveRecords()
+    notificationCenter.post(
+      name: .domainUnblockExpired,
+      object: nil,
+      userInfo: [AppNotificationUserInfoKey.domain: domain]
+    )
   }
 }

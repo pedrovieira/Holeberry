@@ -4,13 +4,14 @@ import Defaults
 import HoleberryCore
 import KeyboardShortcuts
 import OSLog
-import UserNotifications
 
 @MainActor
 final class ShortcutController {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "shortcuts")
   private let serverManager: PiholeServerManager
   private let browserTabCoordinator: BrowserTabCoordinator
+  private let statusMonitor: ServerStatusPoller
+  private let notificationCoordinator: NotificationCoordinator
   private let defaultsSuite: UserDefaults
   private var registeredDurationNames = Set<KeyboardShortcuts.Name>()
   private var everRegisteredDurationNames = Set<KeyboardShortcuts.Name>()
@@ -19,10 +20,14 @@ final class ShortcutController {
   init(
     serverManager: PiholeServerManager,
     browserTabCoordinator: BrowserTabCoordinator,
+    statusMonitor: ServerStatusPoller,
+    notificationCoordinator: NotificationCoordinator,
     defaultsSuite: UserDefaults = .standard
   ) {
     self.serverManager = serverManager
     self.browserTabCoordinator = browserTabCoordinator
+    self.statusMonitor = statusMonitor
+    self.notificationCoordinator = notificationCoordinator
     self.defaultsSuite = defaultsSuite
     registerShortcuts()
   }
@@ -103,11 +108,14 @@ final class ShortcutController {
       return
     }
 
-    let results = await serverManager.setBlocking(enabled: enabled, duration: duration)
+    // Route through the same funnel as the menu so the menu-bar dot and
+    // countdown pill reflect the change immediately instead of at the next
+    // poll (up to 30s later). Timer management is the poller's job.
+    let results = await statusMonitor.applyBlockingChange(enabled: enabled, duration: duration)
     if let firstFailure = results.first(where: { !$0.value }) {
       let label = servers.first { $0.id == firstFailure.key }?.label ?? firstFailure.key.uuidString
       logger.warning("Shortcut setBlocking failed for \(label)")
-      await postErrorNotification(action: enabled ? "enable" : "disable", error: "Failed for \(label)")
+      postErrorNotification(action: enabled ? "enable" : "disable", error: "Failed for \(label)")
     }
   }
 
@@ -126,7 +134,7 @@ final class ShortcutController {
         \(error.localizedDescription, privacy: .public)
         """
       )
-      await postErrorNotification(action: "unblock", error: error.localizedDescription)
+      postErrorNotification(action: "unblock", error: error.localizedDescription)
     }
   }
 
@@ -154,23 +162,7 @@ final class ShortcutController {
 
   // MARK: - Error Notification
 
-  private func postErrorNotification(action: String, error: String) async {
-    let content = UNMutableNotificationContent()
-    content.title = "Holeberry"
-    content.body = "Failed to \(action) blocking: \(error)"
-    content.categoryIdentifier = "SHORTCUT_ERROR"
-    content.sound = .default
-
-    let request = UNNotificationRequest(
-      identifier: "shortcut-error-\(Date().timeIntervalSince1970)",
-      content: content,
-      trigger: nil
-    )
-
-    do {
-      try await UNUserNotificationCenter.current().add(request)
-    } catch {
-      logger.error("Failed to post error notification: \(error.localizedDescription, privacy: .public)")
-    }
+  private func postErrorNotification(action: String, error: String) {
+    notificationCoordinator.schedule(.shortcutError(action: action, error: error))
   }
 }

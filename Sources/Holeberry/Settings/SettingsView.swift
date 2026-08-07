@@ -42,6 +42,7 @@ struct SettingsView: View {
   let updater: SPUUpdater?
   let discoveryService: PiholeDiscoveryService
   let statusPoller: ServerStatusPoller
+  let notificationCoordinator: NotificationCoordinator
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
@@ -53,12 +54,14 @@ struct SettingsView: View {
     updater: SPUUpdater? = nil,
     defaultsSuite: UserDefaults = .standard,
     discoveryService: PiholeDiscoveryService,
-    statusPoller: ServerStatusPoller
+    statusPoller: ServerStatusPoller,
+    notificationCoordinator: NotificationCoordinator
   ) {
     self.serverManager = serverManager
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
+    self.notificationCoordinator = notificationCoordinator
     self.defaultsSuite = defaultsSuite
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
@@ -108,9 +111,10 @@ struct SettingsView: View {
           .formStyle(.grouped)
       case .notifications:
         Form {
-          Section("Notifications") {
-            Label("Notify on block", systemImage: "bell")
-          }
+          NotificationsSettingsView(
+            defaultsSuite: defaultsSuite,
+            notificationCoordinator: notificationCoordinator
+          )
         }
         .formStyle(.grouped)
       case .about:

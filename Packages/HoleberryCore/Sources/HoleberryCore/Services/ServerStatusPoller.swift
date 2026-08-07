@@ -22,18 +22,29 @@ public final class ServerStatusPoller: ObservableObject {
   public let networkInterface: any LocalIPAddressProviding
   private let defaultsSuite: UserDefaults
 
+  /// Owns the countdown pill (start/cancel on blocking changes) so every
+  /// caller — menu actions and shortcuts — behaves identically.
+  private let timerManager: TimerManager
+
+  /// Fired when a poll observes blocking flip `.disabled` → `.enabled` without
+  /// a manual action (manual toggles reflect locally and never trigger this).
+  /// Fires once, when the last disabled server re-enables.
+  public var onBlockingAutoReenabled: ((Set<UUID>) -> Void)?
+
   public init(
     manager: any PiholeServerManaging,
     networkInterface: any LocalIPAddressProviding,
     pollingInterval: TimeInterval = 30,
     defaultsSuite: UserDefaults = .standard,
-    scheduler: any PollScheduler = TaskPollScheduler()
+    scheduler: any PollScheduler = TaskPollScheduler(),
+    timerManager: TimerManager = TimerManager()
   ) {
     self.manager = manager
     self.networkInterface = networkInterface
     self.defaultsSuite = defaultsSuite
     self.pollingInterval = pollingInterval
     self.scheduler = scheduler
+    self.timerManager = timerManager
     self.servers = manager.servers
 
     manager.serversPublisher
@@ -80,14 +91,14 @@ public final class ServerStatusPoller: ObservableObject {
 
   // MARK: - Blocking Operations
 
-  /// Send a blocking toggle to the server and immediately reflect the new state locally,
-  /// so the menu dot doesn't wait 30s for the next poll to update.
+  /// Applies a blocking toggle to all servers and reflects the new state
+  /// locally, so the menu dot doesn't wait for the next poll.
   ///
-  /// - Note: This is the funnel that keeps `blockingStatuses` and `connectionStatuses`
-  ///   in sync. Prefer this over calling `manager.setBlocking(...)` directly, which
-  ///   bypasses the local reflection.
-  /// Send a blocking toggle to all servers and immediately reflect the new state locally.
-  public func applyBlockingChange(enabled: Bool, duration: TimeInterval?) async {
+  /// The funnel for all blocking changes — prefer this over calling
+  /// `manager.setBlocking(...)` directly. Also starts/cancels the countdown pill.
+  /// - Returns: Per-server success/failure results (discardable).
+  @discardableResult
+  public func applyBlockingChange(enabled: Bool, duration: TimeInterval?) async -> [UUID: Bool] {
     let results = await manager.setBlocking(enabled: enabled, duration: duration)
     for (id, success) in results {
       if success {
@@ -99,6 +110,15 @@ public final class ServerStatusPoller: ObservableObject {
         blockingStatuses.removeValue(forKey: id)
       }
     }
+
+    // Countdown for time-boxed disables, cancel on re-enable.
+    if enabled {
+      timerManager.cancel()
+    } else if let duration {
+      timerManager.start(duration: duration)
+    }
+
+    return results
   }
 
 
@@ -118,7 +138,12 @@ public final class ServerStatusPoller: ObservableObject {
 
     logger.debug("Polling all servers...")
 
-    // Get blocking statuses from all servers in parallel
+    // Snapshot pre-poll state to detect servers that re-enabled on their own.
+    let previouslyDisabledIDs = Set(
+      blockingStatuses.compactMap { id, status in
+        if case .disabled = status { return id }
+        return nil
+      })
     let blockingResults = await manager.getBlockingStatus()
     for (id, status) in blockingResults {
       if let status {
@@ -129,6 +154,7 @@ public final class ServerStatusPoller: ObservableObject {
         blockingStatuses.removeValue(forKey: id)
       }
     }
+    notifyIfAutoReenabled(previousDisabledIDs: previouslyDisabledIDs)
 
     // Get query summaries from all servers in parallel
     let summaryResults = await manager.getQuerySummary()
@@ -154,6 +180,20 @@ public final class ServerStatusPoller: ObservableObject {
       recentBlocked = blocked
     } catch {
       logger.warning("Failed to refresh recent blocked: \(error.localizedDescription, privacy: .public)")
+    }
+  }
+
+  /// Fires `onBlockingAutoReenabled` once the last disabled server re-enables
+  /// via poll. Manual re-enables never reach this path.
+  private func notifyIfAutoReenabled(previousDisabledIDs: Set<UUID>) {
+    guard !previousDisabledIDs.isEmpty else { return }
+    let autoReenabled = previousDisabledIDs.filter { blockingStatuses[$0] == .enabled }
+    let anyStillDisabled = blockingStatuses.values.contains { status in
+      if case .disabled = status { return true }
+      return false
+    }
+    if !autoReenabled.isEmpty, !anyStillDisabled {
+      onBlockingAutoReenabled?(autoReenabled)
     }
   }
 }

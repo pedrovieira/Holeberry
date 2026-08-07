@@ -12,6 +12,22 @@ struct DefaultsPersistenceTests {
     #expect(Defaults[.servers(suite: suite)].isEmpty)
   }
 
+  @Test func notifyWhenUnblockEndsDefaultsToTrue() {
+    let suite = TestDefaults.makeSuite()
+    #expect(Defaults[.notifyWhenUnblockEnds(suite: suite)] == true)
+
+    Defaults[.notifyWhenUnblockEnds(suite: suite)] = false
+    #expect(Defaults[.notifyWhenUnblockEnds(suite: suite)] == false)
+  }
+
+  @Test func notifyWhenDomainUnblockEndsDefaultsToTrue() {
+    let suite = TestDefaults.makeSuite()
+    #expect(Defaults[.notifyWhenDomainUnblockEnds(suite: suite)] == true)
+
+    Defaults[.notifyWhenDomainUnblockEnds(suite: suite)] = false
+    #expect(Defaults[.notifyWhenDomainUnblockEnds(suite: suite)] == false)
+  }
+
   @Test func serversSaveAndLoad() {
     let suite = TestDefaults.makeSuite()
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)

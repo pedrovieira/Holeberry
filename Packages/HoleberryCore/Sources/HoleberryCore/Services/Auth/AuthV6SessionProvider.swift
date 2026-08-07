@@ -140,13 +140,6 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
         }
 
         if authResponse.totp == true {
-          await MainActor.run {
-            NotificationCenter.default.post(
-              name: .v6SessionTotpRequired,
-              object: nil,
-              userInfo: ["serverURL": host.absoluteString]
-            )
-          }
           throw PiholeError.totpRequired
         }
 

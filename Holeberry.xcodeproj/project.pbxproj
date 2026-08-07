@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		011C13B859278B5DB78C9BE9 /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */; };
 		038FEAFB14DC67AFACF9724F /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AEAE3D3AF6DF75263144C73 /* ShortcutNames.swift */; };
 		11C4A4764BB4E912153238E2 /* DurationField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95D78A3AB479976D7E8CF46 /* DurationField.swift */; };
 		1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */; };
@@ -15,6 +16,7 @@
 		1D695BDB1606AEB646E61F52 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DC65D5EABF4AAD66A2EEE5 /* MenuBuilder.swift */; };
 		1E4C2C53C279A2F1E82D3594 /* RecentlyBlockedMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */; };
 		208911EBF1F6B4A2D6038E83 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */; };
+		247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */; };
 		2D274003B08DCE0B66A48C96 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02F9A5864E11136906AE2FF /* ShortcutController.swift */; };
 		3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
@@ -27,12 +29,14 @@
 		93759451DE4548FB5243741B /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */; };
 		97E0F4753A5EE8C4E5E09E2B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 740E0351B8319723BD1DD852 /* AppIcon.icon */; };
 		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
+		B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */; };
 		BBD4E8FAA636A794162F8A60 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4A7925530C12A1C1F48C21F6 /* Sparkle */; };
 		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
 		C02BDEB33D979927C512A11D /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */; };
 		CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */; };
 		D8E3C678109A99C500F416AE /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F937B463F6A990098878357C /* KeyboardShortcuts */; };
 		D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C039DDD8F05E05A8D434F71 /* Assets.xcassets */; };
+		E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */; };
 		E2DDD32077C331E692744C30 /* StatusItemButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD85F69FAB5C5F95C69DC645 /* StatusItemButton.swift */; };
 		EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */; };
 		FC35883F96C2B771D58E99B0 /* MenuItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */; };
@@ -42,10 +46,12 @@
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A6D689F10D80D71CAF6934F /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
 		2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationPickerAlert.swift; sourceTree = "<group>"; };
+		34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnblockEndedNotifier.swift; sourceTree = "<group>"; };
 		3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleberryApp.swift; sourceTree = "<group>"; };
 		3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSheet.swift; sourceTree = "<group>"; };
 		47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyBlockedMenu.swift; sourceTree = "<group>"; };
 		4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotificationKind.swift; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
 		6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		740E0351B8319723BD1DD852 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
@@ -66,7 +72,9 @@
 		C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		D48A2E625686DBB46B548D0E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsView.swift; sourceTree = "<group>"; };
 		E02F9A5864E11136906AE2FF /* ShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutController.swift; sourceTree = "<group>"; };
+		F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
 		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -138,6 +146,7 @@
 				16052FF148BF43B05B561212 /* App */,
 				7A9C1FFB8A5467F2CDE63B48 /* Components */,
 				7F52781CCA397B67BB88F3F7 /* MenuBar */,
+				977CD55D23B21DE364A2D23C /* Notifications */,
 				40CFFDE54F1764017E70CC4B /* Resources */,
 				8BB69277240BEEB373A07922 /* Settings */,
 				1B50BBED5512D4096E3454F4 /* Shortcuts */,
@@ -192,11 +201,22 @@
 			isa = PBXGroup;
 			children = (
 				ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */,
+				DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */,
 				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
 				4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */,
 				05E28E2794738F28F909ADBD /* ConnectionViews */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		977CD55D23B21DE364A2D23C /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */,
+				34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */,
+				5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */,
+			);
+			path = Notifications;
 			sourceTree = "<group>";
 		};
 		B9B65F76EBEBC8A5C75A1641 = {
@@ -365,6 +385,8 @@
 				1D695BDB1606AEB646E61F52 /* MenuBuilder.swift in Sources */,
 				FC35883F96C2B771D58E99B0 /* MenuItemFactory.swift in Sources */,
 				676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */,
+				011C13B859278B5DB78C9BE9 /* NotificationCoordinator.swift in Sources */,
+				247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */,
 				1E4C2C53C279A2F1E82D3594 /* RecentlyBlockedMenu.swift in Sources */,
 				4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */,
 				BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */,
@@ -373,7 +395,9 @@
 				038FEAFB14DC67AFACF9724F /* ShortcutNames.swift in Sources */,
 				93759451DE4548FB5243741B /* SoftwareUpdater.swift in Sources */,
 				E2DDD32077C331E692744C30 /* StatusItemButton.swift in Sources */,
+				B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */,
 				6CEB0E6770122CF53F8C4025 /* UpdateManager.swift in Sources */,
+				E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

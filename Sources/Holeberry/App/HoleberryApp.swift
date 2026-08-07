@@ -3,7 +3,6 @@ import HoleberryCore
 import OSLog
 import Sparkle
 import SwiftUI
-import UserNotifications
 
 @main
 struct HoleberryApp: App {
@@ -26,6 +25,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "app-delegate")
   private var menuBarController: MenuBarController?
   private var shortcutController: ShortcutController?
+  private var unblockEndedNotifier: UnblockEndedNotifier?
+  private var notificationCoordinator: NotificationCoordinator?
   private var updateManager: UpdateManager?
   private var settingsWindowController: SettingsWindowController?
 
@@ -48,7 +49,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private lazy var dnsServerResolver = EffectiveDNSServerResolver()
   private lazy var statusPoller = ServerStatusPoller(
     manager: serverManager,
-    networkInterface: localIPResolver
+    networkInterface: localIPResolver,
+    timerManager: timerManager
   )
   private lazy var reachability = ReachabilityMonitor()
   private lazy var timerManager = TimerManager()
@@ -77,13 +79,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
-    // Request notification authorization for shortcut error alerts
-    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in
-      if let error {
-        self.logger.warning("Notification authorization denied: \(error.localizedDescription, privacy: .public)")
-      }
+    let notificationCoordinator = NotificationCoordinator(defaultsSuite: .standard) { [weak self] in
+      self?.settingsWindowController?.showWindow()
     }
-    UNUserNotificationCenter.current().delegate = self
+    self.notificationCoordinator = notificationCoordinator
+    notificationCoordinator.requestAuthorizationIfNeeded()
 
     // Start Sparkle updater
     let updaterManager = UpdateManager()
@@ -93,7 +93,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       serverManager: serverManager,
       updater: updaterManager.updater,
       discoveryService: discoveryService,
-      statusPoller: statusPoller
+      statusPoller: statusPoller,
+      notificationCoordinator: notificationCoordinator
     )
     self.settingsWindowController = settingsWindowController
 
@@ -111,7 +112,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     )
     shortcutController = ShortcutController(
       serverManager: serverManager,
-      browserTabCoordinator: browserTabCoordinator
+      browserTabCoordinator: browserTabCoordinator,
+      statusMonitor: statusPoller,
+      notificationCoordinator: notificationCoordinator
+    )
+    unblockEndedNotifier = UnblockEndedNotifier(
+      statusMonitor: statusPoller,
+      serverManager: serverManager,
+      notificationCoordinator: notificationCoordinator
     )
   }
 
@@ -136,29 +144,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
     return .terminateLater
-  }
-}
-
-// MARK: - UNUserNotificationCenterDelegate
-
-extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
-  func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    willPresent notification: UNNotification,
-    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-  ) {
-    // Show notification even when app is in foreground
-    completionHandler([.banner, .sound])
-  }
-
-  func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    didReceive response: UNNotificationResponse,
-    withCompletionHandler completionHandler: @escaping () -> Void
-  ) {
-    if response.notification.request.content.categoryIdentifier == "SHORTCUT_ERROR" {
-      settingsWindowController?.showWindow()
-    }
-    completionHandler()
   }
 }

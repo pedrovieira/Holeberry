@@ -1,11 +1,5 @@
 import Foundation
 
-extension Notification.Name {
-  /// Posted when a login attempt encounters a TOTP challenge.
-  /// The UI should prompt the user to switch to an Application Password.
-  public static let v6SessionTotpRequired = Notification.Name("v6SessionTotpRequired")
-}
-
 /// Abstraction for a Pi-hole v6 session that owns the SID/CSRF lifecycle.
 ///
 /// Conforming types handle lazy login on first use and exactly one
