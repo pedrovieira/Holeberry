@@ -81,11 +81,11 @@ final class NotificationCoordinator: NSObject {
   /// Asks for notification permission, but only if the system hasn't been
   /// asked yet and the user hasn't turned off every notification setting.
   func requestAuthorizationIfNeeded() {
+    let anyEnabled =
+      Defaults[.notifyWhenUnblockEnds(suite: defaultsSuite)]
+      || Defaults[.notifyWhenDomainUnblockEnds(suite: defaultsSuite)]
     UNUserNotificationCenter.current().getNotificationSettings { settings in
       guard settings.authorizationStatus == .notDetermined else { return }
-      let anyEnabled =
-        Defaults[.notifyWhenUnblockEnds(suite: self.defaultsSuite)]
-        || Defaults[.notifyWhenDomainUnblockEnds(suite: self.defaultsSuite)]
       guard anyEnabled else { return }
       UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in
         if let error {

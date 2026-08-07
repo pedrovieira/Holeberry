@@ -34,7 +34,7 @@ public final class TaskPollScheduler: PollScheduler {
     stop()
     task = Task { [weak self] in
       while !Task.isCancelled {
-        guard let self else { return }
+        guard self != nil else { return }
         await onTick()
         try? await Task.sleep(for: .seconds(interval))
       }
