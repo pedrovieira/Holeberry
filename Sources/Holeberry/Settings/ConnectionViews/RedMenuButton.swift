@@ -1,30 +1,43 @@
 import AppKit
+import HoleberryCore
 import SwiftUI
 
 // MARK: - Shared Menu Builder
+
+/// The row actions the overflow menu can trigger. Kept as a bundle so the
+/// menu builder stays below the lint parameter-count limit.
+struct RedMenuActions {
+  var edit: () -> Void
+  var delete: () -> Void
+  var reauthenticate: () -> Void
+  var retry: () -> Void
+}
+
+/// Selectors are identical across both coordinator classes, which both
+/// implement `editTapped` / `deleteTapped` / `reauthenticateTapped` /
+/// `retryTapped`.
+enum RedMenuSelectors {
+  static let edit = Selector(("editTapped"))
+  static let delete = Selector(("deleteTapped"))
+  static let reauthenticate = Selector(("reauthenticateTapped"))
+  static let retry = Selector(("retryTapped"))
+}
 
 /// Builds the NSMenu used by both the button and the right-click overlay.
 /// Gains state-aware recovery items: "Re-authenticate…" for auth errors,
 /// "Retry connection" / "Edit connection…" for unreachable.
 enum RedMenuBuilder {
   static func makeMenu(
-    editAction: @escaping () -> Void,
-    deleteAction: @escaping () -> Void,
-    reauthenticateAction: @escaping () -> Void,
-    retryAction: @escaping () -> Void,
+    actions: RedMenuActions,
     state: ServerConnectionState?,
-    target: AnyObject,
-    editSelector: Selector,
-    deleteSelector: Selector,
-    reauthenticateSelector: Selector,
-    retrySelector: Selector
+    target: AnyObject
   ) -> NSMenu {
     let menu = NSMenu()
 
     if case .authError = state {
       let reauthItem = NSMenuItem(
         title: "Re-authenticate…",
-        action: reauthenticateSelector,
+        action: RedMenuSelectors.reauthenticate,
         keyEquivalent: ""
       )
       reauthItem.target = target
@@ -36,7 +49,7 @@ enum RedMenuBuilder {
     if case .unreachable = state {
       let retryItem = NSMenuItem(
         title: "Retry connection",
-        action: retrySelector,
+        action: RedMenuSelectors.retry,
         keyEquivalent: ""
       )
       retryItem.target = target
@@ -46,7 +59,7 @@ enum RedMenuBuilder {
 
       let editConnectionItem = NSMenuItem(
         title: "Edit connection…",
-        action: editSelector,
+        action: RedMenuSelectors.edit,
         keyEquivalent: ""
       )
       editConnectionItem.target = target
@@ -55,7 +68,7 @@ enum RedMenuBuilder {
 
     let editItem = NSMenuItem(
       title: "Edit",
-      action: editSelector,
+      action: RedMenuSelectors.edit,
       keyEquivalent: ""
     )
     editItem.target = target
@@ -67,7 +80,7 @@ enum RedMenuBuilder {
 
     let deleteItem = NSMenuItem(
       title: "Delete",
-      action: deleteSelector,
+      action: RedMenuSelectors.delete,
       keyEquivalent: ""
     )
     deleteItem.target = target
@@ -153,16 +166,14 @@ struct RedMenuButton: NSViewRepresentable {
 
     @objc func buttonClicked(_ sender: NSButton) {
       let menu = RedMenuBuilder.makeMenu(
-        editAction: editAction,
-        deleteAction: deleteAction,
-        reauthenticateAction: reauthenticateAction,
-        retryAction: retryAction,
+        actions: RedMenuActions(
+          edit: editAction,
+          delete: deleteAction,
+          reauthenticate: reauthenticateAction,
+          retry: retryAction
+        ),
         state: state,
-        target: self,
-        editSelector: #selector(editTapped),
-        deleteSelector: #selector(deleteTapped),
-        reauthenticateSelector: #selector(reauthenticateTapped),
-        retrySelector: #selector(retryTapped)
+        target: self
       )
       menu.popUp(
         positioning: nil,
@@ -251,16 +262,14 @@ final class ContextMenuOverlayView: NSView {
       return
     }
     let menu = RedMenuBuilder.makeMenu(
-      editAction: coordinator.editAction,
-      deleteAction: coordinator.deleteAction,
-      reauthenticateAction: coordinator.reauthenticateAction,
-      retryAction: coordinator.retryAction,
+      actions: RedMenuActions(
+        edit: coordinator.editAction,
+        delete: coordinator.deleteAction,
+        reauthenticate: coordinator.reauthenticateAction,
+        retry: coordinator.retryAction
+      ),
       state: coordinator.state,
-      target: coordinator,
-      editSelector: #selector(RedContextMenu.ContextMenuCoordinator.editTapped),
-      deleteSelector: #selector(RedContextMenu.ContextMenuCoordinator.deleteTapped),
-      reauthenticateSelector: #selector(RedContextMenu.ContextMenuCoordinator.reauthenticateTapped),
-      retrySelector: #selector(RedContextMenu.ContextMenuCoordinator.retryTapped)
+      target: coordinator
     )
     let point = convert(event.locationInWindow, from: nil)
     menu.popUp(positioning: nil, at: point, in: self)
