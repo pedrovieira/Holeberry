@@ -3,6 +3,8 @@ disabled_rules:
   - force_try
   - force_unwrapping
   - line_length
+  - file_length
+  - type_body_length
 
 identifier_name:
   min_length: 2

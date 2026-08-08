@@ -382,6 +382,39 @@ struct ServerStatusPollerTests {
     #expect(fired == false)
   }
 
+  @Test("manual re-enable mid-fetch suppresses the auto-reenable event")
+  func manualReenableMidFetchDoesNotFire() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    var resumeGate: (() -> Void)?
+    mockManager.getBlockingStatusGate = {
+      await withCheckedContinuation { continuation in
+        resumeGate = { continuation.resume() }
+      }
+    }
+    let poller = makePoller()
+    var fired = false
+    poller.onBlockingAutoReenabled = { _ in fired = true }
+    poller.startPolling()
+
+    // Poll #1: snapshots .disabled, then the status fetch is held open.
+    let tickTask = Task { await scheduler.fireTick() }
+    await waitUntil { mockManager.getBlockingStatusCallCount == 1 }
+
+    // The user re-enables while the fetch is in flight.
+    await poller.applyBlockingChange(enabled: true, duration: nil)
+
+    // The stale fetch completes: its results must be discarded, no event.
+    mockManager.getBlockingStatusStub = [id: .enabled]
+    resumeGate?()
+    await tickTask.value
+
+    #expect(fired == false)
+    #expect(poller.blockingStatuses[id] == .enabled)
+  }
+
   // MARK: - Server Change Observation
 
   @Test("structural server change triggers poll")
@@ -495,5 +528,228 @@ struct ServerStatusPollerTests {
     await scheduler.fireTick()  // must complete; performPoll swallows the error
 
     #expect(poller.recentBlocked.isEmpty)
+  }
+
+  // MARK: - Timer Expiry
+
+  /// Poller wired to a real (injectable) `TimerManager`, like the composition root.
+  private func makePollerWithTimer(
+    _ timer: TimerManager,
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+  ) -> ServerStatusPoller {
+    ServerStatusPoller(
+      manager: mockManager,
+      networkInterface: mockNetwork,
+      pollingInterval: 3600,
+      defaultsSuite: testSuite,
+      scheduler: scheduler,
+      timerManager: timer,
+      sleep: sleep
+    )
+  }
+
+  @Test("timer expiry triggers a status-only refresh and fires onBlockingAutoReenabled")
+  func timerExpiryTriggersStatusOnlyRefresh() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer)
+    var firedIDs: Set<UUID>?
+    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+
+    // Time-boxed disable with an already-expired duration; the next tick must
+    // re-check status immediately.
+    await poller.applyBlockingChange(enabled: false, duration: 0)
+    mockManager.getBlockingStatusStub = [id: .enabled]
+
+    timer.countdownTick()
+
+    await waitUntil { firedIDs == [id] }
+    #expect(timer.isRunning == false)
+    // Status-only: no query summary or recent-blocked fetches.
+    #expect(mockManager.getQuerySummaryCallCount == 0)
+    #expect(mockManager.getRecentBlockedCallCount == 0)
+  }
+
+  @Test("manual re-enable cancels the timer without a status refresh")
+  func manualReenableCancelDoesNotRefresh() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer)
+
+    await poller.applyBlockingChange(enabled: false, duration: 0)
+    await poller.applyBlockingChange(enabled: true, duration: nil)
+
+    await settle()
+    #expect(timer.isRunning == false)
+    #expect(mockManager.getBlockingStatusCallCount == 0)
+  }
+
+  @Test("timer expiry during an in-flight poll does not double-fetch")
+  func timerExpiryDuringInFlightPollSkipsRefresh() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    // Arm the gate before the timer starts so any stray re-check suspends here.
+    var resumeGate: (() -> Void)?
+    mockManager.getBlockingStatusGate = {
+      await withCheckedContinuation { continuation in
+        resumeGate = { continuation.resume() }
+      }
+    }
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer)
+    var firedIDs: Set<UUID>?
+    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    await poller.applyBlockingChange(enabled: false, duration: 0)
+
+    // Expire the countdown while the poll's status fetch is held open: the
+    // re-check must skip so the event fires exactly once.
+    mockManager.getBlockingStatusStub = [id: .enabled]
+    poller.startPolling()
+    let tickTask = Task { await scheduler.fireTick() }
+    await waitUntil { mockManager.getBlockingStatusCallCount == 1 }
+
+    timer.countdownTick()
+    await settle()
+
+    resumeGate?()
+    await tickTask.value
+
+    #expect(firedIDs == [id])
+    #expect(mockManager.getBlockingStatusCallCount == 1)
+  }
+
+  @Test("poll observing a server-side disable starts the countdown from its remaining")
+  func pollStartsCountdownFromServerRemaining() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer)
+    poller.startPolling()
+
+    await scheduler.fireTick()
+
+    #expect(timer.isRunning)
+    #expect(timer.totalDuration == 300)
+  }
+
+  @Test("poll does not restart a running countdown")
+  func pollDoesNotRestartRunningCountdown() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 999)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer)
+    await poller.applyBlockingChange(enabled: false, duration: 300)
+
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    #expect(timer.isRunning)
+    #expect(timer.totalDuration == 300)
+  }
+
+  @Test("timer expiry re-checks again while the server is still disabled")
+  func timerExpiryRetriesWhileStillDisabled() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 3)]
+    var resumeSleep: (() -> Void)?
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer) { _ in
+      await withCheckedContinuation { continuation in
+        resumeSleep = { continuation.resume() }
+      }
+    }
+    var firedIDs: Set<UUID>?
+    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+
+    await poller.applyBlockingChange(enabled: false, duration: 0)
+    timer.countdownTick()  // expires → re-check #1 → still disabled → waits
+
+    await waitUntil { resumeSleep != nil }
+    mockManager.getBlockingStatusStub = [id: .enabled]
+    resumeSleep?()
+
+    await waitUntil { firedIDs == [id] }
+    #expect(mockManager.getBlockingStatusCallCount == 2)
+    #expect(timer.isRunning == false)
+  }
+
+  @Test("auto-reenable cancels a still-running countdown")
+  func autoReenableCancelsRunningCountdown() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer)
+    await poller.applyBlockingChange(enabled: false, duration: 300)
+
+    // The server re-enabled externally; the next poll observes the transition.
+    mockManager.getBlockingStatusStub = [id: .enabled]
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    #expect(timer.isRunning == false)
+  }
+
+  @Test("expired countdown re-arms from the server remaining when still disabled")
+  func timerExpiryReArmsWhenServerStillDisabled() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 60)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer) { _ in }
+    var fired = false
+    poller.onBlockingAutoReenabled = { _ in fired = true }
+
+    await poller.applyBlockingChange(enabled: false, duration: 0)
+    timer.countdownTick()  // expires → re-check → server still disabled(60)
+
+    await waitUntil { timer.isRunning }
+    #expect(timer.totalDuration == 60)
+    #expect(fired == false)
+  }
+
+  @Test("expired countdown does not re-arm for near-zero remaining")
+  func timerExpiryDoesNotReArmForTinyRemaining() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.setBlockingStub = [id: true]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 3)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer) { _ in }
+
+    await poller.applyBlockingChange(enabled: false, duration: 0)
+    timer.countdownTick()  // expires → re-check → server still disabled(3)
+
+    await settle()
+    #expect(timer.isRunning == false)
+  }
+
+  @Test("poll does not start a countdown for indefinite disables")
+  func pollDoesNotStartCountdownForIndefiniteDisable() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: nil)]
+    let timer = TimerManager()
+    let poller = makePollerWithTimer(timer)
+    poller.startPolling()
+
+    await scheduler.fireTick()
+
+    #expect(timer.isRunning == false)
   }
 }
