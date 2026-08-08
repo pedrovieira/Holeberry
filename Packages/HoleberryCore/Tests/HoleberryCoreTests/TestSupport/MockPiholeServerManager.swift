@@ -10,7 +10,7 @@ final class MockPiholeServerManager: PiholeServerManaging {
   @Published var servers: [ServerConfig] = []
   var serversPublisher: Published<[ServerConfig]>.Publisher { $servers }
 
-  var getBlockingStatusStub: [UUID: BlockingStatus?] = [:]
+  var getBlockingStatusStub: [UUID: Result<BlockingStatus, PiholeError>] = [:]
   private(set) var getBlockingStatusCallCount = 0
   /// One-shot: the next `getBlockingStatus()` awaits this before returning.
   var getBlockingStatusGate: (@MainActor () async -> Void)?
@@ -27,7 +27,7 @@ final class MockPiholeServerManager: PiholeServerManaging {
   private(set) var getRecentBlockedCallCount = 0
   private(set) var getRecentBlockedLastClientIp: String?
 
-  func getBlockingStatus() async -> [UUID: BlockingStatus?] {
+  func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
     getBlockingStatusCallCount += 1
     if let gate = getBlockingStatusGate {
       getBlockingStatusGate = nil

@@ -161,27 +161,29 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Status & Blocking
 
-  /// Returns blocking status for all servers. Each entry is `nil` if that server was unreachable.
-  public func getBlockingStatus() async -> [UUID: BlockingStatus?] {
+  /// Returns blocking status for all servers. Each entry carries the typed
+  /// error when that server's check failed (after its own retries).
+  public func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
     let configs = servers
     let svcs = services
-    return await withTaskGroup(of: (UUID, BlockingStatus?).self) { group in
+    return await withTaskGroup(of: (UUID, Result<BlockingStatus, PiholeError>).self) { group in
       for config in configs {
         let svc = svcs[config.id]
         let id = config.id
         group.addTask {
+          guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
           do {
-            guard let svc else { return (id, nil) }
             let status = try await svc.checkStatus()
-            return (id, status)
+            return (id, .success(status))
           } catch {
-            return (id, nil)
+            let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+            return (id, .failure(piholeError))
           }
         }
       }
-      var results: [UUID: BlockingStatus?] = [:]
-      for await (id, status) in group {
-        results[id] = status
+      var results: [UUID: Result<BlockingStatus, PiholeError>] = [:]
+      for await (id, result) in group {
+        results[id] = result
       }
       return results
     }
