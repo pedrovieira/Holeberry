@@ -15,9 +15,11 @@ enum RedMenuSelectors {
 }
 
 /// Builds the NSMenu used by both the button and the right-click overlay.
-/// Gains state-aware recovery items: "Re-authenticate…" for auth errors,
-/// "Retry connection" / "Edit connection…" for unreachable. Menu items route
-/// via selectors to the coordinator's closures — no actions are passed in.
+/// Gains state-aware recovery items: "Re-authenticate…" for auth errors and
+/// "Retry connection" for unreachable. The existing "Edit" item already covers
+/// the relabeled "Edit connection" button, so no second edit item is added.
+/// Menu items route via selectors to the coordinator's closures — no actions
+/// are passed in.
 enum RedMenuBuilder {
   static func makeMenu(
     state: ServerConnectionState?,
@@ -47,14 +49,6 @@ enum RedMenuBuilder {
       retryItem.image = NSImage(
         systemSymbolName: "arrow.clockwise", accessibilityDescription: "Retry connection")
       menu.addItem(retryItem)
-
-      let editConnectionItem = NSMenuItem(
-        title: "Edit connection…",
-        action: RedMenuSelectors.edit,
-        keyEquivalent: ""
-      )
-      editConnectionItem.target = target
-      menu.addItem(editConnectionItem)
     }
 
     let editItem = NSMenuItem(
