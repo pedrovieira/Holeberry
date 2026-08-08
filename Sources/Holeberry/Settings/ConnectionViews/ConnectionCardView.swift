@@ -123,7 +123,7 @@ struct ConnectionCardView: View {
         Text(reason.subtitleText)
           .font(.system(size: 12))
           .foregroundColor(.red.opacity(0.85))
-          .lineLimit(1)
+          .lineLimit(2)
       }
     case .unreachable(let lastSeen):
       HStack(spacing: 4) {
@@ -133,7 +133,7 @@ struct ConnectionCardView: View {
         Text(unreachableSubtitle(lastSeen: lastSeen))
           .font(.system(size: 12))
           .foregroundColor(.secondary)
-          .lineLimit(1)
+          .lineLimit(2)
       }
     default:
       Button {
@@ -183,6 +183,9 @@ struct ConnectionCardView: View {
     }
     .buttonStyle(.bordered)
     .controlSize(.small)
+    // The action label must never truncate or wrap — the button keeps its
+    // full width; the title truncates and the issue text wraps instead.
+    .layoutPriority(2)
     .accessibilityLabel(accessibilityFixButtonLabel(title: title))
   }
 
