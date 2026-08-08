@@ -189,6 +189,18 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
+  /// Single-server health check. Returns nil for an unknown server id.
+  public func checkServer(id: UUID) async -> Result<BlockingStatus, PiholeError>? {
+    guard let svc = services[id] else { return nil }
+    do {
+      let status = try await svc.checkStatus()
+      return .success(status)
+    } catch {
+      let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+      return .failure(piholeError)
+    }
+  }
+
   /// Toggle blocking on all servers. Returns per-server success/failure.
   public func setBlocking(enabled: Bool, duration: TimeInterval?) async -> [UUID: Bool] {
     let configs = servers

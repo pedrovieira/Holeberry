@@ -36,6 +36,22 @@ final class MockPiholeServerManager: PiholeServerManaging {
     return getBlockingStatusStub
   }
 
+  var checkServerStub: [UUID: Result<BlockingStatus, PiholeError>] = [:]
+  private(set) var checkServerCallCount = 0
+  private(set) var checkServerLastID: UUID?
+  /// One-shot: the next `checkServer(id:)` awaits this before returning.
+  var checkServerGate: (@MainActor () async -> Void)?
+
+  func checkServer(id: UUID) async -> Result<BlockingStatus, PiholeError>? {
+    checkServerCallCount += 1
+    checkServerLastID = id
+    if let gate = checkServerGate {
+      checkServerGate = nil
+      await gate()
+    }
+    return checkServerStub[id]
+  }
+
   func setBlocking(enabled: Bool, duration: TimeInterval?) async -> [UUID: Bool] {
     setBlockingCallCount += 1
     setBlockingLastEnabled = enabled

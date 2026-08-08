@@ -12,6 +12,7 @@ public final class ServerStatusPoller: ObservableObject {
   @Published public var lastPollError: String?
   @Published public var recentBlocked: [BlockedDomain] = []
   @Published public var connectionStates: [UUID: ServerConnectionState] = [:]
+  @Published public var checkingServerIDs: Set<UUID> = []
   private var consecutiveFailures: [UUID: Int] = [:]
   private var lastSuccessfulCheck: [UUID: Date] = [:]
 
@@ -153,6 +154,43 @@ public final class ServerStatusPoller: ObservableObject {
     return results
   }
 
+  /// Manual retry: one authoritative check for a single server, bypassing the
+  /// hysteresis threshold. The result is applied immediately so the UI can
+  /// relabel "Retry" → "Edit connection" on failure.
+  public func refreshServer(id: UUID) async -> ServerConnectionState {
+    guard !checkingServerIDs.contains(id) else {
+      return connectionStates[id] ?? .unreachable(lastSeen: lastSuccessfulCheck[id])
+    }
+    checkingServerIDs.insert(id)
+    defer { checkingServerIDs.remove(id) }
+
+    guard let result = await manager.checkServer(id: id) else {
+      return connectionStates[id] ?? .unreachable(lastSeen: lastSuccessfulCheck[id])
+    }
+
+    switch result {
+    case .success(let status):
+      consecutiveFailures[id] = 0
+      lastSuccessfulCheck[id] = Date()
+      connectionStates[id] = .healthy
+      connectionStatuses[id] = .connected
+      blockingStatuses[id] = status
+      return .healthy
+    case .failure(let error):
+      consecutiveFailures[id] = 2
+      let state: ServerConnectionState
+      switch ServerCheckFailure.classify(error) {
+      case .auth(let reason):
+        state = .authError(reason: reason)
+      case .unreachable:
+        state = .unreachable(lastSeen: lastSuccessfulCheck[id])
+      }
+      connectionStates[id] = state
+      connectionStatuses[id] = .disconnected
+      blockingStatuses.removeValue(forKey: id)
+      return state
+    }
+  }
 
   // MARK: - Polling Implementation
 

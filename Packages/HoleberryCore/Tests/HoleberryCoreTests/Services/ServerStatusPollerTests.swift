@@ -169,6 +169,90 @@ struct ServerStatusPollerTests {
     #expect(poller.connectionStates[id] == nil)
   }
 
+  // MARK: - refreshServer (manual retry)
+
+  @Test("refreshServer success is authoritative and resets counter")
+  func refreshServerSuccessResetsCounter() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable before retry")
+      return
+    }
+
+    mockManager.checkServerStub = [id: .success(.enabled)]
+    let result = await poller.refreshServer(id: id)
+    #expect(result == .healthy)
+    #expect(poller.connectionStates[id] == .healthy)
+    #expect(poller.connectionStatuses[id] == .connected)
+    #expect(poller.blockingStatuses[id] == .enabled)
+    #expect(mockManager.checkServerCallCount == 1)
+
+    // A single poll failure after a successful retry must NOT flip (counter reset).
+    mockManager.getBlockingStatusStub = [id: .failure(.network("blip"))]
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .healthy)
+  }
+
+  @Test("refreshServer failure bypasses hysteresis and pins counter")
+  func refreshServerFailureBypassesHysteresis() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    mockManager.checkServerStub = [id: .failure(.invalidCredentials)]
+    let result = await poller.refreshServer(id: id)
+    #expect(result == .authError(reason: .passwordMayHaveChanged))
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+    #expect(poller.connectionStatuses[id] == .disconnected)
+    #expect(poller.blockingStatuses[id] == nil)
+  }
+
+  @Test("refreshServer is visible in checkingServerIDs while in flight")
+  func refreshServerShowsInCheckingServerIDs() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.checkServerStub = [id: .success(.enabled)]
+    let poller = makePoller()
+
+    // One-shot gate: while the check is awaited, the id must be visible.
+    mockManager.checkServerGate = { [poller] in
+      #expect(poller.checkingServerIDs.contains(id))
+    }
+    _ = await poller.refreshServer(id: id)
+    #expect(poller.checkingServerIDs.isEmpty, "cleared after completion")
+  }
+
+  @Test("refreshServer double-run is a no-op")
+  func refreshServerDoubleRunIsNoOp() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.checkServerStub = [id: .success(.enabled)]
+    let poller = makePoller()
+
+    var release: CheckedContinuation<Void, Never>?
+    mockManager.checkServerGate = {
+      await withCheckedContinuation { release = $0 }
+    }
+
+    async let first: ServerConnectionState = poller.refreshServer(id: id)
+    await waitUntil { poller.checkingServerIDs.contains(id) }
+    // Second call while in flight must not start a second check.
+    let second = await poller.refreshServer(id: id)
+    #expect(mockManager.checkServerCallCount == 1)
+    release?.resume()
+    let firstResult = await first
+    #expect(firstResult == .healthy)
+  }
+
   @Test("startPolling while running is a no-op; stopPolling allows restart")
   func startPollingIdempotentAndRestartable() async {
     let id = UUID()
