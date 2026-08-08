@@ -4,15 +4,54 @@ import SwiftUI
 // MARK: - Shared Menu Builder
 
 /// Builds the NSMenu used by both the button and the right-click overlay.
+/// Gains state-aware recovery items: "Re-authenticate…" for auth errors,
+/// "Retry connection" / "Edit connection…" for unreachable.
 enum RedMenuBuilder {
   static func makeMenu(
     editAction: @escaping () -> Void,
     deleteAction: @escaping () -> Void,
+    reauthenticateAction: @escaping () -> Void,
+    retryAction: @escaping () -> Void,
+    state: ServerConnectionState?,
     target: AnyObject,
     editSelector: Selector,
-    deleteSelector: Selector
+    deleteSelector: Selector,
+    reauthenticateSelector: Selector,
+    retrySelector: Selector
   ) -> NSMenu {
     let menu = NSMenu()
+
+    if case .authError = state {
+      let reauthItem = NSMenuItem(
+        title: "Re-authenticate…",
+        action: reauthenticateSelector,
+        keyEquivalent: ""
+      )
+      reauthItem.target = target
+      reauthItem.image = NSImage(
+        systemSymbolName: "lock.fill", accessibilityDescription: "Re-authenticate")
+      menu.addItem(reauthItem)
+    }
+
+    if case .unreachable = state {
+      let retryItem = NSMenuItem(
+        title: "Retry connection",
+        action: retrySelector,
+        keyEquivalent: ""
+      )
+      retryItem.target = target
+      retryItem.image = NSImage(
+        systemSymbolName: "arrow.clockwise", accessibilityDescription: "Retry connection")
+      menu.addItem(retryItem)
+
+      let editConnectionItem = NSMenuItem(
+        title: "Edit connection…",
+        action: editSelector,
+        keyEquivalent: ""
+      )
+      editConnectionItem.target = target
+      menu.addItem(editConnectionItem)
+    }
 
     let editItem = NSMenuItem(
       title: "Edit",
@@ -22,6 +61,9 @@ enum RedMenuBuilder {
     editItem.target = target
     editItem.image = NSImage(
       systemSymbolName: "pencil", accessibilityDescription: "Edit")
+    menu.addItem(editItem)
+
+    menu.addItem(.separator())
 
     let deleteItem = NSMenuItem(
       title: "Delete",
@@ -38,7 +80,7 @@ enum RedMenuBuilder {
       attributes: [.foregroundColor: NSColor.systemRed]
     )
 
-    menu.items = [editItem, .separator(), deleteItem]
+    menu.addItem(deleteItem)
     return menu
   }
 }
@@ -53,6 +95,9 @@ enum RedMenuBuilder {
 struct RedMenuButton: NSViewRepresentable {
   let editAction: () -> Void
   let deleteAction: () -> Void
+  let reauthenticateAction: () -> Void
+  let retryAction: () -> Void
+  let state: ServerConnectionState?
 
   func makeNSView(context: Context) -> NSButton {
     let button = NSButton()
@@ -69,29 +114,55 @@ struct RedMenuButton: NSViewRepresentable {
   func updateNSView(_ nsView: NSButton, context: Context) {
     context.coordinator.editAction = editAction
     context.coordinator.deleteAction = deleteAction
+    context.coordinator.reauthenticateAction = reauthenticateAction
+    context.coordinator.retryAction = retryAction
+    context.coordinator.state = state
   }
 
   func makeCoordinator() -> Coordinator {
-    Coordinator(editAction: editAction, deleteAction: deleteAction)
+    Coordinator(
+      editAction: editAction,
+      deleteAction: deleteAction,
+      reauthenticateAction: reauthenticateAction,
+      retryAction: retryAction,
+      state: state
+    )
   }
 
   @MainActor
   final class Coordinator: NSObject {
     var editAction: () -> Void
     var deleteAction: () -> Void
+    var reauthenticateAction: () -> Void
+    var retryAction: () -> Void
+    var state: ServerConnectionState?
 
-    init(editAction: @escaping () -> Void, deleteAction: @escaping () -> Void) {
+    init(
+      editAction: @escaping () -> Void,
+      deleteAction: @escaping () -> Void,
+      reauthenticateAction: @escaping () -> Void,
+      retryAction: @escaping () -> Void,
+      state: ServerConnectionState?
+    ) {
       self.editAction = editAction
       self.deleteAction = deleteAction
+      self.reauthenticateAction = reauthenticateAction
+      self.retryAction = retryAction
+      self.state = state
     }
 
     @objc func buttonClicked(_ sender: NSButton) {
       let menu = RedMenuBuilder.makeMenu(
         editAction: editAction,
         deleteAction: deleteAction,
+        reauthenticateAction: reauthenticateAction,
+        retryAction: retryAction,
+        state: state,
         target: self,
         editSelector: #selector(editTapped),
-        deleteSelector: #selector(deleteTapped)
+        deleteSelector: #selector(deleteTapped),
+        reauthenticateSelector: #selector(reauthenticateTapped),
+        retrySelector: #selector(retryTapped)
       )
       menu.popUp(
         positioning: nil,
@@ -102,6 +173,8 @@ struct RedMenuButton: NSViewRepresentable {
 
     @objc func editTapped() { editAction() }
     @objc func deleteTapped() { deleteAction() }
+    @objc func reauthenticateTapped() { reauthenticateAction() }
+    @objc func retryTapped() { retryAction() }
   }
 }
 
@@ -112,6 +185,9 @@ struct RedMenuButton: NSViewRepresentable {
 struct RedContextMenu: NSViewRepresentable {
   let editAction: () -> Void
   let deleteAction: () -> Void
+  let reauthenticateAction: () -> Void
+  let retryAction: () -> Void
+  let state: ServerConnectionState?
 
   func makeNSView(context: Context) -> ContextMenuOverlayView {
     let view = ContextMenuOverlayView()
@@ -122,24 +198,47 @@ struct RedContextMenu: NSViewRepresentable {
   func updateNSView(_ nsView: ContextMenuOverlayView, context: Context) {
     context.coordinator.editAction = editAction
     context.coordinator.deleteAction = deleteAction
+    context.coordinator.reauthenticateAction = reauthenticateAction
+    context.coordinator.retryAction = retryAction
+    context.coordinator.state = state
   }
 
   func makeCoordinator() -> ContextMenuCoordinator {
-    ContextMenuCoordinator(editAction: editAction, deleteAction: deleteAction)
+    ContextMenuCoordinator(
+      editAction: editAction,
+      deleteAction: deleteAction,
+      reauthenticateAction: reauthenticateAction,
+      retryAction: retryAction,
+      state: state
+    )
   }
 
   @MainActor
   final class ContextMenuCoordinator: NSObject {
     var editAction: () -> Void
     var deleteAction: () -> Void
+    var reauthenticateAction: () -> Void
+    var retryAction: () -> Void
+    var state: ServerConnectionState?
 
-    init(editAction: @escaping () -> Void, deleteAction: @escaping () -> Void) {
+    init(
+      editAction: @escaping () -> Void,
+      deleteAction: @escaping () -> Void,
+      reauthenticateAction: @escaping () -> Void,
+      retryAction: @escaping () -> Void,
+      state: ServerConnectionState?
+    ) {
       self.editAction = editAction
       self.deleteAction = deleteAction
+      self.reauthenticateAction = reauthenticateAction
+      self.retryAction = retryAction
+      self.state = state
     }
 
     @objc func editTapped() { editAction() }
     @objc func deleteTapped() { deleteAction() }
+    @objc func reauthenticateTapped() { reauthenticateAction() }
+    @objc func retryTapped() { retryAction() }
   }
 }
 
@@ -154,9 +253,14 @@ final class ContextMenuOverlayView: NSView {
     let menu = RedMenuBuilder.makeMenu(
       editAction: coordinator.editAction,
       deleteAction: coordinator.deleteAction,
+      reauthenticateAction: coordinator.reauthenticateAction,
+      retryAction: coordinator.retryAction,
+      state: coordinator.state,
       target: coordinator,
       editSelector: #selector(RedContextMenu.ContextMenuCoordinator.editTapped),
-      deleteSelector: #selector(RedContextMenu.ContextMenuCoordinator.deleteTapped)
+      deleteSelector: #selector(RedContextMenu.ContextMenuCoordinator.deleteTapped),
+      reauthenticateSelector: #selector(RedContextMenu.ContextMenuCoordinator.reauthenticateTapped),
+      retrySelector: #selector(RedContextMenu.ContextMenuCoordinator.retryTapped)
     )
     let point = convert(event.locationInWindow, from: nil)
     menu.popUp(positioning: nil, at: point, in: self)

@@ -28,12 +28,15 @@ struct ConnectionListView: View {
       ForEach(statusPoller.servers) { server in
         ConnectionCardView(
           config: server,
-          status: statusPoller.connectionStatuses[server.id] ?? .unknown,
+          state: statusPoller.connectionStates[server.id],
+          isChecking: statusPoller.checkingServerIDs.contains(server.id),
           onEdit: { sheetMode = .edit(server) },
           onDelete: {
             serverToDelete = server
             showDeleteConfirmation = true
-          }
+          },
+          onReauthenticate: { sheetMode = .reauthenticate(server) },
+          onRetry: { await statusPoller.refreshServer(id: server.id) }
         )
         .overlay(
           RedContextMenu(
@@ -41,7 +44,12 @@ struct ConnectionListView: View {
             deleteAction: {
               serverToDelete = server
               showDeleteConfirmation = true
-            }
+            },
+            reauthenticateAction: { sheetMode = .reauthenticate(server) },
+            retryAction: {
+              Task { _ = await statusPoller.refreshServer(id: server.id) }
+            },
+            state: statusPoller.connectionStates[server.id]
           )
         )
       }
@@ -156,6 +164,11 @@ struct ConnectionListView: View {
     .onChange(of: statusPoller.servers.count) {
       guard statusPoller.servers.count < 2 else { return }
       Task { await discoveryService.scan() }
+    }
+    .onChange(of: sheetMode) { _, newMode in
+      if newMode == nil {
+        Task { statusPoller.pollNow() }
+      }
     }
   }
 }
