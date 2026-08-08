@@ -229,11 +229,12 @@ public final class ServerStatusPoller: ObservableObject {
     // and applying the stale results could misreport a manual re-enable as an
     // automatic one.
     guard generation == blockingChangeGeneration else { return }
-    for (id, status) in blockingResults {
-      if let status {
+    for (id, result) in blockingResults {
+      switch result {
+      case .success(let status):
         connectionStatuses[id] = .connected
         blockingStatuses[id] = status
-      } else {
+      case .failure:
         connectionStatuses[id] = .disconnected
         blockingStatuses.removeValue(forKey: id)
       }
