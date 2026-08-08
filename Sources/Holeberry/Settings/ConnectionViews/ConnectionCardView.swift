@@ -159,7 +159,7 @@ struct ConnectionCardView: View {
     let title: String
     let action: () -> Void
     if case .unreachable = state, manualRetryFailed {
-      title = String(localized: "Edit connection")
+      title = String(localized: "Fix connection")
       action = onEdit
     } else if case .unreachable = state {
       title = String(localized: "Retry")
