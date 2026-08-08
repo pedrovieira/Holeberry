@@ -8,6 +8,9 @@ public final class TimerManager: ObservableObject {
   @Published public var remainingSeconds: TimeInterval = 0
   @Published public var totalDuration: TimeInterval?
 
+  /// Fires once when a time-boxed countdown expires naturally (not on `cancel()`).
+  public var onEnded: (() -> Void)?
+
   private var endTime: ContinuousClock.Instant?
   private var countdownTimer: AnyCancellable?
 
@@ -48,15 +51,21 @@ public final class TimerManager: ObservableObject {
     countdownTimer = Timer.publish(every: 1, on: .main, in: .common)
       .autoconnect()
       .sink { [weak self] _ in
-        guard let self else { return }
-        guard let endTime = self.endTime else { return }
-        let now = ContinuousClock.now
-        if endTime > now {
-          self.remainingSeconds = (endTime - now) / .seconds(1)
-        } else {
-          self.cancel()
-        }
+        self?.countdownTick()
       }
+  }
+
+  /// Advances the countdown one tick; fires `onEnded` on expiry. Internal so
+  /// tests can trigger expiry without real time.
+  internal func countdownTick() {
+    guard let endTime else { return }
+    let now = ContinuousClock.now
+    if endTime > now {
+      remainingSeconds = (endTime - now) / .seconds(1)
+    } else {
+      cancel()
+      onEnded?()
+    }
   }
 
   private func stopCountdown() {

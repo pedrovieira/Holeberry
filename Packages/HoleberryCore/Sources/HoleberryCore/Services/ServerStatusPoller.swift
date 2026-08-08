@@ -23,8 +23,19 @@ public final class ServerStatusPoller: ObservableObject {
   private let defaultsSuite: UserDefaults
 
   /// Owns the countdown pill (start/cancel on blocking changes) so every
-  /// caller — menu actions and shortcuts — behaves identically.
+  /// caller — menu actions and shortcuts — behaves identically. The status
+  /// fetch also re-syncs it from the server's remaining time when idle.
   private let timerManager: TimerManager
+  private let sleep: (TimeInterval) async throws -> Void
+
+  /// How long the timer-end re-check keeps polling after the countdown ends
+  /// before falling back to the scheduled poll cadence.
+  private static let unblockRecheckAttempts = 6
+  private static let unblockRecheckInterval: TimeInterval = 2
+
+  /// Bumped by every manual `applyBlockingChange`; status fetches discard their
+  /// results when it changes mid-request.
+  private var blockingChangeGeneration = 0
 
   /// Fired when a poll observes blocking flip `.disabled` → `.enabled` without
   /// a manual action (manual toggles reflect locally and never trigger this).
@@ -37,7 +48,8 @@ public final class ServerStatusPoller: ObservableObject {
     pollingInterval: TimeInterval = 30,
     defaultsSuite: UserDefaults = .standard,
     scheduler: any PollScheduler = TaskPollScheduler(),
-    timerManager: TimerManager = TimerManager()
+    timerManager: TimerManager = TimerManager(),
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
   ) {
     self.manager = manager
     self.networkInterface = networkInterface
@@ -45,7 +57,14 @@ public final class ServerStatusPoller: ObservableObject {
     self.pollingInterval = pollingInterval
     self.scheduler = scheduler
     self.timerManager = timerManager
+    self.sleep = sleep
     self.servers = manager.servers
+
+    // Re-check blocking status when the countdown ends instead of waiting for the next poll.
+    timerManager.onEnded = { [weak self] in
+      guard let self else { return }
+      Task { await self.refreshBlockingStatusesIfIdle() }
+    }
 
     manager.serversPublisher
       .dropFirst()
@@ -99,6 +118,9 @@ public final class ServerStatusPoller: ObservableObject {
   /// - Returns: Per-server success/failure results (discardable).
   @discardableResult
   public func applyBlockingChange(enabled: Bool, duration: TimeInterval?) async -> [UUID: Bool] {
+    // Invalidate any in-flight status fetch so a manual toggle can't be
+    // misattributed as an automatic re-enable.
+    blockingChangeGeneration += 1
     let results = await manager.setBlocking(enabled: enabled, duration: duration)
     for (id, success) in results {
       if success {
@@ -125,6 +147,7 @@ public final class ServerStatusPoller: ObservableObject {
   // MARK: - Polling Implementation
 
   private func performPoll() async {
+    guard !isPolling else { return }
     isPolling = true
     defer { isPolling = false }
     guard !servers.isEmpty else {
@@ -137,24 +160,7 @@ public final class ServerStatusPoller: ObservableObject {
     }
 
     logger.debug("Polling all servers...")
-
-    // Snapshot pre-poll state to detect servers that re-enabled on their own.
-    let previouslyDisabledIDs = Set(
-      blockingStatuses.compactMap { id, status in
-        if case .disabled = status { return id }
-        return nil
-      })
-    let blockingResults = await manager.getBlockingStatus()
-    for (id, status) in blockingResults {
-      if let status {
-        connectionStatuses[id] = .connected
-        blockingStatuses[id] = status
-      } else {
-        connectionStatuses[id] = .disconnected
-        blockingStatuses.removeValue(forKey: id)
-      }
-    }
-    notifyIfAutoReenabled(previousDisabledIDs: previouslyDisabledIDs)
+    await fetchBlockingStatuses()
 
     // Get query summaries from all servers in parallel
     let summaryResults = await manager.getQuerySummary()
@@ -183,6 +189,76 @@ public final class ServerStatusPoller: ObservableObject {
     }
   }
 
+  /// Re-checks blocking status on countdown end; skips while a poll is in
+  /// flight to avoid double-firing `onBlockingAutoReenabled`. The server's own
+  /// timer can outlive the local countdown by a few seconds (timer resets,
+  /// tick latency), so re-check briefly until it actually re-enables.
+  private func refreshBlockingStatusesIfIdle() async {
+    guard !isPolling else { return }
+    isPolling = true
+    defer { isPolling = false }
+    logger.debug("Unblock countdown ended — re-checking blocking status")
+    for attempt in 0..<Self.unblockRecheckAttempts {
+      await fetchBlockingStatuses()
+      if !hasDisabledServers() { return }
+      if attempt < Self.unblockRecheckAttempts - 1 {
+        try? await sleep(Self.unblockRecheckInterval)
+      }
+    }
+  }
+
+  private func hasDisabledServers() -> Bool {
+    blockingStatuses.values.contains { status in
+      if case .disabled = status { return true }
+      return false
+    }
+  }
+
+  /// Fetches blocking status for all servers, firing `onBlockingAutoReenabled`
+  /// on a poll-observed disabled→enabled transition.
+  private func fetchBlockingStatuses() async {
+    let generation = blockingChangeGeneration
+    // Snapshot pre-poll state to detect servers that re-enabled on their own.
+    let previouslyDisabledIDs = Set(
+      blockingStatuses.compactMap { id, status in
+        if case .disabled = status { return id }
+        return nil
+      })
+    let blockingResults = await manager.getBlockingStatus()
+    // A manual toggle landed mid-fetch: its local reflection is authoritative,
+    // and applying the stale results could misreport a manual re-enable as an
+    // automatic one.
+    guard generation == blockingChangeGeneration else { return }
+    for (id, status) in blockingResults {
+      if let status {
+        connectionStatuses[id] = .connected
+        blockingStatuses[id] = status
+      } else {
+        connectionStatuses[id] = .disconnected
+        blockingStatuses.removeValue(forKey: id)
+      }
+    }
+    notifyIfAutoReenabled(previousDisabledIDs: previouslyDisabledIDs)
+    syncCountdownWithServerRemaining()
+  }
+
+  /// Keeps the countdown pill and the timer-end re-check tracking the server's
+  /// actual timer: when no local countdown is running but a server reports a
+  /// time-boxed disable, run the countdown from its remaining time. Covers
+  /// disables initiated outside the app, relaunches mid-unblock, and server
+  /// timer resets.
+  private func syncCountdownWithServerRemaining() {
+    guard !timerManager.isRunning else { return }
+    var remaining: TimeInterval = 0
+    for status in blockingStatuses.values {
+      if case .disabled(let seconds) = status, let seconds {
+        remaining = max(remaining, seconds)
+      }
+    }
+    guard remaining > 5 else { return }
+    timerManager.start(duration: remaining)
+  }
+
   /// Fires `onBlockingAutoReenabled` once the last disabled server re-enables
   /// via poll. Manual re-enables never reach this path.
   private func notifyIfAutoReenabled(previousDisabledIDs: Set<UUID>) {
@@ -194,6 +270,9 @@ public final class ServerStatusPoller: ObservableObject {
     }
     if !autoReenabled.isEmpty, !anyStillDisabled {
       onBlockingAutoReenabled?(autoReenabled)
+      // The unblock has ended — drop any re-armed countdown so the pill
+      // doesn't outlive the transition.
+      timerManager.cancel()
     }
   }
 }

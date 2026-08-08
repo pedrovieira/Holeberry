@@ -12,6 +12,8 @@ final class MockPiholeServerManager: PiholeServerManaging {
 
   var getBlockingStatusStub: [UUID: BlockingStatus?] = [:]
   private(set) var getBlockingStatusCallCount = 0
+  /// One-shot: the next `getBlockingStatus()` awaits this before returning.
+  var getBlockingStatusGate: (@MainActor () async -> Void)?
 
   var setBlockingStub: [UUID: Bool] = [:]
   private(set) var setBlockingCallCount = 0
@@ -27,6 +29,10 @@ final class MockPiholeServerManager: PiholeServerManaging {
 
   func getBlockingStatus() async -> [UUID: BlockingStatus?] {
     getBlockingStatusCallCount += 1
+    if let gate = getBlockingStatusGate {
+      getBlockingStatusGate = nil
+      await gate()
+    }
     return getBlockingStatusStub
   }
 

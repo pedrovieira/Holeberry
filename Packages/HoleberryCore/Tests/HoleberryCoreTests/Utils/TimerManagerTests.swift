@@ -73,4 +73,36 @@ struct TimerManagerTests {
     manager.remainingSeconds = 9.2
     #expect(manager.formattedTime == "10s")
   }
+
+  @Test("onEnded fires when the countdown expires naturally")
+  func onEndedFiresOnNaturalExpiry() {
+    let manager = TimerManager()
+    var fired = false
+    manager.onEnded = { fired = true }
+    // Duration 0 = already expired, so the next tick ends it.
+    manager.start(duration: 0)
+    manager.countdownTick()
+    #expect(fired)
+    #expect(manager.isRunning == false)
+  }
+
+  @Test("onEnded does not fire on cancel or while counting down")
+  func onEndedDoesNotFireOnCancelOrWhileRunning() {
+    let manager = TimerManager()
+    var fired = false
+    manager.onEnded = { fired = true }
+
+    // Manual cancel (e.g. re-enable) is not an expiry.
+    manager.start(duration: 300)
+    manager.cancel()
+    manager.countdownTick()
+    #expect(fired == false)
+
+    // Still counting down: the tick only updates the remaining time.
+    manager.start(duration: 300)
+    manager.countdownTick()
+    #expect(fired == false)
+    #expect(manager.isRunning)
+    #expect(manager.remainingSeconds < 300)
+  }
 }
