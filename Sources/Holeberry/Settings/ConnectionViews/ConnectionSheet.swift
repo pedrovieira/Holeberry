@@ -6,14 +6,16 @@ import SymbolPicker
 
 // MARK: - Sheet Mode
 
-enum SheetMode: Identifiable {
+enum SheetMode: Identifiable, Equatable {
   case add(prefillURL: String? = nil)
   case edit(ServerConfig)
+  case reauthenticate(ServerConfig)
 
   var id: String {
     switch self {
     case .add: return "add"
     case .edit: return "edit"
+    case .reauthenticate: return "reauthenticate"
     }
   }
 
@@ -21,12 +23,16 @@ enum SheetMode: Identifiable {
     switch self {
     case .add(let prefill): return prefill ?? ""
     case .edit(let config): return config.url
+    case .reauthenticate(let config): return config.url
     }
   }
 
   var existingLabel: String? {
-    if case .edit(let config) = self { return config.label }
-    return nil
+    switch self {
+    case .edit(let config): return config.label
+    case .reauthenticate(let config): return config.label
+    case .add: return nil
+    }
   }
 
   var existingIcon: String? {
@@ -90,6 +96,7 @@ struct ConnectionSheet: View {
   @State private var shakeTrigger: CGFloat = 0
   @State private var iconName: String = ""
   @State private var showingIconPicker = false
+  @FocusState private var credentialFocused: Bool
 
   private var hasURLError: Bool {
     !isCreating && !url.isEmpty && !isValidURL
@@ -103,6 +110,9 @@ struct ConnectionSheet: View {
   private var canCreate: Bool {
     let trimmedURL = url.trimmingCharacters(in: .whitespaces)
     let baseValid = !trimmedURL.isEmpty && isValidURL && !isCreating
+    if isReauthenticate {
+      return baseValid && !credential.isEmpty
+    }
     if case .edit = mode {
       let labelChanged = label != (mode.existingLabel ?? "")
       let iconChanged = iconName != (mode.existingIcon ?? "")
@@ -113,7 +123,7 @@ struct ConnectionSheet: View {
 
   var body: some View {
     VStack(spacing: 12) {
-      Text(isAdd ? "New Connection" : "Edit Connection")
+      Text(isAdd ? "New Connection" : (isReauthenticate ? "Re-authenticate" : "Edit Connection"))
         .font(.headline)
 
       Divider()
@@ -149,7 +159,7 @@ struct ConnectionSheet: View {
             .frame(maxWidth: .infinity)
             .autocorrectionDisabled()
             .textContentType(.URL)
-            .disabled(isCreating)
+            .disabled(isCreating || isReauthenticate)
             .background(
               RoundedRectangle(cornerRadius: 5)
                 .stroke(hasURLError ? Color.red : .clear, lineWidth: 1)
@@ -172,6 +182,7 @@ struct ConnectionSheet: View {
             .frame(maxWidth: .infinity)
             .textContentType(.password)
             .disabled(isCreating)
+            .focused($credentialFocused)
             .onChange(of: credential) {
               if isTotpError {
                 isTotpError = false
@@ -226,7 +237,7 @@ struct ConnectionSheet: View {
           Button {
             Task { await submit() }
           } label: {
-            Text(isAdd ? "Create" : "Update")
+            Text(isReauthenticate ? "Re-authenticate" : (isAdd ? "Create" : "Update"))
               .opacity(isCreating ? 0 : 1)
               .overlay {
                 if isCreating {
@@ -252,6 +263,9 @@ struct ConnectionSheet: View {
     .onAppear {
       url = mode.prefillURL
       generatedLabel = isAdd ? WordLabel.generate() : (mode.existingLabel ?? "")
+      if isReauthenticate {
+        credentialFocused = true
+      }
     }
   }
 
@@ -327,10 +341,46 @@ struct ConnectionSheet: View {
     return false
   }
 
+  private var isReauthenticate: Bool {
+    if case .reauthenticate = mode { return true }
+    return false
+  }
+
   private func handleCancel() {
     isCreating = false
     createError = nil
     onCancel()
+  }
+
+  private func submitReauthentication(server: ServerConfig, serverURL: String) async {
+    do {
+      try await withThrowingTimeout(seconds: 10) {
+        try await serverManager.verifyCredential(id: server.id, credential: credential)
+      }
+      serverManager.updateServer(
+        id: server.id,
+        label: label.isEmpty ? server.label : label,
+        icon: iconName.isEmpty ? nil : iconName,
+        url: serverURL,
+        credential: credential
+      )
+      onDismiss()
+    } catch is CancellationError {
+      isCreating = false
+    } catch _ as TimeoutError {
+      createError = "Re-authentication failed. Timed out (10s)"
+      triggerShake()
+      isCreating = false
+    } catch PiholeError.totpRequired {
+      createError = "Your Pi-hole uses TOTP. Create an Application Password in the web UI and use it here."
+      isTotpError = true
+      triggerShake()
+      isCreating = false
+    } catch {
+      createError = "Re-authentication failed: \(error.localizedDescription)"
+      triggerShake()
+      isCreating = false
+    }
   }
 
   private func submit() async {
@@ -340,6 +390,12 @@ struct ConnectionSheet: View {
     let serverURL = normalizedURL(from: url)
     let isLabelEmpty = label.trimmingCharacters(in: .whitespaces).isEmpty
     let trimmedLabel = isLabelEmpty ? generatedLabel : label
+
+    if isReauthenticate {
+      guard case .reauthenticate(let server) = mode else { return }
+      await submitReauthentication(server: server, serverURL: serverURL)
+      return
+    }
 
     if isAdd {
       do {
