@@ -209,27 +209,29 @@ struct SettingsView: View {
     Section {
       KeyboardShortcuts.Recorder("Re-enable Blocking:", name: .reEnableBlocking)
 
-      LabeledContent {
-        ShortcutRecorder(name: .unblockCurrentTab)
-          .disabled(!browserTabUnblockEnabled)
-      } label: {
-        Text("Unblock Current Tab:")
-      }
+      VStack(alignment: .leading) {
+        LabeledContent {
+          ShortcutRecorder(name: .unblockCurrentTab)
+            .disabled(!browserTabUnblockEnabled)
+        } label: {
+          Text("Unblock Current Tab:")
+        }
 
-      if !browserTabUnblockEnabled {
-        Text("Enable browser tab unblocking in General to use this shortcut.")
-          .font(.caption)
-          .foregroundColor(.secondary)
+        if !browserTabUnblockEnabled {
+          Text("Enable browser tab unblocking in General to use this shortcut.")
+            .font(.callout)
+            .foregroundColor(.secondary)
+        }
       }
     } header: {
       Text("Global Shortcuts")
-    } footer: {
       Text(
         """
         Shortcuts work globally even when the app is in the background. \
         Press Escape in a recorder to clear a shortcut.
         """
       )
+      .font(.subheadline)
       .foregroundStyle(.secondary)
     }
 
@@ -244,8 +246,8 @@ struct SettingsView: View {
       KeyboardShortcuts.Recorder("Custom duration...:", name: .disableCustom)
     } header: {
       Text("Unblock Durations")
-    } footer: {
       Text("Synced with the durations configured in the Durations tab.")
+        .font(.subheadline)
         .foregroundStyle(.secondary)
     }
   }
