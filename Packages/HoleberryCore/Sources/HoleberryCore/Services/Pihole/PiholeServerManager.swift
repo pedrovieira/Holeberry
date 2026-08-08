@@ -94,6 +94,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if urlChanged || credentialChanged {
         reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
+      // Note: an empty `credential` means "no change" — the stored credential
+      // is kept as-is (the UI never clears credentials today).
     } else {
       if let label { servers[idx].label = label }
       servers[idx].icon = icon
@@ -113,7 +115,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   /// Validates a new credential against the server without persisting anything.
   /// v6: login() authenticates (throws .totpRequired / .invalidCredentials).
   /// v5: login() is a no-op, so checkStatus() probes the token (throws
-  /// .server(401, _) for a wrong token). The probe service is logged out.
+  /// .server(401, _) for a wrong token). The probe service is always logged
+  /// out — including when the probe fails mid-way — so no server-side session
+  /// leaks accumulate (v6 has a session limit).
   public func verifyCredential(id: UUID, credential: String) async throws {
     guard let config = servers.first(where: { $0.id == id }) else {
       throw PiholeError.unknown("Server not found")
@@ -128,8 +132,13 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       session: session,
       suite: suite
     )
-    try await probe.login()
-    _ = try await probe.checkStatus()
+    do {
+      try await probe.login()
+      _ = try await probe.checkStatus()
+    } catch {
+      await probe.logout()
+      throw error
+    }
     await probe.logout()
   }
 

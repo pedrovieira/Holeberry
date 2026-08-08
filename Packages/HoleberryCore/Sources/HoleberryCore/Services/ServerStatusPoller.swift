@@ -290,6 +290,14 @@ public final class ServerStatusPoller: ObservableObject {
       case .failure(let error):
         consecutiveFailures[id] = (consecutiveFailures[id] ?? 0) + 1
         guard consecutiveFailures[id] ?? 0 >= 2 else { continue }
+        // Keep the stronger signal: never downgrade a confirmed authError to
+        // unreachable over transient network failures — the re-auth affordance
+        // must not silently disappear. A success resets the row.
+        if case .authError = connectionStates[id],
+          ServerCheckFailure.classify(error) == .unreachable
+        {
+          continue
+        }
         switch ServerCheckFailure.classify(error) {
         case .auth(let reason):
           connectionStates[id] = .authError(reason: reason)

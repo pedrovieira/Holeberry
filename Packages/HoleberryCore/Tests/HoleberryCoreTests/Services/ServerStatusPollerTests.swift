@@ -169,6 +169,49 @@ struct ServerStatusPollerTests {
     #expect(poller.connectionStates[id] == nil)
   }
 
+  @Test("authError is not downgraded by later unreachable failures")
+  func authErrorNotDowngradedByUnreachable() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    // Enter authError via two auth failures.
+    mockManager.getBlockingStatusStub = [id: .failure(.invalidCredentials)]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+
+    // Two transient network failures must NOT flip the row to unreachable.
+    mockManager.getBlockingStatusStub = [id: .failure(.network("blip"))]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+    #expect(poller.connectionStatuses[id] == .disconnected)
+  }
+
+  @Test("unreachable upgrades to authError once authentication fails")
+  func unreachableUpgradesToAuthError() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable first")
+      return
+    }
+
+    mockManager.getBlockingStatusStub = [id: .failure(.invalidCredentials)]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+  }
+
   // MARK: - refreshServer (manual retry)
 
   @Test("refreshServer success is authoritative and resets counter")

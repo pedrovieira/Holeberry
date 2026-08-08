@@ -4,15 +4,6 @@ import SwiftUI
 
 // MARK: - Shared Menu Builder
 
-/// The row actions the overflow menu can trigger. Kept as a bundle so the
-/// menu builder stays below the lint parameter-count limit.
-struct RedMenuActions {
-  var edit: () -> Void
-  var delete: () -> Void
-  var reauthenticate: () -> Void
-  var retry: () -> Void
-}
-
 /// Selectors are identical across both coordinator classes, which both
 /// implement `editTapped` / `deleteTapped` / `reauthenticateTapped` /
 /// `retryTapped`.
@@ -25,10 +16,10 @@ enum RedMenuSelectors {
 
 /// Builds the NSMenu used by both the button and the right-click overlay.
 /// Gains state-aware recovery items: "Re-authenticate…" for auth errors,
-/// "Retry connection" / "Edit connection…" for unreachable.
+/// "Retry connection" / "Edit connection…" for unreachable. Menu items route
+/// via selectors to the coordinator's closures — no actions are passed in.
 enum RedMenuBuilder {
   static func makeMenu(
-    actions: RedMenuActions,
     state: ServerConnectionState?,
     target: AnyObject
   ) -> NSMenu {
@@ -166,12 +157,6 @@ struct RedMenuButton: NSViewRepresentable {
 
     @objc func buttonClicked(_ sender: NSButton) {
       let menu = RedMenuBuilder.makeMenu(
-        actions: RedMenuActions(
-          edit: editAction,
-          delete: deleteAction,
-          reauthenticate: reauthenticateAction,
-          retry: retryAction
-        ),
         state: state,
         target: self
       )
@@ -262,12 +247,6 @@ final class ContextMenuOverlayView: NSView {
       return
     }
     let menu = RedMenuBuilder.makeMenu(
-      actions: RedMenuActions(
-        edit: coordinator.editAction,
-        delete: coordinator.deleteAction,
-        reauthenticate: coordinator.reauthenticateAction,
-        retry: coordinator.retryAction
-      ),
       state: coordinator.state,
       target: coordinator
     )

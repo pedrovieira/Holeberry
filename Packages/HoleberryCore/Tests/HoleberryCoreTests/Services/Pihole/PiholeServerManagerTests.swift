@@ -161,6 +161,26 @@ struct PiholeServerManagerCRUDTests {
       try await manager.verifyCredential(id: id, credential: "wrong")
     }
   }
+
+  @Test("verifyCredential logs out the probe even when the probe fails mid-way")
+  func verifyCredentialLogsOutOnProbeFailure() async {
+    let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
+    guard let id = manager.servers.first?.id else {
+      Issue.record("No server")
+      return
+    }
+    // Login succeeds (session established server-side), then the status probe
+    // fails — the probe session must still be logged out.
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    probe.checkStatusStub = .failure(PiholeError.network("blip"))
+    mockServiceFactory.buildServiceStub = probe
+
+    await #expect(throws: PiholeError.self) {
+      try await manager.verifyCredential(id: id, credential: "fresh-password")
+    }
+    #expect(probe.loginCallCount == 1)
+    #expect(probe.logoutCallCount == 1, "probe must not leak a session")
+  }
 }
 
 @MainActor
