@@ -79,13 +79,19 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     if let existingService = services[id] {
       let urlChanged = url != existingService.url
+      let credentialChanged: Bool
+      if let credential, !credential.isEmpty {
+        credentialChanged = (try? keychain.readCredential(for: id)) != credential
+      } else {
+        credentialChanged = false
+      }
 
       if let label { existingService.label = label }
       servers[idx].icon = icon
       existingService.url = url
       if let version { existingService.version = version }
 
-      if urlChanged {
+      if urlChanged || credentialChanged {
         reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
     } else {
@@ -102,6 +108,29 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     syncConfigs()
     saveServers()
     logger.info("Updated server: \(label ?? url, privacy: .public)")
+  }
+
+  /// Validates a new credential against the server without persisting anything.
+  /// v6: login() authenticates (throws .totpRequired / .invalidCredentials).
+  /// v5: login() is a no-op, so checkStatus() probes the token (throws
+  /// .server(401, _) for a wrong token). The probe service is logged out.
+  public func verifyCredential(id: UUID, credential: String) async throws {
+    guard let config = servers.first(where: { $0.id == id }) else {
+      throw PiholeError.unknown("Server not found")
+    }
+    guard let serverURL = URL(string: config.url) else {
+      throw PiholeError.unknown("Invalid URL format")
+    }
+    let session = makeSession(trusting: serverURL)
+    let probe = try serviceFactory.buildService(
+      config: config,
+      credential: credential,
+      session: session,
+      suite: suite
+    )
+    try await probe.login()
+    _ = try await probe.checkStatus()
+    await probe.logout()
   }
 
   public func deleteServer(id: UUID) {
