@@ -22,36 +22,41 @@ struct ConnectionListView: View {
     }
   }
 
+  @ViewBuilder
+  private func connectionRow(for server: ServerConfig) -> some View {
+    ConnectionCardView(
+      config: server,
+      state: statusPoller.connectionStates[server.id],
+      isChecking: statusPoller.checkingServerIDs.contains(server.id),
+      onEdit: { sheetMode = .edit(server) },
+      onDelete: {
+        serverToDelete = server
+        showDeleteConfirmation = true
+      },
+      onReauthenticate: { sheetMode = .reauthenticate(server) },
+      onRetry: { await statusPoller.refreshServer(id: server.id) }
+    )
+    .overlay(
+      RedContextMenu(
+        editAction: { sheetMode = .edit(server) },
+        deleteAction: {
+          serverToDelete = server
+          showDeleteConfirmation = true
+        },
+        reauthenticateAction: { sheetMode = .reauthenticate(server) },
+        retryAction: {
+          Task { _ = await statusPoller.refreshServer(id: server.id) }
+        },
+        state: statusPoller.connectionStates[server.id]
+      )
+    )
+  }
+
   var body: some View {
     // --- Section 1: Existing connections ---
     Section {
       ForEach(statusPoller.servers) { server in
-        ConnectionCardView(
-          config: server,
-          state: statusPoller.connectionStates[server.id],
-          isChecking: statusPoller.checkingServerIDs.contains(server.id),
-          onEdit: { sheetMode = .edit(server) },
-          onDelete: {
-            serverToDelete = server
-            showDeleteConfirmation = true
-          },
-          onReauthenticate: { sheetMode = .reauthenticate(server) },
-          onRetry: { await statusPoller.refreshServer(id: server.id) }
-        )
-        .overlay(
-          RedContextMenu(
-            editAction: { sheetMode = .edit(server) },
-            deleteAction: {
-              serverToDelete = server
-              showDeleteConfirmation = true
-            },
-            reauthenticateAction: { sheetMode = .reauthenticate(server) },
-            retryAction: {
-              Task { _ = await statusPoller.refreshServer(id: server.id) }
-            },
-            state: statusPoller.connectionStates[server.id]
-          )
-        )
+        connectionRow(for: server)
       }
 
       if statusPoller.servers.count < 2 {
