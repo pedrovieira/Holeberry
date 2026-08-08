@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 import Testing
 
@@ -88,6 +89,77 @@ struct PiholeServerManagerCRUDTests {
     // addServer should throw since we already have 2
     // We can't easily call addServer without network, but we test the guard
     #expect(manager.servers.count == 2)
+  }
+
+  private func makeManagerWithLoadedService(suite: UserDefaults) -> PiholeServerManager {
+    let config = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
+    Defaults[.servers(suite: suite)] = [config]
+    try? mockKeychain.saveCredential("old-password", for: config.id)
+    return PiholeServerManager(
+      keychain: mockKeychain,
+      serviceFactory: mockServiceFactory,
+      versionDetector: mockVersionDetector,
+      suite: suite
+    )
+  }
+
+  @Test("update server with changed credential rebuilds the service")
+  func updateServerWithChangedCredentialRebuildsService() {
+    let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
+    guard let id = manager.servers.first?.id else {
+      Issue.record("No server")
+      return
+    }
+    let buildsBefore = mockServiceFactory.buildServiceCallCount
+    #expect(buildsBefore == 1, "loadServers built the service")
+
+    manager.updateServer(id: id, label: "Test", url: "http://test.com", credential: "new-password")
+    #expect(mockServiceFactory.buildServiceCallCount == buildsBefore + 1, "credential change must rebuild")
+    #expect(mockKeychain.storedCredentials[id.uuidString] == "new-password")
+  }
+
+  @Test("update server with same credential does not rebuild")
+  func updateServerWithSameCredentialDoesNotRebuild() {
+    let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
+    guard let id = manager.servers.first?.id else {
+      Issue.record("No server")
+      return
+    }
+    let buildsBefore = mockServiceFactory.buildServiceCallCount
+    manager.updateServer(id: id, label: "Test", url: "http://test.com", credential: "old-password")
+    #expect(mockServiceFactory.buildServiceCallCount == buildsBefore)
+  }
+
+  @Test("verifyCredential succeeds and logs out the probe service")
+  func verifyCredentialSucceeds() async throws {
+    let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
+    guard let id = manager.servers.first?.id else {
+      Issue.record("No server")
+      return
+    }
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    mockServiceFactory.buildServiceStub = probe
+
+    try await manager.verifyCredential(id: id, credential: "fresh-password")
+    #expect(probe.loginCallCount == 1)
+    #expect(probe.checkStatusCallCount == 1)
+    #expect(probe.logoutCallCount == 1)
+  }
+
+  @Test("verifyCredential throws on invalid credentials")
+  func verifyCredentialThrowsOnInvalid() async {
+    let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
+    guard let id = manager.servers.first?.id else {
+      Issue.record("No server")
+      return
+    }
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    probe.loginStub = .failure(PiholeError.invalidCredentials)
+    mockServiceFactory.buildServiceStub = probe
+
+    await #expect(throws: PiholeError.self) {
+      try await manager.verifyCredential(id: id, credential: "wrong")
+    }
   }
 }
 
