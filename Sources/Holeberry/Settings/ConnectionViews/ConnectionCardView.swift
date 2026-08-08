@@ -89,6 +89,27 @@ struct ConnectionCardView: View {
     }
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilityLabelText)
+    .accessibilityAction {
+      // The combined element announces the fix button; make it activatable.
+      performFixAction()
+    }
+  }
+
+  /// The action behind the fix button — shared by the button and the
+  /// combined accessibility element.
+  private func performFixAction() {
+    if case .unreachable = state, manualRetryFailed {
+      onEdit()
+    } else if case .unreachable = state {
+      Task {
+        let result = await onRetry()
+        if result != .healthy {
+          manualRetryFailed = true
+        }
+      }
+    } else {
+      onReauthenticate()
+    }
   }
 
   @ViewBuilder
@@ -142,14 +163,7 @@ struct ConnectionCardView: View {
       action = onEdit
     } else if case .unreachable = state {
       title = String(localized: "Retry")
-      action = {
-        Task {
-          let result = await onRetry()
-          if result != .healthy {
-            manualRetryFailed = true
-          }
-        }
-      }
+      action = { performFixAction() }
     } else {
       title = String(localized: "Re-authenticate")
       action = onReauthenticate
