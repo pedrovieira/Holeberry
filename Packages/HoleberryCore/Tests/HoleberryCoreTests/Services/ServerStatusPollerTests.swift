@@ -57,16 +57,116 @@ struct ServerStatusPollerTests {
     #expect(poller.blockingStatuses[id] == .enabled)
   }
 
-  @Test("failure result maps to disconnected (menu contract, pre-hysteresis)")
-  func failureResultMapsToDisconnected() async {
+  @Test("single failure does not flip the row (hysteresis)")
+  func singleFailureDoesNotFlipRow() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .failure(.invalidCredentials)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     let poller = makePoller()
     poller.startPolling()
     await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .healthy)
+
+    mockManager.getBlockingStatusStub = [id: .failure(.network("blip"))]
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .healthy, "first failure must not flip")
+    #expect(poller.connectionStatuses[id] == .connected, "menu follows the row state")
+  }
+
+  @Test("two consecutive failures flip to classified error")
+  func twoConsecutiveFailuresFlip() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    mockManager.getBlockingStatusStub = [id: .failure(.invalidCredentials)]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
     #expect(poller.connectionStatuses[id] == .disconnected)
     #expect(poller.blockingStatuses[id] == nil)
+  }
+
+  @Test("unreachable classification carries lastSeen; instant recovery on success")
+  func unreachableCarriesLastSeenAndRecoversInstantly() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    let lastSeen = poller.connectionStates[id]
+    guard case .unreachable(let date)? = lastSeen else {
+      Issue.record("expected unreachable, got \(String(describing: lastSeen))")
+      return
+    }
+    #expect(date != nil)
+
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .healthy)
+  }
+
+  @Test("failed blocking toggle counts as failure #1; success resets")
+  func failedToggleCountsAsFirstFailure() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    // Toggle fails: menu flips red immediately, row stays healthy (failure #1)
+    mockManager.setBlockingStub = [id: false]
+    let results = await poller.applyBlockingChange(enabled: false, duration: nil)
+    #expect(results[id] == false)
+    #expect(poller.connectionStatuses[id] == .disconnected)
+    #expect(poller.connectionStates[id] == .healthy)
+
+    // Next poll also fails → row flips
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable after toggle failure + poll failure")
+      return
+    }
+  }
+
+  @Test("successful blocking toggle resets row to healthy")
+  func successfulToggleResetsRow() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable before toggle")
+      return
+    }
+
+    mockManager.setBlockingStub = [id: true]
+    let results = await poller.applyBlockingChange(enabled: true, duration: nil)
+    #expect(results[id] == true)
+    #expect(poller.connectionStates[id] == .healthy)
+    #expect(poller.connectionStatuses[id] == .connected)
+  }
+
+  @Test("no state entry before the first poll")
+  func noEntryBeforeFirstPoll() {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    let poller = makePoller()
+    #expect(poller.connectionStates[id] == nil)
   }
 
   @Test("startPolling while running is a no-op; stopPolling allows restart")
@@ -182,16 +282,21 @@ struct ServerStatusPollerTests {
     #expect(poller.connectionStatuses[idB] == .connected)
   }
 
-  @Test("nil blocking status marks server disconnected")
-  func nilBlockingStatusMarksDisconnected() async {
+  @Test("failed check marks server disconnected after hysteresis threshold")
+  func failedCheckMarksDisconnectedAfterHysteresis() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getBlockingStatusStub = [id: .failure(.network("test"))]
     let poller = makePoller()
     poller.startPolling()
 
+    // First failure: no row state yet, no menu flip.
     await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == nil)
+    #expect(poller.connectionStatuses[id] == nil)
 
+    // Second consecutive failure: row enters unreachable, menu follows.
+    await scheduler.fireTick()
     #expect(poller.connectionStatuses[id] == .disconnected)
     #expect(poller.blockingStatuses[id] == nil)
   }
