@@ -11,6 +11,9 @@ public final class ServerStatusPoller: ObservableObject {
   @Published public var querySummaries: [UUID: QuerySummary] = [:]
   @Published public var lastPollError: String?
   @Published public var recentBlocked: [BlockedDomain] = []
+  @Published public var connectionStates: [UUID: ServerConnectionState] = [:]
+  private var consecutiveFailures: [UUID: Int] = [:]
+  private var lastSuccessfulCheck: [UUID: Date] = [:]
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private let pollingInterval: TimeInterval
@@ -80,6 +83,9 @@ public final class ServerStatusPoller: ObservableObject {
         self.connectionStatuses = self.connectionStatuses.filter { newIDs.contains($0.key) }
         self.blockingStatuses = self.blockingStatuses.filter { newIDs.contains($0.key) }
         self.querySummaries = self.querySummaries.filter { newIDs.contains($0.key) }
+        self.connectionStates = self.connectionStates.filter { newIDs.contains($0.key) }
+        self.consecutiveFailures = self.consecutiveFailures.filter { newIDs.contains($0.key) }
+        self.lastSuccessfulCheck = self.lastSuccessfulCheck.filter { newIDs.contains($0.key) }
         self.servers = newServers
         guard structuralChange, !self.isPolling else { return }
         Task { await self.performPoll() }
@@ -127,9 +133,13 @@ public final class ServerStatusPoller: ObservableObject {
         let status: BlockingStatus = enabled ? .enabled : .disabled(remainingSeconds: duration)
         blockingStatuses[id] = status
         connectionStatuses[id] = .connected
+        connectionStates[id] = .healthy
+        consecutiveFailures[id] = 0
       } else {
         connectionStatuses[id] = .disconnected
         blockingStatuses.removeValue(forKey: id)
+        // Counts as failure #1 toward the hysteresis threshold — no immediate flip.
+        consecutiveFailures[id] = max(consecutiveFailures[id] ?? 0, 1)
       }
     }
 
@@ -156,6 +166,9 @@ public final class ServerStatusPoller: ObservableObject {
       querySummaries = [:]
       recentBlocked = []
       lastPollError = nil
+      connectionStates = [:]
+      consecutiveFailures = [:]
+      lastSuccessfulCheck = [:]
       return
     }
 
@@ -232,15 +245,38 @@ public final class ServerStatusPoller: ObservableObject {
     for (id, result) in blockingResults {
       switch result {
       case .success(let status):
-        connectionStatuses[id] = .connected
+        consecutiveFailures[id] = 0
+        lastSuccessfulCheck[id] = Date()
+        connectionStates[id] = .healthy
         blockingStatuses[id] = status
-      case .failure:
-        connectionStatuses[id] = .disconnected
+      case .failure(let error):
+        consecutiveFailures[id] = (consecutiveFailures[id] ?? 0) + 1
+        guard consecutiveFailures[id] ?? 0 >= 2 else { continue }
+        switch ServerCheckFailure.classify(error) {
+        case .auth(let reason):
+          connectionStates[id] = .authError(reason: reason)
+        case .unreachable:
+          connectionStates[id] = .unreachable(lastSeen: lastSuccessfulCheck[id])
+        }
         blockingStatuses.removeValue(forKey: id)
       }
     }
+    syncConnectionStatusesFromStates()
     notifyIfAutoReenabled(previousDisabledIDs: previouslyDisabledIDs)
     syncCountdownWithServerRemaining()
+  }
+
+  /// Derives the menu's `connectionStatuses` from the row state. Only touches
+  /// ids that already have a row state — pre-poll behavior is unchanged.
+  private func syncConnectionStatusesFromStates() {
+    for (id, state) in connectionStates {
+      switch state {
+      case .healthy:
+        connectionStatuses[id] = .connected
+      case .authError, .unreachable:
+        connectionStatuses[id] = .disconnected
+      }
+    }
   }
 
   /// Keeps the countdown pill and the timer-end re-check tracking the server's
