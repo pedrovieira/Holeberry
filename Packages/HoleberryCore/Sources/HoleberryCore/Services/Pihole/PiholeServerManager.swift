@@ -79,15 +79,23 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     if let existingService = services[id] {
       let urlChanged = url != existingService.url
+      let credentialChanged: Bool
+      if let credential, !credential.isEmpty {
+        credentialChanged = (try? keychain.readCredential(for: id)) != credential
+      } else {
+        credentialChanged = false
+      }
 
       if let label { existingService.label = label }
       servers[idx].icon = icon
       existingService.url = url
       if let version { existingService.version = version }
 
-      if urlChanged {
+      if urlChanged || credentialChanged {
         reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
+      // Note: an empty `credential` means "no change" — the stored credential
+      // is kept as-is (the UI never clears credentials today).
     } else {
       if let label { servers[idx].label = label }
       servers[idx].icon = icon
@@ -102,6 +110,36 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     syncConfigs()
     saveServers()
     logger.info("Updated server: \(label ?? url, privacy: .public)")
+  }
+
+  /// Validates a new credential against the server without persisting anything.
+  /// v6: login() authenticates (throws .totpRequired / .invalidCredentials).
+  /// v5: login() is a no-op, so checkStatus() probes the token (throws
+  /// .server(401, _) for a wrong token). The probe service is always logged
+  /// out — including when the probe fails mid-way — so no server-side session
+  /// leaks accumulate (v6 has a session limit).
+  public func verifyCredential(id: UUID, credential: String) async throws {
+    guard let config = servers.first(where: { $0.id == id }) else {
+      throw PiholeError.unknown("Server not found")
+    }
+    guard let serverURL = URL(string: config.url) else {
+      throw PiholeError.unknown("Invalid URL format")
+    }
+    let session = makeSession(trusting: serverURL)
+    let probe = try serviceFactory.buildService(
+      config: config,
+      credential: credential,
+      session: session,
+      suite: suite
+    )
+    do {
+      try await probe.login()
+      _ = try await probe.checkStatus()
+    } catch {
+      await probe.logout()
+      throw error
+    }
+    await probe.logout()
   }
 
   public func deleteServer(id: UUID) {
@@ -161,29 +199,43 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Status & Blocking
 
-  /// Returns blocking status for all servers. Each entry is `nil` if that server was unreachable.
-  public func getBlockingStatus() async -> [UUID: BlockingStatus?] {
+  /// Returns blocking status for all servers. Each entry carries the typed
+  /// error when that server's check failed (after its own retries).
+  public func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
     let configs = servers
     let svcs = services
-    return await withTaskGroup(of: (UUID, BlockingStatus?).self) { group in
+    return await withTaskGroup(of: (UUID, Result<BlockingStatus, PiholeError>).self) { group in
       for config in configs {
         let svc = svcs[config.id]
         let id = config.id
         group.addTask {
+          guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
           do {
-            guard let svc else { return (id, nil) }
             let status = try await svc.checkStatus()
-            return (id, status)
+            return (id, .success(status))
           } catch {
-            return (id, nil)
+            let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+            return (id, .failure(piholeError))
           }
         }
       }
-      var results: [UUID: BlockingStatus?] = [:]
-      for await (id, status) in group {
-        results[id] = status
+      var results: [UUID: Result<BlockingStatus, PiholeError>] = [:]
+      for await (id, result) in group {
+        results[id] = result
       }
       return results
+    }
+  }
+
+  /// Single-server health check. Returns nil for an unknown server id.
+  public func checkServer(id: UUID) async -> Result<BlockingStatus, PiholeError>? {
+    guard let svc = services[id] else { return nil }
+    do {
+      let status = try await svc.checkStatus()
+      return .success(status)
+    } catch {
+      let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+      return .failure(piholeError)
     }
   }
 

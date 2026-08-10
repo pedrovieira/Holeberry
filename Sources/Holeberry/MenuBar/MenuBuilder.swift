@@ -32,6 +32,7 @@ struct MenuBuilder {
   ) -> MainStatusBarMenu {
     let target = MenuActionTarget(actions: actions)
     let menu = MainStatusBarMenu(actionTarget: target)
+    let hasHealthyInstance = servers.contains { connectionStatuses[$0.id] == .connected }
 
     addStatusSection(
       to: menu,
@@ -58,6 +59,7 @@ struct MenuBuilder {
       to: menu,
       isTimerDisabled: isTimerDisabled,
       hasServers: !servers.isEmpty,
+      hasHealthyInstance: hasHealthyInstance,
       isConnected: isConnected,
       durations: durations,
       target: target
@@ -70,6 +72,7 @@ struct MenuBuilder {
         browserStatus: browserTabStatus,
         browserIcon: browserIcon,
         durations: durations,
+        hasHealthyInstance: hasHealthyInstance,
         target: target
       )
     }
@@ -82,6 +85,7 @@ struct MenuBuilder {
       showAllClients: showAllClients,
       durations: durations,
       isConnected: isConnected,
+      hasHealthyInstance: hasHealthyInstance,
       target: target
     )
     menu.addItem(.separator())
@@ -245,6 +249,7 @@ struct MenuBuilder {
     to menu: NSMenu,
     isTimerDisabled: Bool,
     hasServers: Bool,
+    hasHealthyInstance: Bool,
     isConnected: Bool,
     durations: [UnblockDurationEntry],
     target: MenuActionTarget
@@ -256,7 +261,7 @@ struct MenuBuilder {
         keyEquivalent: ""
       )
       item.target = target
-      item.isEnabled = isConnected && hasServers
+      item.isEnabled = isConnected && hasServers && hasHealthyInstance
       menu.addItem(item)
     } else {
       let submenu = NSMenu()
@@ -283,12 +288,12 @@ struct MenuBuilder {
       submenu.addItem(customItem)
 
       for item in submenu.items {
-        item.isEnabled = isConnected
+        item.isEnabled = isConnected && hasHealthyInstance
       }
 
       let menuItem = NSMenuItem(title: "Disable Blocking", action: nil, keyEquivalent: "")
       menuItem.submenu = submenu
-      menuItem.isEnabled = isConnected && hasServers
+      menuItem.isEnabled = isConnected && hasServers && hasHealthyInstance
       menu.addItem(menuItem)
     }
   }
@@ -320,6 +325,7 @@ struct MenuBuilder {
     showAllClients: Bool,
     durations: [UnblockDurationEntry],
     isConnected: Bool,
+    hasHealthyInstance: Bool,
     target: MenuActionTarget
   ) {
     // Capture `self` and `target` strongly — `self` (MenuBuilder) is used once
@@ -334,7 +340,7 @@ struct MenuBuilder {
 
     let item = NSMenuItem(title: "Recently Blocked...", action: nil, keyEquivalent: "")
     item.submenu = submenu
-    item.isEnabled = isConnected
+    item.isEnabled = isConnected && hasHealthyInstance
     item.setAccessibilityLabel("Recently blocked domains")
     menu.addItem(item)
   }
@@ -400,11 +406,13 @@ struct MenuBuilder {
 
   // MARK: - Browser tab section
 
+  // swiftlint:disable:next function_parameter_count
   private func addBrowserTabSection(
     to menu: NSMenu,
     browserStatus: ResolvedBrowserTab,
     browserIcon: NSImage?,
     durations: [UnblockDurationEntry],
+    hasHealthyInstance: Bool,
     target: MenuActionTarget
   ) {
     switch browserStatus {
@@ -452,7 +460,7 @@ struct MenuBuilder {
         action: nil,
         keyEquivalent: ""
       )
-      item.isEnabled = true
+      item.isEnabled = hasHealthyInstance
       item.image = browserIcon
       item.submenu = buildDurationSubmenu(for: domain, durations: durations, target: target)
       menu.addItem(item)
