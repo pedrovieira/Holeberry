@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Sources/Holeberry/Resources/AppIcon.icon/Assets/logo_transparent.png" alt="Holeberry" width="128" />
+  <img src="Assets/README header.png" alt="Holeberry" width="128" />
 </p>
 
 <h1 align="center">Holeberry</h1>
