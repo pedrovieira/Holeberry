@@ -58,7 +58,15 @@ final class ShortcutController {
         return
       }
       Task {
-        await self.unblockOnAllServers(domain: domain, duration: 300)
+        let durations = Defaults[.unblockDurations(suite: self.defaultsSuite)]
+        let selection = Defaults[.unblockCurrentTabDuration(suite: self.defaultsSuite)]
+        // Repair a dangling entry reference (deleted in the Durations tab) so
+        // the stored selection matches what the shortcut actually does.
+        let healed = selection.healed(durations: durations)
+        if healed != selection {
+          Defaults[.unblockCurrentTabDuration(suite: self.defaultsSuite)] = healed
+        }
+        await self.unblockOnAllServers(domain: domain, duration: healed.resolve(durations: durations))
       }
     }
 
@@ -119,22 +127,28 @@ final class ShortcutController {
     }
   }
 
-  private func unblockOnAllServers(domain: String, duration: TimeInterval) async {
+  private func unblockOnAllServers(domain: String, duration: TimeInterval?) async {
     guard !serverManager.servers.isEmpty else {
       logger.debug("Unblock shortcut fired but no servers configured — skipping")
       return
     }
 
-    do {
-      try await serverManager.unblock(domain: domain, duration: duration)
-    } catch {
-      logger.warning(
-        """
-        Shortcut unblock failed: \
-        \(error.localizedDescription, privacy: .public)
-        """
-      )
-      postErrorNotification(action: "unblock", error: error.localizedDescription)
+    if let duration {
+      do {
+        try await serverManager.unblock(domain: domain, duration: duration)
+      } catch {
+        logger.warning(
+          """
+          Shortcut unblock failed: \
+          \(error.localizedDescription, privacy: .public)
+          """
+        )
+        postErrorNotification(action: "unblock", error: error.localizedDescription)
+      }
+    } else {
+      // Indefinite: the same non-expiring unblock the menu's "Add to
+      // allowlist" action performs (allowlist add, no record, no expiry task).
+      await serverManager.addToAllowlist(domain: domain)
     }
   }
 
