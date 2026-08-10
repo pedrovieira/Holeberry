@@ -159,7 +159,7 @@ struct ConnectionCardView: View {
     let title: String
     let action: () -> Void
     if case .unreachable = state, manualRetryFailed {
-      title = String(localized: "Fix connection")
+      title = String(localized: "Fix")
       action = onEdit
     } else if case .unreachable = state {
       title = String(localized: "Retry")
@@ -179,12 +179,13 @@ struct ConnectionCardView: View {
         }
       }
       .font(.system(size: 12, weight: .medium))
-      .frame(minWidth: 88)
     }
     .buttonStyle(.bordered)
     .controlSize(.small)
     // The action label must never truncate or wrap — the button keeps its
     // full width; the title truncates and the issue text wraps instead.
+    // Width is content-driven ("Retry" hugs, "Re-authenticate" is wider);
+    // the spinner is narrower than every label, so the swap never reflows.
     .layoutPriority(2)
     .accessibilityLabel(accessibilityFixButtonLabel(title: title))
   }
@@ -193,10 +194,18 @@ struct ConnectionCardView: View {
     guard let lastSeen else {
       return String(localized: "Unreachable")
     }
+    // Minute granularity only — round down and floor at 1 minute so the
+    // subtitle doesn't churn on every poll ("5 sec. ago" → "35 sec. ago").
+    let minutes = max(1, Int(Date().timeIntervalSince(lastSeen) / 60))
     let relative = RelativeDateTimeFormatter()
     relative.unitsStyle = .short
-    let relativeTime = relative.localizedString(for: lastSeen, relativeTo: Date())
-    return String(localized: "Unreachable · last seen \(relativeTime)")
+    // Feed a date exactly `minutes` in the past so the formatter always
+    // lands on whole minutes ("5 min. ago", never "4 min. 30 sec. ago").
+    let relativeTime = relative.localizedString(
+      for: Date().addingTimeInterval(-TimeInterval(minutes) * 60),
+      relativeTo: Date()
+    )
+    return String(localized: "Unreachable · \(relativeTime)")
   }
 
   private var accessibilityLabelText: String {
