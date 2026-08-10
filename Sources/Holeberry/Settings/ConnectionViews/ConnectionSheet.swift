@@ -98,6 +98,10 @@ struct ConnectionSheet: View {
   @State private var showingIconPicker = false
   @FocusState private var credentialFocused: Bool
 
+  /// Hard cap for the instance label; enforced live by `LimitedTextField` and
+  /// defensively at save time.
+  private static let labelMaxLength = 20
+
   private var hasURLError: Bool {
     !isCreating && !url.isEmpty && !isValidURL
   }
@@ -134,19 +138,16 @@ struct ConnectionSheet: View {
         HStack(spacing: 4) {
           Text("Label")
             .frame(width: 85, alignment: .trailing)
-          TextField(
-            "",
-            text: Binding(
-              get: { label },
-              set: { label = String($0.prefix(20)) }
-            ),
-            prompt: Text(generatedLabel)
-          )
-          .textFieldStyle(.roundedBorder)
-          .multilineTextAlignment(.leading)
-          .labelsHidden()
+          LimitedTextField(
+            text: $label,
+            maxLength: Self.labelMaxLength,
+            placeholder: generatedLabel,
+            isEnabled: !isCreating
+          ) {
+            guard canCreate else { return }
+            Task { await submit() }
+          }
           .frame(maxWidth: .infinity)
-          .disabled(isCreating)
         }
 
         HStack(spacing: 4) {
@@ -353,13 +354,18 @@ struct ConnectionSheet: View {
   }
 
   private func submitReauthentication(server: ServerConfig, serverURL: String) async {
+    let serverID = server.id
     do {
       try await withThrowingTimeout(seconds: 10) {
-        try await serverManager.verifyCredential(id: server.id, credential: credential)
+        try await serverManager.verifyCredential(id: serverID, credential: credential)
       }
+      let serverLabel =
+        label.isEmpty
+        ? server.label.map { String($0.prefix(Self.labelMaxLength)) }
+        : String(label.prefix(Self.labelMaxLength))
       serverManager.updateServer(
         id: server.id,
-        label: label.isEmpty ? server.label : label,
+        label: serverLabel,
         icon: iconName.isEmpty ? nil : iconName,
         url: serverURL,
         credential: credential
@@ -389,7 +395,7 @@ struct ConnectionSheet: View {
 
     let serverURL = normalizedURL(from: url)
     let isLabelEmpty = label.trimmingCharacters(in: .whitespaces).isEmpty
-    let trimmedLabel = isLabelEmpty ? generatedLabel : label
+    let trimmedLabel = String((isLabelEmpty ? generatedLabel : label).prefix(Self.labelMaxLength))
 
     if isReauthenticate {
       guard case .reauthenticate(let server) = mode else { return }
