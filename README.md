@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Assets/README header.png" alt="Holeberry" width="128" />
+  <img width="1456" height="484" alt="desktop-app-banner" src="Assets/README header.png"/>
 </p>
 
 <h1 align="center">Holeberry</h1>
