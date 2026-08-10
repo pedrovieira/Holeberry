@@ -52,11 +52,23 @@ enum MenuItemFactory {
     let symbolSize = image.size
     let font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
     let centerY = font.capHeight / 2
+
+    // Cap the symbol height at the font's ascender: at a 12pt config some
+    // symbols render taller than the line, which grows the first line fragment
+    // and pushes the subtitle line of two-line menu items below the row's
+    // visible bounds. Scaling preserves the aspect ratio.
+    let maxHeight = font.ascender
+    let scale = min(1, maxHeight / symbolSize.height)
+    let scaledSize = NSSize(
+      width: symbolSize.width * scale,
+      height: symbolSize.height * scale
+    )
+
     attachment.bounds = NSRect(
       x: 0,
-      y: centerY - symbolSize.height / 2,
-      width: symbolSize.width,
-      height: symbolSize.height
+      y: centerY - scaledSize.height / 2,
+      width: scaledSize.width,
+      height: scaledSize.height
     )
 
     return attachment
