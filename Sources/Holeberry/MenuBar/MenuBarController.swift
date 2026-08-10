@@ -225,7 +225,7 @@ final class MenuBarController: NSObject {
     guard let server = serverManager.servers.first else { return }
     Task {
       let statuses = await serverManager.getBlockingStatus()
-      if let status = statuses[server.id], let status {
+      if case .success(let status) = statuses[server.id] {
         switch status {
         case .enabled:
           timerManager.cancel()

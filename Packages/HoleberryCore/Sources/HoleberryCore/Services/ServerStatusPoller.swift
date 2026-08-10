@@ -11,6 +11,9 @@ public final class ServerStatusPoller: ObservableObject {
   @Published public var querySummaries: [UUID: QuerySummary] = [:]
   @Published public var lastPollError: String?
   @Published public var recentBlocked: [BlockedDomain] = []
+  @Published public var connectionStates: [UUID: ServerConnectionState] = [:]
+  @Published public var checkingServerIDs: Set<UUID> = []
+  private var lastSuccessfulCheck: [UUID: Date] = [:]
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private let pollingInterval: TimeInterval
@@ -59,6 +62,9 @@ public final class ServerStatusPoller: ObservableObject {
     self.timerManager = timerManager
     self.sleep = sleep
     self.servers = manager.servers
+    self.lastSuccessfulCheck = Dictionary(
+      uniqueKeysWithValues: manager.servers.map { ($0.id, Date()) }
+    )
 
     // Re-check blocking status when the countdown ends instead of waiting for the next poll.
     timerManager.onEnded = { [weak self] in
@@ -80,6 +86,8 @@ public final class ServerStatusPoller: ObservableObject {
         self.connectionStatuses = self.connectionStatuses.filter { newIDs.contains($0.key) }
         self.blockingStatuses = self.blockingStatuses.filter { newIDs.contains($0.key) }
         self.querySummaries = self.querySummaries.filter { newIDs.contains($0.key) }
+        self.connectionStates = self.connectionStates.filter { newIDs.contains($0.key) }
+        self.lastSuccessfulCheck = self.lastSuccessfulCheck.filter { newIDs.contains($0.key) }
         self.servers = newServers
         guard structuralChange, !self.isPolling else { return }
         Task { await self.performPoll() }
@@ -127,6 +135,7 @@ public final class ServerStatusPoller: ObservableObject {
         let status: BlockingStatus = enabled ? .enabled : .disabled(remainingSeconds: duration)
         blockingStatuses[id] = status
         connectionStatuses[id] = .connected
+        connectionStates[id] = .healthy
       } else {
         connectionStatuses[id] = .disconnected
         blockingStatuses.removeValue(forKey: id)
@@ -143,6 +152,41 @@ public final class ServerStatusPoller: ObservableObject {
     return results
   }
 
+  /// Manual retry: one authoritative check for a single server, applied
+  /// immediately (the same first-failure onset as polling). The result lets
+  /// the UI relabel "Retry" → "Edit connection" on failure.
+  public func refreshServer(id: UUID) async -> ServerConnectionState {
+    guard !checkingServerIDs.contains(id) else {
+      return connectionStates[id] ?? .unreachable(lastSeen: lastSuccessfulCheck[id])
+    }
+    checkingServerIDs.insert(id)
+    defer { checkingServerIDs.remove(id) }
+
+    guard let result = await manager.checkServer(id: id) else {
+      return connectionStates[id] ?? .unreachable(lastSeen: lastSuccessfulCheck[id])
+    }
+
+    switch result {
+    case .success(let status):
+      lastSuccessfulCheck[id] = Date()
+      connectionStates[id] = .healthy
+      connectionStatuses[id] = .connected
+      blockingStatuses[id] = status
+      return .healthy
+    case .failure(let error):
+      let state: ServerConnectionState
+      switch ServerCheckFailure.classify(error) {
+      case .auth(let reason):
+        state = .authError(reason: reason)
+      case .unreachable:
+        state = .unreachable(lastSeen: lastSuccessfulCheck[id])
+      }
+      connectionStates[id] = state
+      connectionStatuses[id] = .disconnected
+      blockingStatuses.removeValue(forKey: id)
+      return state
+    }
+  }
 
   // MARK: - Polling Implementation
 
@@ -156,6 +200,8 @@ public final class ServerStatusPoller: ObservableObject {
       querySummaries = [:]
       recentBlocked = []
       lastPollError = nil
+      connectionStates = [:]
+      lastSuccessfulCheck = [:]
       return
     }
 
@@ -229,17 +275,47 @@ public final class ServerStatusPoller: ObservableObject {
     // and applying the stale results could misreport a manual re-enable as an
     // automatic one.
     guard generation == blockingChangeGeneration else { return }
-    for (id, status) in blockingResults {
-      if let status {
-        connectionStatuses[id] = .connected
+    for (id, result) in blockingResults {
+      switch result {
+      case .success(let status):
+        lastSuccessfulCheck[id] = Date()
+        connectionStates[id] = .healthy
         blockingStatuses[id] = status
-      } else {
-        connectionStatuses[id] = .disconnected
+      case .failure(let error):
+        // First failure flips the row immediately with its classification.
+        // Keep the stronger signal: never downgrade a confirmed authError to
+        // unreachable over transient network failures — the re-auth affordance
+        // must not silently disappear. A success resets the row.
+        if case .authError = connectionStates[id],
+          ServerCheckFailure.classify(error) == .unreachable
+        {
+          continue
+        }
+        switch ServerCheckFailure.classify(error) {
+        case .auth(let reason):
+          connectionStates[id] = .authError(reason: reason)
+        case .unreachable:
+          connectionStates[id] = .unreachable(lastSeen: lastSuccessfulCheck[id])
+        }
         blockingStatuses.removeValue(forKey: id)
       }
     }
+    syncConnectionStatusesFromStates()
     notifyIfAutoReenabled(previousDisabledIDs: previouslyDisabledIDs)
     syncCountdownWithServerRemaining()
+  }
+
+  /// Derives the menu's `connectionStatuses` from the row state. Only touches
+  /// ids that already have a row state — pre-poll behavior is unchanged.
+  private func syncConnectionStatusesFromStates() {
+    for (id, state) in connectionStates {
+      switch state {
+      case .healthy:
+        connectionStatuses[id] = .connected
+      case .authError, .unreachable:
+        connectionStatuses[id] = .disconnected
+      }
+    }
   }
 
   /// Keeps the countdown pill and the timer-end re-check tracking the server's

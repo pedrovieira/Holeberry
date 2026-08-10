@@ -11,6 +11,8 @@ struct BrowserTabSettingsView: View {
     Section("Browser Tab") {
       VStack(alignment: .leading) {
         HStack(spacing: 6) {
+          BetaBadge()
+
           Text("Enable browser tab unblocking")
 
           Button {
@@ -34,10 +36,13 @@ struct BrowserTabSettingsView: View {
             .accessibilityLabel("Enable browser tab unblocking")
         }
 
-        Text("May require Automation permission to read the current browser tab URL.")
-          .font(.callout)
-          .foregroundColor(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
+        Text(
+          "Quickly unblock a URL from your browser. "
+            + "May require Automation permission to read the current browser tab."
+        )
+        .font(.callout)
+        .foregroundColor(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
       }
     }
   }
@@ -89,5 +94,27 @@ private struct BrowserTabInfoPopover: View {
     }
     .padding(12)
     .frame(width: 260)
+  }
+}
+
+/// A small gold "Beta" pill with a gold-brown border, marking the browser tab
+/// unblocking feature as experimental: it is not fully tested across all
+/// supported browsers.
+private struct BetaBadge: View {
+  private static let gold = Color(red: 0.85, green: 0.65, blue: 0.13)
+  private static let goldBrown = Color(red: 0.60, green: 0.44, blue: 0.06)
+
+  var body: some View {
+    Text("Beta")
+      .font(.system(size: 10, weight: .semibold))
+      .foregroundColor(.black)
+      .padding(.horizontal, 6)
+      .padding(.vertical, 2)
+      .background(
+        Capsule()
+          .fill(Self.gold)
+          .overlay(Capsule().strokeBorder(Self.goldBrown, lineWidth: 1))
+      )
+      .help("Not fully tested for all browsers")
   }
 }

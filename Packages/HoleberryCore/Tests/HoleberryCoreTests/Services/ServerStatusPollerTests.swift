@@ -42,7 +42,7 @@ struct ServerStatusPollerTests {
   func startPollingBeginsPolling() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     let poller = makePoller()
 
     poller.startPolling()
@@ -57,11 +57,273 @@ struct ServerStatusPollerTests {
     #expect(poller.blockingStatuses[id] == .enabled)
   }
 
+  @Test("single failure flips the row immediately")
+  func singleFailureFlipsImmediately() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .healthy)
+
+    mockManager.getBlockingStatusStub = [id: .failure(.network("blip"))]
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable after the first failed check")
+      return
+    }
+    #expect(poller.connectionStatuses[id] == .disconnected, "menu follows the row state")
+  }
+
+  @Test("failure flips to classified error on first failed check")
+  func failureFlipsToClassifiedError() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    mockManager.getBlockingStatusStub = [id: .failure(.invalidCredentials)]
+    await scheduler.fireTick()
+
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+    #expect(poller.connectionStatuses[id] == .disconnected)
+    #expect(poller.blockingStatuses[id] == nil)
+  }
+
+  @Test("unreachable classification carries lastSeen; instant recovery on success")
+  func unreachableCarriesLastSeenAndRecoversInstantly() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    let lastSeen = poller.connectionStates[id]
+    guard case .unreachable(let date)? = lastSeen else {
+      Issue.record("expected unreachable, got \(String(describing: lastSeen))")
+      return
+    }
+    #expect(date != nil)
+
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .healthy)
+  }
+
+  @Test("failed blocking toggle does not flip the row; the next poll does")
+  func failedToggleLeavesRowUntilNextPoll() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    // Toggle fails: menu flips red immediately; the row stays put — a failed
+    // toggle carries no auth/unreachable classification.
+    mockManager.setBlockingStub = [id: false]
+    let results = await poller.applyBlockingChange(enabled: false, duration: nil)
+    #expect(results[id] == false)
+    #expect(poller.connectionStatuses[id] == .disconnected)
+    #expect(poller.connectionStates[id] == .healthy)
+
+    // Next poll also fails → row flips with a proper classification.
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable after toggle failure + poll failure")
+      return
+    }
+  }
+
+  @Test("successful blocking toggle resets row to healthy")
+  func successfulToggleResetsRow() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable before toggle")
+      return
+    }
+
+    mockManager.setBlockingStub = [id: true]
+    let results = await poller.applyBlockingChange(enabled: true, duration: nil)
+    #expect(results[id] == true)
+    #expect(poller.connectionStates[id] == .healthy)
+    #expect(poller.connectionStatuses[id] == .connected)
+  }
+
+  @Test("no state entry before the first poll")
+  func noEntryBeforeFirstPoll() {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    let poller = makePoller()
+    #expect(poller.connectionStates[id] == nil)
+  }
+
+  @Test("unreachable state seeds lastSeen with the launch time")
+  func unreachableSeedsLastSeenFromLaunch() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    guard case .unreachable(let lastSeen)? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable")
+      return
+    }
+    #expect(lastSeen != nil, "launch-seeded lastSeen powers the 'last seen' counter")
+  }
+
+  @Test("authError is not downgraded by later unreachable failures")
+  func authErrorNotDowngradedByUnreachable() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    // Enter authError via two auth failures.
+    mockManager.getBlockingStatusStub = [id: .failure(.invalidCredentials)]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+
+    // Two transient network failures must NOT flip the row to unreachable.
+    mockManager.getBlockingStatusStub = [id: .failure(.network("blip"))]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+    #expect(poller.connectionStatuses[id] == .disconnected)
+  }
+
+  @Test("unreachable upgrades to authError once authentication fails")
+  func unreachableUpgradesToAuthError() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable first")
+      return
+    }
+
+    mockManager.getBlockingStatusStub = [id: .failure(.invalidCredentials)]
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+  }
+
+  // MARK: - refreshServer (manual retry)
+
+  @Test("refreshServer success is authoritative and resets the row")
+  func refreshServerSuccessIsAuthoritative() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("down"))]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable before retry")
+      return
+    }
+
+    mockManager.checkServerStub = [id: .success(.enabled)]
+    let result = await poller.refreshServer(id: id)
+    #expect(result == .healthy)
+    #expect(poller.connectionStates[id] == .healthy)
+    #expect(poller.connectionStatuses[id] == .connected)
+    #expect(poller.blockingStatuses[id] == .enabled)
+    #expect(mockManager.checkServerCallCount == 1)
+
+    // A single poll failure after a successful retry flips the row again
+    // (first-failure onset) — recovery is instant, onset is immediate.
+    mockManager.getBlockingStatusStub = [id: .failure(.network("blip"))]
+    await scheduler.fireTick()
+    guard case .unreachable? = poller.connectionStates[id] else {
+      Issue.record("expected unreachable after poll failure")
+      return
+    }
+  }
+
+  @Test("refreshServer failure flips the row immediately with classification")
+  func refreshServerFailureFlipsImmediately() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
+    let poller = makePoller()
+    poller.startPolling()
+    await scheduler.fireTick()
+
+    mockManager.checkServerStub = [id: .failure(.invalidCredentials)]
+    let result = await poller.refreshServer(id: id)
+    #expect(result == .authError(reason: .passwordMayHaveChanged))
+    #expect(poller.connectionStates[id] == .authError(reason: .passwordMayHaveChanged))
+    #expect(poller.connectionStatuses[id] == .disconnected)
+    #expect(poller.blockingStatuses[id] == nil)
+  }
+
+  @Test("refreshServer is visible in checkingServerIDs while in flight")
+  func refreshServerShowsInCheckingServerIDs() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.checkServerStub = [id: .success(.enabled)]
+    let poller = makePoller()
+
+    // One-shot gate: while the check is awaited, the id must be visible.
+    mockManager.checkServerGate = { [poller] in
+      #expect(poller.checkingServerIDs.contains(id))
+    }
+    _ = await poller.refreshServer(id: id)
+    #expect(poller.checkingServerIDs.isEmpty, "cleared after completion")
+  }
+
+  @Test("refreshServer double-run is a no-op")
+  func refreshServerDoubleRunIsNoOp() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.checkServerStub = [id: .success(.enabled)]
+    let poller = makePoller()
+
+    var release: CheckedContinuation<Void, Never>?
+    mockManager.checkServerGate = {
+      await withCheckedContinuation { release = $0 }
+    }
+
+    async let first: ServerConnectionState = poller.refreshServer(id: id)
+    await waitUntil { poller.checkingServerIDs.contains(id) }
+    // Second call while in flight must not start a second check.
+    let second = await poller.refreshServer(id: id)
+    #expect(mockManager.checkServerCallCount == 1)
+    release?.resume()
+    let firstResult = await first
+    #expect(firstResult == .healthy)
+  }
+
   @Test("startPolling while running is a no-op; stopPolling allows restart")
   func startPollingIdempotentAndRestartable() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     let poller = makePoller()
 
     poller.startPolling()
@@ -80,7 +342,7 @@ struct ServerStatusPollerTests {
   func stopPollingCancelsTask() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     let poller = makePoller()
 
     poller.startPolling()
@@ -101,7 +363,7 @@ struct ServerStatusPollerTests {
   func emptyServersClearsStateOnPoll() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     mockManager.getQuerySummaryStub = [id: QuerySummary(totalQueries: 10, totalBlocked: 2)]
     mockManager.getRecentBlockedStub = .success(
       [BlockedDomain(domain: "ads.com", timestamp: Date(), fromClientIp: "1.1.1.1")]
@@ -133,7 +395,7 @@ struct ServerStatusPollerTests {
   func pollNowRestartsPolling() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     let poller = makePoller()
 
     poller.startPolling()
@@ -158,7 +420,7 @@ struct ServerStatusPollerTests {
       ServerConfig(id: idA, url: "http://a.local", version: .v6),
       ServerConfig(id: idB, url: "http://b.local", version: .v6)
     ]
-    mockManager.getBlockingStatusStub = [idA: .enabled, idB: .disabled(remainingSeconds: 120)]
+    mockManager.getBlockingStatusStub = [idA: .success(.enabled), idB: .success(.disabled(remainingSeconds: 120))]
     let poller = makePoller()
     poller.startPolling()
 
@@ -170,11 +432,11 @@ struct ServerStatusPollerTests {
     #expect(poller.connectionStatuses[idB] == .connected)
   }
 
-  @Test("nil blocking status marks server disconnected")
-  func nilBlockingStatusMarksDisconnected() async {
+  @Test("failed check marks server disconnected on the first failure")
+  func failedCheckMarksDisconnected() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: nil]
+    mockManager.getBlockingStatusStub = [id: .failure(.network("test"))]
     let poller = makePoller()
     poller.startPolling()
 
@@ -287,7 +549,7 @@ struct ServerStatusPollerTests {
   func pollObservedReenableFiresCallback() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let poller = makePoller()
     var firedIDs: Set<UUID>?
     poller.onBlockingAutoReenabled = { firedIDs = $0 }
@@ -296,7 +558,7 @@ struct ServerStatusPollerTests {
     await scheduler.fireTick()
     #expect(firedIDs == nil)
 
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     await scheduler.fireTick()
 
     #expect(firedIDs == [id])
@@ -307,7 +569,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let poller = makePoller()
     var fired = false
     poller.onBlockingAutoReenabled = { _ in fired = true }
@@ -321,7 +583,7 @@ struct ServerStatusPollerTests {
     await poller.applyBlockingChange(enabled: true, duration: nil)
     // ...so even when the server reports enabled, the local reflection
     // already happened and no transition is observed.
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     await scheduler.fireTick()
 
     #expect(fired == false)
@@ -336,8 +598,8 @@ struct ServerStatusPollerTests {
       ServerConfig(id: idB, url: "http://b.local", version: .v6)
     ]
     mockManager.getBlockingStatusStub = [
-      idA: .disabled(remainingSeconds: 300),
-      idB: .disabled(remainingSeconds: 300)
+      idA: .success(.disabled(remainingSeconds: 300)),
+      idB: .success(.disabled(remainingSeconds: 300))
     ]
     let poller = makePoller()
     var firedIDs: Set<UUID>?
@@ -348,12 +610,12 @@ struct ServerStatusPollerTests {
     #expect(firedIDs == nil)
 
     // One server re-enables; the unblock is still active on the other.
-    mockManager.getBlockingStatusStub = [idA: .enabled, idB: .disabled(remainingSeconds: 60)]
+    mockManager.getBlockingStatusStub = [idA: .success(.enabled), idB: .success(.disabled(remainingSeconds: 60))]
     await scheduler.fireTick()
     #expect(firedIDs == nil)
 
     // The last one re-enables → exactly one event.
-    mockManager.getBlockingStatusStub = [idA: .enabled, idB: .enabled]
+    mockManager.getBlockingStatusStub = [idA: .success(.enabled), idB: .success(.enabled)]
     await scheduler.fireTick()
     #expect(firedIDs == [idB])
   }
@@ -363,7 +625,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let poller = makePoller()
     var fired = false
     poller.onBlockingAutoReenabled = { _ in fired = true }
@@ -376,7 +638,7 @@ struct ServerStatusPollerTests {
     await poller.applyBlockingChange(enabled: true, duration: nil)
 
     poller.startPolling()
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     await scheduler.fireTick()
 
     #expect(fired == false)
@@ -387,7 +649,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     var resumeGate: (() -> Void)?
     mockManager.getBlockingStatusGate = {
       await withCheckedContinuation { continuation in
@@ -407,7 +669,7 @@ struct ServerStatusPollerTests {
     await poller.applyBlockingChange(enabled: true, duration: nil)
 
     // The stale fetch completes: its results must be discarded, no event.
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     resumeGate?()
     await tickTask.value
 
@@ -420,7 +682,7 @@ struct ServerStatusPollerTests {
   @Test("structural server change triggers poll")
   func structuralServerChangeTriggersPoll() async {
     let id = UUID()
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     let poller = makePoller()  // servers empty at creation
 
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
@@ -457,7 +719,7 @@ struct ServerStatusPollerTests {
       ServerConfig(id: idA, url: "http://a.local", version: .v6),
       ServerConfig(id: idB, url: "http://b.local", version: .v6)
     ]
-    mockManager.getBlockingStatusStub = [idA: .enabled, idB: .enabled]
+    mockManager.getBlockingStatusStub = [idA: .success(.enabled), idB: .success(.enabled)]
     mockManager.getQuerySummaryStub = [
       idA: QuerySummary(totalQueries: 1, totalBlocked: 0),
       idB: QuerySummary(totalQueries: 2, totalBlocked: 1)
@@ -469,7 +731,7 @@ struct ServerStatusPollerTests {
 
     // Remove server B. Update the stubs FIRST so the sink-triggered poll cannot
     // re-populate B's entries; then remove the server.
-    mockManager.getBlockingStatusStub = [idA: .enabled]
+    mockManager.getBlockingStatusStub = [idA: .success(.enabled)]
     mockManager.getQuerySummaryStub = [idA: QuerySummary(totalQueries: 1, totalBlocked: 0)]
     mockManager.servers = [ServerConfig(id: idA, url: "http://a.local", version: .v6)]
 
@@ -553,7 +815,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
     var firedIDs: Set<UUID>?
@@ -562,7 +824,7 @@ struct ServerStatusPollerTests {
     // Time-boxed disable with an already-expired duration; the next tick must
     // re-check status immediately.
     await poller.applyBlockingChange(enabled: false, duration: 0)
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
 
     timer.countdownTick()
 
@@ -578,7 +840,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
 
@@ -595,7 +857,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     // Arm the gate before the timer starts so any stray re-check suspends here.
     var resumeGate: (() -> Void)?
     mockManager.getBlockingStatusGate = {
@@ -611,7 +873,7 @@ struct ServerStatusPollerTests {
 
     // Expire the countdown while the poll's status fetch is held open: the
     // re-check must skip so the event fires exactly once.
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     poller.startPolling()
     let tickTask = Task { await scheduler.fireTick() }
     await waitUntil { mockManager.getBlockingStatusCallCount == 1 }
@@ -630,7 +892,7 @@ struct ServerStatusPollerTests {
   func pollStartsCountdownFromServerRemaining() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
     poller.startPolling()
@@ -646,7 +908,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 999)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 999))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
     await poller.applyBlockingChange(enabled: false, duration: 300)
@@ -663,7 +925,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 3)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 3))]
     var resumeSleep: (() -> Void)?
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer) { _ in
@@ -678,7 +940,7 @@ struct ServerStatusPollerTests {
     timer.countdownTick()  // expires → re-check #1 → still disabled → waits
 
     await waitUntil { resumeSleep != nil }
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     resumeSleep?()
 
     await waitUntil { firedIDs == [id] }
@@ -691,13 +953,13 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 300)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
     await poller.applyBlockingChange(enabled: false, duration: 300)
 
     // The server re-enabled externally; the next poll observes the transition.
-    mockManager.getBlockingStatusStub = [id: .enabled]
+    mockManager.getBlockingStatusStub = [id: .success(.enabled)]
     poller.startPolling()
     await scheduler.fireTick()
 
@@ -709,7 +971,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 60)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 60))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer) { _ in }
     var fired = false
@@ -728,7 +990,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.setBlockingStub = [id: true]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: 3)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 3))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer) { _ in }
 
@@ -743,7 +1005,7 @@ struct ServerStatusPollerTests {
   func pollDoesNotStartCountdownForIndefiniteDisable() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getBlockingStatusStub = [id: .disabled(remainingSeconds: nil)]
+    mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: nil))]
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
     poller.startPolling()

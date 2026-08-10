@@ -19,6 +19,7 @@
 		247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */; };
 		2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */; };
 		2D274003B08DCE0B66A48C96 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02F9A5864E11136906AE2FF /* ShortcutController.swift */; };
+		32B3DB91B041007E362C5BF1 /* AuthFailureReason+Copy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */; };
 		3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
 		4FCA20D74CFACF8A70C6B09D /* ConnectionStatus+Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = C151C0B11314A1587D7CF5F2 /* ConnectionStatus+Colors.swift */; };
@@ -46,6 +47,7 @@
 
 /* Begin PBXFileReference section */
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthFailureReason+Copy.swift"; sourceTree = "<group>"; };
 		273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabSettingsView.swift; sourceTree = "<group>"; };
 		2A6D689F10D80D71CAF6934F /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
 		2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationPickerAlert.swift; sourceTree = "<group>"; };
@@ -100,6 +102,7 @@
 		05E28E2794738F28F909ADBD /* ConnectionViews */ = {
 			isa = PBXGroup;
 			children = (
+				137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */,
 				6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */,
 				FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */,
 				3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */,
@@ -377,6 +380,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				32B3DB91B041007E362C5BF1 /* AuthFailureReason+Copy.swift in Sources */,
 				2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */,
 				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,
 				CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */,
