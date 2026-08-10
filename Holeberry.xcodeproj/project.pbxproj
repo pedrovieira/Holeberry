@@ -28,6 +28,7 @@
 		676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */; };
 		6CEB0E6770122CF53F8C4025 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858324575623497A21100873 /* UpdateManager.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
+		8F1976F9A92FB5F96E9A0570 /* LimitedTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 708D635B240324C5A79BA870 /* LimitedTextField.swift */; };
 		93759451DE4548FB5243741B /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */; };
 		97E0F4753A5EE8C4E5E09E2B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 740E0351B8319723BD1DD852 /* AppIcon.icon */; };
 		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
@@ -60,6 +61,7 @@
 		551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnblockCurrentTabDurationPicker.swift; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
 		6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
+		708D635B240324C5A79BA870 /* LimitedTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LimitedTextField.swift; sourceTree = "<group>"; };
 		740E0351B8319723BD1DD852 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainStatusBarMenu.swift; sourceTree = "<group>"; };
 		858324575623497A21100873 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
@@ -169,6 +171,7 @@
 			children = (
 				A95D78A3AB479976D7E8CF46 /* DurationField.swift */,
 				2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */,
+				708D635B240324C5A79BA870 /* LimitedTextField.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -390,6 +393,7 @@
 				1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */,
 				5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */,
 				7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */,
+				8F1976F9A92FB5F96E9A0570 /* LimitedTextField.swift in Sources */,
 				3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */,
 				C02BDEB33D979927C512A11D /* MenuActions.swift in Sources */,
 				208911EBF1F6B4A2D6038E83 /* MenuBarController.swift in Sources */,
