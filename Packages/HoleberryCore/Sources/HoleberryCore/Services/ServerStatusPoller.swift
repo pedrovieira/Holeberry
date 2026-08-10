@@ -13,7 +13,6 @@ public final class ServerStatusPoller: ObservableObject {
   @Published public var recentBlocked: [BlockedDomain] = []
   @Published public var connectionStates: [UUID: ServerConnectionState] = [:]
   @Published public var checkingServerIDs: Set<UUID> = []
-  private var consecutiveFailures: [UUID: Int] = [:]
   private var lastSuccessfulCheck: [UUID: Date] = [:]
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
@@ -63,6 +62,9 @@ public final class ServerStatusPoller: ObservableObject {
     self.timerManager = timerManager
     self.sleep = sleep
     self.servers = manager.servers
+    self.lastSuccessfulCheck = Dictionary(
+      uniqueKeysWithValues: manager.servers.map { ($0.id, Date()) }
+    )
 
     // Re-check blocking status when the countdown ends instead of waiting for the next poll.
     timerManager.onEnded = { [weak self] in
@@ -85,7 +87,6 @@ public final class ServerStatusPoller: ObservableObject {
         self.blockingStatuses = self.blockingStatuses.filter { newIDs.contains($0.key) }
         self.querySummaries = self.querySummaries.filter { newIDs.contains($0.key) }
         self.connectionStates = self.connectionStates.filter { newIDs.contains($0.key) }
-        self.consecutiveFailures = self.consecutiveFailures.filter { newIDs.contains($0.key) }
         self.lastSuccessfulCheck = self.lastSuccessfulCheck.filter { newIDs.contains($0.key) }
         self.servers = newServers
         guard structuralChange, !self.isPolling else { return }
@@ -135,12 +136,9 @@ public final class ServerStatusPoller: ObservableObject {
         blockingStatuses[id] = status
         connectionStatuses[id] = .connected
         connectionStates[id] = .healthy
-        consecutiveFailures[id] = 0
       } else {
         connectionStatuses[id] = .disconnected
         blockingStatuses.removeValue(forKey: id)
-        // Counts as failure #1 toward the hysteresis threshold — no immediate flip.
-        consecutiveFailures[id] = max(consecutiveFailures[id] ?? 0, 1)
       }
     }
 
@@ -154,9 +152,9 @@ public final class ServerStatusPoller: ObservableObject {
     return results
   }
 
-  /// Manual retry: one authoritative check for a single server, bypassing the
-  /// hysteresis threshold. The result is applied immediately so the UI can
-  /// relabel "Retry" → "Edit connection" on failure.
+  /// Manual retry: one authoritative check for a single server, applied
+  /// immediately (the same first-failure onset as polling). The result lets
+  /// the UI relabel "Retry" → "Edit connection" on failure.
   public func refreshServer(id: UUID) async -> ServerConnectionState {
     guard !checkingServerIDs.contains(id) else {
       return connectionStates[id] ?? .unreachable(lastSeen: lastSuccessfulCheck[id])
@@ -170,14 +168,12 @@ public final class ServerStatusPoller: ObservableObject {
 
     switch result {
     case .success(let status):
-      consecutiveFailures[id] = 0
       lastSuccessfulCheck[id] = Date()
       connectionStates[id] = .healthy
       connectionStatuses[id] = .connected
       blockingStatuses[id] = status
       return .healthy
     case .failure(let error):
-      consecutiveFailures[id] = 2
       let state: ServerConnectionState
       switch ServerCheckFailure.classify(error) {
       case .auth(let reason):
@@ -205,7 +201,6 @@ public final class ServerStatusPoller: ObservableObject {
       recentBlocked = []
       lastPollError = nil
       connectionStates = [:]
-      consecutiveFailures = [:]
       lastSuccessfulCheck = [:]
       return
     }
@@ -283,13 +278,11 @@ public final class ServerStatusPoller: ObservableObject {
     for (id, result) in blockingResults {
       switch result {
       case .success(let status):
-        consecutiveFailures[id] = 0
         lastSuccessfulCheck[id] = Date()
         connectionStates[id] = .healthy
         blockingStatuses[id] = status
       case .failure(let error):
-        consecutiveFailures[id] = (consecutiveFailures[id] ?? 0) + 1
-        guard consecutiveFailures[id] ?? 0 >= 2 else { continue }
+        // First failure flips the row immediately with its classification.
         // Keep the stronger signal: never downgrade a confirmed authError to
         // unreachable over transient network failures — the re-auth affordance
         // must not silently disappear. A success resets the row.
