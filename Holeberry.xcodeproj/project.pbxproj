@@ -35,6 +35,7 @@
 		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
 		C02BDEB33D979927C512A11D /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */; };
 		CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */; };
+		CD040B18D5CF4518731EC852 /* UnblockCurrentTabDurationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */; };
 		D8E3C678109A99C500F416AE /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F937B463F6A990098878357C /* KeyboardShortcuts */; };
 		D95248B0CA506BBCA6AF342E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C039DDD8F05E05A8D434F71 /* Assets.xcassets */; };
 		E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */; };
@@ -54,6 +55,7 @@
 		47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyBlockedMenu.swift; sourceTree = "<group>"; };
 		4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotificationKind.swift; sourceTree = "<group>"; };
+		551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnblockCurrentTabDurationPicker.swift; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
 		6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		740E0351B8319723BD1DD852 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 				DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */,
 				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
 				4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */,
+				551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */,
 				05E28E2794738F28F909ADBD /* ConnectionViews */,
 			);
 			path = Settings;
@@ -399,6 +402,7 @@
 				038FEAFB14DC67AFACF9724F /* ShortcutNames.swift in Sources */,
 				93759451DE4548FB5243741B /* SoftwareUpdater.swift in Sources */,
 				E2DDD32077C331E692744C30 /* StatusItemButton.swift in Sources */,
+				CD040B18D5CF4518731EC852 /* UnblockCurrentTabDurationPicker.swift in Sources */,
 				B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */,
 				6CEB0E6770122CF53F8C4025 /* UpdateManager.swift in Sources */,
 				E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */,

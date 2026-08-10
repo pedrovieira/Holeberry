@@ -56,6 +56,19 @@ extension Defaults.Keys {
     )
   }
 
+  /// What the "Unblock Current Tab" global shortcut should do when it fires.
+  /// Defaults to the stable 5-minute entry; resolves to indefinite if that
+  /// entry is ever removed from the durations list.
+  public static func unblockCurrentTabDuration(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<UnblockCurrentTabDurationSelection> {
+    Defaults.Key<UnblockCurrentTabDurationSelection>(
+      "unblockCurrentTabDuration",
+      default: .entry(UnblockDurationEntry.default5mID),
+      suite: suite
+    )
+  }
+
   /// Returns a per-server key for temp-unblock records.
   public static func tempUnblocks(
     for serverID: UUID, suite: UserDefaults = .standard

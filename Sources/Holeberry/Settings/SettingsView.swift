@@ -31,6 +31,7 @@ struct SettingsView: View {
   @Default var browserTabUnblockEnabled: Bool
   @Default var showAllClientsRecentBlocked: Bool
   @Default var durations: [UnblockDurationEntry]
+  @Default var unblockCurrentTabDuration: UnblockCurrentTabDurationSelection
 
   @State private var isToggling = false
   @State private var requiresApproval = false
@@ -65,6 +66,7 @@ struct SettingsView: View {
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
     _durations = .init(.unblockDurations(suite: defaultsSuite))
+    _unblockCurrentTabDuration = .init(.unblockCurrentTabDuration(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
   }
 
@@ -217,10 +219,14 @@ struct SettingsView: View {
           Text("Unblock Current Tab:")
         }
 
+        UnblockCurrentTabDurationPicker(durations: $durations, selection: $unblockCurrentTabDuration)
+          .disabled(!browserTabUnblockEnabled)
+
         if !browserTabUnblockEnabled {
-          Text("Enable browser tab unblocking in General to use this shortcut.")
+          Button("Enable browser tab unblocking in General to use this shortcut.") { selectedTab = .defaults }
+            .buttonStyle(.link)
             .font(.callout)
-            .foregroundColor(.secondary)
+            .padding(.top, 5)
         }
       }
     } header: {
