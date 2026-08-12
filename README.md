@@ -27,7 +27,7 @@
 
 ## What is Holeberry?
 
-Holeberry is a lightweight macOS menu bar app that puts your Pi-hole® at your fingertips. Check blocking status and query stats, disable blocking for a few seconds or a custom duration, unblock the domain in your current browser tab, and allowlist or unblock recently-blocked domains — all without opening the Pi-hole web interface.
+Holeberry is a lightweight macOS menu bar app that puts your Pi-hole® at your fingertips. Check blocking status and query stats, disable blocking for a specific amount of time or indefinitely, unblock the domain in your current browser tab, and allowlist or unblock recently-blocked domains — all without opening the Pi-hole web interface.
 
 It supports Pi-hole® **v6** and **v5** (*not fully tested*), multiple instances, and global keyboard shortcuts.
 
@@ -51,7 +51,9 @@ xattr -dr com.apple.quarantine /Applications/Holeberry.app
 
 ### Multiple instances
 
-Manage several Pi-hole instances from one menu: per-server status dots, aggregated query/blocked stats, and clear warnings when an instance is down or instances disagree on blocking state.
+Manage up to **two Pi-hole® instances** from one menu. Every action — blocking, unblocking, allowlist changes, and more — is applied to **all instances at the same time**.
+
+This matters because there's no guarantee your Mac only uses the first DNS server. With Holeberry, every instance always stays in sync. Per-server status dots and aggregated stats are shown right in the menu.
 
 <p align="center">
   <img width="700" height="351" alt="desktop-app-banner" src="Assets/max-connections.png"/>
@@ -67,15 +69,17 @@ The menu bar icon reflects your Pi-hole®'s health at all times, with per-instan
 
 ### Disable blocking with a timer
 
-Turn blocking off for **10 seconds, 30 seconds, 5 minutes, a custom duration**, or **indefinitely** — blocking re-enables automatically when the timer expires. No more forgetting to turn the ads back on.
+A quick way to disable blocking **globally** on all your Pi-hole® instances for a specific amount of time, or indefinitely. A **timer pill** in the menu bar shows the countdown, and blocking re-enables automatically when time's up.
 
 <p align="center">
   <img width="422" height="164" alt="desktop-app-banner" src="Assets/menu-unblock.png"/>
 </p>
 
-### Unblock the tab you're on
+### Unblock the browser tab you're on
 
-Holeberry detects the current tab in **Safari, Chrome/Chromium, Firefox, and Zen Browser** and lets you unblock that exact domain — for 10 seconds, 30 seconds, 5 minutes, or a custom duration — or add it to your allowlist. Perfect for that one broken link or video that refuses to load.
+Holeberry detects the current tab in **Safari, Chrome/Chromium, Gecko (Firefox & Zen) Browser** and unblocks that exact domain with one click — perfect when a page fails to load because Pi-hole blocked it.
+
+Unblocking a single domain beats a global disable: the page loads while the rest of your network stays protected. (Your smart TV would disagree — it sends so much traffic out into the world it would love a global unblock. Don't listen to it.) You can also add the domain to your allowlist.
 
 <p align="center">
   <img width="668" height="251" alt="desktop-app-banner" src="Assets/browser-unblock.png"/>
@@ -83,15 +87,15 @@ Holeberry detects the current tab in **Safari, Chrome/Chromium, Firefox, and Zen
 
 ### Recently blocked
 
-Browse the domains Pi-hole blocked recently (from your Mac or all clients), and unblock or allowlist any of them straight from the menu.
+Browse the domains Pi-hole® blocked recently (from your Mac or all clients), and unblock or allowlist any of them straight from the menu.
 
 
 ## What's next?
 
-Holeberry is a Pi-hole app today, but the menu bar workflow doesn't have to stop there. If there's enough community interest, future versions could add:
+Holeberry is a Pi-hole® app today, but the menu bar workflow doesn't have to stop there. If there's enough community interest, future versions could add:
 
-- **Support for other DNS providers** — AdGuard Home and Technitium are natural candidates, for people who don't run Pi-hole.
-- **Mixed setups** — connect Pi-hole and AdGuard Home (or any combination) side by side, with per-instance status, aggregated stats, and the same one-click controls across providers.
+- **Support for other DNS providers** — AdGuard Home and Technitium are natural candidates, for people who don't run Pi-hole®.
+- **Mixed setups** — connect Pi-hole® and AdGuard Home (or any combination) side by side, with per-instance status, aggregated stats, and the same one-click controls across providers.
 
 None of this is a commitment — it's a wishlist, and demand decides the order. If you'd like to see any of these, open an [issue](https://github.com/pedrovieira/Holeberry/issues).
 
@@ -132,7 +136,7 @@ Bug reports and feature requests are welcome via [issues](https://github.com/ped
 
 ## AI-assisted development
 
-This project was primarily written by AI. I want to be upfront about that — but it was heavily guided by a human: me. AI generated and refined most of the code, but the architecture, the features, the scope, and the design decisions were directed and reviewed by me at every step. Treat the AI as an accelerator, not an author: the choices that make this codebase what it is — protocol-driven design, a testable core extracted into `HoleberryCore`, Swift 6 strict concurrency — are human choices. AI just made it faster to get there.
+This project was primarily written by AI. I want to be upfront about that — but it was heavily guided by a human: me. AI generated and refined most of the code, but the architecture, the features, the scope, and the design decisions were directed and reviewed by me at every step. Treat the AI as an accelerator, not an author: the choices that make this codebase what it is are human choices. AI just made it faster to get there.
 
 ## Acknowledgements
 
