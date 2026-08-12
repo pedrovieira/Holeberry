@@ -49,28 +49,20 @@ xattr -dr com.apple.quarantine /Applications/Holeberry.app
 
 ## Features
 
-### Status at a glance
-
-The menu bar icon reflects your Pi-hole®'s health at all times, with per-instance status for multi-server setups:
-
-- 🟢 **Blocking Active** — everything is blocking as expected
-- ⚪ **Blocking Disabled** — blocking is off (or on a timer)
-- 🟠 **Blocking Partially Active** — your instances disagree with each other
-- 🔴 **Instance Unreachable** — one or more instances can't be reached
-
-The menu also shows **total queries and blocked domains** across all your instances.
-
-<p align="center">
-  <img width="250" height="175" alt="desktop-app-banner" src="Assets/instaces-status.png"/>
-</p>
-
-
 ### Multiple instances
 
 Manage several Pi-hole instances from one menu: per-server status dots, aggregated query/blocked stats, and clear warnings when an instance is down or instances disagree on blocking state.
 
 <p align="center">
   <img width="700" height="351" alt="desktop-app-banner" src="Assets/max-connections.png"/>
+</p>
+
+### Status at a glance
+
+The menu bar icon reflects your Pi-hole®'s health at all times, with per-instance status for multi-server setups. The menu also shows **total queries and blocked domains** across all your instances.
+
+<p align="center">
+  <img width="250" height="175" alt="desktop-app-banner" src="Assets/instaces-status.png"/>
 </p>
 
 ### Disable blocking with a timer
@@ -88,7 +80,6 @@ Holeberry detects the current tab in **Safari, Chrome/Chromium, Firefox, and Zen
 <p align="center">
   <img width="668" height="251" alt="desktop-app-banner" src="Assets/browser-unblock.png"/>
 </p>
-
 
 ### Recently blocked
 
