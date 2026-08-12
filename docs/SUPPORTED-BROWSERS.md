@@ -45,6 +45,8 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 - **Safari and Chromium-based browsers** — Holeberry uses AppleScript to ask the browser for its active tab URL. macOS asks for Automation permission on first use (System Settings → Privacy & Security → Automation); without it, tab detection is unavailable for that browser.
 - **Firefox and Zen Browser** — Holeberry reads the browser's `sessionstore.jsonlz4` file directly, so no Automation permission is needed. This method is **experimental and not fully tested** and may break with future browser versions.
 
+  > **Note:** It may take a few seconds for the current tab's URL to become available — these browsers write their session store to disk in their own time.
+
 ## Missing a browser?
 
 Holeberry is an independent, open-source project. If your browser is not listed, open an issue on GitHub — new browsers are easy to add.
