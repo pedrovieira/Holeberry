@@ -65,7 +65,7 @@ The menu also shows **total queries and blocked domains** across all your instan
 Manage several Pi-hole instances from one menu: per-server status dots, aggregated query/blocked stats, and clear warnings when an instance is down or instances disagree on blocking state.
 
 <p align="center">
-  <img width="700" height="300" alt="desktop-app-banner" src="Assets/README header.png"/>
+  <img width="700" height="300" alt="desktop-app-banner" src="Assets/max-connections.png"/>
 </p>
 
 ### Disable blocking with a timer
