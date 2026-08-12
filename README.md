@@ -60,6 +60,11 @@ The menu bar icon reflects your Pi-hole®'s health at all times, with per-instan
 
 The menu also shows **total queries and blocked domains** across all your instances.
 
+<p align="center">
+  <img width="250" height="175" alt="desktop-app-banner" src="Assets/instaces-status.png"/>
+</p>
+
+
 ### Multiple instances
 
 Manage several Pi-hole instances from one menu: per-server status dots, aggregated query/blocked stats, and clear warnings when an instance is down or instances disagree on blocking state.
@@ -72,9 +77,18 @@ Manage several Pi-hole instances from one menu: per-server status dots, aggregat
 
 Turn blocking off for **10 seconds, 30 seconds, 5 minutes, a custom duration**, or **indefinitely** — blocking re-enables automatically when the timer expires. No more forgetting to turn the ads back on.
 
+<p align="center">
+  <img width="422" height="164" alt="desktop-app-banner" src="Assets/menu-unblock.png"/>
+</p>
+
 ### Unblock the tab you're on
 
 Holeberry detects the current tab in **Safari, Chrome/Chromium, Firefox, and Zen Browser** and lets you unblock that exact domain — for 10 seconds, 30 seconds, 5 minutes, or a custom duration — or add it to your allowlist. Perfect for that one broken link or video that refuses to load.
+
+<p align="center">
+  <img width="668" height="251" alt="desktop-app-banner" src="Assets/browser-unblock.png"/>
+</p>
+
 
 ### Recently blocked
 
