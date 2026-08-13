@@ -56,3 +56,6 @@ fastlane/test_output
 docs/superpowers/
 .reasonix/
 .superpowers/
+
+# Python
+__pycache__/
