@@ -41,7 +41,7 @@ swift-format lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
 - **Menu state** — `ServerStatusPoller` (30s default) is the single source of truth; blocking toggles MUST flow through `applyBlockingChange`. Time control is abstracted by `PollScheduler` (`TaskPollScheduler` in prod, `MockPollScheduler` in tests) — no raw `Task.sleep` in production code.
 - **Browser tab detection** — `BrowserTabCoordinator` state machine; Safari/Chromium via AppleScript (`-1743` error = permission denied), Firefox/Zen via `sessionstore.jsonlz4` parsing; permission checks via Carbon `AEDeterminePermissionToAutomateTarget`. Keep the strategy seams (`BrowserActiveUrlFetchingStrategyFactory`).
 - **Persistence** — typed `Defaults` keys centralized in `HoleberryCore/Utils/App+Defaults.swift`; secrets via `KeychainManager` (keyed by server UUID) — never plaintext on disk.
-- **Updates** — Sparkle; `Updates/appcast.xml` is committed and CI-regenerated on release.
+- **Updates** — Sparkle; `appcast.xml` is generated in CI and published as a release asset (feed URL: `https://github.com/pedrovieira/Holeberry/releases/latest/download/appcast.xml`), not committed — the branch ruleset only allows pushes from the owner.
 - **Server limits** — max 2 servers (`PiholeServerManager`).
 
 ## Conventions
@@ -65,7 +65,7 @@ swift-format lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
 - PRs target `main`. Open an issue first for substantial work (per README).
 - AI-assisted contributions are welcome — this project is itself AI-assisted (see the README's "AI-assisted development" section). PRs produced with AI assistance MUST disclose it in the PR description, including which tool/model was used.
 - README exists in en / zh-CN / ja — doc changes should update all three, or note that translation is pending.
-- Release: tagging `v*` triggers `.github/workflows/release.yml` (build → DMG → GitHub Release → appcast update).
+- Release: tagging `v*` triggers `.github/workflows/release.yml` (build → DMG → GitHub Release with DMG + signed appcast assets).
 
 ## Notes
 

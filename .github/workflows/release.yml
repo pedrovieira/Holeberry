@@ -155,13 +155,6 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ${{ steps.dmg.outputs.dmg_path }}
-          body: ${{ steps.changelog.outputs.body }}
-          make_latest: true
-
       - name: Clone Sparkle (matching pinned version)
         run: |
           set -euo pipefail
@@ -193,38 +186,31 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Switch to latest main
-        run: |
-          git fetch --depth=1 origin main
-          git checkout -B main origin/main
-
       - name: Generate signed appcast
         env:
           PRIVATE_SPARKLE_KEY: ${{ secrets.PRIVATE_SPARKLE_KEY }}
         run: |
-          cp "${{ steps.dmg.outputs.dmg_path }}" Updates/
+          set -euo pipefail
+          mkdir -p build/appcast
+          cp "${{ steps.dmg.outputs.dmg_path }}" build/appcast/
 
           printf '%s' "$PRIVATE_SPARKLE_KEY" | \
             /tmp/sparkle-derived/Build/Products/Release/generate_appcast \
               --ed-key-file - \
               --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
-              -o Updates/appcast.xml \
-              Updates/
+              -o build/appcast/appcast.xml \
+              build/appcast/
 
-      - name: Commit and push appcast
-        env:
-          HOLEBERRY_PUSH_TOKEN: ${{ secrets.HOLEBERRY_PUSH_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Updates/appcast.xml
-          git diff --staged --quiet || git commit -m "chore: update appcast for ${{ github.ref_name }}"
-          # The repo ruleset requires PRs for main and only allows pushes from the
-          # owner or a bypass actor, so the bot's GITHUB_TOKEN cannot push here.
-          # Authenticate as the owner with a fine-grained PAT (contents: write,
-          # this repo only) stored in the HOLEBERRY_PUSH_TOKEN secret.
-          if [ -n "$HOLEBERRY_PUSH_TOKEN" ]; then
-            git push "https://x-access-token:${HOLEBERRY_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main
-          else
-            git push origin main
-          fi
+      # The appcast is published as a release asset instead of a commit: the
+      # branch ruleset only allows pushes from the owner, and the GitHub
+      # Actions bot cannot be granted a bypass on personal-account repos. The
+      # feed is served at the stable URL
+      # https://github.com/pedrovieira/Holeberry/releases/latest/download/appcast.xml
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            ${{ steps.dmg.outputs.dmg_path }}
+            build/appcast/appcast.xml
+          body: ${{ steps.changelog.outputs.body }}
+          make_latest: true
