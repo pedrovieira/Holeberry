@@ -15,7 +15,9 @@ import Testing
 struct TaskPollSchedulerTests {
   /// Waits in real time until `condition` is true or `timeout` elapses.
   private func waitFor(
-    timeout: Duration = .seconds(2),
+    // Wall-clock headroom: scheduler ticks must accumulate even when the CI
+    // runner is heavily loaded (locally 2s was enough, CI routinely misses it).
+    timeout: Duration = .seconds(10),
     _ condition: @MainActor () -> Bool
   ) async throws {
     let deadline = ContinuousClock.now.advanced(by: timeout)
