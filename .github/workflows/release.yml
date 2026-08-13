@@ -41,12 +41,15 @@ jobs:
         run: brew install xcodegen
 
       - name: Import signing certificate
-        if: ${{ secrets.HOLEBERRY_CERT_P12 != '' }}
         env:
           HOLEBERRY_CERT_P12: ${{ secrets.HOLEBERRY_CERT_P12 }}
           HOLEBERRY_CERT_P12_PASSWORD: ${{ secrets.HOLEBERRY_CERT_P12_PASSWORD }}
         run: |
           set -euo pipefail
+          if [ -z "$HOLEBERRY_CERT_P12" ]; then
+            echo "::notice::No signing certificate secret configured; release will be ad-hoc signed"
+            exit 0
+          fi
           KEYCHAIN=build.keychain-db
           KEYCHAIN_PASSWORD=$(uuidgen)
           echo "$HOLEBERRY_CERT_P12" | base64 --decode > /tmp/holeberry-cert.p12
