@@ -19,6 +19,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history so the changelog step can diff between tags
+          fetch-depth: 0
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -136,11 +139,27 @@ jobs:
           echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
           echo "dmg_name=$DMG_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          set -euo pipefail
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+          if [ -n "$PREV_TAG" ]; then
+            git log --oneline --no-merges "$PREV_TAG..HEAD" | sed 's/^/- /' > /tmp/changelog.txt
+          else
+            echo "- First release." > /tmp/changelog.txt
+          fi
+          {
+            echo "body<<EOF"
+            cat /tmp/changelog.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.dmg.outputs.dmg_path }}
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.body }}
           make_latest: true
 
       - name: Clone Sparkle (matching pinned version)
