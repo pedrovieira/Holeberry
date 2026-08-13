@@ -212,9 +212,19 @@ jobs:
               Updates/
 
       - name: Commit and push appcast
+        env:
+          HOLEBERRY_PUSH_TOKEN: ${{ secrets.HOLEBERRY_PUSH_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Updates/appcast.xml
           git diff --staged --quiet || git commit -m "chore: update appcast for ${{ github.ref_name }}"
-          git push origin main
+          # The repo ruleset requires PRs for main and only allows pushes from the
+          # owner or a bypass actor, so the bot's GITHUB_TOKEN cannot push here.
+          # Authenticate as the owner with a fine-grained PAT (contents: write,
+          # this repo only) stored in the HOLEBERRY_PUSH_TOKEN secret.
+          if [ -n "$HOLEBERRY_PUSH_TOKEN" ]; then
+            git push "https://x-access-token:${HOLEBERRY_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main
+          else
+            git push origin main
+          fi
