@@ -38,7 +38,7 @@ Pi-hole® **v6** と **v5**（*完全にはテストされていません*）、
 **macOS Gatekeeper についての注意：** Holeberry は無料の Apple ID でビルドされており、有料の Apple Developer アカウントによる公証（notarization）を受けていません。そのため、macOS が「開発元不明のアプリ」として警告したり、初回起動時に隔離したりする場合があります。その警告が表示されたら、隔離フラグを削除して再度起動してください：
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Holeberry.app
+xattr -cr /Applications/Holeberry.app
 ```
 
 ## 動作環境

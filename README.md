@@ -39,7 +39,7 @@ It supports Pi-hole® **v6** and **v5** (*not fully tested*), multiple instances
 **Note on macOS Gatekeeper:** Holeberry is built with a free Apple ID, so the app is not notarized with a paid Apple Developer account. macOS may therefore flag it as an unidentified developer or quarantine it on first launch. If you see that warning, remove the quarantine flag and launch again:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Holeberry.app
+xattr -cr /Applications/Holeberry.app
 ```
 
 ## Requirements

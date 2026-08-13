@@ -40,18 +40,80 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Build Holeberry
+      - name: Import signing certificate
+        if: ${{ secrets.HOLEBERRY_CERT_P12 != '' }}
+        env:
+          HOLEBERRY_CERT_P12: ${{ secrets.HOLEBERRY_CERT_P12 }}
+          HOLEBERRY_CERT_P12_PASSWORD: ${{ secrets.HOLEBERRY_CERT_P12_PASSWORD }}
         run: |
+          set -euo pipefail
+          KEYCHAIN=build.keychain-db
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          echo "$HOLEBERRY_CERT_P12" | base64 --decode > /tmp/holeberry-cert.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import /tmp/holeberry-cert.p12 \
+            -P "$HOLEBERRY_CERT_P12_PASSWORD" \
+            -A -f pkcs12 -k "$KEYCHAIN" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+          echo "::notice::Signing certificate imported into $KEYCHAIN"
+
+      - name: Build Holeberry
+        env:
+          HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
+          HOLEBERRY_CODE_SIGN_IDENTITY: ${{ secrets.HOLEBERRY_CODE_SIGN_IDENTITY }}
+          HOLEBERRY_CERT_P12: ${{ secrets.HOLEBERRY_CERT_P12 }}
+        run: |
+          set -euo pipefail
           xcodegen generate
-          xcodebuild -project Holeberry.xcodeproj \
-            -scheme Holeberry \
-            -configuration Release \
-            -derivedDataPath build \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES
+          APP_PATH="build/Build/Products/Release/Holeberry.app"
+
+          if [ -n "$HOLEBERRY_CERT_P12" ]; then
+            # Real signing with the certificate imported above (Apple Development
+            # or Developer ID). Restricted entitlements are fine here.
+            echo "::notice::Signing with identity $HOLEBERRY_CODE_SIGN_IDENTITY"
+            xcodebuild -project Holeberry.xcodeproj \
+              -scheme Holeberry \
+              -configuration Release \
+              -derivedDataPath build \
+              ARCHS="arm64 x86_64" \
+              ONLY_ACTIVE_ARCH=NO \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGNING_REQUIRED=YES \
+              CODE_SIGNING_ALLOWED=YES \
+              DEVELOPMENT_TEAM="$HOLEBERRY_TEAM_ID" \
+              CODE_SIGN_IDENTITY="$HOLEBERRY_CODE_SIGN_IDENTITY"
+          else
+            # Ad-hoc signing. Xcode injects com.apple.security.get-task-allow when
+            # no team is set, and the app's entitlements carry
+            # keychain-access-groups; both are restricted entitlements that make
+            # the kernel reject ad-hoc-signed binaries on Apple Silicon. Also,
+            # newer Xcode versions (26+) refuse to build with the full
+            # entitlements file when no provisioning profile is available. So we
+            # build without entitlements, then strip the restricted ones and
+            # re-sign (see .github/scripts/strip-restricted-entitlements.py).
+            echo "::notice::No signing certificate secret; building ad-hoc with stripped entitlements"
+            xcodebuild -project Holeberry.xcodeproj \
+              -scheme Holeberry \
+              -configuration Release \
+              -derivedDataPath build \
+              ARCHS="arm64 x86_64" \
+              ONLY_ACTIVE_ARCH=NO \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="-" \
+              DEVELOPMENT_TEAM="" \
+              CODE_SIGN_ENTITLEMENTS="" \
+              CODE_SIGNING_REQUIRED=YES \
+              CODE_SIGNING_ALLOWED=YES
+            codesign -d --entitlements - --xml "$APP_PATH" > /tmp/release-ents.xml
+            python3 .github/scripts/strip-restricted-entitlements.py \
+              /tmp/release-ents.xml /tmp/release-ents-min.xml
+            codesign --force --deep --sign - --entitlements /tmp/release-ents-min.xml "$APP_PATH"
+          fi
 
       - name: Create DMG
         id: dmg
