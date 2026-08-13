@@ -88,14 +88,13 @@ jobs:
               DEVELOPMENT_TEAM="$HOLEBERRY_TEAM_ID" \
               CODE_SIGN_IDENTITY="$HOLEBERRY_CODE_SIGN_IDENTITY"
           else
-            # Ad-hoc signing. Xcode injects com.apple.security.get-task-allow when
-            # no team is set, and the app's entitlements carry
-            # keychain-access-groups; both are restricted entitlements that make
-            # the kernel reject ad-hoc-signed binaries on Apple Silicon. Also,
-            # newer Xcode versions (26+) refuse to build with the full
-            # entitlements file when no provisioning profile is available. So we
-            # build without entitlements, then strip the restricted ones and
-            # re-sign (see .github/scripts/strip-restricted-entitlements.py).
+            # Ad-hoc signing. Xcode injects com.apple.security.get-task-allow
+            # when no team is set; it is a restricted entitlement that makes the
+            # kernel reject ad-hoc-signed binaries on Apple Silicon. Also, newer
+            # Xcode versions (26+) refuse to build with the full entitlements
+            # file when no provisioning profile is available. So we build
+            # without entitlements, then strip the restricted one and re-sign
+            # (see .github/scripts/strip-restricted-entitlements.py).
             echo "::notice::No signing certificate secret; building ad-hoc with stripped entitlements"
             xcodebuild -project Holeberry.xcodeproj \
               -scheme Holeberry \
