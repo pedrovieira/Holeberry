@@ -21,7 +21,9 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   /// delayed under parallel test load, so fixed sleeps are unreliable.
   private func eventually(
     _ condition: @MainActor () -> Bool,
-    timeout: Duration = .seconds(2)
+    // Wall-clock headroom: retry backoffs and expiry timers must fit even on
+    // slow CI runners (locally 2s was enough, CI routinely misses it).
+    timeout: Duration = .seconds(10)
   ) async -> Bool {
     let clock = ContinuousClock()
     let deadline = clock.now.advanced(by: timeout)
