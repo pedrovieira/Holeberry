@@ -41,7 +41,7 @@ targets:
         NSAppleEventsUsageDescription: Holeberry needs to read the current tab URL from your browser to unblock it.
         SUEnableDownloaderService: true
         SUEnableInstallerLauncherService: true
-        SUFeedURL: "https://github.com/pedrovieira/Holeberry/releases/latest/download/appcast.xml"
+        SUFeedURL: "https://raw.githubusercontent.com/pedrovieira/Holeberry/main/Updates/appcast.xml"
         SUPublicEDKey: "xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM="
     settings:
       base:

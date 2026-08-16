@@ -9,7 +9,10 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  # Global (not per-tag): two releases in flight would otherwise race to push
+  # appcast.xml to main, and the second push would be rejected as
+  # non-fast-forward.
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -22,6 +25,10 @@ jobs:
         with:
           # Full history so the changelog step can diff between tags
           fetch-depth: 0
+          # Don't persist the GITHUB_TOKEN as an http.extraheader in .git/config;
+          # nothing in this workflow pushes with the token (the appcast push
+          # uses RELEASE_PAT via an inline URL).
+          persist-credentials: false
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -120,6 +127,18 @@ jobs:
             codesign --force --deep --sign - --entitlements /tmp/release-ents-min.xml "$APP_PATH"
           fi
 
+      - name: Verify release tag matches app version
+        run: |
+          set -euo pipefail
+          APP_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
+            "build/Build/Products/Release/Holeberry.app/Contents/Info.plist")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$APP_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match app version $APP_VERSION — bump CFBundleShortVersionString in project.yml before tagging"
+            exit 1
+          fi
+          echo "::notice::Tag and app version match ($APP_VERSION)"
+
       - name: Create DMG
         id: dmg
         run: |
@@ -145,7 +164,9 @@ jobs:
           set -euo pipefail
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
           if [ -n "$PREV_TAG" ]; then
-            git log --oneline --no-merges "$PREV_TAG..HEAD" | sed 's/^/- /' > /tmp/changelog.txt
+            # Appcast commits land on main after the tag; exclude them so they
+            # don't show up in the next release's changelog.
+            git log --oneline --no-merges "$PREV_TAG..HEAD" | grep -v "Update appcast for" | sed 's/^/- /' > /tmp/changelog.txt
           else
             echo "- First release." > /tmp/changelog.txt
           fi
@@ -201,11 +222,43 @@ jobs:
               -o build/appcast/appcast.xml \
               build/appcast/
 
-      # The appcast is published as a release asset instead of a commit: the
-      # branch ruleset only allows pushes from the owner, and the GitHub
-      # Actions bot cannot be granted a bypass on personal-account repos. The
-      # feed is served at the stable URL
-      # https://github.com/pedrovieira/Holeberry/releases/latest/download/appcast.xml
+      # Commit the appcast to main with the owner PAT (RELEASE_PAT): the branch
+      # ruleset only allows pushes from the owner, so the Actions bot cannot
+      # push. It is also still attached to the release below so that existing
+      # installs (whose Info.plist points at the /releases/latest/download URL)
+      # keep receiving update checks during the transition to the raw URL.
+      - name: Commit appcast to main
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RELEASE_PAT" ]; then
+            echo "::error::RELEASE_PAT secret is not set; cannot commit appcast to main"
+            exit 1
+          fi
+
+          git fetch origin main
+          # The tag checkout leaves us in detached HEAD at the tag commit; reset
+          # to the real tip of main before committing — never push from the tag.
+          git checkout -B main origin/main
+
+          mkdir -p Updates
+          cp build/appcast/appcast.xml Updates/appcast.xml
+
+          git config user.name "Holeberry Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add Updates/appcast.xml
+          if ! git diff --cached --quiet; then
+            # [skip ci] avoids re-running ci.yml/project-drift.yml on main.
+            # The PAT is passed in the push URL only, so it never lands in
+            # .git/config; GitHub masks it in logs, and the repo is public so
+            # the fetch above needs no auth.
+            git commit -m "Update appcast for ${{ github.ref_name }} [skip ci]"
+            git push "https://x-access-token:${RELEASE_PAT}@github.com/${{ github.repository }}.git" main
+          else
+            echo "::notice::appcast.xml unchanged, nothing to commit"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
