@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+<channel>
+<title>Holeberry</title>
+<description>Most recent changes with links to updates.</description>
+<language>en</language>
+<item>
+<title>1.0.0</title>
+<pubDate>Thu, 13 Aug 2026 11:14:46 +0000</pubDate>
+<sparkle:version>1.0.0</sparkle:version>
+<sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+<sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+<enclosure url="https://github.com/pedrovieira/Holeberry/releases/download/v1.0.1/Holeberry-1.0.1.dmg" length="6945182" type="application/octet-stream" sparkle:edSignature="/OK/9mRpnmPIVhKluGAhtl00jt1Dn9tM5kynzUqoxRTuGqJtd8qyUqFTet7rSU/ewJhmL95d1KAmIor5uO4yBg=="/>
+</item>
+</channel>
+</rss>
