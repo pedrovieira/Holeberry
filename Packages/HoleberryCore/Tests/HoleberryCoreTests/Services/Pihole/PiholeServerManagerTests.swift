@@ -91,6 +91,78 @@ struct PiholeServerManagerCRUDTests {
     #expect(manager.servers.count == 2)
   }
 
+  @Test("addServer registers server and stores credential in keychain")
+  func addServerSuccess() async throws {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    try await manager.addServer(label: "Test", url: "http://test.com", credential: "secret")
+
+    #expect(manager.servers.count == 1)
+    #expect(manager.servers[0].label == "Test")
+    #expect(manager.servers[0].version == .v6)
+    #expect(mockKeychain.storedCredentials[manager.servers[0].id.uuidString] == "secret")
+    #expect(mockServiceFactory.buildServiceCallCount == 1)
+  }
+
+  @Test("addServer throws and leaves nothing registered when keychain save fails")
+  func addServerKeychainFailureLeavesNoPartialState() async {
+    let suite = TestDefaults.makeSuite()
+    let manager = makeManager(suite: suite)
+    mockKeychain.errorStub = PiholeError.unknown("keychain unavailable")
+    defer { mockKeychain.errorStub = nil }
+
+    await #expect(throws: PiholeError.self) {
+      try await manager.addServer(label: "Test", url: "http://test.com", credential: "secret")
+    }
+    #expect(manager.servers.isEmpty)
+    #expect(Defaults[.servers(suite: suite)].isEmpty)
+  }
+
+  @Test("loadServers builds a service even without a stored credential")
+  func loadServersBuildsServiceWithoutCredential() {
+    let suite = TestDefaults.makeSuite()
+    let config = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
+    Defaults[.servers(suite: suite)] = [config]
+
+    _ = makeManager(suite: suite)
+
+    #expect(mockServiceFactory.buildServiceCallCount == 1, "service must be built so the UI can offer re-auth")
+  }
+
+  @Test("checkServer reports missingCredential when no credential is stored")
+  func checkServerReportsMissingCredentialWhenNoneStored() async {
+    let suite = TestDefaults.makeSuite()
+    let config = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
+    Defaults[.servers(suite: suite)] = [config]
+
+    let failingService = MockPiholeService(id: config.id, url: config.url, version: .v6)
+    failingService.checkStatusStub = .failure(PiholeError.invalidCredentials)
+    mockServiceFactory.buildServiceStub = failingService
+    defer { mockServiceFactory.buildServiceStub = nil }
+
+    let manager = makeManager(suite: suite)
+    let result = await manager.checkServer(id: config.id)
+
+    #expect(result == .failure(.missingCredential))
+  }
+
+  @Test("checkServer keeps invalidCredentials when a credential is stored")
+  func checkServerKeepsInvalidCredentialsWhenStored() async {
+    let suite = TestDefaults.makeSuite()
+    let config = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
+    Defaults[.servers(suite: suite)] = [config]
+    try? mockKeychain.saveCredential("old-password", for: config.id)
+
+    let failingService = MockPiholeService(id: config.id, url: config.url, version: .v6)
+    failingService.checkStatusStub = .failure(PiholeError.invalidCredentials)
+    mockServiceFactory.buildServiceStub = failingService
+    defer { mockServiceFactory.buildServiceStub = nil }
+
+    let manager = makeManager(suite: suite)
+    let result = await manager.checkServer(id: config.id)
+
+    #expect(result == .failure(.invalidCredentials))
+  }
+
   private func makeManagerWithLoadedService(suite: UserDefaults) -> PiholeServerManager {
     let config = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     Defaults[.servers(suite: suite)] = [config]

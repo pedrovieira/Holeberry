@@ -9,6 +9,7 @@ public enum ServerConnectionState: Equatable, Sendable {
 
 /// Why authentication failed. An enum — not copy — so labels stay localizable.
 public enum AuthFailureReason: Equatable, Sendable {
+  case missingCredential
   case passwordMayHaveChanged
   case authenticationFailed
   case totpRequired
@@ -26,6 +27,8 @@ public enum ServerCheckFailure: Equatable, Sendable {
     switch error {
     case .invalidCredentials, .reauthenticationFailed:
       return .auth(.passwordMayHaveChanged)
+    case .missingCredential:
+      return .auth(.missingCredential)
     case .unauthorized:
       return .auth(.authenticationFailed)
     case .server(let code, _) where code == 401:

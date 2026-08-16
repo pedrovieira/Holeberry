@@ -19,14 +19,9 @@ public final class KeychainManager: KeychainManaging {
     let context = LAContext()
     context.localizedReason = "Holeberry needs to access your saved Pi-hole password."
 
-    let attributes: [String: Any] = [
-      kSecUseDataProtectionKeychain as String: true
-    ]
     self.keychain = SimpleKeychain(
       service: Bundle.main.bundleIdentifier ?? "me.pedrovieira.holeberry",
-      accessibility: .afterFirstUnlock,
-      context: context,
-      attributes: attributes
+      context: context
     )
   }
 
