@@ -120,7 +120,8 @@ struct ConnectionSheet: View {
     if case .edit = mode {
       let labelChanged = label != (mode.existingLabel ?? "")
       let iconChanged = iconName != (mode.existingIcon ?? "")
-      return baseValid && (labelChanged || iconChanged)
+      let urlChanged = url.trimmingCharacters(in: .whitespaces) != mode.prefillURL
+      return baseValid && (labelChanged || iconChanged || urlChanged || !credential.isEmpty)
     }
     return baseValid && !credential.isEmpty
   }

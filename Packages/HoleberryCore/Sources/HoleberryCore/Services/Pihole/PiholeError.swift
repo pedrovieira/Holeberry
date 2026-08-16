@@ -10,6 +10,7 @@ public enum PiholeError: Error, LocalizedError, Equatable {
   case decoding(String)
   case totpRequired
   case invalidCredentials
+  case missingCredential
   case rateLimited
   case reauthenticationFailed
   case sessionLimitReached
@@ -36,6 +37,8 @@ public enum PiholeError: Error, LocalizedError, Equatable {
       return "TOTP code required for 2FA"
     case .invalidCredentials:
       return "Invalid Pi-hole password or application password."
+    case .missingCredential:
+      return "No saved credential for this server."
     case .rateLimited:
       return "Login rate limited. Please wait before trying again."
     case .reauthenticationFailed:

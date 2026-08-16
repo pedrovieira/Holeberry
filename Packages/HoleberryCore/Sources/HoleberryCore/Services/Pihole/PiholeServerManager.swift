@@ -58,11 +58,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     try await service.login()
 
+    try keychain.saveCredential(credential, for: config.id)
+
     servers.append(config)
     services[config.id] = service
     saveServers()
-
-    try keychain.saveCredential(credential, for: config.id)
 
     logger.info("Added server: \(config.label ?? config.url, privacy: .public)")
   }
@@ -235,8 +235,30 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       return .success(status)
     } catch {
       let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+      if isCredentialFailure(piholeError) && !hasStoredCredential(id: id) {
+        // No saved credential (never stored, or the keychain is unreadable):
+        // surface "re-authenticate" instead of "password may have changed".
+        return .failure(.missingCredential)
+      }
       return .failure(piholeError)
     }
+  }
+
+  /// Whether the error means "the credential we tried was rejected" (as
+  /// opposed to TOTP, rate limiting, or network problems).
+  private func isCredentialFailure(_ error: PiholeError) -> Bool {
+    switch error {
+    case .invalidCredentials, .unauthorized:
+      return true
+    case .server(let code, _) where code == 401:
+      return true
+    default:
+      return false
+    }
+  }
+
+  private func hasStoredCredential(id: UUID) -> Bool {
+    (try? keychain.readCredential(for: id)) != nil
   }
 
   /// Toggle blocking on all servers. Returns per-server success/failure.
@@ -492,9 +514,12 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     servers = configs
 
     for config in servers {
-      guard let credential = try? keychain.readCredential(for: config.id) else {
-        logger.warning("No credential found for server \(config.id), skipping")
-        continue
+      // Build the service even without a stored credential (using an empty
+      // one): the health check then fails as an auth error and the UI can
+      // offer a "Re-authenticate" affordance instead of "unreachable".
+      let credential = (try? keychain.readCredential(for: config.id)) ?? ""
+      if credential.isEmpty {
+        logger.warning("No credential found for server \(config.id), will prompt to re-authenticate")
       }
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)

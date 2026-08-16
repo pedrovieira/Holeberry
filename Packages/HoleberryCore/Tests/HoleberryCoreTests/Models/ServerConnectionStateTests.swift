@@ -22,6 +22,7 @@ struct ServerCheckFailureTests {
     #expect(ServerCheckFailure.classify(.totpRequired) == .auth(.totpRequired))
     #expect(ServerCheckFailure.classify(.rateLimited) == .auth(.rateLimited))
     #expect(ServerCheckFailure.classify(.sessionLimitReached) == .auth(.sessionLimitReached))
+    #expect(ServerCheckFailure.classify(.missingCredential) == .auth(.missingCredential))
   }
 
   @Test("everything else is unreachable")

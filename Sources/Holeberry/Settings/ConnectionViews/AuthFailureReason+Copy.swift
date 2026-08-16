@@ -7,6 +7,8 @@ extension AuthFailureReason {
     switch self {
     case .passwordMayHaveChanged:
       return String(localized: "Password may have changed")
+    case .missingCredential:
+      return String(localized: "No saved credential")
     case .authenticationFailed:
       return String(localized: "Authentication failed")
     case .totpRequired:
