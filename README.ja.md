@@ -76,7 +76,7 @@ xattr -cr /Applications/Holeberry.app
 
 ### 今見ているブラウザタブをブロック解除
 
-Holeberry は **WebKit（Safari、Orion）、Chrome/Chromium、Gecko（Firefox & Zen）ブラウザー**の現在のタブを検出し、そのドメインをワンクリックでブロック解除します——Pi-hole のブロッキングでページが読み込めないときにぴったりです。
+Holeberry は **WebKit（Safari、Orion）、Chrome/Chromium、Gecko（Firefox & Zen）ブラウザー**の現在のタブを検出し、そのドメインをワンクリックでブロック解除します——Pi-hole のブロッキングでページが読み込めないときにぴったりです。[対応ブラウザの完全なリスト](docs/SUPPORTED-BROWSERS.md)を参照してください。
 
 単一ドメインのブロック解除はグローバルな無効化より優れています：ページは読み込まれ、ネットワークの他の部分は保護されたままです。（スマート TV は同意しないでしょう——外の世界に大量のトラフィックを送るので、グローバルなブロック解除を喜ぶに違いありません。話を聞いてはいけません。）ドメインを許可リストに追加することもできます。
 
