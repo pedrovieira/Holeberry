@@ -1,9 +1,11 @@
 import Foundation
 
 public enum Browser: String, CaseIterable {
-  // Safari
+  // WebKit
   case safari = "com.apple.Safari"
   case safariTechnologyPreview = "com.apple.SafariTechnologyPreview"
+  case orion = "com.kagi.kagimacOS"
+  case orionRC = "com.kagi.kagimacOS.RC"
   // Chrome
   case chrome = "com.google.Chrome"
   case chromeBeta = "com.google.Chrome.beta"
@@ -40,6 +42,8 @@ public enum Browser: String, CaseIterable {
     switch self {
     case .safari: return "Safari"
     case .safariTechnologyPreview: return "Safari Technology Preview"
+    case .orion: return "Orion"
+    case .orionRC: return "Orion RC"
     case .chrome: return "Google Chrome"
     case .chromeBeta: return "Google Chrome Beta"
     case .chromeDev: return "Google Chrome Dev"

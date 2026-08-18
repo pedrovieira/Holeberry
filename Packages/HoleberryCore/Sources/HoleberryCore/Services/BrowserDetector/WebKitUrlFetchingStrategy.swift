@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SafariUrlFetchingStrategy: AppleScriptUrlFetchingStrategy {
+public struct WebKitUrlFetchingStrategy: AppleScriptUrlFetchingStrategy {
   public let appName: String
   public let scriptCommand: String = "get URL of front document"
   public let permissionChecker: any PermissionChecker

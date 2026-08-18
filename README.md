@@ -77,7 +77,7 @@ A quick way to disable blocking **globally** on all your Pi-hole® instances for
 
 ### Unblock the browser tab you're on
 
-Holeberry detects the current tab in **Safari, Chrome/Chromium, Gecko (Firefox & Zen) Browser** and unblocks that exact domain with one click — perfect when a page fails to load because Pi-hole blocked it.
+Holeberry detects the current tab in **WebKit (Safari, Orion), Chrome/Chromium, Gecko (Firefox & Zen) Browser** and unblocks that exact domain with one click — perfect when a page fails to load because Pi-hole blocked it.
 
 Unblocking a single domain beats a global disable: the page loads while the rest of your network stays protected. (Your smart TV would disagree — it sends so much traffic out into the world it would love a global unblock. Don't listen to it.) You can also add the domain to your allowlist.
 

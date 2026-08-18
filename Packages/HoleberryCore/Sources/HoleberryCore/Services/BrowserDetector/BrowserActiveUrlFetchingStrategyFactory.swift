@@ -18,8 +18,8 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
 
   public func strategy(for browser: Browser) -> any BrowserActiveUrlFetchingStrategy {
     switch browser {
-    case .safari, .safariTechnologyPreview:
-      return SafariUrlFetchingStrategy(
+    case .safari, .safariTechnologyPreview, .orion, .orionRC:
+      return WebKitUrlFetchingStrategy(
         appName: browser.appName,
         permissionChecker: permissionChecker,
         scriptExecutor: scriptExecutor

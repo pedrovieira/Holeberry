@@ -12,10 +12,12 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
     scriptExecutor: LiveAppleScriptExecutor()
   )
 
-  @Test("Safari uses SafariUrlFetchingStrategy")
-  func safariStrategy() {
-    let strategy = factory.strategy(for: .safari)
-    #expect(strategy is SafariUrlFetchingStrategy)
+  @Test("WebKit browsers use WebKitUrlFetchingStrategy")
+  func webKitStrategy() {
+    for browser in [Browser.safari, .safariTechnologyPreview, .orion, .orionRC] {
+      let strategy = factory.strategy(for: browser)
+      #expect(strategy is WebKitUrlFetchingStrategy)
+    }
   }
 
   @Test("Chrome uses ChromiumUrlFetchingStrategy")
@@ -47,7 +49,7 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
     for browser in Browser.allCases {
       let strategy = factory.strategy(for: browser)
       #expect(
-        strategy is SafariUrlFetchingStrategy
+        strategy is WebKitUrlFetchingStrategy
           || strategy is GeckoSessionStoreUrlFetchingStrategy
           || strategy is ChromiumUrlFetchingStrategy
       )

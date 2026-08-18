@@ -10,6 +10,8 @@
     <array>
         <string>com.apple.Safari</string>
         <string>com.apple.SafariTechnologyPreview</string>
+        <string>com.kagi.kagimacOS</string>
+        <string>com.kagi.kagimacOS.RC</string>
         <string>com.google.Chrome</string>
         <string>com.google.Chrome.beta</string>
         <string>com.google.Chrome.dev</string>
