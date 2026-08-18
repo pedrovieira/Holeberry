@@ -76,7 +76,7 @@ xattr -cr /Applications/Holeberry.app
 
 ### 解除当前浏览器标签页的屏蔽
 
-Holeberry 能检测 **Safari、Chrome/Chromium、Gecko（Firefox 与 Zen）浏览器**中的当前标签页，一键解除该域名的屏蔽——当页面因 Pi-hole 屏蔽而无法加载时尤其好用。
+Holeberry 能检测 **WebKit（Safari、Orion）、Chrome/Chromium、Gecko（Firefox 与 Zen）浏览器**中的当前标签页，一键解除该域名的屏蔽——当页面因 Pi-hole 屏蔽而无法加载时尤其好用。
 
 解除单个域名的屏蔽胜过全局禁用：页面能正常加载，网络的其他部分仍然受到保护。（你的智能电视可不会同意——它向外界发送的流量实在太多，恨不得来个全局解除。别听它的。）你也可以顺手把该域名加入白名单。
 

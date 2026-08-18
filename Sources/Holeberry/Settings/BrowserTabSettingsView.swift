@@ -65,7 +65,7 @@ private struct BrowserTabInfoPopover: View {
         .fixedSize(horizontal: false, vertical: true)
 
       VStack(alignment: .leading, spacing: 2) {
-        Text("• Safari")
+        Text("• WebKit (Safari, Orion)")
         Text("• Chromium (Chrome, etc.)")
         Text("• Gecko (Firefox)")
       }

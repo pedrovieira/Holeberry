@@ -6,7 +6,7 @@ import OSLog
 /// A refinement of `BrowserActiveUrlFetchingStrategy` for browsers whose
 /// active URL can be obtained via AppleScript.
 public protocol AppleScriptUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
-  /// The `application` name used in the `tell` block, e.g. "Safari".
+  /// The `application` name used in the `tell` block, e.g. "Safari" or "Orion".
   var appName: String { get }
 
   /// The AppleScript command that returns the frontmost URL, e.g.

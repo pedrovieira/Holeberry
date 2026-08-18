@@ -5,12 +5,12 @@ import Testing
 
 private enum AppleScriptStrategyCase: Sendable {
   case chromium(appName: String)
-  case safari(appName: String)
+  case webkit(appName: String)
 
   var expectedScriptCommand: String {
     switch self {
     case .chromium: "get URL of active tab of front window"
-    case .safari: "get URL of front document"
+    case .webkit: "get URL of front document"
     }
   }
 
@@ -24,8 +24,8 @@ private enum AppleScriptStrategyCase: Sendable {
         appName: appName,
         permissionChecker: permissionChecker,
         scriptExecutor: scriptExecutor)
-    case .safari(let appName):
-      SafariUrlFetchingStrategy(appName: appName, permissionChecker: permissionChecker, scriptExecutor: scriptExecutor)
+    case .webkit(let appName):
+      WebKitUrlFetchingStrategy(appName: appName, permissionChecker: permissionChecker, scriptExecutor: scriptExecutor)
     }
   }
 }
@@ -36,8 +36,10 @@ private let testCases: [AppleScriptStrategyCase] = [
   .chromium(appName: "Brave Browser"),
   .chromium(appName: "Arc"),
   .chromium(appName: "Vivaldi Snapshot"),
-  .safari(appName: "Safari"),
-  .safari(appName: "Safari Technology Preview")
+  .webkit(appName: "Safari"),
+  .webkit(appName: "Safari Technology Preview"),
+  .webkit(appName: "Orion"),
+  .webkit(appName: "Orion RC")
 ]
 
 // MARK: - Tests
@@ -62,7 +64,7 @@ struct AppleScriptUrlFetchingStrategyTests {
     switch testCase {
     case .chromium(let expectedName):
       #expect(strategy.appName == expectedName)
-    case .safari(let expectedName):
+    case .webkit(let expectedName):
       #expect(strategy.appName == expectedName)
     }
   }

@@ -2,12 +2,14 @@
 
 Holeberry can read the domain from your current browser tab and unblock it. This page lists every browser Holeberry supports, grouped by the engine they're built on. The list mirrors the `Browser` enum in `Packages/HoleberryCore/Sources/HoleberryCore/Services/BrowserDetector/Browser.swift`.
 
-## Safari (WebKit)
+## WebKit
 
 | Browser | Bundle ID |
 | --- | --- |
 | Safari | `com.apple.Safari` |
 | Safari Technology Preview | `com.apple.SafariTechnologyPreview` |
+| Orion | `com.kagi.kagimacOS` |
+| Orion RC | `com.kagi.kagimacOS.RC` |
 
 ## Chromium (Blink)
 
@@ -42,7 +44,7 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 
 ## How tab detection works
 
-- **Safari and Chromium-based browsers** — Holeberry uses AppleScript to ask the browser for its active tab URL. macOS asks for Automation permission on first use (System Settings → Privacy & Security → Automation); without it, tab detection is unavailable for that browser.
+- **WebKit (Safari, Orion) and Chromium-based browsers** — Holeberry uses AppleScript to ask the browser for its active tab URL. macOS asks for Automation permission on first use (System Settings → Privacy & Security → Automation); without it, tab detection is unavailable for that browser.
 - **Firefox and Zen Browser** — Holeberry reads the browser's `sessionstore.jsonlz4` file directly, so no Automation permission is needed. This method is **experimental and not fully tested** and may break with future browser versions.
 
   > **Note:** It may take a few seconds for the current tab's URL to become available — these browsers write their session store to disk in their own time.
