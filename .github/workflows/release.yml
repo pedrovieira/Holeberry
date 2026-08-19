@@ -189,20 +189,29 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Switch to latest main
+        run: |
+          set -euo pipefail
+          # The tag checkout is detached at the tag commit; base the merge on real main.
+          git fetch origin main
+          git checkout -B main origin/main
+
       - name: Generate signed appcast
         env:
           PRIVATE_SPARKLE_KEY: ${{ secrets.PRIVATE_SPARKLE_KEY }}
         run: |
           set -euo pipefail
-          mkdir -p build/appcast
-          cp "${{ steps.dmg.outputs.dmg_path }}" build/appcast/
+          mkdir -p Updates
+          cp "${{ steps.dmg.outputs.dmg_path }}" Updates/
 
+          # Merges into the existing feed at -o: older entries are kept,
+          # same-version entries are replaced.
           printf '%s' "$PRIVATE_SPARKLE_KEY" | \
             /tmp/sparkle-derived/Build/Products/Release/generate_appcast \
               --ed-key-file - \
               --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
-              -o build/appcast/appcast.xml \
-              build/appcast/
+              -o Updates/appcast.xml \
+              Updates/
 
       # Commit the appcast to main with the owner PAT (RELEASE_PAT): the branch
       # ruleset only allows pushes from the owner, so the Actions bot cannot
@@ -219,14 +228,6 @@ jobs:
             exit 1
           fi
 
-          git fetch origin main
-          # The tag checkout leaves us in detached HEAD at the tag commit; reset
-          # to the real tip of main before committing — never push from the tag.
-          git checkout -B main origin/main
-
-          mkdir -p Updates
-          cp build/appcast/appcast.xml Updates/appcast.xml
-
           git config user.name "Holeberry Release Bot"
           git config user.email "actions@users.noreply.github.com"
           git add Updates/appcast.xml
@@ -234,7 +235,7 @@ jobs:
             # [skip ci] avoids re-running ci.yml/project-drift.yml on main.
             # The PAT is passed in the push URL only, so it never lands in
             # .git/config; GitHub masks it in logs, and the repo is public so
-            # the fetch above needs no auth.
+            # reads need no auth.
             git commit -m "Update appcast for ${{ github.ref_name }} [skip ci]"
             git push "https://x-access-token:${RELEASE_PAT}@github.com/${{ github.repository }}.git" main
           else
@@ -246,7 +247,7 @@ jobs:
         with:
           files: |
             ${{ steps.dmg.outputs.dmg_path }}
-            build/appcast/appcast.xml
+            Updates/appcast.xml
           # GitHub generates notes server-side (PRs + contributors); no local
           # tag math, so it survives rewritten tags.
           generate_release_notes: true
