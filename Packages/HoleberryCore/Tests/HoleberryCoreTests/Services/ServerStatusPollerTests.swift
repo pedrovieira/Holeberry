@@ -1025,7 +1025,7 @@ struct ServerStatusPollerTests {
     let newDate = Date(timeIntervalSince1970: 2_000)
     mockManager.getQuerySummaryResponses = [
       [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)]
     ]
     mockManager.updateGravityStub = [id: .success(())]
 
@@ -1045,7 +1045,7 @@ struct ServerStatusPollerTests {
     let date = Date(timeIntervalSince1970: 1_000)
     mockManager.getQuerySummaryResponses = [
       [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)]
     ]
     mockManager.updateGravityStub = [id: .success(())]
 
@@ -1073,7 +1073,7 @@ struct ServerStatusPollerTests {
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getQuerySummaryResponses = [
       [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: nil)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date())],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date())]
     ]
     mockManager.updateGravityStub = [id: .success(())]
     let poller = makePoller()

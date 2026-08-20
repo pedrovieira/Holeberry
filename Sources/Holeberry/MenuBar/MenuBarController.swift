@@ -86,6 +86,7 @@ final class MenuBarController: NSObject {
   }
 
 
+  // swiftlint:disable:next function_body_length
   @objc private func handleClick() {
     // Refresh data in the background for next time, but show the menu now with cached data
     statusMonitor.pollNow()
@@ -105,6 +106,12 @@ final class MenuBarController: NSObject {
         reEnableBlocking: { [statusMonitor] in
           Task {
             await statusMonitor.applyBlockingChange(enabled: true, duration: nil)
+          }
+        },
+        triggerGravityUpdate: { [weak self, statusMonitor] in
+          Task {
+            let outcomes = await statusMonitor.applyGravityUpdate()
+            self?.handleGravityOutcomes(outcomes)
           }
         },
         disableURL: { [weak self] domain, duration in
@@ -132,6 +139,7 @@ final class MenuBarController: NSObject {
       isConnected: reachability.isConnected,
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
+      isGravityUpdating: statusMonitor.isGravityUpdating,
       querySummaries: statusMonitor.querySummaries,
       servers: serverManager.servers,
       browserTabStatus: browserTabStatus,
@@ -260,6 +268,26 @@ final class MenuBarController: NSObject {
         showError("Failed to unblock \(domain): \(error.localizedDescription)")
       }
     }
+  }
+
+  // MARK: - Gravity
+
+  private func handleGravityOutcomes(_ outcomes: [UUID: GravityUpdateOutcome]) {
+    guard !outcomes.isEmpty else { return }
+    for (id, outcome) in outcomes {
+      switch outcome {
+      case .failed(let error):
+        let label = serverManager.servers.first { $0.id == id }?.label ?? "Pi-hole"
+        showError("Failed to update gravity on \(label): \(error.localizedDescription)")
+        return
+      case .noChange:
+        showError("Gravity update didn't take effect — check the Pi-hole web interface")
+        return
+      case .succeeded:
+        continue
+      }
+    }
+    setError(nil)
   }
 
   // MARK: - Add to Allowlist

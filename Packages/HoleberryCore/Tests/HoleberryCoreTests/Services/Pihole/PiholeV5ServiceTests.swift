@@ -141,7 +141,9 @@ final class PiholeV5ServiceTests {
       { request in
         #expect(request.url?.absoluteString.contains("summaryRaw") == true)
         let response = try #require(v5Response())
-        let data = Data(#"{"queries_total":"1500","ads_blocked_today":"75","gravity_last_updated":{"file_exists":true,"absolute":1726223567,"relative":{"days":2,"hours":3,"minutes":4}}}"#.utf8)
+        let data = Data(
+          #"{"queries_total":"1500","ads_blocked_today":"75","gravity_last_updated":{"file_exists":true,"absolute":1726223567,"relative":{"days":2,"hours":3,"minutes":4}}}"#
+            .utf8)
         return (data, response)
       }
     ]
@@ -156,7 +158,8 @@ final class PiholeV5ServiceTests {
     mockSession.handlers = [
       { request in
         let response = try #require(v5Response())
-        let data = Data(#"{"queries_total":"1500","ads_blocked_today":"75","gravity_last_updated":{"file_exists":false}}"#.utf8)
+        let data = Data(
+          #"{"queries_total":"1500","ads_blocked_today":"75","gravity_last_updated":{"file_exists":false}}"#.utf8)
         return (data, response)
       }
     ]

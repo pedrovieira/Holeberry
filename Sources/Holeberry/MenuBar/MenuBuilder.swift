@@ -13,7 +13,7 @@ private let statusAmber = NSColor(calibratedRed: 1.0, green: 0.624, blue: 0.039,
 /// No dependencies on `PiholeServerManager`, `TimerManager`, or `SPUUpdater`.
 @MainActor
 struct MenuBuilder {
-  // swiftlint:disable:next function_parameter_count
+  // swiftlint:disable:next function_parameter_count function_body_length
   func buildMenu(
     actions: MenuActions,
     isTimerDisabled: Bool,
@@ -26,6 +26,7 @@ struct MenuBuilder {
     isConnected: Bool,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
+    isGravityUpdating: Bool,
     querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig],
     browserTabStatus: ResolvedBrowserTab,
@@ -64,6 +65,15 @@ struct MenuBuilder {
       hasHealthyInstance: hasHealthyInstance,
       isConnected: isConnected,
       durations: durations,
+      target: target
+    )
+    menu.addItem(.separator())
+    addGravitySection(
+      to: menu,
+      servers: servers,
+      connectionStatuses: connectionStatuses,
+      querySummaries: querySummaries,
+      isGravityUpdating: isGravityUpdating,
       target: target
     )
 
@@ -300,6 +310,73 @@ struct MenuBuilder {
       menuItem.isEnabled = isConnected && hasServers && hasHealthyInstance
       menu.addItem(menuItem)
     }
+  }
+
+  // MARK: - Gravity section
+
+  // swiftlint:disable:next function_parameter_count
+  private func addGravitySection(
+    to menu: NSMenu,
+    servers: [ServerConfig],
+    connectionStatuses: [UUID: ConnectionStatus],
+    querySummaries: [UUID: QuerySummary],
+    isGravityUpdating: Bool,
+    target: MenuActionTarget
+  ) {
+    let v6Servers = servers.filter { $0.version == .v6 }
+    guard !v6Servers.isEmpty else { return }
+
+    if isGravityUpdating {
+      let item = NSMenuItem(title: "Updating gravity…", action: nil, keyEquivalent: "")
+      item.isEnabled = false
+      menu.addItem(item)
+      return
+    }
+
+    let hasConnectedV6 = v6Servers.contains { connectionStatuses[$0.id] == .connected }
+    let maxAge =
+      v6Servers
+      .filter { connectionStatuses[$0.id] == .connected }
+      .compactMap { querySummaries[$0.id]?.gravityLastUpdated }
+      .max()
+
+    let item = NSMenuItem(
+      title: "Update Gravity",
+      action: #selector(MenuActionTarget.triggerGravityUpdate),
+      keyEquivalent: ""
+    )
+    item.target = target
+    item.isEnabled = hasConnectedV6
+    item.setAccessibilityLabel("Update gravity filter lists")
+    if let maxAge {
+      item.attributedTitle = gravityAttributedTitle(maxAge: maxAge)
+    }
+    menu.addItem(item)
+  }
+
+  /// Two-line title: "Update Gravity" over "Gravity updated <relative> ago".
+  private func gravityAttributedTitle(maxAge: Date) -> NSAttributedString {
+    let result = NSMutableAttributedString()
+    result.append(
+      NSAttributedString(
+        string: "Update Gravity",
+        attributes: [
+          .font: NSFont.systemFont(ofSize: NSFont.systemFontSize),
+          .foregroundColor: NSColor.labelColor
+        ]
+      )
+    )
+    result.append(NSAttributedString(string: "\n"))
+    result.append(
+      NSAttributedString(
+        string: "Gravity updated \(MenuItemFactory.relativeTimestamp(since: maxAge))",
+        attributes: [
+          .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+          .foregroundColor: NSColor.secondaryLabelColor
+        ]
+      )
+    )
+    return result
   }
 
   private func addDisableDurationItem(

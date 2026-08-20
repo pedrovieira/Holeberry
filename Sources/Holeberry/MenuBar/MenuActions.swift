@@ -9,6 +9,7 @@ struct MenuActions {
   /// `nil` duration = indefinitely.
   var disableBlocking: (TimeInterval?) -> Void
   var reEnableBlocking: () -> Void
+  var triggerGravityUpdate: () -> Void
 
   var disableURL: (String, TimeInterval) -> Void
   var addToAllowlist: (String) -> Void

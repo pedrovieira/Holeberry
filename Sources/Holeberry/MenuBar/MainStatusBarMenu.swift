@@ -55,6 +55,8 @@ final class MenuActionTarget: NSObject {
 
   @objc func reEnableBlocking(_ sender: Any?) { actions.reEnableBlocking() }
 
+  @objc func triggerGravityUpdate(_ sender: Any?) { actions.triggerGravityUpdate() }
+
   // MARK: - Per-domain duration submenu actions
 
   @objc func disableURLDurationAction(_ sender: NSMenuItem) {
