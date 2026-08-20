@@ -141,13 +141,27 @@ final class PiholeV5ServiceTests {
       { request in
         #expect(request.url?.absoluteString.contains("summaryRaw") == true)
         let response = try #require(v5Response())
-        let data = Data(#"{"queries_total":"1500","ads_blocked_today":"75"}"#.utf8)
+        let data = Data(#"{"queries_total":"1500","ads_blocked_today":"75","gravity_last_updated":{"file_exists":true,"absolute":1726223567,"relative":{"days":2,"hours":3,"minutes":4}}}"#.utf8)
         return (data, response)
       }
     ]
     let summary = try await makeService().getQuerySummary()
     #expect(summary.totalQueries == 1500)
     #expect(summary.totalBlocked == 75)
+    #expect(summary.gravityLastUpdated == Date(timeIntervalSince1970: 1_726_223_567))
+  }
+
+  @Test("getQuerySummary returns nil gravity date when file missing")
+  func getQuerySummaryGravityFileMissing() async throws {
+    mockSession.handlers = [
+      { request in
+        let response = try #require(v5Response())
+        let data = Data(#"{"queries_total":"1500","ads_blocked_today":"75","gravity_last_updated":{"file_exists":false}}"#.utf8)
+        return (data, response)
+      }
+    ]
+    let summary = try await makeService().getQuerySummary()
+    #expect(summary.gravityLastUpdated == nil)
   }
 
   @Test("getQuerySummary throws on missing keys")

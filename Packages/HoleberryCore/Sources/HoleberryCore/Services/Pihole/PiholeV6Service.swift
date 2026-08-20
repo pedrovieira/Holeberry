@@ -173,9 +173,20 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding("Unexpected summary format")
     }
 
+    let gravityLastUpdated: Date?
+    if let gravity = json["gravity"] as? [String: Any],
+      let lastUpdate = gravity["last_update"] as? Double,
+      lastUpdate > 0
+    {
+      gravityLastUpdated = Date(timeIntervalSince1970: lastUpdate)
+    } else {
+      gravityLastUpdated = nil
+    }
+
     return QuerySummary(
       totalQueries: totalQueries,
-      totalBlocked: totalBlocked
+      totalBlocked: totalBlocked,
+      gravityLastUpdated: gravityLastUpdated
     )
   }
 

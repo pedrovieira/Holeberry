@@ -204,13 +204,29 @@ final class PiholeV6ServiceTests {
         #expect(request.url?.path == "/api/stats/summary")
         #expect(request.httpMethod == "GET")
         let response = try #require(v6Response())
-        let data = Data(#"{"queries":{"total":5000,"blocked":250,"cached":1000,"forwarded":3750}}"#.utf8)
+        let data = Data(#"{"queries":{"total":5000,"blocked":250,"cached":1000,"forwarded":3750},"gravity":{"domains_being_blocked":450350,"last_update":1726223567}}"#.utf8)
         return (data, response)
       }
     ]
     let summary = try await makeService().getQuerySummary()
     #expect(summary.totalQueries == 5000)
     #expect(summary.totalBlocked == 250)
+    #expect(summary.gravityLastUpdated == Date(timeIntervalSince1970: 1_726_223_567))
+  }
+
+  @Test("getQuerySummary treats zero last_update as nil")
+  func getQuerySummaryZeroLastUpdate() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/stats/summary")
+        #expect(request.httpMethod == "GET")
+        let response = try #require(v6Response())
+        let data = Data(#"{"queries":{"total":1,"blocked":0},"gravity":{"domains_being_blocked":0,"last_update":0}}"#.utf8)
+        return (data, response)
+      }
+    ]
+    let summary = try await makeService().getQuerySummary()
+    #expect(summary.gravityLastUpdated == nil)
   }
 
   @Test("getQuerySummary throws on missing keys")

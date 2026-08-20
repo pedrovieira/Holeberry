@@ -113,7 +113,22 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding("Unexpected summary format: \(body)")
     }
 
-    return QuerySummary(totalQueries: totalQueries, totalBlocked: totalBlocked)
+    let gravityLastUpdated: Date?
+    if let gravity = json["gravity_last_updated"] as? [String: Any],
+      let fileExists = gravity["file_exists"] as? Bool,
+      fileExists,
+      let absolute = gravity["absolute"] as? Double
+    {
+      gravityLastUpdated = Date(timeIntervalSince1970: absolute)
+    } else {
+      gravityLastUpdated = nil
+    }
+
+    return QuerySummary(
+      totalQueries: totalQueries,
+      totalBlocked: totalBlocked,
+      gravityLastUpdated: gravityLastUpdated
+    )
   }
 
   public func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
