@@ -76,6 +76,10 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     try await wrapped.getQuerySummary()
   }
 
+  public func updateGravity() async throws {
+    try await wrapped.updateGravity()
+  }
+
   public func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
     try await wrapped.setBlocking(enabled: enabled, duration: duration)
   }

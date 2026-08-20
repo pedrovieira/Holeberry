@@ -178,6 +178,15 @@ final class PiholeV5ServiceTests {
     }
   }
 
+  // MARK: - updateGravity
+
+  @Test("updateGravity is unsupported on v5")
+  func updateGravityUnsupported() async {
+    await #expect(throws: PiholeError.unsupported("Gravity updates require Pi-hole v6")) {
+      try await makeService().updateGravity()
+    }
+  }
+
   // MARK: - getRecentBlocked
 
   @Test("getRecentBlocked filters blocked queries")

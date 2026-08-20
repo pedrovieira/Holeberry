@@ -352,6 +352,14 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(summary.totalBlocked == 10)
   }
 
+  @Test("updateGravity passes through")
+  func updateGravityPassesThrough() async throws {
+    let mock = MockPiholeService()
+    let decorator = makeDecorator(service: mock)
+    try await decorator.updateGravity()
+    #expect(mock.updateGravityCallCount == 1)
+  }
+
   @Test("setBlocking passes through")
   func setBlockingPassesThrough() async throws {
     let mock = MockPiholeService()

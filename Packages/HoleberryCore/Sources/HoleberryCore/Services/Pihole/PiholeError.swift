@@ -15,6 +15,7 @@ public enum PiholeError: Error, LocalizedError, Equatable {
   case reauthenticationFailed
   case sessionLimitReached
   case unknown(String)
+  case unsupported(String)
 
   public var errorDescription: String? {
     switch self {
@@ -47,6 +48,8 @@ public enum PiholeError: Error, LocalizedError, Equatable {
       return "Pi-hole session limit reached. Sign out from other clients."
     case .unknown(let description):
       return "Unexpected error: \(description)"
+    case .unsupported(let description):
+      return description
     }
   }
 }

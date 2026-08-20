@@ -36,6 +36,11 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws
   func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain]
 
+  // MARK: - Gravity
+
+  /// Triggers a gravity (filter list) update. Unsupported on v5 servers.
+  func updateGravity() async throws
+
   // MARK: - Session
 
   func login() async throws

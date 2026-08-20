@@ -40,7 +40,7 @@ public enum ServerCheckFailure: Equatable, Sendable {
       return .auth(.rateLimited)
     case .sessionLimitReached:
       return .auth(.sessionLimitReached)
-    case .network, .tlsUntrusted, .duplicateDomain, .decoding, .unknown:
+    case .network, .tlsUntrusted, .duplicateDomain, .decoding, .unknown, .unsupported:
       return .unreachable
     case .server:
       return .unreachable

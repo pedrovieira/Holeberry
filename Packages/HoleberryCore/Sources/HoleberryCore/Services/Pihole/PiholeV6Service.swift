@@ -190,6 +190,18 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     )
   }
 
+  public func updateGravity() async throws {
+    // The response body streams `pihole -g` output and only completes when
+    // the gravity process exits, so this request can legitimately run for
+    // minutes. 900s covers the longest realistic run.
+    let (data, httpResponse) = try await authenticatedRequest(
+      path: "/api/action/gravity", method: .post, timeoutInterval: 900
+    )
+
+    guard httpResponse.isSuccess else {
+      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+    }
+  }
 
   public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
     try await addDomain(domain, to: list, comment: nil)
@@ -262,24 +274,25 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   private func authenticatedRequest(
     path: String,
     method: HTTPMethod = .get,
-    body: (any Encodable)? = nil
+    body: (any Encodable)? = nil,
+    timeoutInterval: TimeInterval = 15
   ) async throws -> (Data, HTTPURLResponse) {
     let url = baseURL.appendingPathComponent(path)
-    return try await authenticatedRequest(url: url, method: method, body: body)
+    return try await authenticatedRequest(url: url, method: method, body: body, timeoutInterval: timeoutInterval)
   }
 
   private func authenticatedRequest(
     url: URL,
     method: HTTPMethod = .get,
-    body: (any Encodable)? = nil
+    body: (any Encodable)? = nil,
+    timeoutInterval: TimeInterval = 15
   ) async throws -> (Data, HTTPURLResponse) {
     let bodyData = try body.map { try Self.encoder.encode($0) }
     return try await authSession.authorizedRequest { sid in
       var request = URLRequest(url: url)
       request.httpMethod = method.rawValue
-      request.timeoutInterval = 15
-
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      request.timeoutInterval = timeoutInterval
       // No SID on password-less servers
       if !sid.isEmpty {
         request.setValue(sid, forHTTPHeaderField: "X-FTL-SID")

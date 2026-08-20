@@ -265,6 +265,36 @@ final class PiholeV6ServiceTests {
     }
   }
 
+  // MARK: - updateGravity
+
+  @Test("updateGravity POSTs with a long timeout")
+  func updateGravity() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/action/gravity")
+        #expect(request.httpMethod == "POST")
+        #expect(request.timeoutInterval == 900)
+        let response = try #require(v6Response())
+        return (Data("streamed output".utf8), response)
+      }
+    ]
+    try await makeService().updateGravity()
+    #expect(mockSession.requests.count == 1)
+  }
+
+  @Test("updateGravity throws on server error")
+  func updateGravityServerError() async throws {
+    mockSession.handlers = [
+      { request in
+        let response = try #require(v6Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().updateGravity()
+    }
+  }
+
   // MARK: - addDomain
 
   @Test("addDomain posts to v6 API")

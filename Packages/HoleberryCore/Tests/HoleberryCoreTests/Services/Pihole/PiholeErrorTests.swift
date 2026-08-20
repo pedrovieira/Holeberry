@@ -17,6 +17,10 @@ struct PiholeErrorTests {
     #expect(PiholeError.decoding("bad JSON").errorDescription == "Failed to parse response: bad JSON")
     #expect(PiholeError.totpRequired.errorDescription == "TOTP code required for 2FA")
     #expect(PiholeError.unknown("something broke").errorDescription == "Unexpected error: something broke")
+    #expect(
+      PiholeError.unsupported("Gravity updates require Pi-hole v6").errorDescription
+        == "Gravity updates require Pi-hole v6"
+    )
     #expect(PiholeError.invalidCredentials.errorDescription == "Invalid Pi-hole password or application password.")
     #expect(PiholeError.rateLimited.errorDescription == "Login rate limited. Please wait before trying again.")
     #expect(
@@ -35,5 +39,7 @@ struct PiholeErrorTests {
     #expect(PiholeError.duplicateDomain == PiholeError.duplicateDomain)
     #expect(PiholeError.network("x") == PiholeError.network("x"))
     #expect(PiholeError.network("x") != PiholeError.network("y"))
+    #expect(PiholeError.unsupported("x") == PiholeError.unsupported("x"))
+    #expect(PiholeError.unsupported("x") != PiholeError.unsupported("y"))
   }
 }
