@@ -1014,4 +1014,82 @@ struct ServerStatusPollerTests {
 
     #expect(timer.isRunning == false)
   }
+
+  // MARK: - applyGravityUpdate()
+
+  @Test("applyGravityUpdate succeeds when last_update moved")
+  func applyGravityUpdateSucceeded() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    let oldDate = Date(timeIntervalSince1970: 1_000)
+    let newDate = Date(timeIntervalSince1970: 2_000)
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)],
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+
+    let poller = makePoller()
+    let outcomes = await poller.applyGravityUpdate()
+
+    #expect(outcomes == [id: .succeeded])
+    #expect(mockManager.updateGravityCallCount == 1)
+    #expect(poller.querySummaries[id]?.gravityLastUpdated == newDate)
+    #expect(poller.isGravityUpdating == false)
+  }
+
+  @Test("applyGravityUpdate reports noChange when last_update did not move")
+  func applyGravityUpdateNoChange() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    let date = Date(timeIntervalSince1970: 1_000)
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+
+    let poller = makePoller()
+    let outcomes = await poller.applyGravityUpdate()
+
+    #expect(outcomes == [id: .noChange])
+  }
+
+  @Test("applyGravityUpdate reports failure")
+  func applyGravityUpdateFailure() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.updateGravityStub = [id: .failure(.network("down"))]
+
+    let poller = makePoller()
+    let outcomes = await poller.applyGravityUpdate()
+
+    #expect(outcomes == [id: .failed(.network("down"))])
+  }
+
+  @Test("applyGravityUpdate ignores a second trigger while running")
+  func applyGravityUpdateConcurrentGuard() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: nil)],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date())],
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+    let poller = makePoller()
+
+    // Hold the first update open inside the manager; the second trigger
+    // arrives while isGravityUpdating is already true.
+    mockManager.updateGravityGate = {
+      let second = await poller.applyGravityUpdate()
+      #expect(second.isEmpty)
+      #expect(poller.isGravityUpdating)
+    }
+
+    let outcomes = await poller.applyGravityUpdate()
+
+    #expect(outcomes == [id: .succeeded])
+    #expect(poller.isGravityUpdating == false)
+    #expect(mockManager.updateGravityCallCount == 1)
+  }
 }

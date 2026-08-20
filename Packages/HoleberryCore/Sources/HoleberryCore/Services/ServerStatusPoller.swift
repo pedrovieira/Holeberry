@@ -2,6 +2,18 @@ import Combine
 import Defaults
 import Foundation
 import OSLog
+// swiftlint:disable file_length
+
+/// Result of a gravity update attempt for a single server.
+public enum GravityUpdateOutcome: Equatable, Sendable {
+  /// Request completed and the server's gravity timestamp moved.
+  case succeeded
+  /// Request completed but the gravity timestamp did not move — the update
+  /// likely failed server-side.
+  case noChange
+  /// The request itself failed (network, auth, server error).
+  case failed(PiholeError)
+}
 
 @MainActor
 public final class ServerStatusPoller: ObservableObject {
@@ -13,6 +25,7 @@ public final class ServerStatusPoller: ObservableObject {
   @Published public var recentBlocked: [BlockedDomain] = []
   @Published public var connectionStates: [UUID: ServerConnectionState] = [:]
   @Published public var checkingServerIDs: Set<UUID> = []
+  @Published public private(set) var isGravityUpdating = false
   private var lastSuccessfulCheck: [UUID: Date] = [:]
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
@@ -150,6 +163,48 @@ public final class ServerStatusPoller: ObservableObject {
     }
 
     return results
+  }
+
+  /// Triggers a gravity update on all v6 servers and verifies each server's
+  /// gravity timestamp moved. The funnel for gravity updates — prefer this
+  /// over calling `manager.updateGravity()` directly. Concurrent triggers are
+  /// ignored while one is in flight.
+  @discardableResult
+  public func applyGravityUpdate() async -> [UUID: GravityUpdateOutcome] {
+    guard !isGravityUpdating else { return [:] }
+    isGravityUpdating = true
+    defer { isGravityUpdating = false }
+
+    let v6IDs = Set(manager.servers.filter { $0.version == .v6 }.map(\.id))
+    guard !v6IDs.isEmpty else { return [:] }
+
+    // Fresh before-snapshot: avoids relying on the last poll's data.
+    let beforeSummaries = await manager.getQuerySummary()
+
+    let results = await manager.updateGravity()
+
+    // Refresh summaries so the menu subtext is current on the next open.
+    let afterSummaries = await manager.getQuerySummary()
+    for (id, summary) in afterSummaries {
+      if let summary {
+        querySummaries[id] = summary
+      } else {
+        querySummaries.removeValue(forKey: id)
+      }
+    }
+
+    var outcomes: [UUID: GravityUpdateOutcome] = [:]
+    for (id, result) in results {
+      switch result {
+      case .success:
+        let beforeValue = beforeSummaries[id].flatMap { $0?.gravityLastUpdated }
+        let afterValue = afterSummaries[id].flatMap { $0?.gravityLastUpdated }
+        outcomes[id] = beforeValue != afterValue ? .succeeded : .noChange
+      case .failure(let error):
+        outcomes[id] = .failed(error)
+      }
+    }
+    return outcomes
   }
 
   /// Manual retry: one authoritative check for a single server, applied
