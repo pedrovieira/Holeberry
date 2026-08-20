@@ -67,7 +67,6 @@ struct MenuBuilder {
       durations: durations,
       target: target
     )
-    menu.addItem(.separator())
     addGravitySection(
       to: menu,
       servers: servers,
@@ -325,6 +324,7 @@ struct MenuBuilder {
   ) {
     let v6Servers = servers.filter { $0.version == .v6 }
     guard !v6Servers.isEmpty else { return }
+    menu.addItem(.separator())
 
     if isGravityUpdating {
       let item = NSMenuItem(title: "Updating gravity…", action: nil, keyEquivalent: "")
@@ -334,11 +334,12 @@ struct MenuBuilder {
     }
 
     let hasConnectedV6 = v6Servers.contains { connectionStatuses[$0.id] == .connected }
+    // Show the stalest server: the oldest "last updated" date = the max age.
     let maxAge =
       v6Servers
       .filter { connectionStatuses[$0.id] == .connected }
       .compactMap { querySummaries[$0.id]?.gravityLastUpdated }
-      .max()
+      .min()
 
     let item = NSMenuItem(
       title: "Update Gravity",

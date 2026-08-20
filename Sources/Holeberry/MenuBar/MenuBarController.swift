@@ -281,7 +281,10 @@ final class MenuBarController: NSObject {
         showError("Failed to update gravity on \(label): \(error.localizedDescription)")
         return
       case .noChange:
-        showError("Gravity update didn't take effect — check the Pi-hole web interface")
+        let label = serverManager.servers.first { $0.id == id }?.label ?? "Pi-hole"
+        showError(
+          "Gravity finished on \(label) but the update didn't take effect — check the Pi-hole web interface"
+        )
         return
       case .succeeded:
         continue
