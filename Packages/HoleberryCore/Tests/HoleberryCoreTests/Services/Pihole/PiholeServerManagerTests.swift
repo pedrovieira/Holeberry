@@ -322,6 +322,50 @@ struct PiholeServerManagerCRUDTests {
     #expect(probe.loginCallCount == 1)
     #expect(probe.logoutCallCount == 1, "probe must not leak a session")
   }
+
+  @Test("updateGravity skips v5 servers and aggregates v6 results")
+  func updateGravitySkipsV5() async throws {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    let service = MockPiholeService()
+    mockServiceFactory.buildServiceStub = service
+
+    mockVersionDetector.detectStub = .success(.v5)
+    try await manager.addServer(label: "Old", url: "http://v5.local", credential: "a")
+    mockVersionDetector.detectStub = .success(.v6)
+    try await manager.addServer(label: "New", url: "http://v6.local", credential: "b")
+
+    let v6ID = try #require(manager.servers.first { $0.version == .v6 }?.id)
+    service.updateGravityStub = .success(())
+
+    let results = await manager.updateGravity()
+
+    #expect(results.count == 1)
+    guard case .success = results[v6ID] else {
+      Issue.record("expected success, got \(String(describing: results[v6ID]))")
+      return
+    }
+    #expect(service.updateGravityCallCount == 1)
+  }
+
+  @Test("updateGravity aggregates failures")
+  func updateGravityAggregatesFailures() async throws {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    let service = MockPiholeService()
+    mockServiceFactory.buildServiceStub = service
+
+    try await manager.addServer(label: "New", url: "http://v6.local", credential: "b")
+    let v6ID = try #require(manager.servers.first?.id)
+    service.updateGravityStub = .failure(PiholeError.network("down"))
+
+    let results = await manager.updateGravity()
+
+    guard case .failure(let error) = results[v6ID] else {
+      Issue.record("expected failure, got \(String(describing: results[v6ID]))")
+      return
+    }
+    #expect(error == .network("down"))
+    #expect(service.updateGravityCallCount == 1)
+  }
 }
 
 @MainActor

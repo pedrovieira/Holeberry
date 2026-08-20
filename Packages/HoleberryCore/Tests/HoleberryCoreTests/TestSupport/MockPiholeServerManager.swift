@@ -22,6 +22,12 @@ final class MockPiholeServerManager: PiholeServerManaging {
 
   var getQuerySummaryStub: [UUID: QuerySummary?] = [:]
   private(set) var getQuerySummaryCallCount = 0
+  var getQuerySummaryResponses: [[UUID: QuerySummary?]] = []
+
+  var updateGravityStub: [UUID: Result<Void, PiholeError>] = [:]
+  private(set) var updateGravityCallCount = 0
+  /// One-shot: the next `updateGravity()` awaits this before returning.
+  var updateGravityGate: (@MainActor () async -> Void)?
 
   var getRecentBlockedStub: Result<[BlockedDomain], any Error> = .success([])
   private(set) var getRecentBlockedCallCount = 0
@@ -61,7 +67,19 @@ final class MockPiholeServerManager: PiholeServerManaging {
 
   func getQuerySummary() async -> [UUID: QuerySummary?] {
     getQuerySummaryCallCount += 1
+    if !getQuerySummaryResponses.isEmpty {
+      return getQuerySummaryResponses.removeFirst()
+    }
     return getQuerySummaryStub
+  }
+
+  func updateGravity() async -> [UUID: Result<Void, PiholeError>] {
+    updateGravityCallCount += 1
+    if let gate = updateGravityGate {
+      updateGravityGate = nil
+      await gate()
+    }
+    return updateGravityStub
   }
 
   func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {

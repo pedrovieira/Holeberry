@@ -483,6 +483,34 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
+  /// Triggers a gravity update on all v6 servers. v5 servers are skipped —
+  /// no token-authenticated trigger exists for them.
+  public func updateGravity() async -> [UUID: Result<Void, PiholeError>] {
+    let configs = servers.filter { $0.version == .v6 }
+    let svcs = services
+    return await withTaskGroup(of: (UUID, Result<Void, PiholeError>).self) { group in
+      for config in configs {
+        let svc = svcs[config.id]
+        let id = config.id
+        group.addTask {
+          guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
+          do {
+            try await svc.updateGravity()
+            return (id, .success(()))
+          } catch {
+            let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+            return (id, .failure(piholeError))
+          }
+        }
+      }
+      var results: [UUID: Result<Void, PiholeError>] = [:]
+      for await (id, result) in group {
+        results[id] = result
+      }
+      return results
+    }
+  }
+
   // MARK: - Multi-server workflows
 
   public func unblock(domain: String, duration: TimeInterval) async throws {

@@ -13,5 +13,8 @@ public protocol PiholeServerManaging: AnyObject {
   func checkServer(id: UUID) async -> Result<BlockingStatus, PiholeError>?
   func setBlocking(enabled: Bool, duration: TimeInterval?) async -> [UUID: Bool]
   func getQuerySummary() async -> [UUID: QuerySummary?]
+
+  /// Triggers a gravity update on all v6 servers. v5 servers are skipped.
+  func updateGravity() async -> [UUID: Result<Void, PiholeError>]
   func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain]
 }
