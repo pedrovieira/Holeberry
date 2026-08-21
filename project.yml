@@ -48,6 +48,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Support/Holeberry.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry
         CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
     dependencies:

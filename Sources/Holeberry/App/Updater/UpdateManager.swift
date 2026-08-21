@@ -81,7 +81,9 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate, SPUUserDriver {
   func showExtractionReceivedProgress(_ progress: Double) {}
 
   func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
-    reply(.dismiss)
+    // The user already chose "Update & Restart" in the update alert, so proceed
+    // with the install without asking again.
+    reply(.install)
   }
 
   func showInstallingUpdate(
@@ -118,7 +120,7 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate, SPUUserDriver {
 
     alert.informativeText = info
     alert.alertStyle = .informational
-    alert.addButton(withTitle: "View on GitHub")
+    alert.addButton(withTitle: "Update & Restart")
     alert.addButton(withTitle: "Skip This Version")
     alert.addButton(withTitle: "Remind Me Later")
 
@@ -128,12 +130,9 @@ final class UpdateManager: NSObject, SPUUpdaterDelegate, SPUUserDriver {
     let response = alert.runModal()
     switch response {
     case .alertFirstButtonReturn:
-      // View on GitHub
-      let tag = newVersion.hasPrefix("v") ? newVersion : "v\(newVersion)"
-      if let url = URL(string: "https://github.com/pedrovieira/Holeberry/releases/tag/\(tag)") {
-        NSWorkspace.shared.open(url)
-      }
-      reply?(.dismiss)
+      // Update & Restart — Sparkle downloads the notarized DMG and installs it
+      // in place (see showReady(toInstallAndRelaunch:)).
+      reply?(.install)
 
     case .alertSecondButtonReturn:
       // Skip This Version — Sparkle won't notify about this version again
