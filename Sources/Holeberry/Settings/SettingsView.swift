@@ -78,7 +78,7 @@ struct SettingsView: View {
         } icon: {
           tab.image
             .resizable()
-            .aspectRatio(contentMode: .fit)
+            .scaledToFit()
             .frame(width: 16, height: 16)
         }
       }
@@ -301,7 +301,7 @@ struct SettingsView: View {
             VStack(spacing: 5) {
               Image("Github")
                 .resizable()
-                .aspectRatio(contentMode: .fit)
+                .scaledToFit()
                 .frame(width: 18)
               Text("GitHub")
             }
@@ -322,7 +322,7 @@ struct SettingsView: View {
             VStack(spacing: 4) {
               Image("Github")
                 .resizable()
-                .aspectRatio(contentMode: .fit)
+                .scaledToFit()
                 .frame(width: 16, height: 16)
               Text("GitHub")
                 .font(.caption2)
@@ -382,7 +382,7 @@ struct SettingsView: View {
       VStack(spacing: 4) {
         icon
           .resizable()
-          .aspectRatio(contentMode: .fit)
+          .scaledToFit()
           .frame(width: 16, height: 16)
         Text(label)
           .font(.caption2)

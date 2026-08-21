@@ -72,8 +72,28 @@ jobs:
             -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          # Fail fast: a certificate-only p12 imports fine but leaves no signing
+          # identity — the release would otherwise die later with a cryptic
+          # SecItemCopyMatching error at the first codesign.
+          if security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -q "0 valid identities"; then
+            echo "::error::HOLEBERRY_CERT_P12 contains no private key — re-export the p12 from Keychain Access (My Certificates) with the private key included"
+            exit 1
+          fi
           security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
           echo "::notice::Signing certificate imported into $KEYCHAIN"
+
+      - name: Prepare notarization credentials
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$APPLE_API_KEY" ]; then
+            echo "::notice::No App Store Connect API key secret; skipping notarization"
+            exit 0
+          fi
+          # App Store Connect API key (.p8), base64-encoded in the secret.
+          echo "$APPLE_API_KEY" | base64 --decode > /tmp/holeberry-apple-api-key.p8
+          echo "::notice::App Store Connect API key written"
 
       - name: Build Holeberry
         env:
@@ -86,8 +106,17 @@ jobs:
           APP_PATH="build/Build/Products/Release/Holeberry.app"
 
           if [ -n "$HOLEBERRY_CERT_P12" ]; then
-            # Real signing with the certificate imported above (Apple Development
-            # or Developer ID). Restricted entitlements are fine here.
+            # Real signing with the Developer ID Application certificate imported
+            # above — required for notarized distribution outside the Mac App
+            # Store.
+            #
+            # CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO: Xcode 26 injects the
+            # restricted com.apple.security.get-task-allow entitlement into
+            # Release builds (even with a Developer ID identity) whenever
+            # base-entitlement injection is on and no provisioning profile is
+            # in play. The notary service rejects restricted entitlements, so
+            # we disable the injection — our own entitlements file is all the
+            # app needs.
             echo "::notice::Signing with identity $HOLEBERRY_CODE_SIGN_IDENTITY"
             xcodebuild -project Holeberry.xcodeproj \
               -scheme Holeberry \
@@ -98,6 +127,7 @@ jobs:
               CODE_SIGN_STYLE=Manual \
               CODE_SIGNING_REQUIRED=YES \
               CODE_SIGNING_ALLOWED=YES \
+              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
               DEVELOPMENT_TEAM="$HOLEBERRY_TEAM_ID" \
               CODE_SIGN_IDENTITY="$HOLEBERRY_CODE_SIGN_IDENTITY"
           else
@@ -127,6 +157,47 @@ jobs:
             codesign --force --deep --sign - --entitlements /tmp/release-ents-min.xml "$APP_PATH"
           fi
 
+      - name: Re-sign nested Sparkle code
+        env:
+          HOLEBERRY_CERT_P12: ${{ secrets.HOLEBERRY_CERT_P12 }}
+          HOLEBERRY_CODE_SIGN_IDENTITY: ${{ secrets.HOLEBERRY_CODE_SIGN_IDENTITY }}
+          HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HOLEBERRY_CERT_P12" ]; then
+            echo "::notice::No signing certificate secret; skipping nested re-sign (ad-hoc path)"
+            exit 0
+          fi
+          APP_PATH="build/Build/Products/Release/Holeberry.app"
+          SPARKLE_FW="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/Current"
+          # Sparkle's XCFramework ships its XPC services and helper binaries
+          # ad-hoc signed; Xcode re-signs the framework but not its contents.
+          # The notary service rejects ad-hoc nested code, so re-sign
+          # inside-out with the Developer ID identity, preserving each item's
+          # own entitlements.
+          for item in \
+            "$SPARKLE_FW/XPCServices/Downloader.xpc" \
+            "$SPARKLE_FW/XPCServices/Installer.xpc" \
+            "$SPARKLE_FW/Updater.app" \
+            "$SPARKLE_FW/Autoupdate"; do
+            codesign --force --options runtime --preserve-metadata=entitlements,identifier \
+              --sign "$HOLEBERRY_CODE_SIGN_IDENTITY" "$item"
+          done
+          codesign --force --options runtime --preserve-metadata=entitlements,identifier \
+            --sign "$HOLEBERRY_CODE_SIGN_IDENTITY" "$SPARKLE_FW"
+          codesign --force --options runtime --preserve-metadata=entitlements,identifier \
+            --sign "$HOLEBERRY_CODE_SIGN_IDENTITY" "$APP_PATH"
+          # Audit: every Mach-O in the bundle must carry our team ID
+          find "$APP_PATH" -type f -exec file {} \; | grep "Mach-O" | grep -v "for architecture" | cut -d: -f1 | while read -r f; do
+            # Plain grep (not grep -q): grep -q exits early and SIGPIPEs
+            # codesign, which pipefail then reports as a false failure.
+            if ! codesign -dv "$f" 2>&1 | grep "TeamIdentifier=$HOLEBERRY_TEAM_ID" >/dev/null; then
+              echo "::error::$f is not signed with team $HOLEBERRY_TEAM_ID"
+              exit 1
+            fi
+          done
+          echo "::notice::Nested Sparkle code re-signed and audited"
+
       - name: Verify release tag matches app version
         run: |
           set -euo pipefail
@@ -138,6 +209,46 @@ jobs:
             exit 1
           fi
           echo "::notice::Tag and app version match ($APP_VERSION)"
+
+      - name: Notarize app
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          if [ ! -f /tmp/holeberry-apple-api-key.p8 ]; then
+            echo "::notice::Notarization credentials not configured; skipping app notarization"
+            exit 0
+          fi
+          APP_PATH="build/Build/Products/Release/Holeberry.app"
+          # Fail fast on a bad signature before spending minutes in the notary queue
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          # notarytool requires a container format (.zip/.pkg/.dmg) and rejects a
+          # bare .app; zip the app, then staple the ticket onto the bundle itself.
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" /tmp/holeberry-app.zip
+          # notarytool exits 0 even when Apple's verdict is "Invalid", so check
+          # the status ourselves and print Apple's log on rejection.
+          SUBMIT_OUTPUT="$(xcrun notarytool submit /tmp/holeberry-app.zip \
+            --key /tmp/holeberry-apple-api-key.p8 \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait \
+            --timeout 30m 2>&1 || true)"
+          echo "$SUBMIT_OUTPUT"
+          if ! echo "$SUBMIT_OUTPUT" | grep -q "status: Accepted"; then
+            SUBMISSION_ID="$(echo "$SUBMIT_OUTPUT" | sed -n 's/.*id: \([0-9a-f-]\{36\}\).*/\1/p' | head -1)"
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "::error::Notarization rejected — Apple's log:"
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key /tmp/holeberry-apple-api-key.p8 \
+                --key-id "$APPLE_API_KEY_ID" \
+                --issuer "$APPLE_API_ISSUER_ID" || true
+            fi
+            exit 1
+          fi
+          # Staple before packaging so the ticket is embedded in the DMG
+          xcrun stapler staple "$APP_PATH"
+          xcrun stapler validate "$APP_PATH"
 
       - name: Create DMG
         id: dmg
@@ -157,6 +268,37 @@ jobs:
 
           echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
           echo "dmg_name=$DMG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Notarize DMG
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          if [ ! -f /tmp/holeberry-apple-api-key.p8 ]; then
+            echo "::notice::Notarization credentials not configured; skipping DMG notarization"
+            exit 0
+          fi
+          SUBMIT_OUTPUT="$(xcrun notarytool submit "${{ steps.dmg.outputs.dmg_path }}" \
+            --key /tmp/holeberry-apple-api-key.p8 \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait \
+            --timeout 30m 2>&1 || true)"
+          echo "$SUBMIT_OUTPUT"
+          if ! echo "$SUBMIT_OUTPUT" | grep -q "status: Accepted"; then
+            SUBMISSION_ID="$(echo "$SUBMIT_OUTPUT" | sed -n 's/.*id: \([0-9a-f-]\{36\}\).*/\1/p' | head -1)"
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "::error::DMG notarization rejected — Apple's log:"
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key /tmp/holeberry-apple-api-key.p8 \
+                --key-id "$APPLE_API_KEY_ID" \
+                --issuer "$APPLE_API_ISSUER_ID" || true
+            fi
+            exit 1
+          fi
+          xcrun stapler staple "${{ steps.dmg.outputs.dmg_path }}"
+          xcrun stapler validate "${{ steps.dmg.outputs.dmg_path }}"
 
       - name: Clone Sparkle (matching pinned version)
         run: |
