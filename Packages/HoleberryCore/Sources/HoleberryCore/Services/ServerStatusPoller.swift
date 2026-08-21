@@ -2,6 +2,7 @@ import Combine
 import Defaults
 import Foundation
 import OSLog
+
 // swiftlint:disable file_length
 
 /// Result of a gravity update attempt for a single server.
@@ -28,6 +29,14 @@ public final class ServerStatusPoller: ObservableObject {
   @Published public private(set) var isGravityUpdating = false
   private var lastSuccessfulCheck: [UUID: Date] = [:]
 
+  /// App-observed gravity completion times; display clamps to these because
+  /// Pi-hole stamps `last_update` mid-run, before its slow index-build tail.
+  public private(set) var gravityCompletedAt: [UUID: Date] = [:]
+
+  /// Concurrency guard for trigger+verify; separate from the user-visible
+  /// `isGravityUpdating`, which only covers the trigger phase.
+  private var gravityOperationInFlight = false
+
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
   private let pollingInterval: TimeInterval
   private let scheduler: any PollScheduler
@@ -43,6 +52,12 @@ public final class ServerStatusPoller: ObservableObject {
   /// fetch also re-syncs it from the server's remaining time when idle.
   private let timerManager: TimerManager
   private let sleep: (TimeInterval) async throws -> Void
+  /// Hard cap for a gravity trigger: URLSession's timeout is an idle timeout,
+  /// so a slow-but-alive stream would otherwise hold the state indefinitely.
+  private let gravityTriggerTimeout: TimeInterval
+  /// FTL refreshes its cached `last_update` on a ~1s tick; wait this long
+  /// before re-verifying a run whose timestamp hasn't moved.
+  private static let gravityVerificationDelay: TimeInterval = 2
 
   /// How long the timer-end re-check keeps polling after the countdown ends
   /// before falling back to the scheduled poll cadence.
@@ -65,7 +80,10 @@ public final class ServerStatusPoller: ObservableObject {
     defaultsSuite: UserDefaults = .standard,
     scheduler: any PollScheduler = TaskPollScheduler(),
     timerManager: TimerManager = TimerManager(),
-    sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+    sleep: @escaping (TimeInterval) async throws -> Void = {
+      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
+    },
+    gravityTriggerTimeout: TimeInterval = 15 * 60
   ) {
     self.manager = manager
     self.networkInterface = networkInterface
@@ -74,6 +92,7 @@ public final class ServerStatusPoller: ObservableObject {
     self.scheduler = scheduler
     self.timerManager = timerManager
     self.sleep = sleep
+    self.gravityTriggerTimeout = gravityTriggerTimeout
     self.servers = manager.servers
     self.lastSuccessfulCheck = Dictionary(
       uniqueKeysWithValues: manager.servers.map { ($0.id, Date()) }
@@ -101,6 +120,7 @@ public final class ServerStatusPoller: ObservableObject {
         self.querySummaries = self.querySummaries.filter { newIDs.contains($0.key) }
         self.connectionStates = self.connectionStates.filter { newIDs.contains($0.key) }
         self.lastSuccessfulCheck = self.lastSuccessfulCheck.filter { newIDs.contains($0.key) }
+        self.gravityCompletedAt = self.gravityCompletedAt.filter { newIDs.contains($0.key) }
         self.servers = newServers
         guard structuralChange, !self.isPolling else { return }
         Task { await self.performPoll() }
@@ -171,9 +191,9 @@ public final class ServerStatusPoller: ObservableObject {
   /// ignored while one is in flight.
   @discardableResult
   public func applyGravityUpdate() async -> [UUID: GravityUpdateOutcome] {
-    guard !isGravityUpdating else { return [:] }
-    isGravityUpdating = true
-    defer { isGravityUpdating = false }
+    guard !gravityOperationInFlight else { return [:] }
+    gravityOperationInFlight = true
+    defer { gravityOperationInFlight = false }
 
     let v6IDs = Set(manager.servers.filter { $0.version == .v6 }.map(\.id))
     guard !v6IDs.isEmpty else { return [:] }
@@ -181,10 +201,33 @@ public final class ServerStatusPoller: ObservableObject {
     // Fresh before-snapshot: avoids relying on the last poll's data.
     let beforeSummaries = await manager.getQuerySummary()
 
-    let results = await manager.updateGravity()
+    // Only the trigger phase drives the menu's "Updating gravity…".
+    isGravityUpdating = true
+    defer { isGravityUpdating = false }
+
+    let results = await raceGravityTrigger(v6IDs: v6IDs, timeout: gravityTriggerTimeout)
+    isGravityUpdating = false
 
     // Refresh summaries so the menu subtext is current on the next open.
-    let afterSummaries = await manager.getQuerySummary()
+    var afterSummaries = await manager.getQuerySummary()
+
+    // FTL refreshes its cached `last_update` on a ~1s tick, so an immediate
+    // after-fetch can race it and mistake a successful run for a no-change.
+    // Re-check once after a short delay when movement isn't confirmed.
+    if needsGravityRecheck(
+      results: results,
+      beforeSummaries: beforeSummaries,
+      afterSummaries: afterSummaries
+    ) {
+      try? await sleep(Self.gravityVerificationDelay)
+      let refreshed = await manager.getQuerySummary()
+      for (id, summary) in refreshed {
+        if let summary {
+          afterSummaries[id] = summary
+        }
+      }
+    }
+
     for (id, summary) in afterSummaries {
       if let summary {
         querySummaries[id] = summary
@@ -193,18 +236,91 @@ public final class ServerStatusPoller: ObservableObject {
       }
     }
 
+    return computeGravityOutcomes(
+      results: results,
+      beforeSummaries: beforeSummaries,
+      afterSummaries: afterSummaries
+    )
+  }
+
+  /// Maps each trigger result to an outcome, recording the app-observed
+  /// completion time for verified successes.
+  private func computeGravityOutcomes(
+    results: [UUID: Result<Void, PiholeError>],
+    beforeSummaries: [UUID: QuerySummary?],
+    afterSummaries: [UUID: QuerySummary?]
+  ) -> [UUID: GravityUpdateOutcome] {
     var outcomes: [UUID: GravityUpdateOutcome] = [:]
     for (id, result) in results {
       switch result {
       case .success:
         let beforeValue = beforeSummaries[id].flatMap { $0?.gravityLastUpdated }
         let afterValue = afterSummaries[id].flatMap { $0?.gravityLastUpdated }
-        outcomes[id] = beforeValue != afterValue ? .succeeded : .noChange
+        if beforeValue != afterValue {
+          outcomes[id] = .succeeded
+          gravityCompletedAt[id] = Date()
+        } else {
+          outcomes[id] = .noChange
+        }
       case .failure(let error):
         outcomes[id] = .failed(error)
       }
     }
     return outcomes
+  }
+
+  /// Whether a successful trigger's timestamp movement still needs re-verifying.
+  private func needsGravityRecheck(
+    results: [UUID: Result<Void, PiholeError>],
+    beforeSummaries: [UUID: QuerySummary?],
+    afterSummaries: [UUID: QuerySummary?]
+  ) -> Bool {
+    results.contains { id, result in
+      guard case .success = result else { return false }
+      let before = beforeSummaries[id]?.flatMap { $0.gravityLastUpdated }
+      let after = afterSummaries[id]?.flatMap { $0.gravityLastUpdated }
+      return after == nil || after == before
+    }
+  }
+
+  /// Runs the trigger against the watchdog; on timeout the client request is
+  /// cancelled (the server-side run continues) and every v6 server fails.
+  private func raceGravityTrigger(
+    v6IDs: Set<UUID>,
+    timeout: TimeInterval
+  ) async -> [UUID: Result<Void, PiholeError>] {
+    do {
+      return try await withThrowingTaskGroup(of: [UUID: Result<Void, PiholeError>].self) { group in
+        group.addTask { await self.runGravityTrigger() }
+        group.addTask {
+          try await self.sleepForGravityTimeout(timeout)
+          throw PiholeError.unknown(
+            "timed out after \(Int(timeout / 60)) minutes — check the Pi-hole web interface"
+          )
+        }
+        guard let first = try await group.next() else {
+          throw PiholeError.unknown("Gravity trigger produced no result")
+        }
+        group.cancelAll()
+        return first
+      }
+    } catch {
+      // Watchdog fired or the trigger was cancelled: report and move on.
+      logger.warning("Gravity trigger aborted: \(error.localizedDescription, privacy: .public)")
+      let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+      return Dictionary(uniqueKeysWithValues: v6IDs.map { ($0, .failure(piholeError)) })
+    }
+  }
+
+  /// Runs `manager.updateGravity()` on the main actor so the non-Sendable
+  /// manager never crosses into the `@Sendable` group child.
+  private func runGravityTrigger() async -> [UUID: Result<Void, PiholeError>] {
+    await manager.updateGravity()
+  }
+
+  /// Keeps the non-Sendable `sleep` out of the `@Sendable` watchdog task.
+  private func sleepForGravityTimeout(_ timeout: TimeInterval) async throws {
+    try await sleep(timeout)
   }
 
   /// Manual retry: one authoritative check for a single server, applied

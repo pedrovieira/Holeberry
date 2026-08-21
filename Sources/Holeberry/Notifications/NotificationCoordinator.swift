@@ -22,6 +22,8 @@ final class NotificationCoordinator: NSObject {
   private static let shortcutErrorCategory = "SHORTCUT_ERROR"
   private static let unblockEndedCategory = "UNBLOCK_ENDED"
   private static let domainUnblockEndedCategory = "DOMAIN_UNBLOCK_ENDED"
+  private static let gravityErrorCategory = "GRAVITY_ERROR"
+  private static let gravityCompletedCategory = "GRAVITY_COMPLETED"
 
   private let defaultsSuite: UserDefaults
   private let openSettings: () -> Void
@@ -60,6 +62,11 @@ final class NotificationCoordinator: NSObject {
         : "Blocking is active again on \(serverNames.joined(separator: ", "))."
     case .domainUnblockEnded(let domain):
       content.body = "\(domain) is blocked again."
+    case .gravityUpdateFailed(let serverName, let error):
+      content.body = "Failed to update gravity on \(serverName): \(error)"
+      content.sound = .default
+    case .gravityUpdateCompleted(let serverNames):
+      content.body = "Gravity updated on \(serverNames.joined(separator: ", "))."
     }
 
     let request = UNNotificationRequest(
@@ -76,17 +83,44 @@ final class NotificationCoordinator: NSObject {
     }
   }
 
+  // MARK: - Gravity outcomes
+
+  /// Schedules notifications for gravity outcomes: one completion banner for
+  /// the succeeded servers, plus a failure notification per failed server.
+  func scheduleGravityOutcomeNotifications(
+    _ outcomes: [UUID: GravityUpdateOutcome],
+    labelFor: (UUID) -> String?
+  ) {
+    let completed = outcomes.compactMap { id, outcome in
+      if case .succeeded = outcome { return labelFor(id) ?? "Pi-hole" }
+      return nil
+    }
+    if !completed.isEmpty {
+      schedule(.gravityUpdateCompleted(serverNames: completed))
+    }
+    for (id, outcome) in outcomes {
+      switch outcome {
+      case .failed(let error):
+        schedule(.gravityUpdateFailed(serverName: labelFor(id) ?? "Pi-hole", error: error.localizedDescription))
+      case .noChange:
+        schedule(
+          .gravityUpdateFailed(
+            serverName: labelFor(id) ?? "Pi-hole",
+            error: "Gravity finished but the update didn't take effect — check the Pi-hole web interface"
+          )
+        )
+      case .succeeded:
+        continue
+      }
+    }
+  }
+
   // MARK: - Authorization
 
-  /// Asks for notification permission, but only if the system hasn't been
-  /// asked yet and the user hasn't turned off every notification setting.
+  /// Asks for permission once; always-on kinds need no toggle gate.
   func requestAuthorizationIfNeeded() {
-    let anyEnabled =
-      Defaults[.notifyWhenUnblockEnds(suite: defaultsSuite)]
-      || Defaults[.notifyWhenDomainUnblockEnds(suite: defaultsSuite)]
     UNUserNotificationCenter.current().getNotificationSettings { settings in
       guard settings.authorizationStatus == .notDetermined else { return }
-      guard anyEnabled else { return }
       UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in
         if let error {
           self.logger.warning(
@@ -116,6 +150,12 @@ final class NotificationCoordinator: NSObject {
       return Defaults[.notifyWhenUnblockEnds(suite: defaultsSuite)]
     case .domainUnblockEnded:
       return Defaults[.notifyWhenDomainUnblockEnds(suite: defaultsSuite)]
+    case .gravityUpdateFailed:
+      // Always on — failures should never go unnoticed.
+      return true
+    case .gravityUpdateCompleted:
+      // Always on — a completion banner mirrors the failure notification.
+      return true
     }
   }
 
@@ -124,6 +164,8 @@ final class NotificationCoordinator: NSObject {
     case .shortcutError: return shortcutErrorCategory
     case .unblockEnded: return unblockEndedCategory
     case .domainUnblockEnded: return domainUnblockEndedCategory
+    case .gravityUpdateFailed: return gravityErrorCategory
+    case .gravityUpdateCompleted: return gravityCompletedCategory
     }
   }
 
@@ -133,6 +175,8 @@ final class NotificationCoordinator: NSObject {
     case .shortcutError: return "shortcut-error-\(timestamp)"
     case .unblockEnded: return "unblock-ended-\(timestamp)"
     case .domainUnblockEnded: return "domain-unblock-ended-\(timestamp)"
+    case .gravityUpdateFailed: return "gravity-error-\(timestamp)"
+    case .gravityUpdateCompleted: return "gravity-completed-\(timestamp)"
     }
   }
 }
@@ -146,7 +190,7 @@ extension NotificationCoordinator: @preconcurrency UNUserNotificationCenterDeleg
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     switch notification.request.content.categoryIdentifier {
-    case Self.shortcutErrorCategory:
+    case Self.shortcutErrorCategory, Self.gravityErrorCategory:
       // An action the user triggered failed — alert them.
       completionHandler([.banner, .sound])
     default:

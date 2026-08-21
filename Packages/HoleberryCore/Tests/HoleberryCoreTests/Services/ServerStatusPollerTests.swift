@@ -797,7 +797,9 @@ struct ServerStatusPollerTests {
   /// Poller wired to a real (injectable) `TimerManager`, like the composition root.
   private func makePollerWithTimer(
     _ timer: TimerManager,
-    sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+    sleep: @escaping (TimeInterval) async throws -> Void = {
+      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
+    }
   ) -> ServerStatusPoller {
     ServerStatusPoller(
       manager: mockManager,
@@ -1036,6 +1038,56 @@ struct ServerStatusPollerTests {
     #expect(mockManager.updateGravityCallCount == 1)
     #expect(poller.querySummaries[id]?.gravityLastUpdated == newDate)
     #expect(poller.isGravityUpdating == false)
+    #expect(poller.gravityCompletedAt[id] != nil)
+  }
+
+  @Test("isGravityUpdating clears when the trigger completes, before the verification fetch")
+  func applyGravityUpdateClearsFlagBeforeVerification() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 1_000))],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 2_000))]
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+    let poller = makePoller()
+
+    // Runs during the post-trigger verification fetch.
+    mockManager.getQuerySummaryGate = {
+      #expect(poller.isGravityUpdating == false)
+    }
+
+    let outcomes = await poller.applyGravityUpdate()
+
+    #expect(outcomes == [id: .succeeded])
+    #expect(poller.isGravityUpdating == false)
+  }
+
+  @Test("applyGravityUpdate aborts a hung trigger at the watchdog deadline")
+  func applyGravityUpdateWatchdogTimeout() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    // Simulate a trigger that never returns until cancelled.
+    mockManager.updateGravityGate = {
+      try? await Task.sleep(nanoseconds: UInt64(60 * 1_000_000_000))
+    }
+    let poller = ServerStatusPoller(
+      manager: mockManager,
+      networkInterface: mockNetwork,
+      pollingInterval: 3600,
+      defaultsSuite: testSuite,
+      scheduler: scheduler,
+      gravityTriggerTimeout: 0.05
+    )
+
+    let outcomes = await poller.applyGravityUpdate()
+
+    guard case .failed = outcomes[id] else {
+      Issue.record("expected a timeout failure, got \(String(describing: outcomes[id]))")
+      return
+    }
+    #expect(poller.isGravityUpdating == false)
+    #expect(poller.gravityCompletedAt[id] == nil)
   }
 
   @Test("applyGravityUpdate reports noChange when last_update did not move")
@@ -1043,7 +1095,9 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     let date = Date(timeIntervalSince1970: 1_000)
+    // Third response feeds the delayed re-check after the stale after-fetch.
     mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
       [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
       [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)]
     ]
@@ -1053,6 +1107,30 @@ struct ServerStatusPollerTests {
     let outcomes = await poller.applyGravityUpdate()
 
     #expect(outcomes == [id: .noChange])
+    #expect(poller.gravityCompletedAt[id] == nil)
+  }
+
+  @Test("applyGravityUpdate re-checks a stale after-fetch and succeeds on retry")
+  func applyGravityUpdateRechecksStaleAfterFetch() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    let oldDate = Date(timeIntervalSince1970: 1_000)
+    let newDate = Date(timeIntervalSince1970: 2_000)
+    // FTL's ~1s cache tick can make the immediate after-fetch return the old
+    // timestamp; the delayed re-check sees the new one.
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)]
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+
+    let poller = makePoller()
+    let outcomes = await poller.applyGravityUpdate()
+
+    #expect(outcomes == [id: .succeeded])
+    #expect(mockManager.getQuerySummaryCallCount == 3)
+    #expect(poller.gravityCompletedAt[id] != nil)
   }
 
   @Test("applyGravityUpdate reports failure")
@@ -1091,5 +1169,24 @@ struct ServerStatusPollerTests {
     #expect(outcomes == [id: .succeeded])
     #expect(poller.isGravityUpdating == false)
     #expect(mockManager.updateGravityCallCount == 1)
+  }
+
+  @Test("removing a server drops its gravity completion record")
+  func removingServerDropsGravityCompletionRecord() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 1_000))],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 2_000))]
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+    let poller = makePoller()
+    _ = await poller.applyGravityUpdate()
+    #expect(poller.gravityCompletedAt[id] != nil)
+
+    mockManager.servers = []
+    await settle()
+
+    #expect(poller.gravityCompletedAt.isEmpty)
   }
 }

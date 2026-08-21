@@ -23,6 +23,8 @@ final class MockPiholeServerManager: PiholeServerManaging {
   var getQuerySummaryStub: [UUID: QuerySummary?] = [:]
   private(set) var getQuerySummaryCallCount = 0
   var getQuerySummaryResponses: [[UUID: QuerySummary?]] = []
+  /// One-shot: runs inside `getQuerySummary()` after the last queued response.
+  var getQuerySummaryGate: (@MainActor () async -> Void)?
 
   var updateGravityStub: [UUID: Result<Void, PiholeError>] = [:]
   private(set) var updateGravityCallCount = 0
@@ -68,7 +70,14 @@ final class MockPiholeServerManager: PiholeServerManaging {
   func getQuerySummary() async -> [UUID: QuerySummary?] {
     getQuerySummaryCallCount += 1
     if !getQuerySummaryResponses.isEmpty {
-      return getQuerySummaryResponses.removeFirst()
+      let result = getQuerySummaryResponses.removeFirst()
+      if getQuerySummaryResponses.isEmpty {
+        if let gate = getQuerySummaryGate {
+          getQuerySummaryGate = nil
+          await gate()
+        }
+      }
+      return result
     }
     return getQuerySummaryStub
   }

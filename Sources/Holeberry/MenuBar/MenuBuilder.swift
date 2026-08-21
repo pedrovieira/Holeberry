@@ -27,6 +27,7 @@ struct MenuBuilder {
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
     isGravityUpdating: Bool,
+    gravityCompletedAt: [UUID: Date],
     querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig],
     browserTabStatus: ResolvedBrowserTab,
@@ -67,14 +68,6 @@ struct MenuBuilder {
       durations: durations,
       target: target
     )
-    addGravitySection(
-      to: menu,
-      servers: servers,
-      connectionStatuses: connectionStatuses,
-      querySummaries: querySummaries,
-      isGravityUpdating: isGravityUpdating,
-      target: target
-    )
 
     if browserTabStatus != .disabled {
       menu.addItem(.separator())
@@ -97,6 +90,15 @@ struct MenuBuilder {
       durations: durations,
       isConnected: isConnected,
       hasHealthyInstance: hasHealthyInstance,
+      target: target
+    )
+    addGravitySection(
+      to: menu,
+      servers: servers,
+      connectionStatuses: connectionStatuses,
+      querySummaries: querySummaries,
+      isGravityUpdating: isGravityUpdating,
+      gravityCompletedAt: gravityCompletedAt,
       target: target
     )
     menu.addItem(.separator())
@@ -320,6 +322,7 @@ struct MenuBuilder {
     connectionStatuses: [UUID: ConnectionStatus],
     querySummaries: [UUID: QuerySummary],
     isGravityUpdating: Bool,
+    gravityCompletedAt: [UUID: Date],
     target: MenuActionTarget
   ) {
     let v6Servers = servers.filter { $0.version == .v6 }
@@ -327,18 +330,22 @@ struct MenuBuilder {
     menu.addItem(.separator())
 
     if isGravityUpdating {
-      let item = NSMenuItem(title: "Updating gravity…", action: nil, keyEquivalent: "")
-      item.isEnabled = false
-      menu.addItem(item)
+      menu.addItem(makeGravityUpdatingItem())
       return
     }
 
     let hasConnectedV6 = v6Servers.contains { connectionStatuses[$0.id] == .connected }
     // Show the stalest server: the oldest "last updated" date = the max age.
+    // Pi-hole stamps `last_update` mid-run, so it lags the actual completion.
+    // Clamp to the app-observed completion time when it's newer.
     let maxAge =
       v6Servers
       .filter { connectionStatuses[$0.id] == .connected }
-      .compactMap { querySummaries[$0.id]?.gravityLastUpdated }
+      .compactMap { server -> Date? in
+        guard let serverDate = querySummaries[server.id]?.gravityLastUpdated else { return nil }
+        guard let completedAt = gravityCompletedAt[server.id] else { return serverDate }
+        return max(serverDate, completedAt)
+      }
       .min()
 
     let item = NSMenuItem(
@@ -353,6 +360,42 @@ struct MenuBuilder {
       item.attributedTitle = gravityAttributedTitle(maxAge: maxAge)
     }
     menu.addItem(item)
+  }
+
+  /// Disabled row with a spinner while a gravity update is in flight.
+  private func makeGravityUpdatingItem() -> NSMenuItem {
+    let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    item.isEnabled = false
+    item.setAccessibilityLabel("Updating gravity")
+
+    // Match AppKit's menu columns: item images start at x=26, titles at x=46.5.
+    let view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+    let spinner = NSProgressIndicator()
+    spinner.style = .spinning
+    spinner.controlSize = .small
+    spinner.isDisplayedWhenStopped = false
+    spinner.usesThreadedAnimation = true
+    spinner.startAnimation(nil)
+
+    let label = NSTextField(labelWithString: "Updating gravity…")
+    label.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+    label.textColor = .disabledControlTextColor
+
+    for subview in [spinner, label] {
+      subview.translatesAutoresizingMaskIntoConstraints = false
+      view.addSubview(subview)
+    }
+    NSLayoutConstraint.activate([
+      spinner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 26),
+      spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+      spinner.widthAnchor.constraint(equalToConstant: 16),
+      spinner.heightAnchor.constraint(equalToConstant: 16),
+      label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 46.5),
+      label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -6),
+      label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+    ])
+    item.view = view
+    return item
   }
 
   /// Two-line title: "Update Gravity" over "Gravity updated <relative> ago".

@@ -17,6 +17,7 @@ final class MenuBarController: NSObject {
   private let updater: SPUUpdater
   private let defaultsSuite: UserDefaults
   private let settingsWindowController: SettingsWindowController
+  private let notificationCoordinator: NotificationCoordinator
   private let menuBuilder = MenuBuilder()
 
   private var cancellables = Set<AnyCancellable>()
@@ -51,7 +52,8 @@ final class MenuBarController: NSObject {
     localIPAddressResolver: any LocalIPAddressProviding,
     updater: SPUUpdater,
     defaultsSuite: UserDefaults = .standard,
-    settingsWindowController: SettingsWindowController
+    settingsWindowController: SettingsWindowController,
+    notificationCoordinator: NotificationCoordinator
   ) {
     self.timerManager = timerManager
     self.serverManager = serverManager
@@ -62,6 +64,7 @@ final class MenuBarController: NSObject {
     self.updater = updater
     self.defaultsSuite = defaultsSuite
     self.settingsWindowController = settingsWindowController
+    self.notificationCoordinator = notificationCoordinator
 
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -140,6 +143,7 @@ final class MenuBarController: NSObject {
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
       isGravityUpdating: statusMonitor.isGravityUpdating,
+      gravityCompletedAt: statusMonitor.gravityCompletedAt,
       querySummaries: statusMonitor.querySummaries,
       servers: serverManager.servers,
       browserTabStatus: browserTabStatus,
@@ -273,24 +277,9 @@ final class MenuBarController: NSObject {
   // MARK: - Gravity
 
   private func handleGravityOutcomes(_ outcomes: [UUID: GravityUpdateOutcome]) {
-    guard !outcomes.isEmpty else { return }
-    for (id, outcome) in outcomes {
-      switch outcome {
-      case .failed(let error):
-        let label = serverManager.servers.first { $0.id == id }?.label ?? "Pi-hole"
-        showError("Failed to update gravity on \(label): \(error.localizedDescription)")
-        return
-      case .noChange:
-        let label = serverManager.servers.first { $0.id == id }?.label ?? "Pi-hole"
-        showError(
-          "Gravity finished on \(label) but the update didn't take effect — check the Pi-hole web interface"
-        )
-        return
-      case .succeeded:
-        continue
-      }
+    notificationCoordinator.scheduleGravityOutcomeNotifications(outcomes) { [serverManager] id in
+      serverManager.servers.first { $0.id == id }?.label
     }
-    setError(nil)
   }
 
   // MARK: - Add to Allowlist
@@ -349,7 +338,7 @@ final class MenuBarController: NSObject {
     errorClearTask?.cancel()
     if !persistent, message != nil {
       errorClearTask = Task { [weak self] in
-        try? await Task.sleep(for: .seconds(3))
+        try? await Task.sleep(nanoseconds: UInt64(3 * 1_000_000_000))
         self?.setError(nil)
       }
     }

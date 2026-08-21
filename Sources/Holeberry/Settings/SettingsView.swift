@@ -242,6 +242,7 @@ struct SettingsView: View {
             .padding(.top, 5)
         }
       }
+      KeyboardShortcuts.Recorder("Update Gravity:", name: .updateGravity)
     } header: {
       Text("Global Shortcuts")
       Text(

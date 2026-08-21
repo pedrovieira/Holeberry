@@ -49,7 +49,7 @@ extension RetryPolicy {
 /// - Throws: The last error if all attempts fail or the error is not retryable.
 public func withRetry<T: Sendable>(
   _ policy: RetryPolicy,
-  sleep: @Sendable @escaping (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+  sleep: @Sendable @escaping (Duration) async throws -> Void = { try await ContinuousClock().sleep(for: $0) },
   operation: @Sendable () async throws -> T
 ) async throws -> T {
   for attempt in 0..<policy.maxAttempts {

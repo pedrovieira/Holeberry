@@ -108,7 +108,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       browserTabCoordinator: browserTabCoordinator,
       localIPAddressResolver: localIPResolver,
       updater: updaterManager.updater,
-      settingsWindowController: settingsWindowController
+      settingsWindowController: settingsWindowController,
+      notificationCoordinator: notificationCoordinator
     )
     shortcutController = ShortcutController(
       serverManager: serverManager,
@@ -131,7 +132,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await self.serverManager.logoutAll()
           }
           group.addTask {
-            try await Task.sleep(for: .seconds(5))
+            try await Task.sleep(nanoseconds: UInt64(5 * 1_000_000_000))
           }
           _ = try await group.next()
           group.cancelAll()
