@@ -2,7 +2,8 @@ import HoleberryCore
 import SwiftUI
 
 /// The "Duration" sub-row of the "Unblock Current Tab" shortcut in the
-/// Shortcuts tab: a picker over the configured durations plus "Indefinite".
+/// Shortcuts tab: a picker over the configured durations plus "Indefinite"
+/// and "Custom...".
 ///
 /// Repairs a dangling `.entry` selection (its duration was deleted in the
 /// Durations tab) to `.indefinite`, so the picker always displays the value
@@ -21,6 +22,8 @@ struct UnblockCurrentTabDurationPicker: View {
         }
         Text("Indefinite")
           .tag(UnblockCurrentTabDurationSelection.indefinite)
+        Text("Custom...")
+          .tag(UnblockCurrentTabDurationSelection.custom)
       }
       .labelsHidden()
       .pickerStyle(.menu)
