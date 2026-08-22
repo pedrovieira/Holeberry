@@ -24,6 +24,18 @@ struct UnblockCurrentTabDurationSelectionTests {
     #expect(selection.resolve(durations: []) == nil)
   }
 
+  @Test func customResolvesToNilUntilPrompted() {
+    #expect(UnblockCurrentTabDurationSelection.custom.resolve(durations: []) == nil)
+    #expect(
+      UnblockCurrentTabDurationSelection.custom.resolve(durations: UnblockDurationEntry.defaultEntries) == nil)
+  }
+
+  @Test func customNeverHealsAway() {
+    #expect(UnblockCurrentTabDurationSelection.custom.healed(durations: []) == .custom)
+    #expect(
+      UnblockCurrentTabDurationSelection.custom.healed(durations: UnblockDurationEntry.defaultEntries) == .custom)
+  }
+
   @Test func resolutionIsIDBasedNotSecondsBased() {
     // A re-added "5 minutes" entry gets a fresh UUID and must not satisfy an
     // old selection referencing the deleted default entry.
@@ -57,5 +69,7 @@ struct UnblockCurrentTabDurationSelectionTests {
     #expect(Defaults[.unblockCurrentTabDuration(suite: suite)] == .entry(UnblockDurationEntry.default10sID))
     Defaults[.unblockCurrentTabDuration(suite: suite)] = .indefinite
     #expect(Defaults[.unblockCurrentTabDuration(suite: suite)] == .indefinite)
+    Defaults[.unblockCurrentTabDuration(suite: suite)] = .custom
+    #expect(Defaults[.unblockCurrentTabDuration(suite: suite)] == .custom)
   }
 }

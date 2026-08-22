@@ -2,7 +2,8 @@ import Defaults
 import Foundation
 
 /// What the "Unblock Current Tab" global shortcut should do when it fires:
-/// unblock for one of the user's configured duration entries, or indefinitely.
+/// unblock for one of the user's configured duration entries, indefinitely,
+/// or for a duration prompted when the shortcut fires.
 ///
 /// Stored as a reference to an entry's id (not its seconds), so editing a
 /// duration in the Durations tab keeps the selection valid and its displayed
@@ -14,15 +15,18 @@ public enum UnblockCurrentTabDurationSelection: Codable, Hashable, Sendable {
   case indefinite
   /// Unblock for the configured duration entry with this id.
   case entry(UUID)
+  /// Prompt for a duration each time the shortcut fires.
+  case custom
 
   /// Resolves the selection against the live duration entries.
   ///
   /// - Returns: The entry's seconds for a finite unblock, or `nil` when the
-  ///   selection is `.indefinite` or references an entry that no longer
-  ///   exists (deleted in the Durations tab after being selected here).
+  ///   selection is `.indefinite`, is `.custom` (the duration is chosen when
+  ///   the shortcut fires), or references an entry that no longer exists
+  ///   (deleted in the Durations tab after being selected here).
   public func resolve(durations: [UnblockDurationEntry]) -> TimeInterval? {
     switch self {
-    case .indefinite:
+    case .indefinite, .custom:
       return nil
     case .entry(let id):
       return durations.first { $0.id == id }?.seconds
@@ -34,7 +38,7 @@ public enum UnblockCurrentTabDurationSelection: Codable, Hashable, Sendable {
   /// shortcut will actually use.
   public func healed(durations: [UnblockDurationEntry]) -> UnblockCurrentTabDurationSelection {
     switch self {
-    case .indefinite:
+    case .indefinite, .custom:
       return self
     case .entry(let id):
       return durations.contains { $0.id == id } ? self : .indefinite
