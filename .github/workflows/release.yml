@@ -56,9 +56,12 @@ jobs:
           HOLEBERRY_CERT_P12_PASSWORD: ${{ secrets.HOLEBERRY_CERT_P12_PASSWORD }}
         run: |
           set -euo pipefail
+          # Fail closed: a release without a signing certificate must never be
+          # published (an unnotarized build would be pushed to Sparkle users
+          # as make_latest). Tag pushes always have repo secrets available.
           if [ -z "$HOLEBERRY_CERT_P12" ]; then
-            echo "::notice::No signing certificate secret configured; release will be ad-hoc signed"
-            exit 0
+            echo "::error::HOLEBERRY_CERT_P12 secret is not set — cannot produce a signed build; refusing to release"
+            exit 1
           fi
           KEYCHAIN=build.keychain-db
           KEYCHAIN_PASSWORD=$(uuidgen)
@@ -70,6 +73,7 @@ jobs:
             -P "$HOLEBERRY_CERT_P12_PASSWORD" \
             -A -f pkcs12 -k "$KEYCHAIN" \
             -T /usr/bin/codesign -T /usr/bin/security
+          rm -f /tmp/holeberry-cert.p12
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           # Fail fast: a certificate-only p12 imports fine but leaves no signing
@@ -87,9 +91,10 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: |
           set -euo pipefail
+          # Fail closed: without notarization the release must not be published.
           if [ -z "$APPLE_API_KEY" ]; then
-            echo "::notice::No App Store Connect API key secret; skipping notarization"
-            exit 0
+            echo "::error::APPLE_API_KEY secret is not set — cannot notarize; refusing to release"
+            exit 1
           fi
           # App Store Connect API key (.p8), base64-encoded in the secret.
           echo "$APPLE_API_KEY" | base64 --decode > /tmp/holeberry-apple-api-key.p8
@@ -99,75 +104,41 @@ jobs:
         env:
           HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
           HOLEBERRY_CODE_SIGN_IDENTITY: ${{ secrets.HOLEBERRY_CODE_SIGN_IDENTITY }}
-          HOLEBERRY_CERT_P12: ${{ secrets.HOLEBERRY_CERT_P12 }}
         run: |
           set -euo pipefail
           xcodegen generate
           APP_PATH="build/Build/Products/Release/Holeberry.app"
 
-          if [ -n "$HOLEBERRY_CERT_P12" ]; then
-            # Real signing with the Developer ID Application certificate imported
-            # above — required for notarized distribution outside the Mac App
-            # Store.
-            #
-            # CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO: Xcode 26 injects the
-            # restricted com.apple.security.get-task-allow entitlement into
-            # Release builds (even with a Developer ID identity) whenever
-            # base-entitlement injection is on and no provisioning profile is
-            # in play. The notary service rejects restricted entitlements, so
-            # we disable the injection — our own entitlements file is all the
-            # app needs.
-            echo "::notice::Signing with identity $HOLEBERRY_CODE_SIGN_IDENTITY"
-            xcodebuild -project Holeberry.xcodeproj \
-              -scheme Holeberry \
-              -configuration Release \
-              -derivedDataPath build \
-              ARCHS="arm64 x86_64" \
-              ONLY_ACTIVE_ARCH=NO \
-              CODE_SIGN_STYLE=Manual \
-              CODE_SIGNING_REQUIRED=YES \
-              CODE_SIGNING_ALLOWED=YES \
-              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
-              DEVELOPMENT_TEAM="$HOLEBERRY_TEAM_ID" \
-              CODE_SIGN_IDENTITY="$HOLEBERRY_CODE_SIGN_IDENTITY"
-          else
-            # Ad-hoc signing. Xcode injects com.apple.security.get-task-allow
-            # when no team is set; it is a restricted entitlement that makes the
-            # kernel reject ad-hoc-signed binaries on Apple Silicon. Also, newer
-            # Xcode versions (26+) refuse to build with the full entitlements
-            # file when no provisioning profile is available. So we build
-            # without entitlements, then strip the restricted one and re-sign
-            # (see .github/scripts/strip-restricted-entitlements.py).
-            echo "::notice::No signing certificate secret; building ad-hoc with stripped entitlements"
-            xcodebuild -project Holeberry.xcodeproj \
-              -scheme Holeberry \
-              -configuration Release \
-              -derivedDataPath build \
-              ARCHS="arm64 x86_64" \
-              ONLY_ACTIVE_ARCH=NO \
-              CODE_SIGN_STYLE=Manual \
-              CODE_SIGN_IDENTITY="-" \
-              DEVELOPMENT_TEAM="" \
-              CODE_SIGN_ENTITLEMENTS="" \
-              CODE_SIGNING_REQUIRED=YES \
-              CODE_SIGNING_ALLOWED=YES
-            codesign -d --entitlements - --xml "$APP_PATH" > /tmp/release-ents.xml
-            python3 .github/scripts/strip-restricted-entitlements.py \
-              /tmp/release-ents.xml /tmp/release-ents-min.xml
-            codesign --force --deep --sign - --entitlements /tmp/release-ents-min.xml "$APP_PATH"
-          fi
+          # Developer ID signing with the certificate imported above — required
+          # for notarized distribution outside the Mac App Store.
+          #
+          # CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO: Xcode 26 injects the
+          # restricted com.apple.security.get-task-allow entitlement into
+          # Release builds (even with a Developer ID identity) whenever
+          # base-entitlement injection is on and no provisioning profile is
+          # in play. The notary service rejects restricted entitlements, so
+          # we disable the injection — our own entitlements file is all the
+          # app needs.
+          echo "::notice::Signing with identity $HOLEBERRY_CODE_SIGN_IDENTITY"
+          xcodebuild -project Holeberry.xcodeproj \
+            -scheme Holeberry \
+            -configuration Release \
+            -derivedDataPath build \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            DEVELOPMENT_TEAM="$HOLEBERRY_TEAM_ID" \
+            CODE_SIGN_IDENTITY="$HOLEBERRY_CODE_SIGN_IDENTITY"
 
       - name: Re-sign nested Sparkle code
         env:
-          HOLEBERRY_CERT_P12: ${{ secrets.HOLEBERRY_CERT_P12 }}
           HOLEBERRY_CODE_SIGN_IDENTITY: ${{ secrets.HOLEBERRY_CODE_SIGN_IDENTITY }}
           HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
         run: |
           set -euo pipefail
-          if [ -z "$HOLEBERRY_CERT_P12" ]; then
-            echo "::notice::No signing certificate secret; skipping nested re-sign (ad-hoc path)"
-            exit 0
-          fi
           APP_PATH="build/Build/Products/Release/Holeberry.app"
           SPARKLE_FW="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/Current"
           # Sparkle's XCFramework ships its XPC services and helper binaries
@@ -216,10 +187,6 @@ jobs:
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
           set -euo pipefail
-          if [ ! -f /tmp/holeberry-apple-api-key.p8 ]; then
-            echo "::notice::Notarization credentials not configured; skipping app notarization"
-            exit 0
-          fi
           APP_PATH="build/Build/Products/Release/Holeberry.app"
           # Fail fast on a bad signature before spending minutes in the notary queue
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
@@ -275,10 +242,6 @@ jobs:
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
           set -euo pipefail
-          if [ ! -f /tmp/holeberry-apple-api-key.p8 ]; then
-            echo "::notice::Notarization credentials not configured; skipping DMG notarization"
-            exit 0
-          fi
           SUBMIT_OUTPUT="$(xcrun notarytool submit "${{ steps.dmg.outputs.dmg_path }}" \
             --key /tmp/holeberry-apple-api-key.p8 \
             --key-id "$APPLE_API_KEY_ID" \
@@ -394,3 +357,12 @@ jobs:
           # tag math, so it survives rewritten tags.
           generate_release_notes: true
           make_latest: true
+
+      # Tear down signing material even when an earlier step failed (the runner
+      # is ephemeral, but never leave the decoded private key behind).
+      - name: Clean up signing credentials
+        if: always()
+        run: |
+          rm -f /tmp/holeberry-cert.p12 /tmp/holeberry-apple-api-key.p8 /tmp/holeberry-app.zip
+          security delete-keychain build.keychain-db 2>/dev/null || true
+          echo "::notice::Signing material cleaned up"

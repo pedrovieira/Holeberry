@@ -22,7 +22,6 @@ jobs:
     # the secret-backed run on same-repo pushes.
     env:
       HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID || '5UN5GTF749' }}
-      # Quoted: the fallback contains ": " which is invalid YAML in a plain scalar
       HOLEBERRY_CODE_SIGN_IDENTITY: "${{ secrets.HOLEBERRY_CODE_SIGN_IDENTITY || 'Developer ID Application: Pedro Vieira (5UN5GTF749)' }}"
 
     steps:
