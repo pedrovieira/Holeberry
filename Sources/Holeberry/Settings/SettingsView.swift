@@ -6,6 +6,8 @@ import ServiceManagement
 import Sparkle
 import SwiftUI
 
+// swiftlint:disable file_length
+
 enum SettingsTab: String, CaseIterable {
   case servers = "Servers"
   case defaults = "General"
@@ -30,6 +32,7 @@ struct SettingsView: View {
   @Default var launchAtLogin: Bool
   @Default var browserTabUnblockEnabled: Bool
   @Default var showAllClientsRecentBlocked: Bool
+  @Default var showPerInstanceStats: Bool
   @Default var durations: [UnblockDurationEntry]
   @Default var unblockCurrentTabDuration: UnblockCurrentTabDurationSelection
 
@@ -65,6 +68,7 @@ struct SettingsView: View {
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
+    _showPerInstanceStats = .init(.showPerInstanceStats(suite: defaultsSuite))
     _durations = .init(.unblockDurations(suite: defaultsSuite))
     _unblockCurrentTabDuration = .init(.unblockCurrentTabDuration(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
@@ -186,6 +190,15 @@ struct SettingsView: View {
           .controlSize(.small)
           .foregroundColor(.accentColor)
         }
+      }
+
+      VStack(alignment: .leading) {
+        Toggle("Show per-instance queries/blocked statuses", isOn: $showPerInstanceStats)
+
+        Text("Only applies when you have 2 instances connected.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
 

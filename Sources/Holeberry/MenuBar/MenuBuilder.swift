@@ -20,6 +20,7 @@ struct MenuBuilder {
     recentBlockedProvider: @escaping () -> [BlockedDomain],
     userIP: String?,
     showAllClients: Bool,
+    showPerInstanceStats: Bool,
     durations: [UnblockDurationEntry],
     error: String?,
     isConnected: Bool,
@@ -51,7 +52,8 @@ struct MenuBuilder {
       connectionStatuses: connectionStatuses,
       blockingStatuses: blockingStatuses,
       querySummaries: querySummaries,
-      servers: servers
+      servers: servers,
+      showPerInstanceStats: showPerInstanceStats
     )
     menu.addItem(.separator())
 
@@ -192,17 +194,19 @@ struct MenuBuilder {
 
   // MARK: - Instances section
 
+  // swiftlint:disable:next function_parameter_count
   private func addInstancesSection(
     to menu: NSMenu,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
     querySummaries: [UUID: QuerySummary],
-    servers: [ServerConfig]
+    servers: [ServerConfig],
+    showPerInstanceStats: Bool
   ) {
     guard !servers.isEmpty else { return }
 
     let connectedCount = connectionStatuses.values.filter { $0 == .connected }.count
-    let showStats = connectedCount >= 2
+    let showStats = connectedCount >= 2 && showPerInstanceStats
 
     let groupItem = NSMenuItem()
     groupItem.attributedTitle = MenuItemFactory.instancesGroupLabel()
