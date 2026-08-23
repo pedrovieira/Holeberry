@@ -66,7 +66,12 @@ final class ShortcutController {
         if healed != selection {
           Defaults[.unblockCurrentTabDuration(suite: self.defaultsSuite)] = healed
         }
-        await self.unblockOnAllServers(domain: domain, duration: healed.resolve(durations: durations))
+        switch healed {
+        case .entry, .indefinite:
+          await self.unblockOnAllServers(domain: domain, duration: healed.resolve(durations: durations))
+        case .custom:
+          await self.promptCustomDurationThenUnblock(domain: domain)
+        }
       }
     }
 
@@ -172,6 +177,26 @@ final class ShortcutController {
 
     guard let duration = seconds else { return }
     await setBlockingOnAll(enabled: false, duration: duration)
+  }
+
+  private func promptCustomDurationThenUnblock(domain: String) async {
+    guard !serverManager.servers.isEmpty else {
+      logger.debug("Unblock current tab shortcut fired but no servers configured — skipping")
+      return
+    }
+
+    // Show DurationPickerAlert on main thread, then get the result
+    let seconds = await MainActor.run { () -> TimeInterval? in
+      let alert = DurationPickerAlert(
+        title: "Custom Unblock Duration",
+        message: "Choose how long to unblock \"\(domain)\".",
+        confirmButton: "Unblock"
+      )
+      return alert.runDurationPicker()
+    }
+
+    guard let duration = seconds else { return }
+    await unblockOnAllServers(domain: domain, duration: duration)
   }
 
   // MARK: - Error Notification
