@@ -35,7 +35,11 @@ Pi-hole® **v6** と **v5**（*完全にはテストされていません*）、
 1. [Releases](https://github.com/pedrovieira/Holeberry/releases) ページから最新の `Holeberry-<バージョン>.dmg` をダウンロードします。
 2. DMG を開き、**Holeberry** を `Applications` フォルダにドラッグします。
 
-**macOS Gatekeeper についての注意：** Holeberry は Developer ID で署名され、Apple による公証（notarization）済みです。macOS が「開発元不明のアプリ」として警告することはありません。
+**macOS Gatekeeper についての注意：** Holeberry は無料の Apple ID でビルドされており、有料の Apple Developer アカウントによる公証（notarization）を受けていません。そのため、macOS が「開発元不明のアプリ」として警告したり、初回起動時に隔離したりする場合があります。その警告が表示されたら、隔離フラグを削除して再度起動してください：
+
+```bash
+xattr -cr /Applications/Holeberry.app
+```
 
 ## 動作環境
 

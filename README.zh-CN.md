@@ -35,7 +35,11 @@ Holeberry 是一款轻量级 macOS 菜单栏应用，让你的 Pi-hole® 触手�
 1. 从 [Releases](https://github.com/pedrovieira/Holeberry/releases) 页面下载最新的 `Holeberry-<版本号>.dmg`。
 2. 打开 DMG，将 **Holeberry** 拖入你的 `Applications` 文件夹。
 
-**关于 macOS Gatekeeper 的说明：** Holeberry 使用 Developer ID 签名并通过 Apple 公证（notarization），macOS 不会将其标记为「来自身份不明的开发者」。
+**关于 macOS Gatekeeper 的说明：** Holeberry 使用免费的 Apple ID 构建，未通过付费的 Apple Developer 账号进行公证（notarization）。因此 macOS 可能会将其标记为「来自身份不明的开发者」，或在首次启动时将其隔离。如果看到该提示，请移除隔离标记后重新启动：
+
+```bash
+xattr -cr /Applications/Holeberry.app
+```
 
 ## 系统要求
 
