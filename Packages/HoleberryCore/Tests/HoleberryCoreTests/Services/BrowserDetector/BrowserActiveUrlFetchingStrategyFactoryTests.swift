@@ -38,6 +38,18 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
     #expect(strategy is GeckoSessionStoreUrlFetchingStrategy)
   }
 
+  @Test("Waterfox uses GeckoSessionStoreUrlFetchingStrategy")
+  func waterfoxStrategy() {
+    let strategy = factory.strategy(for: .waterfox)
+    #expect(strategy is GeckoSessionStoreUrlFetchingStrategy)
+  }
+
+  @Test("Helium uses ChromiumUrlFetchingStrategy")
+  func heliumStrategy() {
+    let strategy = factory.strategy(for: .helium)
+    #expect(strategy is ChromiumUrlFetchingStrategy)
+  }
+
   @Test("Arc uses ChromiumUrlFetchingStrategy")
   func arcStrategy() {
     let strategy = factory.strategy(for: .arc)

@@ -43,11 +43,11 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
   // MARK: - Permission
 
   func isPermissionGranted(for browser: Browser) -> AutomationPermission {
-    .allowed  // Firefox reads session files, no Apple Events needed
+    .allowed  // Gecko-based browsers read session files, no Apple Events needed
   }
 
   func requestPermission(for browser: Browser) {
-    // No-op: Firefox doesn't use Apple Events
+    // No-op: Gecko-based browsers doesn't use Apple Events
   }
 
   // MARK: - profiles.ini parsing

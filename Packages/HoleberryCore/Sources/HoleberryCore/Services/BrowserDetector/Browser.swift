@@ -29,12 +29,16 @@ public enum Browser: String, CaseIterable {
   // Vivaldi
   case vivaldi = "com.vivaldi.Vivaldi"
   case vivaldiSnapshot = "com.vivaldi.Vivaldi.snapshot"
+  // Helium
+  case helium = "net.imput.helium"
   // Firefox
   case firefox = "org.mozilla.firefox"
   case firefoxDeveloperEdition = "org.mozilla.firefoxdeveloperedition"
   case firefoxNightly = "org.mozilla.nightly"
   // Zen Browser
   case zen = "app.zen-browser.zen"
+  // Waterfox
+  case waterfox = "net.waterfox.waterfox"
 
   public var bundleID: String { rawValue }
 
@@ -61,10 +65,12 @@ public enum Browser: String, CaseIterable {
     case .operaDeveloper: return "Opera Developer"
     case .vivaldi: return "Vivaldi"
     case .vivaldiSnapshot: return "Vivaldi Snapshot"
+    case .helium: return "Helium"
     case .firefox: return "Firefox"
     case .firefoxDeveloperEdition: return "Firefox Developer Edition"
     case .firefoxNightly: return "Firefox Nightly"
     case .zen: return "Zen Browser"
+    case .waterfox: return "Waterfox"
     }
   }
 }
