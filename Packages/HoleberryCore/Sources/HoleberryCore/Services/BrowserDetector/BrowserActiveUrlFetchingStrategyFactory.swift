@@ -28,6 +28,8 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
       return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "Firefox", category: "firefox-sessionstore")
     case .zen:
       return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "zen", category: "zen-sessionstore")
+    case .waterfox:
+      return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "Waterfox", category: "waterfox-sessionstore")
 
     // Chromium-based browsers — all fall through to Chrome
     case .edge, .edgeBeta, .edgeDev, .edgeCanary,
@@ -35,6 +37,7 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
       .arc,
       .opera, .operaNext, .operaDeveloper,
       .vivaldi, .vivaldiSnapshot,
+      .helium,
       .chrome, .chromeBeta, .chromeDev, .chromeCanary:
       return ChromiumUrlFetchingStrategy(
         appName: browser.appName,

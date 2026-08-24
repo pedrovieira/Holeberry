@@ -67,11 +67,11 @@ private struct BrowserTabInfoPopover: View {
       VStack(alignment: .leading, spacing: 2) {
         Text("• WebKit (Safari, Orion)")
         Text("• Chromium (Chrome, etc.)")
-        Text("• Gecko (Firefox)")
+        Text("• Gecko (Firefox, Zen, etc.)")
       }
       .font(.system(size: 11))
 
-      Text("Support for Firefox and Zen Browser is experimental and not fully tested.")
+      Text("Support for Gecko-based browsers is experimental and not fully tested.")
         .font(.system(size: 11))
         .foregroundColor(.secondary)
         .fixedSize(horizontal: false, vertical: true)

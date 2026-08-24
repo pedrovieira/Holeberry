@@ -6,6 +6,8 @@
     <true/>
     <key>com.apple.security.personal-information.keychain</key>
     <true/>
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
     <key>com.apple.security.temporary-exception.apple-events</key>
     <array>
         <string>com.apple.Safari</string>
@@ -29,12 +31,14 @@
         <string>com.operasoftware.OperaDeveloper</string>
         <string>com.vivaldi.Vivaldi</string>
         <string>com.vivaldi.Vivaldi.snapshot</string>
+        <string>net.imput.helium</string>
     </array>
 
     <key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
     <array>
         <string>/Library/Application Support/Firefox/</string>
         <string>/Library/Application Support/zen/</string>
+        <string>/Library/Application Support/Waterfox/</string>
     </array>
 
     <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>

@@ -32,8 +32,9 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 | Opera Developer | `com.operasoftware.OperaDeveloper` |
 | Vivaldi | `com.vivaldi.Vivaldi` |
 | Vivaldi Snapshot | `com.vivaldi.Vivaldi.snapshot` |
+| Helium | `net.imput.helium` |
 
-## Gecko (Firefox)
+## Gecko (Firefox family)
 
 | Browser | Bundle ID |
 | --- | --- |
@@ -41,11 +42,12 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 | Firefox Developer Edition | `org.mozilla.firefoxdeveloperedition` |
 | Firefox Nightly | `org.mozilla.nightly` |
 | Zen Browser | `app.zen-browser.zen` |
+| Waterfox | `net.waterfox.waterfox` |
 
 ## How tab detection works
 
 - **WebKit (Safari, Orion) and Chromium-based browsers** — Holeberry uses AppleScript to ask the browser for its active tab URL. macOS asks for Automation permission on first use (System Settings → Privacy & Security → Automation); without it, tab detection is unavailable for that browser.
-- **Firefox and Zen Browser** — Holeberry reads the browser's `sessionstore.jsonlz4` file directly, so no Automation permission is needed. This method is **experimental and not fully tested** and may break with future browser versions.
+- **Firefox, Zen Browser, and Waterfox** — Holeberry reads the browser's `sessionstore.jsonlz4` file directly, so no Automation permission is needed. This method is **experimental and not fully tested** and may break with future browser versions.
 
   > **Note:** It may take a few seconds for the current tab's URL to become available — these browsers write their session store to disk in their own time.
 
