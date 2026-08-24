@@ -323,11 +323,14 @@ struct PiholeServerManagerCRUDTests {
     #expect(probe.logoutCallCount == 1, "probe must not leak a session")
   }
 
-  @Test("updateGravity skips v5 servers and aggregates v6 results")
-  func updateGravitySkipsV5() async throws {
+  @Test("updateGravity asks all servers and skips the unsupported ones")
+  func updateGravitySkipsUnsupported() async throws {
     let manager = makeManager(suite: TestDefaults.makeSuite())
-    let service = MockPiholeService()
-    mockServiceFactory.buildServiceStub = service
+    let v5Service = MockPiholeService(version: .v5)
+    let v6Service = MockPiholeService(version: .v6)
+    mockServiceFactory.buildServiceHandler = { config in
+      config.version == .v5 ? v5Service : v6Service
+    }
 
     mockVersionDetector.detectStub = .success(.v5)
     try await manager.addServer(label: "Old", url: "http://v5.local", credential: "a")
@@ -335,7 +338,8 @@ struct PiholeServerManagerCRUDTests {
     try await manager.addServer(label: "New", url: "http://v6.local", credential: "b")
 
     let v6ID = try #require(manager.servers.first { $0.version == .v6 }?.id)
-    service.updateGravityStub = .success(())
+    v5Service.updateGravityStub = .failure(PiholeError.unsupported("Gravity updates require Pi-hole v6"))
+    v6Service.updateGravityStub = .success(())
 
     let results = await manager.updateGravity()
 
@@ -344,7 +348,8 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("expected success, got \(String(describing: results[v6ID]))")
       return
     }
-    #expect(service.updateGravityCallCount == 1)
+    #expect(v5Service.updateGravityCallCount == 1, "v5 must be asked before being skipped")
+    #expect(v6Service.updateGravityCallCount == 1)
   }
 
   @Test("updateGravity aggregates failures")

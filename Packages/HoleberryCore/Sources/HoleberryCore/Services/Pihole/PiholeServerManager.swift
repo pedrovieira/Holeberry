@@ -483,13 +483,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
-  /// Triggers a gravity update on all v6 servers. v5 servers are skipped —
-  /// no token-authenticated trigger exists for them.
+  /// Triggers a gravity update on all servers; unsupported ones are skipped.
   public func updateGravity() async -> [UUID: Result<Void, PiholeError>] {
-    let configs = servers.filter { $0.version == .v6 }
     let svcs = services
     return await withTaskGroup(of: (UUID, Result<Void, PiholeError>).self) { group in
-      for config in configs {
+      for config in servers {
         let svc = svcs[config.id]
         let id = config.id
         group.addTask {
@@ -505,6 +503,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       }
       var results: [UUID: Result<Void, PiholeError>] = [:]
       for await (id, result) in group {
+        // Skip servers whose API reports gravity updates as unsupported.
+        if case .failure(PiholeError.unsupported) = result {
+          continue
+        }
         results[id] = result
       }
       return results
