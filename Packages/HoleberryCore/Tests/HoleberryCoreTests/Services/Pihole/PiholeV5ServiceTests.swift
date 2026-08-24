@@ -141,7 +141,9 @@ final class PiholeV5ServiceTests {
       { request in
         #expect(request.url?.absoluteString.contains("summaryRaw") == true)
         let response = try #require(v5Response())
-        let data = Data(#"{"queries_total":"1500","ads_blocked_today":"75"}"#.utf8)
+        let data = Data(
+          #"{"dns_queries_today":1500.0,"ads_blocked_today":75.0,"gravity_last_updated":{"file_exists":true,"absolute":1726223567,"relative":{"days":2,"hours":3,"minutes":4}}}"#
+            .utf8)
         return (data, response)
       }
     ]
@@ -188,9 +190,9 @@ final class PiholeV5ServiceTests {
         let ts2 = dateFormatter.string(from: Date(timeIntervalSince1970: timestamp2))
         let ts3 = dateFormatter.string(from: Date(timeIntervalSince1970: timestamp3))
         let json =
-          "[[\"\(ts1)\",\"A\",\"blocked.com\",\"192.168.1.5\"," + "\"1\",\"Blocked\",\"0\"],"
+          "{\"data\":[[\"\(ts1)\",\"A\",\"blocked.com\",\"192.168.1.5\"," + "\"1\",\"Blocked\",\"0\"],"
           + "[\"\(ts2)\",\"A\",\"allowed.com\",\"192.168.1.5\"," + "\"2\",\"OK\",\"0\"],"
-          + "[\"\(ts3)\",\"A\",\"tracker.net\",\"192.168.1.10\"," + "\"1\",\"Blocked\",\"0\"]]"
+          + "[\"\(ts3)\",\"A\",\"tracker.net\",\"192.168.1.10\"," + "\"1\",\"Blocked\",\"0\"]]}"
         return (Data(json.utf8), response)
       }
     ]
@@ -363,7 +365,7 @@ final class PiholeV5ServiceTests {
       { request in
         #expect(request.url?.absoluteString.contains("client=192.168.1.50") == true)
         let response = try #require(v5Response())
-        return (Data("[]".utf8), response)
+        return (Data(#"{"data":[]}"#.utf8), response)
       }
     ]
     let blocked = try await makeService().getRecentBlocked(
