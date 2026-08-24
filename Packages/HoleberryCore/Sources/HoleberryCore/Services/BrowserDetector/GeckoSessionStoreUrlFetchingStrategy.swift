@@ -47,7 +47,7 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
   }
 
   func requestPermission(for browser: Browser) {
-    // No-op: Gecko-based browsers doesn't use Apple Events
+    // No-op: Gecko-based browsers don't use Apple Events
   }
 
   // MARK: - profiles.ini parsing
