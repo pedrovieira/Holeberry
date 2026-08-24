@@ -13,17 +13,13 @@ jobs:
     runs-on: macos-latest
 
     # xcodegen resolves these env vars into project.pbxproj at generation
-    # time; the committed project is generated with them set, so the drift
-    # check must use the same values (see project.yml).
-    #
-    # Fork PRs receive no secrets, so fall back to the exact values the
-    # committed project was generated with; this keeps the check deterministic
-    # (and passable) for external contributors while remaining identical to
-    # the secret-backed run on same-repo pushes.
+    # time; the committed project is generated with the local development
+    # values (see project.yml), so the drift check must use the same values.
+    # Releases are unaffected: release.yml regenerates the project itself
+    # with the Developer ID signing identity for notarized distribution.
     env:
-      HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID || '5UN5GTF749' }}
-      # Quoted: the fallback contains ": " which is invalid YAML in a plain scalar
-      HOLEBERRY_CODE_SIGN_IDENTITY: "${{ secrets.HOLEBERRY_CODE_SIGN_IDENTITY || 'Developer ID Application: Pedro Vieira (5UN5GTF749)' }}"
+      HOLEBERRY_TEAM_ID: 5UN5GTF749
+      HOLEBERRY_CODE_SIGN_IDENTITY: "Apple Development"
 
     steps:
       - name: Checkout
