@@ -32,6 +32,12 @@ extension Defaults.Keys {
     Defaults.Key<Bool>("showAllClientsRecentBlocked", default: false, suite: suite)
   }
 
+  /// Whether the main menu shows each instance's queries/blocked stats subtitle
+  /// (on by default). Only visible when 2 instances are connected.
+  public static func showPerInstanceStats(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("showPerInstanceStats", default: true, suite: suite)
+  }
+
   /// Whether to notify when a temporary unblock ends on its own (on by default).
   /// Never fires when the user re-enables blocking manually.
   public static func notifyWhenUnblockEnds(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {

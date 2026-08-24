@@ -28,6 +28,14 @@ struct DefaultsPersistenceTests {
     #expect(Defaults[.notifyWhenDomainUnblockEnds(suite: suite)] == false)
   }
 
+  @Test func showPerInstanceStatsDefaultsToTrue() {
+    let suite = TestDefaults.makeSuite()
+    #expect(Defaults[.showPerInstanceStats(suite: suite)] == true)
+
+    Defaults[.showPerInstanceStats(suite: suite)] = false
+    #expect(Defaults[.showPerInstanceStats(suite: suite)] == false)
+  }
+
   @Test func serversSaveAndLoad() {
     let suite = TestDefaults.makeSuite()
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)

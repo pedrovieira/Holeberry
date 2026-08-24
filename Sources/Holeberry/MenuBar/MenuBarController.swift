@@ -126,6 +126,7 @@ final class MenuBarController: NSObject {
       recentBlockedProvider: { [statusMonitor] in statusMonitor.recentBlocked },
       userIP: localIPAddressResolver.localIPAddress(),
       showAllClients: Defaults[.showAllClientsRecentBlocked(suite: defaultsSuite)],
+      showPerInstanceStats: Defaults[.showPerInstanceStats(suite: defaultsSuite)],
       durations: Defaults[.unblockDurations(suite: defaultsSuite)],
       error: errorMessage,
       isConnected: reachability.isConnected,
