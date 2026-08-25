@@ -68,6 +68,43 @@ final class PiholeV5ServiceTests {
     }
   }
 
+  @Test("checkStatus throws unauthorized when the status key is missing (unauthenticated response)")
+  func checkStatusUnauthorizedWhenStatusMissing() async throws {
+    // Unauthenticated v5 returns 200 {} — endpoints are gated on $auth, not HTTP status.
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response())
+        return (Data(#"{}"#.utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.unauthorized) {
+      try await makeService().checkStatus()
+    }
+  }
+
+  @Test("password-less instances work with an empty api token")
+  func emptyApiTokenRequests() async throws {
+    let passwordlessService = PiholeV5Service(
+      id: UUID(),
+      label: "Open v5",
+      url: "http://192.168.1.100",
+      version: .v5,
+      baseURL: v5BaseURL,
+      session: mockSession,
+      apiToken: "",
+      htmlParser: PiholeV5HTMLParser()
+    )
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.query?.contains("auth=") == true, "empty token is sent as an empty auth param")
+        let response = try #require(v5Response())
+        return (Data(#"{"status":"enabled"}"#.utf8), response)
+      }
+    ]
+    let status = try await passwordlessService.checkStatus()
+    #expect(status == .enabled)
+  }
+
   // MARK: - setBlocking
 
   @Test("setBlocking enables")

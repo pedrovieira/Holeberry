@@ -83,12 +83,22 @@ struct ConnectionSheet: View {
     self.serverManager = serverManager
     _label = State(initialValue: mode.existingLabel ?? "")
     _iconName = State(initialValue: mode.existingIcon ?? "")
+    switch mode {
+    case .add:
+      initialUsesNoCredential = false
+    case .edit(let config), .reauthenticate(let config):
+      initialUsesNoCredential = config.isPasswordless
+    }
+    _usesNoCredential = State(initialValue: initialUsesNoCredential)
   }
 
   @State private var label: String = ""
   @State private var generatedLabel: String = ""
   @State private var url: String = ""
   @State private var credential: String = ""
+  @State private var usesNoCredential = false
+  /// Checkbox state when the sheet opened (edit mode change detection).
+  private let initialUsesNoCredential: Bool
   @State private var isCreating = false
   @State private var createError: String?
   @State private var showingCredentialInfo = false
@@ -114,16 +124,18 @@ struct ConnectionSheet: View {
   private var canCreate: Bool {
     let trimmedURL = url.trimmingCharacters(in: .whitespaces)
     let baseValid = !trimmedURL.isEmpty && isValidURL && !isCreating
+    let credentialProvided = usesNoCredential || !credential.isEmpty
     if isReauthenticate {
-      return baseValid && !credential.isEmpty
+      return baseValid && credentialProvided
     }
     if case .edit = mode {
       let labelChanged = label != (mode.existingLabel ?? "")
       let iconChanged = iconName != (mode.existingIcon ?? "")
       let urlChanged = url.trimmingCharacters(in: .whitespaces) != mode.prefillURL
-      return baseValid && (labelChanged || iconChanged || urlChanged || !credential.isEmpty)
+      let credentialChanged = usesNoCredential != initialUsesNoCredential || !credential.isEmpty
+      return baseValid && (labelChanged || iconChanged || urlChanged || credentialChanged)
     }
-    return baseValid && !credential.isEmpty
+    return baseValid && credentialProvided
   }
 
   var body: some View {
@@ -177,13 +189,13 @@ struct ConnectionSheet: View {
         HStack(spacing: 4) {
           Text("Credential")
             .frame(width: 85, alignment: .trailing)
-          SecureField("", text: $credential)
+          SecureField(usesNoCredential ? "No password required" : "", text: $credential)
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.leading)
             .labelsHidden()
             .frame(maxWidth: .infinity)
             .textContentType(.password)
-            .disabled(isCreating)
+            .disabled(isCreating || usesNoCredential)
             .focused($credentialFocused)
             .onChange(of: credential) {
               if isTotpError {
@@ -204,6 +216,22 @@ struct ConnectionSheet: View {
             CredentialInfoPopover()
           }
         }
+
+        HStack(spacing: 4) {
+          Color.clear
+            .frame(width: 85, height: 1)
+          Toggle("This Pi-hole has no password", isOn: $usesNoCredential)
+            .font(.system(size: 11))
+            .disabled(isCreating)
+            .onChange(of: usesNoCredential) {
+              if usesNoCredential {
+                credential = ""
+                isTotpError = false
+                createError = nil
+              }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
 
       if let error = createError {
@@ -433,12 +461,19 @@ struct ConnectionSheet: View {
       }
     } else {
       guard case .edit(let server) = mode else { return }
+      // nil = keep stored credential; "" = clear; value = replace.
+      let credentialUpdate: String?
+      if usesNoCredential != initialUsesNoCredential || !credential.isEmpty {
+        credentialUpdate = usesNoCredential ? "" : credential
+      } else {
+        credentialUpdate = nil
+      }
       serverManager.updateServer(
         id: server.id,
         label: trimmedLabel,
         icon: iconName.isEmpty ? nil : iconName,
         url: serverURL,
-        credential: credential.isEmpty ? nil : credential
+        credential: credentialUpdate
       )
       onDismiss()
     }
@@ -498,6 +533,12 @@ struct CredentialInfoPopover: View {
         Text("Pi-hole v6:")
           .font(.system(size: 11, weight: .semibold))
         Text("Use your web interface password, or create an app password in Pi-hole Settings → API → App password.")
+          .font(.system(size: 10))
+          .foregroundColor(.secondary)
+
+        Text("No password set?")
+          .font(.system(size: 11, weight: .semibold))
+        Text("Check \"This Pi-hole has no password\" — password-less v5 and v6 instances are fully supported.")
           .font(.system(size: 10))
           .foregroundColor(.secondary)
       }

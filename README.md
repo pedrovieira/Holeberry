@@ -104,6 +104,9 @@ None of this is a commitment — it's a wishlist, and demand decides the order. 
 ### Where are my Pi-hole credentials stored?
 In the macOS **Keychain** — the same secure storage used by Mail, Safari, and your system. Holeberry never writes passwords to disk.
 
+### Can I use a Pi-hole without a password?
+Yes. Password-less instances (no web password set) are fully supported for both v5 and v6 — check "This Pi-hole has no password" in the connection sheet. Holeberry stores no credential at all for such instances.
+
 ### What permissions does Holeberry need, and why?
 - **Local Network**: required to connect to your Pi-hole instances.
 - **Automation** (browser access): optional, only used when browser-tab unblocking is enabled. You can disable it anytime in Settings → General.

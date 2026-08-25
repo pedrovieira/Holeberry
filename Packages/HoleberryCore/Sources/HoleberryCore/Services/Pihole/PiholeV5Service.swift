@@ -80,7 +80,12 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding(error.localizedDescription)
     }
 
-    if status.status == "enabled" {
+    guard let rawStatus = status.status else {
+      // Unauthenticated v5 returns 200 `{}` (gated on $auth, not HTTP status).
+      throw PiholeError.unauthorized
+    }
+
+    if rawStatus == "enabled" {
       return .enabled
     }
     return .disabled(remainingSeconds: nil)

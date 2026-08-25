@@ -41,13 +41,16 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       throw PiholeError.unknown("Invalid URL format")
     }
 
-    guard !credential.isEmpty else {
-      throw PiholeError.unknown("Credential is required")
-    }
-
+    // Empty credential = password-less instance; login still validates.
     let version = try await detectVersion(url: url)
 
-    let config = ServerConfig(label: label, icon: icon, url: url, version: version)
+    let config = ServerConfig(
+      label: label,
+      icon: icon,
+      url: url,
+      version: version,
+      isPasswordless: credential.isEmpty
+    )
     let session = makeSession(trusting: serverURL)
     let service = try serviceFactory.buildService(
       config: config,
@@ -58,7 +61,12 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     try await service.login()
 
-    try keychain.saveCredential(credential, for: config.id)
+    // Keychain holds only real secrets; password-less is tracked in the config.
+    if credential.isEmpty {
+      try? keychain.deleteCredential(for: config.id)
+    } else {
+      try keychain.saveCredential(credential, for: config.id)
+    }
 
     servers.append(config)
     services[config.id] = service
@@ -80,7 +88,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     if let existingService = services[id] {
       let urlChanged = url != existingService.url
       let credentialChanged: Bool
-      if let credential, !credential.isEmpty {
+      if let credential {
+        // nil = no change; "" = clear (password-less).
         credentialChanged = (try? keychain.readCredential(for: id)) != credential
       } else {
         credentialChanged = false
@@ -94,8 +103,6 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if urlChanged || credentialChanged {
         reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
-      // Note: an empty `credential` means "no change" — the stored credential
-      // is kept as-is (the UI never clears credentials today).
     } else {
       if let label { servers[idx].label = label }
       servers[idx].icon = icon
@@ -103,8 +110,14 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if let version { servers[idx].version = version }
     }
 
-    if let credential, !credential.isEmpty {
-      try? keychain.saveCredential(credential, for: id)
+    if let credential {
+      servers[idx].isPasswordless = credential.isEmpty
+      // Clear the keychain item when switching to password-less.
+      if credential.isEmpty {
+        try? keychain.deleteCredential(for: id)
+      } else {
+        try? keychain.saveCredential(credential, for: id)
+      }
     }
 
     syncConfigs()
@@ -115,9 +128,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   /// Validates a new credential against the server without persisting anything.
   /// v6: login() authenticates (throws .totpRequired / .invalidCredentials).
   /// v5: login() is a no-op, so checkStatus() probes the token (throws
-  /// .server(401, _) for a wrong token). The probe service is always logged
-  /// out — including when the probe fails mid-way — so no server-side session
-  /// leaks accumulate (v6 has a session limit).
+  /// .unauthorized for a wrong or missing token). The probe service is always
+  /// logged out — including when the probe fails mid-way — so no server-side
+  /// session leaks accumulate (v6 has a session limit).
   public func verifyCredential(id: UUID, credential: String) async throws {
     guard let config = servers.first(where: { $0.id == id }) else {
       throw PiholeError.unknown("Server not found")
@@ -165,7 +178,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       id: id,
       label: existingService.label,
       url: url,
-      version: existingService.version
+      version: existingService.version,
+      isPasswordless: currentCredential.isEmpty
     )
     Task { await existingService.logout() }
     guard let serverURL = URL(string: url) else { return }
@@ -257,6 +271,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
+  /// Whether a real credential is in the keychain (false for password-less).
   private func hasStoredCredential(id: UUID) -> Bool {
     (try? keychain.readCredential(for: id)) != nil
   }
@@ -517,10 +532,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       // Build the service even without a stored credential (using an empty
       // one): the health check then fails as an auth error and the UI can
       // offer a "Re-authenticate" affordance instead of "unreachable".
-      let credential = (try? keychain.readCredential(for: config.id)) ?? ""
-      if credential.isEmpty {
+      let storedCredential = try? keychain.readCredential(for: config.id)
+      if !config.isPasswordless && storedCredential == nil {
         logger.warning("No credential found for server \(config.id), will prompt to re-authenticate")
       }
+      let credential = config.isPasswordless ? "" : (storedCredential ?? "")
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)
       if let rebuilt = try? serviceFactory.buildService(
@@ -549,7 +565,14 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private func syncConfigs() {
     servers = servers.map { config in
       if let svc = services[config.id] {
-        return ServerConfig(id: svc.id, label: svc.label, icon: config.icon, url: svc.url, version: svc.version)
+        return ServerConfig(
+          id: svc.id,
+          label: svc.label,
+          icon: config.icon,
+          url: svc.url,
+          version: svc.version,
+          isPasswordless: config.isPasswordless
+        )
       }
       return config
     }

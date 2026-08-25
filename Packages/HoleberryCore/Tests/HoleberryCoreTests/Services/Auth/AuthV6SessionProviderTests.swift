@@ -204,6 +204,58 @@ final class AuthV6SessionProviderTests {
     }
   }
 
+  // MARK: - Password-less instances (empty credential)
+
+  @Test("Empty credential: null SID response works without a session")
+  func emptyCredentialNullSidResponseWorks() async throws {
+    mockSession.handlers = [
+      // POST /api/auth with an empty password -> FTL EMPTYPASS response (sid: null)
+      { request in
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/auth")
+        let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) }
+        #expect(body == #"{"password":""}"#)
+        guard let response = makeHTTPResponse() else {
+          throw PiholeError.unknown("Failed to create response")
+        }
+        let emptypassBody = #"{"session":{"valid":true,"sid":null,"validity":-1,"message":"no password set"}}"#
+        return (Data(emptypassBody.utf8), response)
+      }
+    ]
+
+    let session = makeSession(credential: "")
+    let result = try await session.authorizedRequest { sid in
+      #expect(sid.isEmpty, "operation must receive an empty SID for password-less servers")
+      guard let response = makeHTTPResponse() else {
+        throw PiholeError.unknown("Failed to create response")
+      }
+      return (sid, response)
+    }
+    #expect(result.isEmpty)
+    #expect(mockSession.requests.count == 1, "exactly one login POST, no session reuse loop")
+
+    // Subsequent requests must not re-login: password-less state is cached.
+    _ = try await session.authorizedRequest(Self.alwaysSucceed)
+    #expect(mockSession.requests.count == 1, "password-less servers must not re-POST /api/auth")
+  }
+
+  @Test("Empty credential on a password-protected instance throws invalidCredentials")
+  func emptyCredentialOnProtectedInstanceThrows() async throws {
+    mockSession.handlers = [
+      { _ in
+        guard let response = makeHTTPResponse(statusCode: 401) else {
+          throw PiholeError.unknown("Failed to create response")
+        }
+        return (Data(), response)
+      }
+    ]
+
+    let session = makeSession(credential: "")
+    await #expect(throws: PiholeError.invalidCredentials) {
+      try await session.authorizedRequest(Self.alwaysSucceed)
+    }
+  }
+
   // MARK: - Logout
 
   @Test("Logout clears session")

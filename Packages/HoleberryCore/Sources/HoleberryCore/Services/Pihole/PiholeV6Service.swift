@@ -265,7 +265,10 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       request.httpMethod = method.rawValue
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       request.timeoutInterval = 15
-      request.setValue(sid, forHTTPHeaderField: "X-FTL-SID")
+      // No SID on password-less servers — omit the header.
+      if !sid.isEmpty {
+        request.setValue(sid, forHTTPHeaderField: "X-FTL-SID")
+      }
 
       if let bodyData {
         request.httpBody = bodyData
