@@ -54,6 +54,16 @@ private struct BrowserTabInfoPopover: View {
   /// Called when the user opens the full browser list so the popover can close.
   let onOpenFullList: () -> Void
 
+  /// URL of the full supported-browsers list on the tag matching this app's
+  /// bundle version (e.g. `v1.0.2`), so users see a list matching the version
+  /// they're running. Falls back to `main` if the version is unavailable.
+  private var supportedBrowsersURL: URL? {
+    let ref = Bundle.main.releaseVersionNumber.map { "v\($0)" } ?? "main"
+    return URL(
+      string: "https://github.com/pedrovieira/Holeberry/blob/\(ref)/docs/SUPPORTED-BROWSERS.md"
+    )
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("Browser Tab Unblocking")
@@ -78,7 +88,7 @@ private struct BrowserTabInfoPopover: View {
 
       Button {
         onOpenFullList()
-        if let url = URL(string: "https://github.com/pedrovieira/Holeberry/blob/main/docs/SUPPORTED-BROWSERS.md") {
+        if let url = supportedBrowsersURL {
           NSWorkspace.shared.open(url)
         }
       } label: {
