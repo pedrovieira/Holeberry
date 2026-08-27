@@ -239,6 +239,37 @@ final class AuthV6SessionProviderTests {
     #expect(mockSession.requests.count == 1, "password-less servers must not re-POST /api/auth")
   }
 
+  @Test("Junk password on a password-less instance is treated as password-less")
+  func junkPasswordOnPasswordlessInstanceIsPasswordless() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.httpMethod == "POST")
+        let body = request.httpBody.flatMap { String(data: $0, encoding: .utf8) }
+        #expect(body == #"{"password":"junk"}"#)
+        guard let response = makeHTTPResponse() else {
+          throw PiholeError.unknown("Failed to create response")
+        }
+        // FTL accepts the request but reports NO_PASSWORD_SET: 200, sid null.
+        let emptypassBody = #"{"session":{"valid":true,"sid":null,"validity":-1,"message":"password incorrect"}}"#
+        return (Data(emptypassBody.utf8), response)
+      }
+    ]
+
+    let session = makeSession(credential: "junk")
+    let result = try await session.authorizedRequest { sid in
+      #expect(sid.isEmpty)
+      guard let response = makeHTTPResponse() else {
+        throw PiholeError.unknown("Failed to create response")
+      }
+      return (sid, response)
+    }
+    #expect(result.isEmpty)
+    #expect(await session.isPasswordless == true, "200 with null SID must be treated as password-less")
+
+    _ = try await session.authorizedRequest(Self.alwaysSucceed)
+    #expect(mockSession.requests.count == 1, "no re-login for password-less servers")
+  }
+
   @Test("Empty credential on a password-protected instance throws invalidCredentials")
   func emptyCredentialOnProtectedInstanceThrows() async throws {
     mockSession.handlers = [

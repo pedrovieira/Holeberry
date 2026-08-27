@@ -13,6 +13,9 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   public var label: String?
   public var url: String
   public var version: ServerVersion
+  public var isPasswordless: Bool {
+    get async { await authSession.isPasswordless }
+  }
 
   // MARK: - API
   private var baseURL: URL

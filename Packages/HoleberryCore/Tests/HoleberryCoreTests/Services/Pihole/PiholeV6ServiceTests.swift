@@ -75,6 +75,7 @@ final class PiholeV6ServiceTests {
   func checkStatusOmitsSIDHeaderWhenEmpty() async throws {
     let mockAuth = MockAuthSessionProvider()
     mockAuth.stubbedSID = ""
+    mockAuth.isPasswordless = true
     mockSession.handlers = [
       { request in
         #expect(request.url?.path == "/api/dns/blocking")
@@ -83,8 +84,10 @@ final class PiholeV6ServiceTests {
         return (Data(#"{"blocking":"enabled"}"#.utf8), response)
       }
     ]
-    let status = try await makeService(authSession: mockAuth).checkStatus()
+    let service = makeService(authSession: mockAuth)
+    let status = try await service.checkStatus()
     #expect(status == .enabled)
+    #expect(await service.isPasswordless == true)
   }
 
   @Test("attaches X-FTL-SID header for a real session")

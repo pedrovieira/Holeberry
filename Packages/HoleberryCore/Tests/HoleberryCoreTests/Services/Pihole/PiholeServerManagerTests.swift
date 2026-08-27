@@ -63,7 +63,6 @@ struct PiholeServerManagerCRUDTests {
 
     manager.updateServer(id: id, label: "Updated", url: "http://test.com", credential: "new-password")
     #expect(mockKeychain.storedCredentials[id.uuidString] == "new-password")
-    #expect(manager.servers[0].isPasswordless == false)
   }
 
   @Test("delete server removes credential from keychain")
@@ -100,7 +99,6 @@ struct PiholeServerManagerCRUDTests {
     #expect(manager.servers.count == 1)
     #expect(manager.servers[0].label == "Test")
     #expect(manager.servers[0].version == .v6)
-    #expect(manager.servers[0].isPasswordless == false)
     #expect(mockKeychain.storedCredentials[manager.servers[0].id.uuidString] == "secret")
     #expect(mockServiceFactory.buildServiceCallCount == 1)
   }
@@ -112,10 +110,26 @@ struct PiholeServerManagerCRUDTests {
 
     #expect(manager.servers.count == 1)
     #expect(manager.servers[0].version == .v6)
-    #expect(manager.servers[0].isPasswordless == true)
     #expect(
       mockKeychain.storedCredentials[manager.servers[0].id.uuidString] == nil,
       "password-less servers store no credential in the keychain"
+    )
+  }
+
+  @Test("addServer stores no credential when the server reports password-less")
+  func addServerStoresNoCredentialWhenServerReportsPasswordless() async throws {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    let service = MockPiholeService(url: "http://test.com", version: .v6)
+    service.isPasswordless = true
+    mockServiceFactory.buildServiceStub = service
+    defer { mockServiceFactory.buildServiceStub = nil }
+
+    try await manager.addServer(label: "Open", url: "http://test.com", credential: "junk")
+
+    #expect(manager.servers.count == 1)
+    #expect(
+      mockKeychain.storedCredentials[manager.servers[0].id.uuidString] == nil,
+      "junk credential must not be stored for password-less servers"
     )
   }
 
@@ -226,7 +240,6 @@ struct PiholeServerManagerCRUDTests {
       return
     }
     #expect(mockKeychain.storedCredentials[id.uuidString] == "old-password")
-    #expect(manager.servers[0].isPasswordless == false)
     let buildsBefore = mockServiceFactory.buildServiceCallCount
     #expect(buildsBefore == 1, "loadServers built the service")
 
@@ -236,7 +249,6 @@ struct PiholeServerManagerCRUDTests {
       mockKeychain.storedCredentials[id.uuidString] == nil,
       "clearing the credential removes it from the keychain"
     )
-    #expect(manager.servers[0].isPasswordless == true)
     #expect(mockServiceFactory.buildServiceCallCount == buildsBefore + 1, "credential change must rebuild")
   }
 
@@ -250,7 +262,8 @@ struct PiholeServerManagerCRUDTests {
     let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     mockServiceFactory.buildServiceStub = probe
 
-    try await manager.verifyCredential(id: id, credential: "fresh-password")
+    let result = try await manager.verifyCredential(id: id, credential: "fresh-password")
+    #expect(result == false, "a real credential on a protected server reports password-protected")
     #expect(probe.loginCallCount == 1)
     #expect(probe.checkStatusCallCount == 1)
     #expect(probe.logoutCallCount == 1)
@@ -264,9 +277,11 @@ struct PiholeServerManagerCRUDTests {
       return
     }
     let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    probe.isPasswordless = true
     mockServiceFactory.buildServiceStub = probe
 
-    try await manager.verifyCredential(id: id, credential: "")
+    let result = try await manager.verifyCredential(id: id, credential: "")
+    #expect(result == true, "a password-less server must report password-less")
     #expect(probe.loginCallCount == 1)
     #expect(probe.checkStatusCallCount == 1)
     #expect(probe.logoutCallCount == 1)

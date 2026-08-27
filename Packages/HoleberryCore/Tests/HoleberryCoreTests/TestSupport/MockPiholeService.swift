@@ -9,6 +9,8 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var label: String?
   var url: String
   var version: ServerVersion
+  /// Simulated password-less state reported to the manager.
+  var isPasswordless = false
 
   var checkStatusStub: Result<BlockingStatus, any Error> = .success(.enabled)
   private(set) var checkStatusCallCount = 0

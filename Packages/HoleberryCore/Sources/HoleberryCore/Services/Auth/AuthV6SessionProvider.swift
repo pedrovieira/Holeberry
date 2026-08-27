@@ -20,10 +20,10 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
   private var sid: String?
   private var csrf: String?
   /// True after a password-less (EMPTYPASS) login: no SID exists, auth not required.
-  private var isPasswordless = false
+  private var passwordless = false
   private var loginTask: Task<AuthResponse, any Error>?
 
-  // MARK: - Init
+  public var isPasswordless: Bool { passwordless }
 
   public init(
     host: URL,
@@ -40,7 +40,7 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
   public func authorizedRequest<T>(
     _ operation: @Sendable (String) async throws -> (T, HTTPURLResponse)
   ) async throws -> T where T: Sendable {
-    if sid == nil && !isPasswordless {
+    if sid == nil && !passwordless {
       try await acquireSession()
     }
     // Password-less servers have no SID; pass "" (callers skip the session header).
@@ -74,7 +74,7 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
     defer {
       self.sid = nil
       self.csrf = nil
-      self.isPasswordless = false
+      self.passwordless = false
     }
 
     let url = host.appendingPathComponent(Self.apiAuthPath)
@@ -161,7 +161,7 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
     } else {
       // FTL's EMPTYPASS: sid is null, auth not required; cache so we skip re-login.
       logger.debug("Password-less server detected — skipping session auth")
-      isPasswordless = true
+      passwordless = true
     }
   }
 }

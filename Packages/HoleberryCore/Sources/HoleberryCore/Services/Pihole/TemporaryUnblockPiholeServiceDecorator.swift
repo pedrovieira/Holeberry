@@ -20,6 +20,9 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     get { wrapped.version }
     set { wrapped.version = newValue }
   }
+  public var isPasswordless: Bool {
+    get async { await wrapped.isPasswordless }
+  }
 
   // Unblock state — per-server
   private var activeRecords: [TempUnblockRecord] = []

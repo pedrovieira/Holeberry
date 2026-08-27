@@ -18,6 +18,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   public var label: String?
   public var url: String
   public var version: ServerVersion
+  public var isPasswordless: Bool { apiToken.isEmpty }
 
   // MARK: - API
   private var baseURL: URL

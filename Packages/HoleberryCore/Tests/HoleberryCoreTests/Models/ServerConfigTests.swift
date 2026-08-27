@@ -43,25 +43,6 @@ struct ServerConfigTests {
     #expect(server.version == decoded.version)
   }
 
-  @Test func codableRoundTripPasswordless() throws {
-    let server = ServerConfig(
-      label: "Open", url: "http://test.com", version: .v5, isPasswordless: true)
-    let data = try TestJSON.encoder.encode(server)
-    let decoded = try TestJSON.decoder.decode(ServerConfig.self, from: data)
-    #expect(decoded.isPasswordless == true)
-  }
-
-  @Test func codableMigratesMissingFlagToPasswordProtected() throws {
-    // Configs persisted before the isPasswordless flag existed must decode
-    // as password-protected (they always had a credential).
-    let legacyJSON =
-      #"{"id":"00000000-0000-0000-0000-000000000001","label":"Old","url":"http://test.com","version":"v6"}"#
-    let decoded = try TestJSON.decoder.decode(ServerConfig.self, from: Data(legacyJSON.utf8))
-    #expect(decoded.isPasswordless == false)
-    #expect(decoded.url == "http://test.com")
-    #expect(decoded.version == .v6)
-  }
-
   @Test func codableNilLabel() throws {
     let server = ServerConfig(label: nil, url: "http://test.com", version: .v5)
     let data = try TestJSON.encoder.encode(server)

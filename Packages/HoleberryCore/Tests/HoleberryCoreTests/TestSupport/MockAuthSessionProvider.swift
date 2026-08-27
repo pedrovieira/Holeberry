@@ -20,6 +20,9 @@ final class MockAuthSessionProvider: AuthSessionProviding, @unchecked Sendable {
   /// The SID passed to the operation closure.
   var stubbedSID = "mock-sid"
 
+  /// Simulated password-less state reported to the service.
+  var isPasswordless = false
+
   init() {}
 
   func authorizedRequest<T: Sendable>(

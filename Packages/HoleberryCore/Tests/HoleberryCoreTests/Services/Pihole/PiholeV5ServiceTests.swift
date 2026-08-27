@@ -103,6 +103,7 @@ final class PiholeV5ServiceTests {
     ]
     let status = try await passwordlessService.checkStatus()
     #expect(status == .enabled)
+    #expect(await passwordlessService.isPasswordless == true)
   }
 
   // MARK: - setBlocking

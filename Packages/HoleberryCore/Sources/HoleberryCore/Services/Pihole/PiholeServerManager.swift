@@ -48,8 +48,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       label: label,
       icon: icon,
       url: url,
-      version: version,
-      isPasswordless: credential.isEmpty
+      version: version
     )
     let session = makeSession(trusting: serverURL)
     let service = try serviceFactory.buildService(
@@ -61,8 +60,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     try await service.login()
 
-    // Keychain holds only real secrets; password-less is tracked in the config.
-    if credential.isEmpty {
+    // v6 reports password-less even when a credential was supplied (HTTP 200
+    // with sid null / "password incorrect"): proceed as password-less and
+    // store nothing.
+    if await service.isPasswordless || credential.isEmpty {
       try? keychain.deleteCredential(for: config.id)
     } else {
       try keychain.saveCredential(credential, for: config.id)
@@ -111,8 +112,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
 
     if let credential {
-      servers[idx].isPasswordless = credential.isEmpty
-      // Clear the keychain item when switching to password-less.
+      // "" = clear (password-less), value = replace.
       if credential.isEmpty {
         try? keychain.deleteCredential(for: id)
       } else {
@@ -131,7 +131,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   /// .unauthorized for a wrong or missing token). The probe service is always
   /// logged out — including when the probe fails mid-way — so no server-side
   /// session leaks accumulate (v6 has a session limit).
-  public func verifyCredential(id: UUID, credential: String) async throws {
+  ///
+  /// - Returns: true when the server reports no password is set (v6 signal:
+  ///   HTTP 200 with a null SID, even if a credential was supplied).
+  public func verifyCredential(id: UUID, credential: String) async throws -> Bool {
     guard let config = servers.first(where: { $0.id == id }) else {
       throw PiholeError.unknown("Server not found")
     }
@@ -153,6 +156,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       throw error
     }
     await probe.logout()
+    return await probe.isPasswordless
   }
 
   public func deleteServer(id: UUID) {
@@ -178,8 +182,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       id: id,
       label: existingService.label,
       url: url,
-      version: existingService.version,
-      isPasswordless: currentCredential.isEmpty
+      version: existingService.version
     )
     Task { await existingService.logout() }
     guard let serverURL = URL(string: url) else { return }
@@ -271,8 +274,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
-  /// Whether a real credential is in the keychain (false for password-less).
-  private func hasStoredCredential(id: UUID) -> Bool {
+  /// Whether a credential is stored in the keychain for the given server.
+  /// This is the password-less marker: no credential = password-less.
+  /// The connection sheet uses it to derive the edit-mode field state.
+  public func hasStoredCredential(id: UUID) -> Bool {
     (try? keychain.readCredential(for: id)) != nil
   }
 
@@ -533,10 +538,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       // one): the health check then fails as an auth error and the UI can
       // offer a "Re-authenticate" affordance instead of "unreachable".
       let storedCredential = try? keychain.readCredential(for: config.id)
-      if !config.isPasswordless && storedCredential == nil {
+      if storedCredential == nil {
         logger.warning("No credential found for server \(config.id), will prompt to re-authenticate")
       }
-      let credential = config.isPasswordless ? "" : (storedCredential ?? "")
+      let credential = storedCredential ?? ""
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)
       if let rebuilt = try? serviceFactory.buildService(
@@ -570,8 +575,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
           label: svc.label,
           icon: config.icon,
           url: svc.url,
-          version: svc.version,
-          isPasswordless: config.isPasswordless
+          version: svc.version
         )
       }
       return config
