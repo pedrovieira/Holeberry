@@ -41,7 +41,6 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       throw PiholeError.unknown("Invalid URL format")
     }
 
-    // Empty credential = password-less instance; login still validates.
     let version = try await detectVersion(url: url)
 
     let config = ServerConfig(
@@ -60,9 +59,6 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     try await service.login()
 
-    // v6 reports password-less even when a credential was supplied (HTTP 200
-    // with sid null / "password incorrect"): proceed as password-less and
-    // store nothing.
     if await service.isPasswordless || credential.isEmpty {
       try? keychain.deleteCredential(for: config.id)
     } else {
@@ -274,9 +270,6 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
-  /// Whether a credential is stored in the keychain for the given server.
-  /// This is the password-less marker: no credential = password-less.
-  /// The connection sheet uses it to derive the edit-mode field state.
   public func hasStoredCredential(id: UUID) -> Bool {
     (try? keychain.readCredential(for: id)) != nil
   }
@@ -537,11 +530,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       // Build the service even without a stored credential (using an empty
       // one): the health check then fails as an auth error and the UI can
       // offer a "Re-authenticate" affordance instead of "unreachable".
-      let storedCredential = try? keychain.readCredential(for: config.id)
-      if storedCredential == nil {
-        logger.warning("No credential found for server \(config.id), will prompt to re-authenticate")
-      }
-      let credential = storedCredential ?? ""
+      let credential = (try? keychain.readCredential(for: config.id)) ?? ""
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)
       if let rebuilt = try? serviceFactory.buildService(

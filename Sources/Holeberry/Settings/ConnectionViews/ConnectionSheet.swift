@@ -512,7 +512,7 @@ struct CredentialInfoPopover: View {
 
         Text("No password set?")
           .font(.system(size: 11, weight: .semibold))
-        Text("Leave the password field empty — password-less v5 and v6 instances are fully supported.")
+        Text("Leave the credential field empty. Password-less v6 and v5 instances are fully supported.")
           .font(.system(size: 10))
           .foregroundColor(.secondary)
       }

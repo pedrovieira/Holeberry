@@ -266,9 +266,10 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     return try await authSession.authorizedRequest { sid in
       var request = URLRequest(url: url)
       request.httpMethod = method.rawValue
-      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       request.timeoutInterval = 15
-      // No SID on password-less servers — omit the header.
+
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      // No SID on password-less servers
       if !sid.isEmpty {
         request.setValue(sid, forHTTPHeaderField: "X-FTL-SID")
       }

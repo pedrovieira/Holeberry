@@ -13,8 +13,6 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
   var label: String? { get set }
   var url: String { get set }
   var version: ServerVersion { get set }
-  /// True when the instance has no password set (v6: detected after login;
-  /// v5: only known when the token is empty).
   var isPasswordless: Bool { get async }
 
   // MARK: - Domain operations

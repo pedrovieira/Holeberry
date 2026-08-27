@@ -25,6 +25,8 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
 
   public var isPasswordless: Bool { passwordless }
 
+  // MARK: - Init
+
   public init(
     host: URL,
     password: String,

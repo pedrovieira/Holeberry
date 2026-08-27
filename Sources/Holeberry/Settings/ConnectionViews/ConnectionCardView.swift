@@ -40,7 +40,6 @@ struct ConnectionCardView: View {
   var body: some View {
     HStack(alignment: .center, spacing: 8) {
       PulsingStatusDot(color: dotColor, isActive: state == .healthy)
-        // Fixed slot keeps the pulse (8x8) from shifting the row.
         .frame(width: 6, height: 6)
 
       if let icon = config.icon {
@@ -56,8 +55,6 @@ struct ConnectionCardView: View {
           .truncationMode(.tail)
         subtitleView
       }
-      // Keep the subtitle on one line when space is tight; the fix
-      // button keeps its own width (priority 2) inside the trailing HStack.
       .layoutPriority(1)
 
       Spacer()
