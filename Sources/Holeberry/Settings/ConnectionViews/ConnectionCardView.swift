@@ -40,6 +40,7 @@ struct ConnectionCardView: View {
   var body: some View {
     HStack(alignment: .center, spacing: 8) {
       PulsingStatusDot(color: dotColor, isActive: state == .healthy)
+        .frame(width: 6, height: 6)
 
       if let icon = config.icon {
         Image(systemName: icon)
@@ -54,6 +55,7 @@ struct ConnectionCardView: View {
           .truncationMode(.tail)
         subtitleView
       }
+      .layoutPriority(1)
 
       Spacer()
 
@@ -124,6 +126,7 @@ struct ConnectionCardView: View {
           .font(.system(size: 12))
           .foregroundColor(.red.opacity(0.85))
           .lineLimit(2)
+          .offset(y: 1)
       }
     case .unreachable(let lastSeen):
       HStack(spacing: 4) {

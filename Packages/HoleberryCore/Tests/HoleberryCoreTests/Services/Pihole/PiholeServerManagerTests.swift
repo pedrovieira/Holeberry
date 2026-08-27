@@ -103,6 +103,36 @@ struct PiholeServerManagerCRUDTests {
     #expect(mockServiceFactory.buildServiceCallCount == 1)
   }
 
+  @Test("addServer accepts an empty credential for password-less instances")
+  func addServerWithEmptyCredential() async throws {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    try await manager.addServer(label: "Open", url: "http://test.com", credential: "")
+
+    #expect(manager.servers.count == 1)
+    #expect(manager.servers[0].version == .v6)
+    #expect(
+      mockKeychain.storedCredentials[manager.servers[0].id.uuidString] == nil,
+      "password-less servers store no credential in the keychain"
+    )
+  }
+
+  @Test("addServer stores no credential when the server reports password-less")
+  func addServerStoresNoCredentialWhenServerReportsPasswordless() async throws {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    let service = MockPiholeService(url: "http://test.com", version: .v6)
+    service.isPasswordless = true
+    mockServiceFactory.buildServiceStub = service
+    defer { mockServiceFactory.buildServiceStub = nil }
+
+    try await manager.addServer(label: "Open", url: "http://test.com", credential: "junk")
+
+    #expect(manager.servers.count == 1)
+    #expect(
+      mockKeychain.storedCredentials[manager.servers[0].id.uuidString] == nil,
+      "junk credential must not be stored for password-less servers"
+    )
+  }
+
   @Test("addServer throws and leaves nothing registered when keychain save fails")
   func addServerKeychainFailureLeavesNoPartialState() async {
     let suite = TestDefaults.makeSuite()
@@ -202,6 +232,26 @@ struct PiholeServerManagerCRUDTests {
     #expect(mockServiceFactory.buildServiceCallCount == buildsBefore)
   }
 
+  @Test("update server with empty credential clears the stored credential")
+  func updateServerWithEmptyCredentialClears() {
+    let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
+    guard let id = manager.servers.first?.id else {
+      Issue.record("No server")
+      return
+    }
+    #expect(mockKeychain.storedCredentials[id.uuidString] == "old-password")
+    let buildsBefore = mockServiceFactory.buildServiceCallCount
+    #expect(buildsBefore == 1, "loadServers built the service")
+
+    manager.updateServer(id: id, label: "Test", url: "http://test.com", credential: "")
+
+    #expect(
+      mockKeychain.storedCredentials[id.uuidString] == nil,
+      "clearing the credential removes it from the keychain"
+    )
+    #expect(mockServiceFactory.buildServiceCallCount == buildsBefore + 1, "credential change must rebuild")
+  }
+
   @Test("verifyCredential succeeds and logs out the probe service")
   func verifyCredentialSucceeds() async throws {
     let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
@@ -212,7 +262,26 @@ struct PiholeServerManagerCRUDTests {
     let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     mockServiceFactory.buildServiceStub = probe
 
-    try await manager.verifyCredential(id: id, credential: "fresh-password")
+    let result = try await manager.verifyCredential(id: id, credential: "fresh-password")
+    #expect(result == false, "a real credential on a protected server reports password-protected")
+    #expect(probe.loginCallCount == 1)
+    #expect(probe.checkStatusCallCount == 1)
+    #expect(probe.logoutCallCount == 1)
+  }
+
+  @Test("verifyCredential succeeds with an empty credential (password-less)")
+  func verifyCredentialWithEmptyCredential() async throws {
+    let manager = makeManagerWithLoadedService(suite: TestDefaults.makeSuite())
+    guard let id = manager.servers.first?.id else {
+      Issue.record("No server")
+      return
+    }
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    probe.isPasswordless = true
+    mockServiceFactory.buildServiceStub = probe
+
+    let result = try await manager.verifyCredential(id: id, credential: "")
+    #expect(result == true, "a password-less server must report password-less")
     #expect(probe.loginCallCount == 1)
     #expect(probe.checkStatusCallCount == 1)
     #expect(probe.logoutCallCount == 1)

@@ -19,7 +19,11 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
 
   private var sid: String?
   private var csrf: String?
+  /// True after a password-less (EMPTYPASS) login: no SID exists, auth not required.
+  private var passwordless = false
   private var loginTask: Task<AuthResponse, any Error>?
+
+  public var isPasswordless: Bool { passwordless }
 
   // MARK: - Init
 
@@ -38,12 +42,11 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
   public func authorizedRequest<T>(
     _ operation: @Sendable (String) async throws -> (T, HTTPURLResponse)
   ) async throws -> T where T: Sendable {
-    if sid == nil {
+    if sid == nil && !passwordless {
       try await acquireSession()
     }
-    guard let currentSid = sid else {
-      throw PiholeError.unknown("Session unexpectedly nil after acquire")
-    }
+    // Password-less servers have no SID; pass "" (callers skip the session header).
+    let currentSid = sid ?? ""
 
     let (result, response) = try await operation(currentSid)
 
@@ -73,6 +76,7 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
     defer {
       self.sid = nil
       self.csrf = nil
+      self.passwordless = false
     }
 
     let url = host.appendingPathComponent(Self.apiAuthPath)
@@ -153,8 +157,14 @@ public actor AuthV6SessionProvider: AuthSessionProviding {
       authResponse = try await task.value
     }
 
-    sid = authResponse.session.sid
-    csrf = authResponse.session.csrf
+    if let newSid = authResponse.session.sid {
+      sid = newSid
+      csrf = authResponse.session.csrf
+    } else {
+      // FTL's EMPTYPASS: sid is null, auth not required; cache so we skip re-login.
+      logger.debug("Password-less server detected — skipping session auth")
+      passwordless = true
+    }
   }
 }
 
@@ -165,7 +175,8 @@ private struct AuthResponse: Decodable {
   let totp: Bool?
 
   struct Session: Decodable {
-    let sid: String
+    /// `null` when the server has no password set (EMPTYPASS response).
+    let sid: String?
     let csrf: String?
     let validity: TimeInterval?
   }

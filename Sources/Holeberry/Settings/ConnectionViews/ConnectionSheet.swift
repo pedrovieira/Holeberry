@@ -83,12 +83,20 @@ struct ConnectionSheet: View {
     self.serverManager = serverManager
     _label = State(initialValue: mode.existingLabel ?? "")
     _iconName = State(initialValue: mode.existingIcon ?? "")
+    if case .edit(let config) = mode {
+      // No stored credential = password-less.
+      hasStoredCredential = serverManager.hasStoredCredential(id: config.id)
+    } else {
+      hasStoredCredential = true
+    }
   }
 
   @State private var label: String = ""
   @State private var generatedLabel: String = ""
   @State private var url: String = ""
   @State private var credential: String = ""
+  /// Whether the server has a stored credential (edit mode).
+  private let hasStoredCredential: Bool
   @State private var isCreating = false
   @State private var createError: String?
   @State private var showingCredentialInfo = false
@@ -114,16 +122,15 @@ struct ConnectionSheet: View {
   private var canCreate: Bool {
     let trimmedURL = url.trimmingCharacters(in: .whitespaces)
     let baseValid = !trimmedURL.isEmpty && isValidURL && !isCreating
-    if isReauthenticate {
-      return baseValid && !credential.isEmpty
+    if isReauthenticate || isAdd {
+      // Empty credential = password-less; validated on connect.
+      return baseValid
     }
-    if case .edit = mode {
-      let labelChanged = label != (mode.existingLabel ?? "")
-      let iconChanged = iconName != (mode.existingIcon ?? "")
-      let urlChanged = url.trimmingCharacters(in: .whitespaces) != mode.prefillURL
-      return baseValid && (labelChanged || iconChanged || urlChanged || !credential.isEmpty)
-    }
-    return baseValid && !credential.isEmpty
+    // Edit mode: require some change.
+    let labelChanged = label != (mode.existingLabel ?? "")
+    let iconChanged = iconName != (mode.existingIcon ?? "")
+    let urlChanged = url.trimmingCharacters(in: .whitespaces) != mode.prefillURL
+    return baseValid && (labelChanged || iconChanged || urlChanged || !credential.isEmpty)
   }
 
   var body: some View {
@@ -177,13 +184,13 @@ struct ConnectionSheet: View {
         HStack(spacing: 4) {
           Text("Credential")
             .frame(width: 85, alignment: .trailing)
-          SecureField("", text: $credential)
+          SecureField(hasStoredCredential ? "" : "No password required", text: $credential)
             .textFieldStyle(.roundedBorder)
             .multilineTextAlignment(.leading)
             .labelsHidden()
             .frame(maxWidth: .infinity)
             .textContentType(.password)
-            .disabled(isCreating)
+            .disabled(isCreating || !hasStoredCredential)
             .focused($credentialFocused)
             .onChange(of: credential) {
               if isTotpError {
@@ -207,18 +214,18 @@ struct ConnectionSheet: View {
       }
 
       if let error = createError {
-        HStack(spacing: 4) {
+        VStack(spacing: 4) {
           Image(systemName: "exclamationmark.triangle.fill")
             .font(.system(size: 10))
             .foregroundColor(.red)
           Text(error)
             .font(.system(size: 11))
             .foregroundColor(.red)
+            .multilineTextAlignment(.center)
             .lineLimit(2)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
       }
-
       Divider()
 
       HStack(spacing: 8) {
@@ -357,7 +364,7 @@ struct ConnectionSheet: View {
   private func submitReauthentication(server: ServerConfig, serverURL: String) async {
     let serverID = server.id
     do {
-      try await withThrowingTimeout(seconds: 10) {
+      let isPasswordless = try await withThrowingTimeout(seconds: 10) {
         try await serverManager.verifyCredential(id: serverID, credential: credential)
       }
       let serverLabel =
@@ -369,7 +376,8 @@ struct ConnectionSheet: View {
         label: serverLabel,
         icon: iconName.isEmpty ? nil : iconName,
         url: serverURL,
-        credential: credential
+        // Password-less server discards any typed credential.
+        credential: isPasswordless ? "" : credential
       )
       onDismiss()
     } catch is CancellationError {
@@ -438,6 +446,7 @@ struct ConnectionSheet: View {
         label: trimmedLabel,
         icon: iconName.isEmpty ? nil : iconName,
         url: serverURL,
+        // nil = keep stored credential; a typed value replaces it.
         credential: credential.isEmpty ? nil : credential
       )
       onDismiss()
@@ -489,15 +498,21 @@ struct CredentialInfoPopover: View {
         .font(.system(size: 12, weight: .semibold))
 
       Group {
+        Text("Pi-hole v6:")
+          .font(.system(size: 11, weight: .semibold))
+        Text("Use your web interface password, or create an app password in Pi-hole Settings → API → App password.")
+          .font(.system(size: 10))
+          .foregroundColor(.secondary)
+
         Text("Pi-hole v5:")
           .font(.system(size: 11, weight: .semibold))
         Text("Use your API token from Pi-hole Admin Console → Settings → API → Show API token.")
           .font(.system(size: 10))
           .foregroundColor(.secondary)
 
-        Text("Pi-hole v6:")
+        Text("No password set?")
           .font(.system(size: 11, weight: .semibold))
-        Text("Use your web interface password, or create an app password in Pi-hole Settings → API → App password.")
+        Text("Leave the credential field empty. Password-less v6 and v5 instances are fully supported.")
           .font(.system(size: 10))
           .foregroundColor(.secondary)
       }

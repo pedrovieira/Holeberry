@@ -13,6 +13,7 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
   var label: String? { get set }
   var url: String { get set }
   var version: ServerVersion { get set }
+  var isPasswordless: Bool { get async }
 
   // MARK: - Domain operations
 

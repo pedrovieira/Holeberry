@@ -20,7 +20,13 @@ public struct ServerConfig: Codable, Identifiable, Equatable {
   public var url: String
   public var version: ServerVersion
 
-  public init(id: UUID = UUID(), label: String? = nil, icon: String? = nil, url: String, version: ServerVersion) {
+  public init(
+    id: UUID = UUID(),
+    label: String? = nil,
+    icon: String? = nil,
+    url: String,
+    version: ServerVersion
+  ) {
     self.id = id
     self.label = label
     self.icon = icon

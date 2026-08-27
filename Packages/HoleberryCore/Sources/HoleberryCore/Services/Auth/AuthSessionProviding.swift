@@ -7,6 +7,10 @@ import Foundation
 /// Pi-hole v6 uses sliding-window sessions so every authenticated request
 /// is itself a refresh.
 public protocol AuthSessionProviding: Sendable {
+  /// True when the server reported no password is set (FTL EMPTYPASS): no
+  /// session exists and requests run without a SID.
+  var isPasswordless: Bool { get async }
+
   /// Runs `operation` with a valid SID, re-authenticating once on 401.
   ///
   /// - If no session exists yet one is acquired first.

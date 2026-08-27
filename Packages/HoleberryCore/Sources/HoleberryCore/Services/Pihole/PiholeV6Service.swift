@@ -13,6 +13,9 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   public var label: String?
   public var url: String
   public var version: ServerVersion
+  public var isPasswordless: Bool {
+    get async { await authSession.isPasswordless }
+  }
 
   // MARK: - API
   private var baseURL: URL
@@ -263,9 +266,13 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     return try await authSession.authorizedRequest { sid in
       var request = URLRequest(url: url)
       request.httpMethod = method.rawValue
-      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       request.timeoutInterval = 15
-      request.setValue(sid, forHTTPHeaderField: "X-FTL-SID")
+
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      // No SID on password-less servers
+      if !sid.isEmpty {
+        request.setValue(sid, forHTTPHeaderField: "X-FTL-SID")
+      }
 
       if let bodyData {
         request.httpBody = bodyData
