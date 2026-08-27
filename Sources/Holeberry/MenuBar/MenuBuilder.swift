@@ -334,19 +334,23 @@ struct MenuBuilder {
       return
     }
 
-    let hasConnectedV6 = v6Servers.contains { connectionStatuses[$0.id] == .connected }
+    let connectedV6 = v6Servers.filter { connectionStatuses[$0.id] == .connected }
+    let hasConnectedV6 = !connectedV6.isEmpty
     // Show the stalest server: the oldest "last updated" date = the max age.
     // Pi-hole stamps `last_update` mid-run, so it lags the actual completion.
     // Clamp to the app-observed completion time when it's newer.
     let maxAge =
-      v6Servers
-      .filter { connectionStatuses[$0.id] == .connected }
+      connectedV6
       .compactMap { server -> Date? in
         guard let serverDate = querySummaries[server.id]?.gravityLastUpdated else { return nil }
         guard let completedAt = gravityCompletedAt[server.id] else { return serverDate }
         return max(serverDate, completedAt)
       }
       .min()
+
+    // "At most" is only accurate when the stalest of several servers is shown;
+    // with a single server the stamp is that server's own, so keep the plain wording.
+    let atMostPrefix = connectedV6.count > 1 ? "at most " : ""
 
     let item = NSMenuItem(
       title: "Update Gravity",
@@ -357,7 +361,7 @@ struct MenuBuilder {
     item.isEnabled = hasConnectedV6
     item.setAccessibilityLabel("Update gravity filter lists")
     if let maxAge {
-      item.attributedTitle = gravityAttributedTitle(maxAge: maxAge)
+      item.attributedTitle = gravityAttributedTitle(maxAge: maxAge, atMostPrefix: atMostPrefix)
     }
     menu.addItem(item)
   }
@@ -368,7 +372,8 @@ struct MenuBuilder {
     item.isEnabled = false
     item.setAccessibilityLabel("Updating gravity")
 
-    // Match AppKit's menu columns: item images start at x=26, titles at x=46.5.
+    // Match AppKit's menu columns: item images start at x=18, titles at x=37.5.
+    // (Measured on macOS 26; older systems can differ a little.)
     let view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
     let spinner = NSProgressIndicator()
     spinner.style = .spinning
@@ -386,11 +391,11 @@ struct MenuBuilder {
       view.addSubview(subview)
     }
     NSLayoutConstraint.activate([
-      spinner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 26),
+      spinner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
       spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor),
       spinner.widthAnchor.constraint(equalToConstant: 16),
       spinner.heightAnchor.constraint(equalToConstant: 16),
-      label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 46.5),
+      label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 37.5),
       label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -6),
       label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
     ])
@@ -399,7 +404,8 @@ struct MenuBuilder {
   }
 
   /// Two-line title: "Update Gravity" over "Gravity updated <relative> ago".
-  private func gravityAttributedTitle(maxAge: Date) -> NSAttributedString {
+  /// Includes "at most" when the timestamp is the stalest of several servers.
+  private func gravityAttributedTitle(maxAge: Date, atMostPrefix: String) -> NSAttributedString {
     let result = NSMutableAttributedString()
     result.append(
       NSAttributedString(
@@ -413,7 +419,7 @@ struct MenuBuilder {
     result.append(NSAttributedString(string: "\n"))
     result.append(
       NSAttributedString(
-        string: "Gravity updated \(MenuItemFactory.relativeTimestamp(since: maxAge))",
+        string: "Gravity updated \(atMostPrefix)\(MenuItemFactory.relativeTimestamp(since: maxAge))",
         attributes: [
           .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
           .foregroundColor: NSColor.secondaryLabelColor

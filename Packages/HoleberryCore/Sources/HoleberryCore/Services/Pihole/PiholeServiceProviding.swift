@@ -38,7 +38,7 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
 
   // MARK: - Gravity
 
-  /// Triggers a gravity (filter list) update. Unsupported on v5 servers.
+  /// Triggers a gravity (filter list) update
   func updateGravity() async throws
 
   // MARK: - Session

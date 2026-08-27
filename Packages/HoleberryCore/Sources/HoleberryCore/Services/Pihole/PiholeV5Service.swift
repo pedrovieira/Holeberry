@@ -134,7 +134,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   public func updateGravity() async throws {
     // v5 has no token-authenticated gravity trigger (the web UI's internal
     // script requires a PHP session cookie). Supported automation is
-    // server-side (cron / `pihole -g`).
+    // server-side only (cron / `pihole -g`).
     throw PiholeError.unsupported("Gravity updates require Pi-hole v6")
   }
 
