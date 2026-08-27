@@ -40,8 +40,7 @@ struct ConnectionCardView: View {
   var body: some View {
     HStack(alignment: .center, spacing: 8) {
       PulsingStatusDot(color: dotColor, isActive: state == .healthy)
-        // Pin the layout slot so the row content doesn't shift 2pt when
-        // the pulse (8x8) appears next to the dot (6x6).
+        // Fixed slot keeps the pulse (8x8) from shifting the row.
         .frame(width: 6, height: 6)
 
       if let icon = config.icon {
@@ -57,10 +56,8 @@ struct ConnectionCardView: View {
           .truncationMode(.tail)
         subtitleView
       }
-      // Beat the Spacer when the row is a few points short of its ideal
-      // width: otherwise the subtitle wraps ("Password may / have changed")
-      // while the Spacer keeps dead space. The fix button's own priority
-      // still protects it inside the trailing button HStack.
+      // Keep the subtitle on one line when space is tight; the fix
+      // button keeps its own width (priority 2) inside the trailing HStack.
       .layoutPriority(1)
 
       Spacer()

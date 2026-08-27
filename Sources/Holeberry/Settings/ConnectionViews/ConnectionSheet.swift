@@ -84,8 +84,7 @@ struct ConnectionSheet: View {
     _label = State(initialValue: mode.existingLabel ?? "")
     _iconName = State(initialValue: mode.existingIcon ?? "")
     if case .edit(let config) = mode {
-      // Keychain presence is the password-less marker: no credential = no
-      // password, so the field is locked.
+      // No stored credential = password-less.
       hasStoredCredential = serverManager.hasStoredCredential(id: config.id)
     } else {
       hasStoredCredential = true
@@ -96,8 +95,7 @@ struct ConnectionSheet: View {
   @State private var generatedLabel: String = ""
   @State private var url: String = ""
   @State private var credential: String = ""
-  /// Whether the server has a stored credential (edit mode); drives whether
-  /// the credential field is editable.
+  /// Whether the server has a stored credential (edit mode).
   private let hasStoredCredential: Bool
   @State private var isCreating = false
   @State private var createError: String?
@@ -125,10 +123,10 @@ struct ConnectionSheet: View {
     let trimmedURL = url.trimmingCharacters(in: .whitespaces)
     let baseValid = !trimmedURL.isEmpty && isValidURL && !isCreating
     if isReauthenticate || isAdd {
-      // Empty credential = password-less; the server validates on connect.
+      // Empty credential = password-less; validated on connect.
       return baseValid
     }
-    // Edit mode: something must have changed.
+    // Edit mode: require some change.
     let labelChanged = label != (mode.existingLabel ?? "")
     let iconChanged = iconName != (mode.existingIcon ?? "")
     let urlChanged = url.trimmingCharacters(in: .whitespaces) != mode.prefillURL
@@ -228,7 +226,6 @@ struct ConnectionSheet: View {
         }
         .frame(maxWidth: .infinity)
       }
-
       Divider()
 
       HStack(spacing: 8) {
@@ -379,8 +376,7 @@ struct ConnectionSheet: View {
         label: serverLabel,
         icon: iconName.isEmpty ? nil : iconName,
         url: serverURL,
-        // A password-less server reports no password even when one was typed;
-        // discard the junk credential and proceed as password-less.
+        // Password-less server discards any typed credential.
         credential: isPasswordless ? "" : credential
       )
       onDismiss()
