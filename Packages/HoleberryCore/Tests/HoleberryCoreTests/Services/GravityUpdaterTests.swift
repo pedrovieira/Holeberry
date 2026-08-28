@@ -82,7 +82,7 @@ struct GravityUpdaterTests {
       Issue.record("expected a verification failure, got \(String(describing: outcomes[id]))")
       return
     }
-    #expect(error == .network("Could not verify gravity update — check the Pi-hole web interface"))
+    #expect(error == .network("Could not verify gravity update. Check the Pi-hole web interface"))
     #expect(updater.completedAt[id] == nil)
   }
 

@@ -216,7 +216,6 @@ final class ShortcutController {
       serverManager.servers.first { $0.id == id }?.label
     }
   }
-  }
 
   // MARK: - Error Notification
 

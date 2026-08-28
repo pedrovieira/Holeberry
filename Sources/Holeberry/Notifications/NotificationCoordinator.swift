@@ -65,8 +65,8 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdateFailed(let serverName, let error):
       content.body = "Failed to update gravity on \(serverName): \(error)"
       content.sound = .default
-    case .gravityUpdateCompleted(let serverNames):
-      content.body = "Gravity updated on \(serverNames.joined(separator: ", "))."
+    case .gravityUpdateCompleted:
+      content.body = "Gravity updated."
     }
 
     let request = UNNotificationRequest(
@@ -91,12 +91,8 @@ final class NotificationCoordinator: NSObject {
     _ outcomes: [UUID: GravityUpdateOutcome],
     labelFor: (UUID) -> String?
   ) {
-    let completed = outcomes.compactMap { id, outcome in
-      if case .succeeded = outcome { return labelFor(id) ?? "Pi-hole" }
-      return nil
-    }
-    if !completed.isEmpty {
-      schedule(.gravityUpdateCompleted(serverNames: completed))
+    if outcomes.values.contains(.succeeded) {
+      schedule(.gravityUpdateCompleted)
     }
     for (id, outcome) in outcomes {
       switch outcome {

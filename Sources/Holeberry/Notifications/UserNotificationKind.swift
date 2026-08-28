@@ -20,5 +20,5 @@ enum UserNotificationKind {
   case gravityUpdateFailed(serverName: String, error: String)
 
   /// A gravity update finished successfully.
-  case gravityUpdateCompleted(serverNames: [String])
+  case gravityUpdateCompleted
 }

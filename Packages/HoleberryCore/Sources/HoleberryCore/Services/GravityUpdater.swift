@@ -52,7 +52,7 @@ public final class LiveGravityUpdater: GravityUpdating {
   public init(
     manager: any PiholeServerManaging,
     sleep: @escaping (TimeInterval) async throws -> Void = {
-      try await sleepForSeconds($0)
+      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
     },
     gravityTriggerTimeout: TimeInterval = 16 * 60
   ) {
@@ -127,7 +127,7 @@ public final class LiveGravityUpdater: GravityUpdating {
         // The manager stores fetch failures as [id: nil]; either way the
         // summary is unavailable, so the run can't be confirmed.
         guard let after = afterSummaries[id].flatMap({ $0 }) else {
-          outcomes[id] = .failed(.network("Could not verify gravity update — check the Pi-hole web interface"))
+          outcomes[id] = .failed(.network("Could not verify gravity update. Check the Pi-hole web interface"))
           continue
         }
         let beforeValue = beforeSummaries[id]?.flatMap { $0.gravityLastUpdated }
