@@ -56,6 +56,12 @@ extension Defaults.Keys {
     Defaults.Key<Bool>("notifyWhenDomainUnblockEnds", default: true, suite: suite)
   }
 
+  /// Whether to notify when an in-app gravity update completes (on by default).
+  /// Failure notifications are always shown.
+  public static func notifyGravityUpdateCompleted(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("notifyGravityUpdateCompleted", default: true, suite: suite)
+  }
+
   /// Ordered list of numeric unblock durations shown in the duration menus.
   public static func unblockDurations(
     suite: UserDefaults = .standard

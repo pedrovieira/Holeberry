@@ -204,11 +204,18 @@ struct SettingsView: View {
       }
     }
 
-    Section("Gravity") {
-      Toggle("Show Gravity on main menu", isOn: $showGravityMenuItem)
-    }
-
     BrowserTabSettingsView(isEnabled: $browserTabUnblockEnabled)
+
+    Section("Gravity") {
+      VStack(alignment: .leading) {
+        Toggle("Show \"Update Gravity\" in main menu", isOn: $showGravityMenuItem)
+
+        Text("The Update Gravity shortcut still works when this is off.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
 
     Section("Recently Blocked") {
       VStack(alignment: .leading) {

@@ -338,7 +338,9 @@ struct PiholeServerManagerCRUDTests {
     try await manager.addServer(label: "New", url: "http://v6.local", credential: "b")
 
     let v6ID = try #require(manager.servers.first { $0.version == .v6 }?.id)
-    v5Service.updateGravityStub = .failure(PiholeError.unsupported("Gravity updates via API are not supported by Pi-hole v5"))
+    v5Service.updateGravityStub = .failure(
+      PiholeError.unsupported("Gravity updates via API are not supported by Pi-hole v5")
+    )
     v6Service.updateGravityStub = .success(())
 
     let results = await manager.updateGravity()

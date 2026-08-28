@@ -154,8 +154,7 @@ final class NotificationCoordinator: NSObject {
       // Always on — failures should never go unnoticed.
       return true
     case .gravityUpdateCompleted:
-      // Always on — a completion banner mirrors the failure notification.
-      return true
+      return Defaults[.notifyGravityUpdateCompleted(suite: defaultsSuite)]
     }
   }
 
