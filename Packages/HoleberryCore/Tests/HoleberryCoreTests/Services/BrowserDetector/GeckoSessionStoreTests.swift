@@ -48,6 +48,17 @@ struct GeckoSessionStoreTests {
     #expect(path?.path == "/Users/test/Library/Application Support/Firefox/test-profile")
   }
 
+  @Test("rejects Install default with traversal path")
+  func installSectionRejectsTraversal() {
+    let ini = """
+      [Install404C0A7C0A7C404C]
+      Default=../../../../etc
+      Locked=1
+      """
+    let path = GeckoSessionStoreUrlFetchingStrategy.resolveProfileFromInstallSection(in: ini, supportDir: supportDir)
+    #expect(path == nil)
+  }
+
   // MARK: - profiles.ini: Profile section
 
   @Test("resolves Profile section with Default=1")
@@ -101,6 +112,19 @@ struct GeckoSessionStoreTests {
     #expect(path?.path == "/Users/custom/Library/Firefox/Profiles/custom")
   }
 
+  @Test("rejects default profile with traversal path")
+  func profileSectionRejectsTraversal() {
+    let ini = """
+      [Profile0]
+      Name=default
+      Path=../../etc
+      Default=1
+      IsRelative=1
+      """
+    let path = GeckoSessionStoreUrlFetchingStrategy.resolveProfileFromProfileSection(in: ini, supportDir: supportDir)
+    #expect(path == nil)
+  }
+
   @Test("returns nil when no default profile")
   func profileSectionNoDefault() {
     let ini = """
@@ -126,14 +150,63 @@ struct GeckoSessionStoreTests {
   func resolvePathRelative() {
     let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
       "Profiles/test", isRelative: true, supportDir: supportDir)
-    #expect(url.path == "/Users/test/Library/Application Support/Firefox/Profiles/test")
+    #expect(url?.path == "/Users/test/Library/Application Support/Firefox/Profiles/test")
   }
 
   @Test("resolvePath absolute returns as-is")
   func resolvePathAbsolute() {
     let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
       "/custom/path", isRelative: false, supportDir: supportDir)
-    #expect(url.path == "/custom/path")
+    #expect(url?.path == "/custom/path")
+  }
+
+  @Test("resolvePath rejects path traversal in relative paths")
+  func resolvePathRejectsTraversal() {
+    let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
+      "../../../etc", isRelative: true, supportDir: supportDir)
+    #expect(url == nil)
+  }
+
+  @Test("resolvePath allows redundant dot components")
+  func resolvePathAllowsDotComponents() {
+    let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
+      "./Profiles/test", isRelative: true, supportDir: supportDir)
+    #expect(url?.path == "/Users/test/Library/Application Support/Firefox/Profiles/test")
+  }
+
+  @Test("resolvePath allows parent components that stay in bounds")
+  func resolvePathAllowsInBoundsParentComponents() {
+    let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
+      "Profiles/../custom", isRelative: true, supportDir: supportDir)
+    #expect(url?.path == "/Users/test/Library/Application Support/Firefox/custom")
+  }
+
+  @Test("resolvePath rejects parent components escaping through a subpath")
+  func resolvePathRejectsEscapeThroughParentComponents() {
+    let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
+      "Profiles/../../etc", isRelative: true, supportDir: supportDir)
+    #expect(url == nil)
+  }
+
+  @Test("resolvePath normalizes parent components in absolute paths")
+  func resolvePathNormalizesAbsoluteParentComponents() {
+    let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
+      "/Users/test/../../etc", isRelative: false, supportDir: supportDir)
+    #expect(url?.path == "/etc")
+  }
+
+  @Test("resolvePath rejects relative value when IsRelative=0")
+  func resolvePathRejectsNonAbsoluteWhenAbsoluteRequired() {
+    let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
+      "Profiles/test", isRelative: false, supportDir: supportDir)
+    #expect(url == nil)
+  }
+
+  @Test("resolvePath rejects empty path")
+  func resolvePathRejectsEmpty() {
+    let url = GeckoSessionStoreUrlFetchingStrategy.resolvePath(
+      "", isRelative: true, supportDir: supportDir)
+    #expect(url == nil)
   }
 
   // MARK: - mozLZ4 / extractURL

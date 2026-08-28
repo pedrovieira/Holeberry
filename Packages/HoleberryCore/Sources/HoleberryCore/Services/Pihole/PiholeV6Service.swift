@@ -163,19 +163,18 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let queries = json["queries"] as? [String: Any],
-      let totalQueries = queries["total"] as? Int,
-      let totalBlocked = queries["blocked"] as? Int
-    else {
+    let response: SummaryResponse
+    do {
+      response = try Self.decoder.decode(SummaryResponse.self, from: data)
+    } catch {
       let body = String(data: data, encoding: .utf8) ?? ""
       logger.error("Query summary decode failed. Body: \(body, privacy: .public)")
-      throw PiholeError.decoding("Unexpected summary format")
+      throw PiholeError.decoding("Unexpected summary format: \(error.localizedDescription)")
     }
 
     return QuerySummary(
-      totalQueries: totalQueries,
-      totalBlocked: totalBlocked
+      totalQueries: response.queries.total,
+      totalBlocked: response.queries.blocked
     )
   }
 
@@ -306,4 +305,14 @@ public struct DomainsResponse: Decodable {
 private struct AddDomainBody: Encodable {
   let domain: String
   let comment: String?
+}
+
+/// `/api/stats/summary` response.
+private struct SummaryResponse: Decodable {
+  let queries: SummaryQueries
+}
+
+private struct SummaryQueries: Decodable {
+  let total: Int
+  let blocked: Int
 }
