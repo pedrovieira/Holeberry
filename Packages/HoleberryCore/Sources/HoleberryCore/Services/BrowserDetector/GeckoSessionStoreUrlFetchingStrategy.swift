@@ -125,11 +125,41 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
     return nil
   }
 
-  static func resolvePath(_ path: String, isRelative: Bool, supportDir: URL) -> URL {
-    if isRelative {
-      return supportDir.appendingPathComponent(path)
+  /// Resolves a profile path from `profiles.ini` content, sanitizing it against path traversal.
+  ///
+  /// Gecko browsers support both relative (`IsRelative=1`) and absolute (`IsRelative=0`)
+  /// profile paths, so both are kept. `profiles.ini` is user-writable, so `.` and `..`
+  /// components are resolved lexically here instead of being passed to Foundation path
+  /// APIs: a relative path that would escape `supportDir` is rejected, while absolute
+  /// paths are normalized against the filesystem root. The URL is built only from the
+  /// resolved, in-bounds components.
+  static func resolvePath(_ path: String, isRelative: Bool, supportDir: URL) -> URL? {
+    let rawComponents = path.split(separator: "/").map(String.init)
+    guard !rawComponents.isEmpty else { return nil }
+
+    let isAbsolute = path.hasPrefix("/")
+    guard isRelative || isAbsolute else { return nil }
+
+    let base: URL = isAbsolute ? URL(fileURLWithPath: "/") : supportDir.standardizedFileURL
+    var components: [String] = []
+    for component in rawComponents {
+      if component == "." {
+        continue
+      }
+      if component == ".." {
+        if !components.isEmpty {
+          components.removeLast()
+          continue
+        }
+        // Nothing left to pop: on relative paths this escapes `supportDir`; on
+        // absolute paths `..` at the root is a no-op.
+        guard isAbsolute else { return nil }
+        continue
+      }
+      components.append(component)
     }
-    return URL(fileURLWithPath: path)
+
+    return components.reduce(base) { $0.appendingPathComponent($1) }
   }
 
   // MARK: - mozLZ4 decompression
