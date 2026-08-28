@@ -545,14 +545,14 @@ struct ServerStatusPollerTests {
 
   // MARK: - Auto Re-enable Detection
 
-  @Test("poll-observed disabled→enabled fires onBlockingAutoReenabled")
+  @Test("poll-observed disabled→enabled fires onBlockingRestoredAutomatically")
   func pollObservedReenableFiresCallback() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let poller = makePoller()
     var firedIDs: Set<UUID>?
-    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    poller.onBlockingRestoredAutomatically = { firedIDs = $0 }
     poller.startPolling()
 
     await scheduler.fireTick()
@@ -572,7 +572,7 @@ struct ServerStatusPollerTests {
     mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let poller = makePoller()
     var fired = false
-    poller.onBlockingAutoReenabled = { _ in fired = true }
+    poller.onBlockingRestoredAutomatically = { _ in fired = true }
     poller.startPolling()
 
     // Unblock via the funnel, then the user re-enables manually...
@@ -603,7 +603,7 @@ struct ServerStatusPollerTests {
     ]
     let poller = makePoller()
     var firedIDs: Set<UUID>?
-    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    poller.onBlockingRestoredAutomatically = { firedIDs = $0 }
     poller.startPolling()
 
     await scheduler.fireTick()
@@ -628,7 +628,7 @@ struct ServerStatusPollerTests {
     mockManager.getBlockingStatusStub = [id: .success(.disabled(remainingSeconds: 300))]
     let poller = makePoller()
     var fired = false
-    poller.onBlockingAutoReenabled = { _ in fired = true }
+    poller.onBlockingRestoredAutomatically = { _ in fired = true }
 
     await poller.applyBlockingChange(enabled: false, duration: 300)
 
@@ -658,7 +658,7 @@ struct ServerStatusPollerTests {
     }
     let poller = makePoller()
     var fired = false
-    poller.onBlockingAutoReenabled = { _ in fired = true }
+    poller.onBlockingRestoredAutomatically = { _ in fired = true }
     poller.startPolling()
 
     // Poll #1: snapshots .disabled, then the status fetch is held open.
@@ -810,7 +810,7 @@ struct ServerStatusPollerTests {
     )
   }
 
-  @Test("timer expiry triggers a status-only refresh and fires onBlockingAutoReenabled")
+  @Test("timer expiry triggers a status-only refresh and fires onBlockingRestoredAutomatically")
   func timerExpiryTriggersStatusOnlyRefresh() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
@@ -819,7 +819,7 @@ struct ServerStatusPollerTests {
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
     var firedIDs: Set<UUID>?
-    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    poller.onBlockingRestoredAutomatically = { firedIDs = $0 }
 
     // Time-boxed disable with an already-expired duration; the next tick must
     // re-check status immediately.
@@ -868,7 +868,7 @@ struct ServerStatusPollerTests {
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer)
     var firedIDs: Set<UUID>?
-    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    poller.onBlockingRestoredAutomatically = { firedIDs = $0 }
     await poller.applyBlockingChange(enabled: false, duration: 0)
 
     // Expire the countdown while the poll's status fetch is held open: the
@@ -934,7 +934,7 @@ struct ServerStatusPollerTests {
       }
     }
     var firedIDs: Set<UUID>?
-    poller.onBlockingAutoReenabled = { firedIDs = $0 }
+    poller.onBlockingRestoredAutomatically = { firedIDs = $0 }
 
     await poller.applyBlockingChange(enabled: false, duration: 0)
     timer.countdownTick()  // expires → re-check #1 → still disabled → waits
@@ -975,7 +975,7 @@ struct ServerStatusPollerTests {
     let timer = TimerManager()
     let poller = makePollerWithTimer(timer) { _ in }
     var fired = false
-    poller.onBlockingAutoReenabled = { _ in fired = true }
+    poller.onBlockingRestoredAutomatically = { _ in fired = true }
 
     await poller.applyBlockingChange(enabled: false, duration: 0)
     timer.countdownTick()  // expires → re-check → server still disabled(60)

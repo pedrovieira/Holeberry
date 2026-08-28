@@ -22,6 +22,7 @@ final class NotificationCoordinator: NSObject {
   private static let shortcutErrorCategory = "SHORTCUT_ERROR"
   private static let unblockEndedCategory = "UNBLOCK_ENDED"
   private static let domainUnblockEndedCategory = "DOMAIN_UNBLOCK_ENDED"
+  private static let unblockFailureCategory = "UNBLOCK_FAILURE"
 
   private let defaultsSuite: UserDefaults
   private let openSettings: () -> Void
@@ -60,6 +61,8 @@ final class NotificationCoordinator: NSObject {
         : "Blocking is active again on \(serverNames.joined(separator: ", "))."
     case .domainUnblockEnded(let domain):
       content.body = "\(domain) is blocked again."
+    case .unblockFailed(let domain, let error):
+      content.body = "Failed to unblock \(domain): \(error)"
     }
 
     let request = UNNotificationRequest(
@@ -116,6 +119,9 @@ final class NotificationCoordinator: NSObject {
       return Defaults[.notifyWhenUnblockEnds(suite: defaultsSuite)]
     case .domainUnblockEnded:
       return Defaults[.notifyWhenDomainUnblockEnds(suite: defaultsSuite)]
+    case .unblockFailed:
+      // Always on — failures should never go unnoticed.
+      return true
     }
   }
 
@@ -124,6 +130,7 @@ final class NotificationCoordinator: NSObject {
     case .shortcutError: return shortcutErrorCategory
     case .unblockEnded: return unblockEndedCategory
     case .domainUnblockEnded: return domainUnblockEndedCategory
+    case .unblockFailed: return unblockFailureCategory
     }
   }
 
@@ -133,6 +140,7 @@ final class NotificationCoordinator: NSObject {
     case .shortcutError: return "shortcut-error-\(timestamp)"
     case .unblockEnded: return "unblock-ended-\(timestamp)"
     case .domainUnblockEnded: return "domain-unblock-ended-\(timestamp)"
+    case .unblockFailed: return "unblock-failed-\(timestamp)"
     }
   }
 }
@@ -146,7 +154,7 @@ extension NotificationCoordinator: @preconcurrency UNUserNotificationCenterDeleg
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     switch notification.request.content.categoryIdentifier {
-    case Self.shortcutErrorCategory:
+    case Self.shortcutErrorCategory, Self.unblockFailureCategory:
       // An action the user triggered failed — alert them.
       completionHandler([.banner, .sound])
     default:

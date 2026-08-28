@@ -108,6 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       browserTabCoordinator: browserTabCoordinator,
       localIPAddressResolver: localIPResolver,
       updater: updaterManager.updater,
+      notificationCoordinator: notificationCoordinator,
       settingsWindowController: settingsWindowController
     )
     shortcutController = ShortcutController(
