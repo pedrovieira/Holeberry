@@ -18,8 +18,8 @@ struct PiholeErrorTests {
     #expect(PiholeError.totpRequired.errorDescription == "TOTP code required for 2FA")
     #expect(PiholeError.unknown("something broke").errorDescription == "Unexpected error: something broke")
     #expect(
-      PiholeError.unsupported("Gravity updates require Pi-hole v6").errorDescription
-        == "Gravity updates require Pi-hole v6"
+      PiholeError.unsupported("Gravity updates via API are not supported by Pi-hole v5").errorDescription
+        == "Gravity updates via API are not supported by Pi-hole v5"
     )
     #expect(PiholeError.invalidCredentials.errorDescription == "Invalid Pi-hole password or application password.")
     #expect(PiholeError.rateLimited.errorDescription == "Login rate limited. Please wait before trying again.")

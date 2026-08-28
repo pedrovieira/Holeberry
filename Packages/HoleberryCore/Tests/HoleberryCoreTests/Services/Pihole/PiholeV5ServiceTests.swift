@@ -185,7 +185,7 @@ final class PiholeV5ServiceTests {
 
   @Test("updateGravity is unsupported on v5")
   func updateGravityUnsupported() async {
-    await #expect(throws: PiholeError.unsupported("Gravity updates require Pi-hole v6")) {
+    await #expect(throws: PiholeError.unsupported("Gravity updates via API are not supported by Pi-hole v5")) {
       try await makeService().updateGravity()
     }
   }

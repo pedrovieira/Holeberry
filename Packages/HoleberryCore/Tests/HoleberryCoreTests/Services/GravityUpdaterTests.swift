@@ -179,7 +179,7 @@ struct GravityUpdaterTests {
     // Simulate an unsupported result slipping through the manager.
     mockManager.updateGravityStub = [
       v6ID: .success(()),
-      v5ID: .failure(.unsupported("Gravity updates require Pi-hole v6"))
+      v5ID: .failure(.unsupported("Gravity updates via API are not supported by Pi-hole v5"))
     ]
 
     let updater = makeUpdater()
