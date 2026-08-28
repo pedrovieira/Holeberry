@@ -16,7 +16,7 @@ public enum GravityUpdateOutcome: Equatable, Sendable {
 /// watchdog) and its observed completion times.
 @MainActor
 public protocol GravityUpdating: AnyObject {
-  /// True while the trigger phase runs.
+  /// True while an update runs (trigger + verification).
   var isUpdating: Bool { get }
 
   /// App-observed completion times; display clamps to these.
@@ -43,7 +43,8 @@ public final class LiveGravityUpdater: GravityUpdating {
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "gravity")
   private let manager: any PiholeServerManaging
   private let sleep: (TimeInterval) async throws -> Void
-  /// Hard cap: URLSession's timeout is idle-only, so a slow stream could hang forever.
+  /// Hard cap: URLSession's timeout is idle-only. Above the v6 request's 900s
+  /// timeout, so the watchdog catches only slow-but-alive streams.
   private let gravityTriggerTimeout: TimeInterval
   /// FTL refreshes cached `last_update` on a ~1s tick; wait this long before re-verifying.
   private static let gravityVerificationDelay: TimeInterval = 2
@@ -51,9 +52,9 @@ public final class LiveGravityUpdater: GravityUpdating {
   public init(
     manager: any PiholeServerManaging,
     sleep: @escaping (TimeInterval) async throws -> Void = {
-      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
+      try await sleepForSeconds($0)
     },
-    gravityTriggerTimeout: TimeInterval = 15 * 60
+    gravityTriggerTimeout: TimeInterval = 16 * 60
   ) {
     self.manager = manager
     self.sleep = sleep
@@ -76,7 +77,6 @@ public final class LiveGravityUpdater: GravityUpdating {
     defer { isUpdating = false }
 
     let results = await triggerGravityWithWatchdog(serverIDs: serverIDs, timeout: gravityTriggerTimeout)
-    isUpdating = false
 
     // Unsupported servers must never be reported as failures.
     let actionableResults = results.filter { _, result in
@@ -124,8 +124,14 @@ public final class LiveGravityUpdater: GravityUpdating {
     for (id, result) in results {
       switch result {
       case .success:
-        let beforeValue = beforeSummaries[id].flatMap { $0?.gravityLastUpdated }
-        let afterValue = afterSummaries[id].flatMap { $0?.gravityLastUpdated }
+        // The manager stores fetch failures as [id: nil]; either way the
+        // summary is unavailable, so the run can't be confirmed.
+        guard let after = afterSummaries[id].flatMap({ $0 }) else {
+          outcomes[id] = .failed(.network("Could not verify gravity update — check the Pi-hole web interface"))
+          continue
+        }
+        let beforeValue = beforeSummaries[id]?.flatMap { $0.gravityLastUpdated }
+        let afterValue = after.gravityLastUpdated
         if beforeValue != afterValue {
           outcomes[id] = .succeeded
           completedAt[id] = Date()
@@ -165,7 +171,7 @@ public final class LiveGravityUpdater: GravityUpdating {
         group.addTask {
           try await self.sleepForGravityTimeout(timeout)
           throw PiholeError.unknown(
-            "timed out after \(Int(timeout / 60)) minutes — check the Pi-hole web interface"
+            "timed out after \(Int(timeout / 60)) minutes — may still finish on the Pi-hole; check its web interface"
           )
         }
         guard let first = try await group.next() else {

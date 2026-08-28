@@ -117,8 +117,10 @@ final class NotificationCoordinator: NSObject {
 
   // MARK: - Authorization
 
-  /// Asks for permission once; always-on kinds need no toggle gate.
+  /// Asks for permission once, and only when at least one server is configured
+  /// (existing flows like unblock timers still need authorization).
   func requestAuthorizationIfNeeded() {
+    guard !Defaults[.servers(suite: defaultsSuite)].isEmpty else { return }
     UNUserNotificationCenter.current().getNotificationSettings { settings in
       guard settings.authorizationStatus == .notDetermined else { return }
       UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in
@@ -169,13 +171,13 @@ final class NotificationCoordinator: NSObject {
   }
 
   private static func identifier(for kind: UserNotificationKind) -> String {
-    let timestamp = Date().timeIntervalSince1970
+    let id = UUID().uuidString
     switch kind {
-    case .shortcutError: return "shortcut-error-\(timestamp)"
-    case .unblockEnded: return "unblock-ended-\(timestamp)"
-    case .domainUnblockEnded: return "domain-unblock-ended-\(timestamp)"
-    case .gravityUpdateFailed: return "gravity-error-\(timestamp)"
-    case .gravityUpdateCompleted: return "gravity-completed-\(timestamp)"
+    case .shortcutError: return "shortcut-error-\(id)"
+    case .unblockEnded: return "unblock-ended-\(id)"
+    case .domainUnblockEnded: return "domain-unblock-ended-\(id)"
+    case .gravityUpdateFailed: return "gravity-error-\(id)"
+    case .gravityUpdateCompleted: return "gravity-completed-\(id)"
     }
   }
 }

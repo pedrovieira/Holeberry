@@ -46,6 +46,7 @@ extension RetryPolicy {
 ///   - sleep: The sleep function (injectable for testing). Defaults to
 ///     `ContinuousClock().sleep(for:)` — `Task.sleep(for:)` is avoided because its
 ///     cross-module inlining can hit a Swift 6.3 task-allocator crash.
+///     Revisit when the toolchain issue is fixed.
 ///   - operation: The throwing async operation to retry.
 /// - Returns: The operation's result on success.
 /// - Throws: The last error if all attempts fail or the error is not retryable.

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import HoleberryCore
 import OSLog
 import Sparkle
@@ -27,6 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var shortcutController: ShortcutController?
   private var unblockEndedNotifier: UnblockEndedNotifier?
   private var notificationCoordinator: NotificationCoordinator?
+  private var notificationServerCancellable: AnyCancellable?
   private var updateManager: UpdateManager?
   private var settingsWindowController: SettingsWindowController?
 
@@ -89,6 +91,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     self.notificationCoordinator = notificationCoordinator
     notificationCoordinator.requestAuthorizationIfNeeded()
+
+    // A fresh prompt once the first server is added; the coordinator's own
+    // server gate makes this a no-op otherwise, and authorization is asked
+    // only while .notDetermined.
+    notificationServerCancellable = serverManager.serversPublisher
+      .dropFirst()
+      .receive(on: DispatchQueue.main)
+      .sink { [weak notificationCoordinator] _ in
+        notificationCoordinator?.requestAuthorizationIfNeeded()
+      }
 
     // Start Sparkle updater
     let updaterManager = UpdateManager()

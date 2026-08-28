@@ -41,8 +41,8 @@ struct GravityUpdaterTests {
     #expect(updater.completedAt[id] != nil)
   }
 
-  @Test("isUpdating clears when the trigger completes, before the verification fetch")
-  func clearsFlagBeforeVerification() async {
+  @Test("isUpdating stays true until applyUpdate finishes")
+  func isUpdatingStaysTrueUntilFinished() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getQuerySummaryResponses = [
@@ -54,13 +54,56 @@ struct GravityUpdaterTests {
 
     // Runs during the post-trigger verification fetch.
     mockManager.getQuerySummaryGate = {
-      #expect(updater.isUpdating == false)
+      #expect(updater.isUpdating)
     }
 
     let outcomes = await updater.applyUpdate()
 
     #expect(outcomes == [id: .succeeded])
     #expect(updater.isUpdating == false)
+  }
+
+  @Test("applyUpdate reports failure when the after-fetch and re-check fail")
+  func unverifiableAfterFetchFails() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    let oldDate = Date(timeIntervalSince1970: 1_000)
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
+      [id: nil],
+      [id: nil]
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+
+    let updater = makeUpdater()
+    let outcomes = await updater.applyUpdate()
+
+    guard case .failed(let error) = outcomes[id] else {
+      Issue.record("expected a verification failure, got \(String(describing: outcomes[id]))")
+      return
+    }
+    #expect(error == .network("Could not verify gravity update — check the Pi-hole web interface"))
+    #expect(updater.completedAt[id] == nil)
+  }
+
+  @Test("applyUpdate does not report noChange when both fetches fail")
+  func bothFetchesFail() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getQuerySummaryResponses = [
+      [id: nil],
+      [id: nil],
+      [id: nil]
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+
+    let updater = makeUpdater()
+    let outcomes = await updater.applyUpdate()
+
+    guard case .failed = outcomes[id] else {
+      Issue.record("expected a verification failure, got \(String(describing: outcomes[id]))")
+      return
+    }
   }
 
   @Test("applyUpdate aborts a hung trigger at the watchdog deadline")
