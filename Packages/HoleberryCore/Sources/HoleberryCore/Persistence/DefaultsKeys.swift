@@ -38,6 +38,11 @@ extension Defaults.Keys {
     Defaults.Key<Bool>("showPerInstanceStats", default: true, suite: suite)
   }
 
+  /// Whether the main menu shows the Gravity update item (on by default).
+  public static func showGravityMenuItem(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("showGravityMenuItem", default: true, suite: suite)
+  }
+
   /// Whether to notify when a temporary unblock ends on its own (on by default).
   /// Never fires when the user re-enables blocking manually.
   public static func notifyWhenUnblockEnds(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {

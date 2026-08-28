@@ -143,6 +143,7 @@ final class MenuBarController: NSObject {
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
       isGravityUpdating: statusMonitor.isGravityUpdating,
+      showGravityMenuItem: Defaults[.showGravityMenuItem(suite: defaultsSuite)],
       gravityCompletedAt: statusMonitor.gravityCompletedAt,
       querySummaries: statusMonitor.querySummaries,
       servers: serverManager.servers,

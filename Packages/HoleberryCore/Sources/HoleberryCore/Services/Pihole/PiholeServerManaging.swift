@@ -1,9 +1,10 @@
 import Combine
 import Foundation
 
-/// The surface of `PiholeServerManager` that `ServerStatusPoller` depends on.
+/// Entry point for operations on all servers managed by this instance;
+/// fan-out calls return per-server results keyed by id.
 @MainActor
-public protocol PiholeServerManaging: AnyObject {
+public protocol PiholeServerManaging: AnyObject, Sendable {
   var servers: [ServerConfig] { get }
   var serversPublisher: Published<[ServerConfig]>.Publisher { get }
 

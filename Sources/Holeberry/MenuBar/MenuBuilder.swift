@@ -27,6 +27,7 @@ struct MenuBuilder {
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
     isGravityUpdating: Bool,
+    showGravityMenuItem: Bool,
     gravityCompletedAt: [UUID: Date],
     querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig],
@@ -99,6 +100,7 @@ struct MenuBuilder {
       querySummaries: querySummaries,
       isGravityUpdating: isGravityUpdating,
       gravityCompletedAt: gravityCompletedAt,
+      showGravityMenuItem: showGravityMenuItem,
       target: target
     )
     menu.addItem(.separator())
@@ -323,8 +325,10 @@ struct MenuBuilder {
     querySummaries: [UUID: QuerySummary],
     isGravityUpdating: Bool,
     gravityCompletedAt: [UUID: Date],
+    showGravityMenuItem: Bool,
     target: MenuActionTarget
   ) {
+    guard showGravityMenuItem else { return }
     let v6Servers = servers.filter { $0.version == .v6 }
     guard !v6Servers.isEmpty else { return }
     menu.addItem(.separator())
@@ -348,10 +352,6 @@ struct MenuBuilder {
       }
       .min()
 
-    // "At most" is only accurate when the stalest of several servers is shown;
-    // with a single server the stamp is that server's own, so keep the plain wording.
-    let atMostPrefix = connectedV6.count > 1 ? "at most " : ""
-
     let item = NSMenuItem(
       title: "Update Gravity",
       action: #selector(MenuActionTarget.triggerGravityUpdate),
@@ -361,7 +361,7 @@ struct MenuBuilder {
     item.isEnabled = hasConnectedV6
     item.setAccessibilityLabel("Update gravity filter lists")
     if let maxAge {
-      item.attributedTitle = gravityAttributedTitle(maxAge: maxAge, atMostPrefix: atMostPrefix)
+      item.attributedTitle = gravityAttributedTitle(maxAge: maxAge, showAtMost: connectedV6.count > 1)
     }
     menu.addItem(item)
   }
@@ -403,9 +403,14 @@ struct MenuBuilder {
     return item
   }
 
-  /// Two-line title: "Update Gravity" over "Gravity updated <relative> ago".
-  /// Includes "at most" when the timestamp is the stalest of several servers.
-  private func gravityAttributedTitle(maxAge: Date, atMostPrefix: String) -> NSAttributedString {
+  /// "Update Gravity" over "Gravity updated <relative> ago"; "at most" for
+  /// several servers, never for "a few moments ago".
+  private func gravityAttributedTitle(maxAge: Date, showAtMost: Bool) -> NSAttributedString {
+    // Fresh timestamps use the fixed wording until the next poll lands.
+    let isMomentsAgo = Date().timeIntervalSince(maxAge) < 60
+    let relative = isMomentsAgo ? "a few moments ago" : MenuItemFactory.relativeTimestamp(since: maxAge)
+    let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
+
     let result = NSMutableAttributedString()
     result.append(
       NSAttributedString(
@@ -419,7 +424,7 @@ struct MenuBuilder {
     result.append(NSAttributedString(string: "\n"))
     result.append(
       NSAttributedString(
-        string: "Gravity updated \(atMostPrefix)\(MenuItemFactory.relativeTimestamp(since: maxAge))",
+        string: "Updated \(prefix)\(relative)",
         attributes: [
           .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
           .foregroundColor: NSColor.secondaryLabelColor

@@ -47,10 +47,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   )
   private lazy var localIPResolver = LocalIPAddressResolver()
   private lazy var dnsServerResolver = EffectiveDNSServerResolver()
+  private lazy var pollScheduler = TaskPollScheduler()
+  private lazy var gravityUpdater = LiveGravityUpdater(manager: serverManager)
   private lazy var statusPoller = ServerStatusPoller(
     manager: serverManager,
     networkInterface: localIPResolver,
-    timerManager: timerManager
+    pollingInterval: 30,
+    scheduler: pollScheduler,
+    timerManager: timerManager,
+    gravityUpdater: gravityUpdater
   )
   private lazy var reachability = ReachabilityMonitor()
   private lazy var timerManager = TimerManager()

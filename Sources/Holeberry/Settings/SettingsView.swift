@@ -33,6 +33,7 @@ struct SettingsView: View {
   @Default var browserTabUnblockEnabled: Bool
   @Default var showAllClientsRecentBlocked: Bool
   @Default var showPerInstanceStats: Bool
+  @Default var showGravityMenuItem: Bool
   @Default var durations: [UnblockDurationEntry]
   @Default var unblockCurrentTabDuration: UnblockCurrentTabDurationSelection
 
@@ -69,6 +70,7 @@ struct SettingsView: View {
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
     _showPerInstanceStats = .init(.showPerInstanceStats(suite: defaultsSuite))
+    _showGravityMenuItem = .init(.showGravityMenuItem(suite: defaultsSuite))
     _durations = .init(.unblockDurations(suite: defaultsSuite))
     _unblockCurrentTabDuration = .init(.unblockCurrentTabDuration(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
@@ -200,6 +202,10 @@ struct SettingsView: View {
           .foregroundColor(.secondary)
           .fixedSize(horizontal: false, vertical: true)
       }
+    }
+
+    Section("Gravity") {
+      Toggle("Show Gravity on main menu", isOn: $showGravityMenuItem)
     }
 
     BrowserTabSettingsView(isEnabled: $browserTabUnblockEnabled)
