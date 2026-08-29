@@ -22,7 +22,6 @@ struct MenuBuilder {
     showAllClients: Bool,
     showPerInstanceStats: Bool,
     durations: [UnblockDurationEntry],
-    error: String?,
     isConnected: Bool,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
@@ -40,7 +39,6 @@ struct MenuBuilder {
 
     addStatusSection(
       to: menu,
-      error: error,
       isConnected: isConnected,
       servers: servers,
       querySummaries: querySummaries,
@@ -114,7 +112,6 @@ struct MenuBuilder {
   // swiftlint:disable:next function_parameter_count
   private func addStatusSection(
     to menu: NSMenu,
-    error: String?,
     isConnected: Bool,
     servers: [ServerConfig],
     querySummaries: [UUID: QuerySummary],
@@ -122,15 +119,7 @@ struct MenuBuilder {
     blockingStatuses: [UUID: BlockingStatus],
     target: MenuActionTarget
   ) {
-    if let error {
-      let item = NSMenuItem()
-      item.attributedTitle = MenuItemFactory.statusLine(
-        dotColor: .systemRed,
-        text: "⚠ \(error)"
-      )
-      item.isEnabled = false
-      menu.addItem(item)
-    } else if !isConnected {
+    if !isConnected {
       let item = NSMenuItem(title: "Disconnected", action: nil, keyEquivalent: "")
       item.isEnabled = false
       menu.addItem(item)

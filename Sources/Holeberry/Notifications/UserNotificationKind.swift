@@ -21,4 +21,7 @@ enum UserNotificationKind {
 
   /// A gravity update finished successfully.
   case gravityUpdateCompleted
+
+  /// A temporary unblock of a domain failed.
+  case unblockFailed(domain: String, error: String)
 }

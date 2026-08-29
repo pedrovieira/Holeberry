@@ -102,22 +102,26 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    // v5 returns numbers as strings in JSON with snake_case keys
-    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let queriesTotalStr = json["queries_total"] as? String,
-      let adsBlockedStr = json["ads_blocked_today"] as? String,
-      let totalQueries = Int(queriesTotalStr),
-      let totalBlocked = Int(adsBlockedStr)
+    // v5 serves the FTL stats as float values with snake_case keys
+    let response: V5SummaryResponse
+    do {
+      response = try Self.decoder.decode(V5SummaryResponse.self, from: data)
+    } catch {
+      let body = String(data: data, encoding: .utf8) ?? ""
+      throw PiholeError.decoding("Unexpected summary format: \(body)")
+    }
+
+    guard let totalQueries = Int(exactly: response.dnsQueriesToday),
+      let totalBlocked = Int(exactly: response.adsBlockedToday)
     else {
       let body = String(data: data, encoding: .utf8) ?? ""
       throw PiholeError.decoding("Unexpected summary format: \(body)")
     }
 
     let gravityLastUpdated: Date?
-    if let gravity = json["gravity_last_updated"] as? [String: Any],
-      let fileExists = gravity["file_exists"] as? Bool,
-      fileExists,
-      let absolute = gravity["absolute"] as? Double
+    if let gravity = response.gravityLastUpdated,
+      gravity.fileExists,
+      let absolute = gravity.absolute
     {
       gravityLastUpdated = Date(timeIntervalSince1970: absolute)
     } else {
@@ -177,9 +181,10 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    guard let rows = try JSONSerialization.jsonObject(with: data) as? [[Any]] else {
+    guard let response = try? Self.decoder.decode(V5RecentQueriesResponse.self, from: data) else {
       return []
     }
+    let rows = response.data
 
     let dateFormatter = DateFormatter()
     dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -189,11 +194,11 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
 
     let blocked = rows.compactMap { row -> BlockedDomain? in
       guard row.count >= 5 else { return nil }
-      let status = "\(row[4])"
+      let status = row[4].stringValue
       guard V5QueryStatus.blocked.contains(status) else { return nil }
-      let domain = "\(row[2])"
-      let client = "\(row[3])"
-      let timestampStr = "\(row[0])"
+      let domain = row[2].stringValue
+      let client = row[3].stringValue
+      let timestampStr = row[0].stringValue
       let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
       // Client-side time range filter as fallback for FTL < v5.2
       let timestampSecs = timestamp.timeIntervalSince1970
@@ -293,5 +298,66 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.unknown("Invalid response for \(path)")
     }
     return (data, httpResponse)
+  }
+}
+
+/// `/admin/api.php?summaryRaw` response. v5 serves the FTL stats with
+/// float values and snake_case keys.
+private struct V5SummaryResponse: Decodable {
+  let dnsQueriesToday: Double
+  let adsBlockedToday: Double
+  let gravityLastUpdated: V5GravityLastUpdated?
+
+  enum CodingKeys: String, CodingKey {
+    case dnsQueriesToday = "dns_queries_today"
+    case adsBlockedToday = "ads_blocked_today"
+    case gravityLastUpdated = "gravity_last_updated"
+  }
+}
+
+private struct V5GravityLastUpdated: Decodable {
+  let fileExists: Bool
+  let absolute: Double?
+
+  enum CodingKeys: String, CodingKey {
+    case fileExists = "file_exists"
+    case absolute
+  }
+}
+
+/// `/admin/api.php?getAllQueries` response. The web layer wraps the rows
+/// (heterogeneous arrays of strings/numbers) in a `data` object.
+private struct V5RecentQueriesResponse: Decodable {
+  let data: [[V5QueryCell]]
+}
+
+/// A single cell of v5's `getAllQueries` rows, which mix strings and numbers.
+private enum V5QueryCell: Decodable {
+  case string(String)
+  case number(Double)
+  case bool(Bool)
+  case null
+
+  init(from decoder: any Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    if let value = try? container.decode(String.self) {
+      self = .string(value)
+    } else if let value = try? container.decode(Double.self) {
+      self = .number(value)
+    } else if let value = try? container.decode(Bool.self) {
+      self = .bool(value)
+    } else {
+      self = .null
+    }
+  }
+
+  /// String form, mirroring `"\(cell)"` on the serialized value.
+  var stringValue: String {
+    switch self {
+    case .string(let value): return value
+    case .number(let value): return Double(Int(value)) == value ? String(Int(value)) : String(value)
+    case .bool(let value): return value ? "true" : "false"
+    case .null: return ""
+    }
   }
 }

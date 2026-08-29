@@ -39,9 +39,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
     defaultsSuite: UserDefaults = .standard,
     notificationCenter: NotificationCenter = .default,
-    sleep: @escaping (TimeInterval) async throws -> Void = {
-      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
-    }
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) }
   ) {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals

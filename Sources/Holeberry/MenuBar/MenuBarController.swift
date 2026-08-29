@@ -15,9 +15,9 @@ final class MenuBarController: NSObject {
   private let browserTabCoordinator: BrowserTabCoordinator
   private let localIPAddressResolver: any LocalIPAddressProviding
   private let updater: SPUUpdater
+  private let notificationCoordinator: NotificationCoordinator
   private let defaultsSuite: UserDefaults
   private let settingsWindowController: SettingsWindowController
-  private let notificationCoordinator: NotificationCoordinator
   private let menuBuilder = MenuBuilder()
 
   private var cancellables = Set<AnyCancellable>()
@@ -25,10 +25,6 @@ final class MenuBarController: NSObject {
 
   // Menu lifecycle
   private var currentMenu: NSMenu?
-
-  // Inline error
-  private var errorMessage: String?
-  private var errorClearTask: Task<Void, Never>?
 
   // Browser icon cache
   private var appIconCache: [String: NSImage] = [:]
@@ -51,9 +47,9 @@ final class MenuBarController: NSObject {
     browserTabCoordinator: BrowserTabCoordinator,
     localIPAddressResolver: any LocalIPAddressProviding,
     updater: SPUUpdater,
+    notificationCoordinator: NotificationCoordinator,
     defaultsSuite: UserDefaults = .standard,
-    settingsWindowController: SettingsWindowController,
-    notificationCoordinator: NotificationCoordinator
+    settingsWindowController: SettingsWindowController
   ) {
     self.timerManager = timerManager
     self.serverManager = serverManager
@@ -62,9 +58,9 @@ final class MenuBarController: NSObject {
     self.browserTabCoordinator = browserTabCoordinator
     self.localIPAddressResolver = localIPAddressResolver
     self.updater = updater
+    self.notificationCoordinator = notificationCoordinator
     self.defaultsSuite = defaultsSuite
     self.settingsWindowController = settingsWindowController
-    self.notificationCoordinator = notificationCoordinator
 
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -138,7 +134,6 @@ final class MenuBarController: NSObject {
       showAllClients: Defaults[.showAllClientsRecentBlocked(suite: defaultsSuite)],
       showPerInstanceStats: Defaults[.showPerInstanceStats(suite: defaultsSuite)],
       durations: Defaults[.unblockDurations(suite: defaultsSuite)],
-      error: errorMessage,
       isConnected: reachability.isConnected,
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
@@ -268,9 +263,10 @@ final class MenuBarController: NSObject {
     Task {
       do {
         try await serverManager.unblock(domain: domain, duration: duration)
-        setError(nil)
       } catch {
-        showError("Failed to unblock \(domain): \(error.localizedDescription)")
+        notificationCoordinator.schedule(
+          .unblockFailed(domain: domain, error: error.localizedDescription)
+        )
       }
     }
   }
@@ -326,23 +322,6 @@ final class MenuBarController: NSObject {
 
   @objc private func checkForUpdates() {
     updater.checkForUpdates()
-  }
-
-  // MARK: - Inline Error
-
-  private func showError(_ message: String, persistent: Bool = false) {
-    setError(message, persistent: persistent)
-  }
-
-  private func setError(_ message: String?, persistent: Bool = false) {
-    errorMessage = message
-    errorClearTask?.cancel()
-    if !persistent, message != nil {
-      errorClearTask = Task { [weak self] in
-        try? await Task.sleep(nanoseconds: UInt64(3 * 1_000_000_000))
-        self?.setError(nil)
-      }
-    }
   }
 }
 

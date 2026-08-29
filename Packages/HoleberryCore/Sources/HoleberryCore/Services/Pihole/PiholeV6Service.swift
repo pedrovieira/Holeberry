@@ -163,29 +163,25 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let queries = json["queries"] as? [String: Any],
-      let totalQueries = queries["total"] as? Int,
-      let totalBlocked = queries["blocked"] as? Int
-    else {
+    let response: SummaryResponse
+    do {
+      response = try Self.decoder.decode(SummaryResponse.self, from: data)
+    } catch {
       let body = String(data: data, encoding: .utf8) ?? ""
       logger.error("Query summary decode failed. Body: \(body, privacy: .public)")
-      throw PiholeError.decoding("Unexpected summary format")
+      throw PiholeError.decoding("Unexpected summary format: \(error.localizedDescription)")
     }
 
     let gravityLastUpdated: Date?
-    if let gravity = json["gravity"] as? [String: Any],
-      let lastUpdate = gravity["last_update"] as? Double,
-      lastUpdate > 0
-    {
+    if let lastUpdate = response.gravity?.lastUpdate, lastUpdate > 0 {
       gravityLastUpdated = Date(timeIntervalSince1970: lastUpdate)
     } else {
       gravityLastUpdated = nil
     }
 
     return QuerySummary(
-      totalQueries: totalQueries,
-      totalBlocked: totalBlocked,
+      totalQueries: response.queries.total,
+      totalBlocked: response.queries.blocked,
       gravityLastUpdated: gravityLastUpdated
     )
   }
@@ -331,4 +327,30 @@ public struct DomainsResponse: Decodable {
 private struct AddDomainBody: Encodable {
   let domain: String
   let comment: String?
+}
+
+/// `/api/stats/summary` response.
+/// `/api/stats/summary` response. `gravity` is optional because some FTL
+/// builds omit it; `last_update` is 0 before the first gravity run.
+private struct SummaryResponse: Decodable {
+  let queries: SummaryQueries
+  let gravity: SummaryGravity?
+}
+
+private struct SummaryGravity: Decodable {
+  let lastUpdate: Double?
+
+  init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: SummaryGravityKey.self)
+    lastUpdate = try container.decodeIfPresent(Double.self, forKey: .lastUpdate)
+  }
+}
+
+private enum SummaryGravityKey: String, CodingKey {
+  case lastUpdate = "last_update"
+}
+
+private struct SummaryQueries: Decodable {
+  let total: Int
+  let blocked: Int
 }

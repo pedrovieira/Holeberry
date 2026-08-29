@@ -36,7 +36,7 @@ public final class TaskPollScheduler: PollScheduler {
       while !Task.isCancelled {
         guard self != nil else { return }
         await onTick()
-        try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+        try? await sleepForSeconds(interval)
       }
     }
   }

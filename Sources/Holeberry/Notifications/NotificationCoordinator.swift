@@ -24,6 +24,7 @@ final class NotificationCoordinator: NSObject {
   private static let domainUnblockEndedCategory = "DOMAIN_UNBLOCK_ENDED"
   private static let gravityErrorCategory = "GRAVITY_ERROR"
   private static let gravityCompletedCategory = "GRAVITY_COMPLETED"
+  private static let unblockFailureCategory = "UNBLOCK_FAILURE"
 
   private let defaultsSuite: UserDefaults
   private let openSettings: () -> Void
@@ -67,6 +68,8 @@ final class NotificationCoordinator: NSObject {
       content.sound = .default
     case .gravityUpdateCompleted:
       content.body = "Gravity updated."
+    case .unblockFailed(let domain, let error):
+      content.body = "Failed to unblock \(domain): \(error)"
     }
 
     let request = UNNotificationRequest(
@@ -153,6 +156,9 @@ final class NotificationCoordinator: NSObject {
       return true
     case .gravityUpdateCompleted:
       return Defaults[.notifyGravityUpdateCompleted(suite: defaultsSuite)]
+    case .unblockFailed:
+      // Always on — failures should never go unnoticed.
+      return true
     }
   }
 
@@ -163,6 +169,7 @@ final class NotificationCoordinator: NSObject {
     case .domainUnblockEnded: return domainUnblockEndedCategory
     case .gravityUpdateFailed: return gravityErrorCategory
     case .gravityUpdateCompleted: return gravityCompletedCategory
+    case .unblockFailed: return unblockFailureCategory
     }
   }
 
@@ -174,6 +181,7 @@ final class NotificationCoordinator: NSObject {
     case .domainUnblockEnded: return "domain-unblock-ended-\(id)"
     case .gravityUpdateFailed: return "gravity-error-\(id)"
     case .gravityUpdateCompleted: return "gravity-completed-\(id)"
+    case .unblockFailed: return "unblock-failed-\(id)"
     }
   }
 }
@@ -187,7 +195,7 @@ extension NotificationCoordinator: @preconcurrency UNUserNotificationCenterDeleg
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     switch notification.request.content.categoryIdentifier {
-    case Self.shortcutErrorCategory, Self.gravityErrorCategory:
+    case Self.shortcutErrorCategory, Self.gravityErrorCategory, Self.unblockFailureCategory:
       // An action the user triggered failed — alert them.
       completionHandler([.banner, .sound])
     default:
