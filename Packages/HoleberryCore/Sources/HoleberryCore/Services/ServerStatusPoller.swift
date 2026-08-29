@@ -204,17 +204,24 @@ public final class ServerStatusPoller: ObservableObject {
       blockingStatuses[id] = status
       return .healthy
     case .failure(let error):
-      let state: ServerConnectionState
       switch ServerCheckFailure.classify(error) {
       case .auth(let reason):
-        state = .authError(reason: reason)
+        let state = ServerConnectionState.authError(reason: reason)
+        connectionStates[id] = state
+        connectionStatuses[id] = .disconnected
+        blockingStatuses.removeValue(forKey: id)
+        return state
       case .unreachable:
-        state = .unreachable(lastSeen: lastSuccessfulCheck[id])
+        let state = ServerConnectionState.unreachable(lastSeen: lastSuccessfulCheck[id])
+        connectionStates[id] = state
+        connectionStatuses[id] = .disconnected
+        blockingStatuses.removeValue(forKey: id)
+        return state
+      case .unsupported:
+        // The server responded, it just can't do the requested operation —
+        // not an auth or connectivity failure, so leave the row as-is.
+        return connectionStates[id] ?? .unreachable(lastSeen: lastSuccessfulCheck[id])
       }
-      connectionStates[id] = state
-      connectionStatuses[id] = .disconnected
-      blockingStatuses.removeValue(forKey: id)
-      return state
     }
   }
 
@@ -326,6 +333,10 @@ public final class ServerStatusPoller: ObservableObject {
           connectionStates[id] = .authError(reason: reason)
         case .unreachable:
           connectionStates[id] = .unreachable(lastSeen: lastSuccessfulCheck[id])
+        case .unsupported:
+          // Server responded but can't do the operation — not a connectivity
+          // or auth failure, so leave the row as-is.
+          continue
         }
         blockingStatuses.removeValue(forKey: id)
       }
