@@ -175,8 +175,6 @@ public final class ServerStatusPoller: ObservableObject {
   /// Triggers a gravity update on all servers via the injected
   /// `gravityUpdater` and reports per-server outcomes. The funnel for gravity
   /// updates — prefer this over calling `manager.updateGravity()` directly.
-  /// `querySummaries` refresh on the next poll; until then `gravityCompletedAt`
-  /// clamps the menu's staleness subtext.
   @discardableResult
   public func applyGravityUpdate() async -> [UUID: GravityUpdateOutcome] {
     await gravityUpdater.applyUpdate()
