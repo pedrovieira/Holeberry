@@ -22,8 +22,6 @@ public enum AuthFailureReason: Equatable, Sendable {
 public enum ServerCheckFailure: Equatable, Sendable {
   case auth(AuthFailureReason)
   case unreachable
-  /// The server responded but can't perform the operation — reachable, not a
-  /// connectivity or auth failure.
   case unsupported
 
   public static func classify(_ error: PiholeError) -> ServerCheckFailure {
