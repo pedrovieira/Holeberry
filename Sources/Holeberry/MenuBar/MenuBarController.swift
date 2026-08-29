@@ -92,6 +92,16 @@ final class MenuBarController: NSObject {
 
     let browserTabStatus = browserTabCoordinator.resolve()
     let browserIcon = browserTabStatus.browser.flatMap { resolveBrowserIcon(for: $0) }
+
+    let gravityState: GravityMenuState
+    if !Defaults[.showGravityMenuItem(suite: defaultsSuite)] {
+      gravityState = .hidden
+    } else if statusMonitor.isGravityUpdating {
+      gravityState = .updating
+    } else {
+      gravityState = .ready(completedAt: statusMonitor.gravityCompletedAt)
+    }
+
     let menu = menuBuilder.buildMenu(
       actions: MenuActions(
         openAppSettings: { [settingsWindowController] in settingsWindowController.showWindow() },
@@ -137,9 +147,7 @@ final class MenuBarController: NSObject {
       isConnected: reachability.isConnected,
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
-      isGravityUpdating: statusMonitor.isGravityUpdating,
-      showGravityMenuItem: Defaults[.showGravityMenuItem(suite: defaultsSuite)],
-      gravityCompletedAt: statusMonitor.gravityCompletedAt,
+      gravityState: gravityState,
       querySummaries: statusMonitor.querySummaries,
       servers: serverManager.servers,
       browserTabStatus: browserTabStatus,

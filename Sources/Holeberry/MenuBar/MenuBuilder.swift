@@ -25,9 +25,7 @@ struct MenuBuilder {
     isConnected: Bool,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
-    isGravityUpdating: Bool,
-    showGravityMenuItem: Bool,
-    gravityCompletedAt: [UUID: Date],
+    gravityState: GravityMenuState,
     querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig],
     browserTabStatus: ResolvedBrowserTab,
@@ -96,9 +94,7 @@ struct MenuBuilder {
       servers: servers,
       connectionStatuses: connectionStatuses,
       querySummaries: querySummaries,
-      isGravityUpdating: isGravityUpdating,
-      gravityCompletedAt: gravityCompletedAt,
-      showGravityMenuItem: showGravityMenuItem,
+      gravityState: gravityState,
       target: target
     )
     menu.addItem(.separator())
@@ -312,47 +308,50 @@ struct MenuBuilder {
     servers: [ServerConfig],
     connectionStatuses: [UUID: ConnectionStatus],
     querySummaries: [UUID: QuerySummary],
-    isGravityUpdating: Bool,
-    gravityCompletedAt: [UUID: Date],
-    showGravityMenuItem: Bool,
+    gravityState: GravityMenuState,
     target: MenuActionTarget
   ) {
-    guard showGravityMenuItem else { return }
     let v6Servers = servers.filter { $0.version == .v6 }
     guard !v6Servers.isEmpty else { return }
-    menu.addItem(.separator())
 
-    if isGravityUpdating {
-      menu.addItem(makeGravityUpdatingItem())
+    switch gravityState {
+    case .hidden:
       return
-    }
 
-    let connectedV6 = v6Servers.filter { connectionStatuses[$0.id] == .connected }
-    let hasConnectedV6 = !connectedV6.isEmpty
-    // Show the stalest server: the oldest "last updated" date = the max age.
-    // Pi-hole stamps `last_update` mid-run, so it lags the actual completion.
-    // Clamp to the app-observed completion time when it's newer.
-    let maxAge =
-      connectedV6
-      .compactMap { server -> Date? in
-        guard let serverDate = querySummaries[server.id]?.gravityLastUpdated else { return nil }
-        guard let completedAt = gravityCompletedAt[server.id] else { return serverDate }
-        return max(serverDate, completedAt)
+    case .updating:
+      menu.addItem(.separator())
+      menu.addItem(makeGravityUpdatingItem())
+
+    case .ready(let completedAt):
+      menu.addItem(.separator())
+
+      let connectedV6 = v6Servers.filter { connectionStatuses[$0.id] == .connected }
+      let hasConnectedV6 = !connectedV6.isEmpty
+      // Show the stalest server: the oldest "last updated" date = the max age.
+      // Pi-hole stamps `last_update` mid-run, so it lags the actual completion.
+      // Clamp to the app-observed completion time when it's newer.
+      let maxAge =
+        connectedV6
+        .compactMap { server -> Date? in
+          guard let serverDate = querySummaries[server.id]?.gravityLastUpdated else { return nil }
+          guard let appCompletedAt = completedAt[server.id] else { return serverDate }
+          return max(serverDate, appCompletedAt)
+        }
+        .min()
+
+      let item = NSMenuItem(
+        title: "Update Gravity",
+        action: #selector(MenuActionTarget.triggerGravityUpdate),
+        keyEquivalent: ""
+      )
+      item.target = target
+      item.isEnabled = hasConnectedV6
+      item.setAccessibilityLabel("Update gravity filter lists")
+      if let maxAge {
+        item.attributedTitle = gravityAttributedTitle(maxAge: maxAge, showAtMost: connectedV6.count > 1)
       }
-      .min()
-
-    let item = NSMenuItem(
-      title: "Update Gravity",
-      action: #selector(MenuActionTarget.triggerGravityUpdate),
-      keyEquivalent: ""
-    )
-    item.target = target
-    item.isEnabled = hasConnectedV6
-    item.setAccessibilityLabel("Update gravity filter lists")
-    if let maxAge {
-      item.attributedTitle = gravityAttributedTitle(maxAge: maxAge, showAtMost: connectedV6.count > 1)
+      menu.addItem(item)
     }
-    menu.addItem(item)
   }
 
   /// Disabled row with a spinner while a gravity update is in flight.
