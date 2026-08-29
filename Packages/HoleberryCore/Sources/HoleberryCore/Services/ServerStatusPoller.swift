@@ -43,7 +43,7 @@ public final class ServerStatusPoller: ObservableObject {
   /// Fired when a poll observes blocking flip `.disabled` → `.enabled` without
   /// a manual action (manual toggles reflect locally and never trigger this).
   /// Fires once, when the last disabled server re-enables.
-  public var onBlockingAutoReenabled: ((Set<UUID>) -> Void)?
+  public var onBlockingRestoredAutomatically: ((Set<UUID>) -> Void)?
 
   public init(
     manager: any PiholeServerManaging,
@@ -236,7 +236,7 @@ public final class ServerStatusPoller: ObservableObject {
   }
 
   /// Re-checks blocking status on countdown end; skips while a poll is in
-  /// flight to avoid double-firing `onBlockingAutoReenabled`. The server's own
+  /// flight to avoid double-firing `onBlockingRestoredAutomatically`. The server's own
   /// timer can outlive the local countdown by a few seconds (timer resets,
   /// tick latency), so re-check briefly until it actually re-enables.
   private func refreshBlockingStatusesIfIdle() async {
@@ -260,7 +260,7 @@ public final class ServerStatusPoller: ObservableObject {
     }
   }
 
-  /// Fetches blocking status for all servers, firing `onBlockingAutoReenabled`
+  /// Fetches blocking status for all servers, firing `onBlockingRestoredAutomatically`
   /// on a poll-observed disabled→enabled transition.
   private func fetchBlockingStatuses() async {
     let generation = blockingChangeGeneration
@@ -335,7 +335,7 @@ public final class ServerStatusPoller: ObservableObject {
     timerManager.start(duration: remaining)
   }
 
-  /// Fires `onBlockingAutoReenabled` once the last disabled server re-enables
+  /// Fires `onBlockingRestoredAutomatically` once the last disabled server re-enables
   /// via poll. Manual re-enables never reach this path.
   private func notifyIfAutoReenabled(previousDisabledIDs: Set<UUID>) {
     guard !previousDisabledIDs.isEmpty else { return }
@@ -345,7 +345,7 @@ public final class ServerStatusPoller: ObservableObject {
       return false
     }
     if !autoReenabled.isEmpty, !anyStillDisabled {
-      onBlockingAutoReenabled?(autoReenabled)
+      onBlockingRestoredAutomatically?(autoReenabled)
       // The unblock has ended — drop any re-armed countdown so the pill
       // doesn't outlive the transition.
       timerManager.cancel()

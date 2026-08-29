@@ -4,7 +4,7 @@ import HoleberryCore
 /// Bridges core unblock-end events to `NotificationCoordinator`.
 ///
 /// The global-unblock event arrives as a typed closure on `ServerStatusPoller`
-/// (`onBlockingAutoReenabled`) — the poller is created in the composition root,
+/// (`onBlockingRestoredAutomatically`) — the poller is created in the composition root,
 /// so it can be wired directly. The domain-unblock event arrives as a
 /// `.domainUnblockExpired` NotificationCenter post, because the decorator that
 /// posts it is created deep inside `PiholeServerManager`. Both become
@@ -35,7 +35,7 @@ final class UnblockEndedNotifier {
     self.notificationCoordinator = notificationCoordinator
     self.notificationCenter = notificationCenter
 
-    statusMonitor.onBlockingAutoReenabled = { [weak self] serverIDs in
+    statusMonitor.onBlockingRestoredAutomatically = { [weak self] serverIDs in
       self?.notifyUnblockEnded(serverIDs: serverIDs)
     }
 

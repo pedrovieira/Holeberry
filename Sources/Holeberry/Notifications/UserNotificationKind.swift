@@ -15,4 +15,7 @@ enum UserNotificationKind {
 
   /// A temporary unblock for a specific domain expired on its own.
   case domainUnblockEnded(domain: String)
+
+  /// A temporary unblock of a domain failed.
+  case unblockFailed(domain: String, error: String)
 }
