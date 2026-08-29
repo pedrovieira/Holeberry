@@ -132,7 +132,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await self.serverManager.logoutAll()
           }
           group.addTask {
-            try await Task.sleep(for: .seconds(5))
+            try await sleepForSeconds(5)
           }
           _ = try await group.next()
           group.cancelAll()
