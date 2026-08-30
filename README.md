@@ -52,7 +52,7 @@ Manage up to **two Pi-hole® instances** from one menu. Every action — blockin
 This matters because there's no guarantee your Mac only uses the first DNS server. With Holeberry, every instance always stays in sync. Per-server status dots and aggregated stats are shown right in the menu.
 
 <p align="center">
-  <img width="700" height="351" alt="desktop-app-banner" src="Assets/max-connections.png"/>
+  <img width="700" height="351" src="Assets/max-connections.png"/>
 </p>
 
 ### Status at a glance
@@ -60,7 +60,7 @@ This matters because there's no guarantee your Mac only uses the first DNS serve
 The menu bar icon reflects your Pi-hole®'s health at all times, with per-instance status for multi-server setups. The menu also shows **total queries and blocked domains** across all your instances.
 
 <p align="center">
-  <img width="250" height="175" alt="desktop-app-banner" src="Assets/instaces-status.png"/>
+  <img width="250" height="175" src="Assets/instaces-status.png"/>
 </p>
 
 ### Disable blocking with a timer
@@ -68,7 +68,7 @@ The menu bar icon reflects your Pi-hole®'s health at all times, with per-instan
 A quick way to disable blocking **globally** on all your Pi-hole® instances for a specific amount of time, or indefinitely. A **timer pill** in the menu bar shows the countdown, and blocking re-enables automatically when time's up.
 
 <p align="center">
-  <img width="422" height="164" alt="desktop-app-banner" src="Assets/menu-unblock.png"/>
+  <img width="422" height="164" src="Assets/menu-unblock.png"/>
 </p>
 
 ### Unblock the browser tab you're on
@@ -78,12 +78,22 @@ Holeberry detects the current tab in **WebKit (Safari, Orion), Chrome/Chromium, 
 Unblocking a single domain beats a global disable: the page loads while the rest of your network stays protected. (Your smart TV would disagree — it sends so much traffic out into the world it would love a global unblock. Don't listen to it.) You can also add the domain to your allowlist.
 
 <p align="center">
-  <img width="668" height="251" alt="desktop-app-banner" src="Assets/browser-unblock.png"/>
+  <img width="668" height="251" src="Assets/browser-unblock.png"/>
 </p>
 
-### Recently blocked
+### Glance the recently blocked domains
 
 Browse the domains Pi-hole® blocked recently (from your Mac or all clients), and unblock or allowlist any of them straight from the menu.
+
+<p align="center">
+  <img width="579" height="458" src="Assets/recently-blocked.png"/>
+</p>
+
+### Gravity update
+
+Keep Pi-hole's blocklists fresh without opening the web admin interface: trigger a **gravity update** right from the menu bar, on **all your servers simultaneously**. It's available from the main menu or via a global keyboard shortcut you can set in Settings. The menu shows when gravity was last updated, and you get a notification when the run finishes.
+
+Gravity updates can only be triggered for Pi-hole® **v6** instances — the v5 API doesn't expose it. For v5-only setups, Holeberry still shows the last-update time, but you'll need the web interface to run the update.
 
 
 ## What's next?
@@ -108,7 +118,7 @@ Yes. Password-less instances (no web password set) are fully supported for both 
 - **Automation** (browser access): optional, only used when browser-tab unblocking is enabled. You can disable it anytime in Settings → General.
 
 ### Does Holeberry replace the Pi-hole web interface?
-No, and it's not meant to. Holeberry is the remote control for the actions you take daily: status, toggling, and targeted unblocking. For deep configuration (adlists, DHCP, gravity updates), the web interface remains the tool.
+No, and it's not meant to. Holeberry is the remote control for the actions you take daily: status, toggling, and targeted unblocking. For deep configuration (adlists, DHCP), the web interface remains the tool — though you can now trigger gravity updates from the menu bar.
 
 ### Why doesn't my browser tab appear?
 Browser-tab unblocking must be enabled in Settings → General, and Holeberry needs Automation permission for your browser (granted via System Settings on first use).
