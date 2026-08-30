@@ -33,7 +33,7 @@ struct NotificationsSettingsView: View {
       Section("Notifications") {
         Toggle("Notify when an unblock timer ends", isOn: $notifyWhenUnblockEnds)
         Toggle("Notify when a domain unblock timer ends", isOn: $notifyWhenDomainUnblockEnds)
-        Toggle("Notify when an in-app gravity update completes", isOn: $notifyGravityUpdateCompleted)
+        Toggle("Notify when an in-app Gravity update completes", isOn: $notifyGravityUpdateCompleted)
       }
     }
     .task {
