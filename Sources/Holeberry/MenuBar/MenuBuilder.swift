@@ -318,7 +318,6 @@ struct MenuBuilder {
       return
 
     case .noUpdateCapableInstances:
-      guard servers.contains(where: { $0.version == .v5 }) else { return }
       menu.addItem(.separator())
       menu.addItem(
         makeGravityLastUpdatedItem(
@@ -403,20 +402,20 @@ struct MenuBuilder {
     return item
   }
 
-  /// Disabled row for setups with only Pi-hole v5 instances: the API can't
-  /// trigger a gravity update, so show when gravity was last updated instead.
+  /// Disabled row for instances that can't trigger a gravity update via
+  /// their API; show when gravity was last updated instead.
   private func makeGravityLastUpdatedItem(
     servers: [ServerConfig],
     connectionStatuses: [UUID: ConnectionStatus],
     querySummaries: [UUID: QuerySummary]
   ) -> NSMenuItem {
-    let connectedV5 = servers.filter { $0.version == .v5 && connectionStatuses[$0.id] == .connected }
+    let connected = servers.filter { connectionStatuses[$0.id] == .connected }
     // Show the stalest server: the oldest "last updated" date = the max age.
-    let stalestDate = connectedV5.compactMap { querySummaries[$0.id]?.gravityLastUpdated }.min()
+    let stalestDate = connected.compactMap { querySummaries[$0.id]?.gravityLastUpdated }.min()
 
     let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     item.isEnabled = false
-    item.title = gravityLastUpdatedTitle(maxAge: stalestDate, showAtMost: connectedV5.count > 1)
+    item.title = gravityLastUpdatedTitle(maxAge: stalestDate, showAtMost: connected.count > 1)
     item.setAccessibilityLabel("Gravity last updated")
     return item
   }
