@@ -381,7 +381,7 @@ struct MenuBuilder {
     spinner.usesThreadedAnimation = true
     spinner.startAnimation(nil)
 
-    let label = NSTextField(labelWithString: "Updating gravity…")
+    let label = NSTextField(labelWithString: "Updating Gravity…")
     label.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
     label.textColor = .disabledControlTextColor
 
