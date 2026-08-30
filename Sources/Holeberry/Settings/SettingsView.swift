@@ -181,7 +181,7 @@ struct SettingsView: View {
       if launchAtLogin {
         HStack(spacing: 4) {
           if requiresApproval {
-            Text("Approval needed —")
+            Text("Approval needed: ")
               .font(.caption)
               .foregroundColor(.secondary)
           }
@@ -208,9 +208,16 @@ struct SettingsView: View {
 
     Section("Gravity") {
       VStack(alignment: .leading) {
-        Toggle("Show \"Update Gravity\" in main menu", isOn: $showGravityMenuItem)
+        Toggle("Show Gravity update in menu bar", isOn: $showGravityMenuItem)
 
-        Text("The Update Gravity shortcut still works when this is off.")
+        Text(
+          "Not available for v5-only setups (API limitation), shows last update time instead."
+        )
+        .font(.callout)
+        .foregroundColor(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+
+        Text("Shortcut still works regardless of this setting.")
           .font(.callout)
           .foregroundColor(.secondary)
           .fixedSize(horizontal: false, vertical: true)
@@ -256,7 +263,7 @@ struct SettingsView: View {
         }
       }
 
-      KeyboardShortcuts.Recorder("Update Gravity:", name: .updateGravity)
+      KeyboardShortcuts.Recorder("Update Gravity (v6-only):", name: .updateGravity)
     } header: {
       Text("Global Shortcuts")
       Text(
@@ -272,7 +279,7 @@ struct SettingsView: View {
     Section {
       ForEach(durations) { entry in
         KeyboardShortcuts.Recorder(
-          "Disable \(UnblockDurationFormatter.string(from: entry.seconds)):",
+          "Disable for \(UnblockDurationFormatter.string(from: entry.seconds)):",
           name: KeyboardShortcuts.Name.durationShortcutName(for: entry)
         )
       }

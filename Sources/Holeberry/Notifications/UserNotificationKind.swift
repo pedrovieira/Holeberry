@@ -19,9 +19,9 @@ enum UserNotificationKind {
   /// A gravity update finished successfully on every server.
   case gravityUpdateCompleted
 
-  /// Some servers updated, others did not; names the failed servers and the
-  /// category of their error.
-  case gravityUpdatePartiallyCompleted(failures: [(serverName: String, category: String)])
+  /// Some servers updated, others did not; names the failed server and its
+  /// error category.
+  case gravityUpdatePartiallyCompleted(failure: (serverName: String, category: String))
 
   /// No server updated.
   case gravityUpdateFailedAll

@@ -65,12 +65,9 @@ final class NotificationCoordinator: NSObject {
       content.body = "\(domain) is blocked again."
     case .gravityUpdateCompleted:
       content.body = "Gravity updated."
-    case .gravityUpdatePartiallyCompleted(let failures):
+    case .gravityUpdatePartiallyCompleted(let failure):
       content.body = "Gravity partially updated."
-      content.subtitle =
-        failures
-        .map { "Server \($0.serverName) failed with \($0.category)" }
-        .joined(separator: "\n")
+      content.subtitle = "Server \(failure.serverName) failed with \(failure.category)"
     case .gravityUpdateFailedAll:
       content.body = "Gravity failed to update for all servers."
       content.subtitle = "Check your servers' connectivity."
@@ -95,8 +92,8 @@ final class NotificationCoordinator: NSObject {
   // MARK: - Gravity outcomes
 
   /// Schedules one aggregated notification for a gravity run: a completion
-  /// banner when every server succeeded, a partial banner naming the failures
-  /// when some did, and a failure banner when none did.
+  /// banner when every server succeeded, a partial banner naming the failed
+  /// server when some did, and a failure banner when none did.
   func scheduleGravityOutcomeNotifications(
     _ outcomes: [UUID: GravityUpdateOutcome],
     labelFor: (UUID) -> String?
@@ -113,7 +110,8 @@ final class NotificationCoordinator: NSObject {
       return
     }
 
-    let failures = outcomes.compactMap { id, outcome -> (serverName: String, category: String)? in
+    // With the 2-server cap, a partial run has exactly one non-succeeded server.
+    let failure = outcomes.compactMap { id, outcome -> (serverName: String, category: String)? in
       switch outcome {
       case .succeeded:
         return nil
@@ -122,8 +120,10 @@ final class NotificationCoordinator: NSObject {
       case .failed(let error):
         return (labelFor(id) ?? "Pi-hole", error.gravityErrorCategory)
       }
+    }.first
+    if let failure {
+      schedule(.gravityUpdatePartiallyCompleted(failure: failure))
     }
-    schedule(.gravityUpdatePartiallyCompleted(failures: failures))
   }
 
   // MARK: - Authorization

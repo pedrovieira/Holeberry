@@ -312,17 +312,28 @@ struct MenuBuilder {
     target: MenuActionTarget
   ) {
     let v6Servers = servers.filter { $0.version == .v6 }
-    guard !v6Servers.isEmpty else { return }
 
     switch gravityState {
     case .hidden:
       return
+
+    case .noUpdateCapableInstances:
+      menu.addItem(.separator())
+      menu.addItem(
+        makeGravityLastUpdatedItem(
+          servers: servers,
+          connectionStatuses: connectionStatuses,
+          querySummaries: querySummaries
+        )
+      )
 
     case .updating:
       menu.addItem(.separator())
       menu.addItem(makeGravityUpdatingItem())
 
     case .ready(let completedAt):
+      guard !v6Servers.isEmpty else { return }
+
       menu.addItem(.separator())
 
       let connectedV6 = v6Servers.filter { connectionStatuses[$0.id] == .connected }
@@ -370,7 +381,7 @@ struct MenuBuilder {
     spinner.usesThreadedAnimation = true
     spinner.startAnimation(nil)
 
-    let label = NSTextField(labelWithString: "Updating gravity…")
+    let label = NSTextField(labelWithString: "Updating Gravity…")
     label.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
     label.textColor = .disabledControlTextColor
 
@@ -391,14 +402,34 @@ struct MenuBuilder {
     return item
   }
 
+  /// Disabled row for instances that can't trigger a gravity update via
+  /// their API; show when gravity was last updated instead.
+  private func makeGravityLastUpdatedItem(
+    servers: [ServerConfig],
+    connectionStatuses: [UUID: ConnectionStatus],
+    querySummaries: [UUID: QuerySummary]
+  ) -> NSMenuItem {
+    let connected = servers.filter { connectionStatuses[$0.id] == .connected }
+    // Show the stalest server: the oldest "last updated" date = the max age.
+    let stalestDate = connected.compactMap { querySummaries[$0.id]?.gravityLastUpdated }.min()
+
+    let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    item.isEnabled = false
+    item.title = gravityLastUpdatedTitle(maxAge: stalestDate, showAtMost: connected.count > 1)
+    item.setAccessibilityLabel("Gravity last updated")
+    return item
+  }
+
+  /// "Gravity last updated <relative> ago"; "at most" for several servers,
+  /// never for "a few moments ago"; "unknown" when no timestamp is available.
+  private func gravityLastUpdatedTitle(maxAge: Date?, showAtMost: Bool) -> String {
+    guard let maxAge else { return "Gravity last updated: unknown" }
+    return "Gravity last updated \(gravityRelativeText(maxAge: maxAge, showAtMost: showAtMost))"
+  }
+
   /// "Update Gravity" over "Gravity updated <relative> ago"; "at most" for
   /// several servers, never for "a few moments ago".
   private func gravityAttributedTitle(maxAge: Date, showAtMost: Bool) -> NSAttributedString {
-    // Fresh timestamps use the fixed wording until the next poll lands.
-    let isMomentsAgo = Date().timeIntervalSince(maxAge) < 60
-    let relative = isMomentsAgo ? "a few moments ago" : MenuItemFactory.relativeTimestamp(since: maxAge)
-    let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
-
     let result = NSMutableAttributedString()
     result.append(
       NSAttributedString(
@@ -412,7 +443,7 @@ struct MenuBuilder {
     result.append(NSAttributedString(string: "\n"))
     result.append(
       NSAttributedString(
-        string: "Updated \(prefix)\(relative)",
+        string: "Updated \(gravityRelativeText(maxAge: maxAge, showAtMost: showAtMost))",
         attributes: [
           .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
           .foregroundColor: NSColor.secondaryLabelColor
@@ -420,6 +451,15 @@ struct MenuBuilder {
       )
     )
     return result
+  }
+
+  /// "a few moments ago" until the next poll lands; "at most " only for
+  /// several servers, never alongside "a few moments ago".
+  private func gravityRelativeText(maxAge: Date, showAtMost: Bool) -> String {
+    let isMomentsAgo = Date().timeIntervalSince(maxAge) < 60
+    let relative = isMomentsAgo ? "a few moments ago" : MenuItemFactory.relativeTimestamp(since: maxAge)
+    let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
+    return "\(prefix)\(relative)"
   }
 
   private func addDisableDurationItem(
