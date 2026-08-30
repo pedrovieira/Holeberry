@@ -83,6 +83,20 @@ public final class LiveGravityUpdater: GravityUpdating {
       return true
     }
 
+    // A failed trigger is already final; only successful triggers need
+    // timestamp verification, so skip the summary round-trip when none ran.
+    let hasSuccessfulTrigger = actionableResults.values.contains { result in
+      if case .success = result { return true }
+      return false
+    }
+    guard hasSuccessfulTrigger else {
+      return computeGravityOutcomes(
+        results: actionableResults,
+        beforeSummaries: beforeSummaries,
+        afterSummaries: [:]
+      )
+    }
+
     // Re-fetch summaries so outcomes compare against post-run data.
     var afterSummaries = await manager.getQuerySummary()
 
