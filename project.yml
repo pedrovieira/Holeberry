@@ -43,6 +43,12 @@ targets:
         SUEnableInstallerLauncherService: true
         SUFeedURL: "https://raw.githubusercontent.com/pedrovieira/Holeberry/main/Updates/appcast.xml"
         SUPublicEDKey: "xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM="
+        # Sparkle's initial settings live in Info.plist: automatic checks on,
+        # no "allow automatic checks?" permission dialog (SPUUpdater only
+        # prompts when this key is absent; verified in SPUUpdater.m
+        # startUpdateCycle). Setting the property at launch would also
+        # override the user's settings toggle on every launch.
+        SUEnableAutomaticChecks: true
         SUShowReleaseNotes: false
     settings:
       base:

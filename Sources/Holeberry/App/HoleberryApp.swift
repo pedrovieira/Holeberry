@@ -102,15 +102,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
 
     // Start Sparkle updater with the standard UI: update window with
-    // release notes in the center, in-line download, "Install Update" /
-    // "Not Now" buttons.
+    // in-line download and "Install Update" / "Not Now" buttons. Initial
+    // settings (SUEnableAutomaticChecks / SUShowReleaseNotes) live in
+    // Info.plist, so no permission dialog appears and the user's settings
+    // toggle is never overridden at launch.
     let updaterController = SPUStandardUpdaterController(
       startingUpdater: true,
       updaterDelegate: nil,
       userDriverDelegate: nil
     )
-    updaterController.updater.automaticallyChecksForUpdates = true
-    updaterController.updater.automaticallyDownloadsUpdates = false
     self.updaterController = updaterController
 
     let settingsWindowController = SettingsWindowController(
