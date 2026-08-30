@@ -80,9 +80,17 @@ Holeberry 能检测 **WebKit（Safari、Orion）、Chrome/Chromium、Gecko（Fir
   <img width="668" height="251" alt="desktop-app-banner" src="Assets/browser-unblock.png"/>
 </p>
 
-### 最近被屏蔽的域名
+### Gravity，就在你的菜单栏里
+
+无需打开网页管理界面，就能让 Pi-hole 的屏蔽列表保持新鲜：直接在菜单栏中触发 **gravity 更新**，**同时作用于所有服务器**。既可以从主菜单点击，也可以通过「设置」中配置的全局键盘快捷键触发。
+
+### 最近被屏蔽的域名，一目了然
 
 浏览 Pi-hole® 最近屏蔽的域名（来自你的 Mac 或所有客户端），并直接在菜单中解除屏蔽或加入白名单。
+
+<p align="center">
+  <img width="400" height="316" src="Assets/recently-blocked.png"/>
+</p>
 
 ## 未来计划
 
@@ -106,7 +114,7 @@ Holeberry 目前是一款面向 Pi-hole® 的应用，但菜单栏的工作流�
 - **自动化（Automation，浏览器访问）**：可选，仅在启用浏览器标签页解除屏蔽时使用。你可以随时在「设置 → 通用」中关闭。
 
 ### Holeberry 会取代 Pi-hole 网页管理界面吗？
-不会——也不打算取代。Holeberry 是你日常操作的遥控器：查看状态、开关屏蔽、定向解除屏蔽。深度配置（广告列表、DHCP、gravity 更新等）仍然使用网页管理界面。
+不会——也不打算取代。Holeberry 是你日常操作的遥控器：查看状态、开关屏蔽、定向解除屏蔽。深度配置（广告列表、DHCP 等）仍然使用网页管理界面——不过 gravity 更新现在可以直接从菜单栏触发。
 
 ### 为什么我的浏览器标签页没有出现？
 需要在「设置 → 通用」中启用浏览器标签页解除屏蔽，并且 Holeberry 需要获得浏览器的自动化权限（首次使用时在系统设置中授予）。
