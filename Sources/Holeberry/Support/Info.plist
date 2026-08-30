@@ -26,6 +26,8 @@
 	<string>Holeberry needs to read the current tab URL from your browser to unblock it.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Holeberry needs local network access to connect to your Pi-hole instances.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUEnableDownloaderService</key>
 	<true/>
 	<key>SUEnableInstallerLauncherService</key>
@@ -34,5 +36,7 @@
 	<string>https://raw.githubusercontent.com/pedrovieira/Holeberry/main/Updates/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM=</string>
+	<key>SUShowReleaseNotes</key>
+	<false/>
 </dict>
 </plist>

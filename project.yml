@@ -43,6 +43,8 @@ targets:
         SUEnableInstallerLauncherService: true
         SUFeedURL: "https://raw.githubusercontent.com/pedrovieira/Holeberry/main/Updates/appcast.xml"
         SUPublicEDKey: "xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM="
+        SUEnableAutomaticChecks: true
+        SUShowReleaseNotes: false
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Support/Holeberry.entitlements
