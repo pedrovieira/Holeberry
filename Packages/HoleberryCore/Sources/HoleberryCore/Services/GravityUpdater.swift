@@ -51,9 +51,7 @@ public final class LiveGravityUpdater: GravityUpdating {
 
   public init(
     manager: any PiholeServerManaging,
-    sleep: @escaping (TimeInterval) async throws -> Void = {
-      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
-    },
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) },
     gravityTriggerTimeout: TimeInterval = 16 * 60
   ) {
     self.manager = manager

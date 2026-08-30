@@ -68,9 +68,7 @@ public final class ServerStatusPoller: ObservableObject {
     scheduler: any PollScheduler,
     timerManager: TimerManager,
     gravityUpdater: any GravityUpdating,
-    sleep: @escaping (TimeInterval) async throws -> Void = {
-      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
-    }
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) }
   ) {
     self.manager = manager
     self.networkInterface = networkInterface
