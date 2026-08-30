@@ -128,10 +128,9 @@ final class NotificationCoordinator: NSObject {
 
   // MARK: - Authorization
 
-  /// Asks for permission once, and only when at least one server is configured
-  /// (existing flows like unblock timers still need authorization).
+  /// Asks for permission once, while the status is still undetermined.
+  /// Callers decide when asking is appropriate (e.g. once a server exists).
   func requestAuthorizationIfNeeded() {
-    guard !Defaults[.servers(suite: defaultsSuite)].isEmpty else { return }
     UNUserNotificationCenter.current().getNotificationSettings { settings in
       guard settings.authorizationStatus == .notDetermined else { return }
       UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in

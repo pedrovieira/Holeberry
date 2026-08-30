@@ -90,16 +90,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       self?.settingsWindowController?.showWindow()
     }
     self.notificationCoordinator = notificationCoordinator
-    notificationCoordinator.requestAuthorizationIfNeeded()
+    requestNotificationAuthorizationIfNeeded()
 
-    // A fresh prompt once the first server is added; the coordinator's own
-    // server gate makes this a no-op otherwise, and authorization is asked
+    // A fresh prompt once the first server is added; authorization is asked
     // only while .notDetermined.
     notificationServerCancellable = serverManager.serversPublisher
       .dropFirst()
       .receive(on: DispatchQueue.main)
-      .sink { [weak notificationCoordinator] _ in
-        notificationCoordinator?.requestAuthorizationIfNeeded()
+      .sink { [weak self] _ in
+        self?.requestNotificationAuthorizationIfNeeded()
       }
 
     // Start Sparkle updater
@@ -139,6 +138,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       serverManager: serverManager,
       notificationCoordinator: notificationCoordinator
     )
+  }
+
+  /// Asks for notification permission once a server is configured; the
+  /// coordinator itself doesn't know about servers.
+  private func requestNotificationAuthorizationIfNeeded() {
+    guard !serverManager.servers.isEmpty else { return }
+    notificationCoordinator?.requestAuthorizationIfNeeded()
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
