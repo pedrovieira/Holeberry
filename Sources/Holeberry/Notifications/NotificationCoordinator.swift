@@ -63,11 +63,17 @@ final class NotificationCoordinator: NSObject {
         : "Blocking is active again on \(serverNames.joined(separator: ", "))."
     case .domainUnblockEnded(let domain):
       content.body = "\(domain) is blocked again."
-    case .gravityUpdateFailed(let serverName, let error):
-      content.body = "Failed to update gravity on \(serverName): \(error)"
-      content.sound = .default
     case .gravityUpdateCompleted:
       content.body = "Gravity updated."
+    case .gravityUpdatePartiallyCompleted(let failures):
+      content.body = "Gravity partially updated."
+      content.subtitle =
+        failures
+        .map { "Server \($0.serverName) failed with \($0.category)" }
+        .joined(separator: "\n")
+    case .gravityUpdateFailedAll:
+      content.body = "Gravity failed to update for all servers."
+      content.subtitle = "Check your servers' connectivity."
     case .unblockFailed(let domain, let error):
       content.body = "Failed to unblock \(domain): \(error)"
     }
@@ -88,30 +94,36 @@ final class NotificationCoordinator: NSObject {
 
   // MARK: - Gravity outcomes
 
-  /// Schedules notifications for gravity outcomes: one completion banner for
-  /// the succeeded servers, plus a failure notification per failed server.
+  /// Schedules one aggregated notification for a gravity run: a completion
+  /// banner when every server succeeded, a partial banner naming the failures
+  /// when some did, and a failure banner when none did.
   func scheduleGravityOutcomeNotifications(
     _ outcomes: [UUID: GravityUpdateOutcome],
     labelFor: (UUID) -> String?
   ) {
-    if outcomes.values.contains(.succeeded) {
+    guard !outcomes.isEmpty else { return }
+
+    let succeededCount = outcomes.values.filter { $0 == .succeeded }.count
+    if succeededCount == outcomes.count {
       schedule(.gravityUpdateCompleted)
+      return
     }
-    for (id, outcome) in outcomes {
+    guard succeededCount > 0 else {
+      schedule(.gravityUpdateFailedAll)
+      return
+    }
+
+    let failures = outcomes.compactMap { id, outcome -> (serverName: String, category: String)? in
       switch outcome {
-      case .failed(let error):
-        schedule(.gravityUpdateFailed(serverName: labelFor(id) ?? "Pi-hole", error: error.localizedDescription))
-      case .noChange:
-        schedule(
-          .gravityUpdateFailed(
-            serverName: labelFor(id) ?? "Pi-hole",
-            error: "Gravity finished but the update didn't take effect — check the Pi-hole web interface"
-          )
-        )
       case .succeeded:
-        continue
+        return nil
+      case .noChange:
+        return (labelFor(id) ?? "Pi-hole", "no change detected")
+      case .failed(let error):
+        return (labelFor(id) ?? "Pi-hole", error.gravityErrorCategory)
       }
     }
+    schedule(.gravityUpdatePartiallyCompleted(failures: failures))
   }
 
   // MARK: - Authorization
@@ -151,7 +163,7 @@ final class NotificationCoordinator: NSObject {
       return Defaults[.notifyWhenUnblockEnds(suite: defaultsSuite)]
     case .domainUnblockEnded:
       return Defaults[.notifyWhenDomainUnblockEnds(suite: defaultsSuite)]
-    case .gravityUpdateFailed:
+    case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll:
       // Always on — failures should never go unnoticed.
       return true
     case .gravityUpdateCompleted:
@@ -167,7 +179,7 @@ final class NotificationCoordinator: NSObject {
     case .shortcutError: return shortcutErrorCategory
     case .unblockEnded: return unblockEndedCategory
     case .domainUnblockEnded: return domainUnblockEndedCategory
-    case .gravityUpdateFailed: return gravityErrorCategory
+    case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return gravityErrorCategory
     case .gravityUpdateCompleted: return gravityCompletedCategory
     case .unblockFailed: return unblockFailureCategory
     }
@@ -179,7 +191,7 @@ final class NotificationCoordinator: NSObject {
     case .shortcutError: return "shortcut-error-\(id)"
     case .unblockEnded: return "unblock-ended-\(id)"
     case .domainUnblockEnded: return "domain-unblock-ended-\(id)"
-    case .gravityUpdateFailed: return "gravity-error-\(id)"
+    case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return "gravity-error-\(id)"
     case .gravityUpdateCompleted: return "gravity-completed-\(id)"
     case .unblockFailed: return "unblock-failed-\(id)"
     }
@@ -213,5 +225,41 @@ extension NotificationCoordinator: @preconcurrency UNUserNotificationCenterDeleg
       openSettings()
     }
     completionHandler()
+  }
+}
+
+// MARK: - PiholeError category
+
+extension PiholeError {
+  /// Short category for the "Server … failed with …" notification subtext.
+  var gravityErrorCategory: String {
+    switch self {
+    case .unauthorized, .invalidCredentials:
+      return "authentication"
+    case .network:
+      return "network"
+    case .server:
+      return "server error"
+    case .tlsUntrusted:
+      return "untrusted certificate"
+    case .duplicateDomain:
+      return "duplicate domain"
+    case .decoding:
+      return "response parsing"
+    case .totpRequired:
+      return "2FA required"
+    case .missingCredential:
+      return "missing credential"
+    case .rateLimited:
+      return "rate limited"
+    case .reauthenticationFailed:
+      return "re-authentication failed"
+    case .sessionLimitReached:
+      return "session limit"
+    case .unknown:
+      return "unexpected error"
+    case .unsupported:
+      return "unsupported"
+    }
   }
 }
