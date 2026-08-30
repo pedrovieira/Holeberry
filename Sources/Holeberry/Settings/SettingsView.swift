@@ -211,9 +211,8 @@ struct SettingsView: View {
         Toggle("Show gravity update in main menu", isOn: $showGravityMenuItem)
 
         Text(
-          "Pi-hole v6 instances show an \"Update Gravity\" item. "
-            + "With only Pi-hole v5 instances, the menu shows when gravity "
-            + "was last updated instead — v5 can't update gravity via the API."
+          "Pi-hole v6 shows an \"Update Gravity\" item; v5-only setups show the "
+            + "last gravity update time."
         )
         .font(.callout)
         .foregroundColor(.secondary)
