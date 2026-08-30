@@ -329,7 +329,6 @@ private struct AddDomainBody: Encodable {
   let comment: String?
 }
 
-/// `/api/stats/summary` response.
 /// `/api/stats/summary` response. `gravity` is optional because some FTL
 /// builds omit it; `last_update` is 0 before the first gravity run.
 private struct SummaryResponse: Decodable {
