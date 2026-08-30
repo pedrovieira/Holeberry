@@ -81,6 +81,10 @@ Unblocking a single domain beats a global disable: the page loads while the rest
   <img width="668" height="251" src="Assets/browser-unblock.png"/>
 </p>
 
+### Gravity, right in your menu bar
+
+Keep Pi-hole's blocklists fresh without opening the web admin interface: trigger a **gravity update** right from the menu bar, on **all your servers simultaneously**. It's available from the main menu or via a global keyboard shortcut you can set in Settings.
+
 ### Glance the recently blocked domains
 
 Browse the domains Pi-hole® blocked recently (from your Mac or all clients), and unblock or allowlist any of them straight from the menu.
@@ -88,12 +92,6 @@ Browse the domains Pi-hole® blocked recently (from your Mac or all clients), an
 <p align="center">
   <img width="400" height="316" src="Assets/recently-blocked.png"/>
 </p>
-
-### Gravity update
-
-Keep Pi-hole's blocklists fresh without opening the web admin interface: trigger a **gravity update** right from the menu bar, on **all your servers simultaneously**. It's available from the main menu or via a global keyboard shortcut you can set in Settings. The menu shows when gravity was last updated, and you get a notification when the run finishes.
-
-Gravity updates can only be triggered for Pi-hole® **v6** instances — the v5 API doesn't expose it. For v5-only setups, Holeberry still shows the last-update time, but you'll need the web interface to run the update.
 
 
 ## What's next?

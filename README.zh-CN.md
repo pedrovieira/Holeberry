@@ -80,15 +80,17 @@ Holeberry 能检测 **WebKit（Safari、Orion）、Chrome/Chromium、Gecko（Fir
   <img width="668" height="251" alt="desktop-app-banner" src="Assets/browser-unblock.png"/>
 </p>
 
-### 最近被屏蔽的域名
+### Gravity，就在你的菜单栏里
+
+无需打开网页管理界面，就能让 Pi-hole 的屏蔽列表保持新鲜：直接在菜单栏中触发 **gravity 更新**，**同时作用于所有服务器**。既可以从主菜单点击，也可以通过「设置」中配置的全局键盘快捷键触发。
+
+### 最近被屏蔽的域名，一目了然
 
 浏览 Pi-hole® 最近屏蔽的域名（来自你的 Mac 或所有客户端），并直接在菜单中解除屏蔽或加入白名单。
 
-### Gravity 更新
-
-无需打开网页管理界面，就能让 Pi-hole 的屏蔽列表保持新鲜：直接在菜单栏中触发 **gravity 更新**，**同时作用于所有服务器**。既可以从主菜单点击，也可以通过「设置」中配置的全局键盘快捷键触发。菜单会显示 gravity 上次更新的时间，更新完成时你会收到通知。
-
-Gravity 更新仅能为 Pi-hole® **v6** 实例触发——v5 API 不提供该接口。对于仅配置 v5 实例的情况，Holeberry 仍会显示上次更新时间，但需要在网页管理界面中手动执行更新。
+<p align="center">
+  <img width="400" height="316" src="Assets/recently-blocked.png"/>
+</p>
 
 ## 未来计划
 
