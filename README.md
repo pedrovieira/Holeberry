@@ -36,11 +36,7 @@ It supports Pi-hole® **v6** and **v5** (*not fully tested*), multiple instances
 1. Download the latest `Holeberry-<version>.dmg` from the [Releases](https://github.com/pedrovieira/Holeberry/releases) page.
 2. Open the DMG and drag **Holeberry** into your `Applications` folder.
 
-**Note on macOS Gatekeeper:** Holeberry is built with a free Apple ID, so the app is not notarized with a paid Apple Developer account. macOS may therefore flag it as an unidentified developer or quarantine it on first launch. If you see that warning, remove the quarantine flag and launch again:
-
-```bash
-xattr -cr /Applications/Holeberry.app
-```
+Holeberry is signed with a Developer ID and fully notarized by Apple.
 
 ## Requirements
 
