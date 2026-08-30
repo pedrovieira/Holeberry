@@ -3,6 +3,14 @@
     <channel>
         <title>Holeberry</title>
         <item>
+            <title>1.1.0</title>
+            <pubDate>Sun, 30 Aug 2026 18:35:56 +0000</pubDate>
+            <sparkle:version>1.1.0</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/pedrovieira/Holeberry/releases/download/v1.1.0/Holeberry-1.1.0.dmg" length="7170291" type="application/octet-stream" sparkle:edSignature="Y9WKGOg3slCp1WqcIHYHRQcf86ejeZNjvbg1z7g2PDuwxCQNUnhMz5oSdnutk/Wxn3yAYjLpCcFBW5BZkjlcCA=="/>
+        </item>
+        <item>
             <title>1.0.2</title>
             <pubDate>Sun, 16 Aug 2026 22:20:23 +0000</pubDate>
             <sparkle:version>1.0.2</sparkle:version>
