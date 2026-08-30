@@ -86,7 +86,7 @@ Unblocking a single domain beats a global disable: the page loads while the rest
 Browse the domains Pi-hole® blocked recently (from your Mac or all clients), and unblock or allowlist any of them straight from the menu.
 
 <p align="center">
-  <img width="579" height="458" src="Assets/recently-blocked.png"/>
+  <img width="400" height="316" src="Assets/recently-blocked.png"/>
 </p>
 
 ### Gravity update
