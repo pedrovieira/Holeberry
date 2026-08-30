@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var unblockEndedNotifier: UnblockEndedNotifier?
   private var notificationCoordinator: NotificationCoordinator?
   private var notificationServerCancellable: AnyCancellable?
-  private var updateManager: UpdateManager?
+  private var updaterController: SPUStandardUpdaterController?
   private var settingsWindowController: SettingsWindowController?
 
   // MARK: - Composition Root (lazy var dependency graph)
@@ -101,13 +101,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self?.requestNotificationAuthorizationIfNeeded()
       }
 
-    // Start Sparkle updater
-    let updaterManager = UpdateManager()
-    self.updateManager = updaterManager
+    // Start Sparkle updater with the standard UI: update window with
+    // release notes in the center, in-line download, "Install Update" /
+    // "Not Now" buttons.
+    let updaterController = SPUStandardUpdaterController(
+      startingUpdater: true,
+      updaterDelegate: nil,
+      userDriverDelegate: nil
+    )
+    updaterController.updater.automaticallyChecksForUpdates = true
+    updaterController.updater.automaticallyDownloadsUpdates = false
+    self.updaterController = updaterController
 
     let settingsWindowController = SettingsWindowController(
       serverManager: serverManager,
-      updater: updaterManager.updater,
+      updater: updaterController.updater,
       discoveryService: discoveryService,
       statusPoller: statusPoller,
       notificationCoordinator: notificationCoordinator
@@ -123,7 +131,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       statusMonitor: statusPoller,
       browserTabCoordinator: browserTabCoordinator,
       localIPAddressResolver: localIPResolver,
-      updater: updaterManager.updater,
+      updater: updaterController.updater,
       notificationCoordinator: notificationCoordinator,
       settingsWindowController: settingsWindowController
     )

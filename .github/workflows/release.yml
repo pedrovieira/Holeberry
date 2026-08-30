@@ -16,8 +16,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  # ---------------------------------------------------------------- build ---
+  # Produces the signed/notarized DMG and the appcast; the only externally
+  # visible result is a DRAFT release (write-access only). Nothing touches
+  # main and no update is offered to Sparkle clients before the gated
+  # `publish` job below runs.
+  build:
     runs-on: macos-latest
+    outputs:
+      dmg_sha256: ${{ steps.dmg_notarized.outputs.dmg_sha256 }}
 
     steps:
       - name: Checkout
@@ -237,6 +244,7 @@ jobs:
           echo "dmg_name=$DMG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Notarize DMG
+        id: dmg_notarized
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
@@ -262,6 +270,11 @@ jobs:
           fi
           xcrun stapler staple "${{ steps.dmg.outputs.dmg_path }}"
           xcrun stapler validate "${{ steps.dmg.outputs.dmg_path }}"
+          # Stapling modifies the DMG, so the checksum (and the appcast
+          # edSignature over it) is computed only now, after the ticket lands.
+          DMG_SHA256=$(shasum -a 256 "${{ steps.dmg.outputs.dmg_path }}" | cut -d' ' -f1)
+          echo "dmg_sha256=$DMG_SHA256" >> "$GITHUB_OUTPUT"
+          echo "::notice::DMG sha256: $DMG_SHA256"
 
       - name: Clone Sparkle (matching pinned version)
         run: |
@@ -318,9 +331,118 @@ jobs:
               -o Updates/appcast.xml \
               Updates/
 
+      # Review surface: the exact appcast that will ship, before approving.
+      - name: Preview appcast diff
+        run: |
+          set -euo pipefail
+          {
+            echo "### Appcast diff for ${{ github.ref_name }}"
+            echo
+            echo '```diff'
+            # Intent-to-add so a (hypothetically) untracked file still diffs.
+            git add -N Updates/appcast.xml 2>/dev/null || true
+            git diff -- Updates/appcast.xml || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Draft only: nothing is public until the gated `publish` job flips it.
+      # draft: true must stay UNCONDITIONAL — softprops/action-gh-release
+      # publishes an existing draft when the input is omitted on a re-run
+      # (see its README: "omit it to publish after upload").
+      # make_latest is intentionally absent: drafts cannot be set as latest.
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ steps.dmg.outputs.dmg_path }}
+          # GitHub generates notes server-side (PRs + contributors); no local
+          # tag math, so it survives rewritten tags.
+          generate_release_notes: true
+          draft: true
+
+      # Pre-publish gate: prove the asset users will eventually download is
+      # byte-identical (and still stapled) before publish approval is even
+      # possible. Runs against the draft, which is write-access-only.
+      - name: Verify draft DMG asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DMG_NAME="${{ steps.dmg.outputs.dmg_name }}"
+          ASSET_URL=$(gh api "repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" \
+            --jq ".assets[] | select(.name == \"$DMG_NAME\") | .url")
+          if [ -z "$ASSET_URL" ]; then
+            echo "::error::$DMG_NAME not found in draft release ${{ github.ref_name }}"
+            exit 1
+          fi
+          gh api -H "Accept: application/octet-stream" "$ASSET_URL" -o "/tmp/draft-$DMG_NAME"
+          ACTUAL=$(shasum -a 256 "/tmp/draft-$DMG_NAME" | cut -d' ' -f1)
+          EXPECTED="${{ steps.dmg_notarized.outputs.dmg_sha256 }}"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Draft asset checksum mismatch: got $ACTUAL, expected $EXPECTED"
+            exit 1
+          fi
+          xcrun stapler validate "/tmp/draft-$DMG_NAME"
+          echo "::notice::Draft DMG verified (sha256 $ACTUAL)"
+
+      # appcast.xml is public-at-publish content, so a short-lived artifact is
+      # fine; the DMG itself stays only in the draft (workflow artifacts on a
+      # public repo are downloadable by any signed-in user).
+      - name: Upload appcast artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appcast
+          path: Updates/appcast.xml
+          retention-days: 5
+
+      # Tear down signing material even when an earlier step failed (the runner
+      # is ephemeral, but never leave the decoded private key behind).
+      - name: Clean up signing credentials
+        if: always()
+        run: |
+          rm -f /tmp/holeberry-cert.p12 /tmp/holeberry-apple-api-key.p8 /tmp/holeberry-app.zip
+          security delete-keychain build.keychain-db 2>/dev/null || true
+          echo "::notice::Signing material cleaned up"
+
+  # ------------------------------------------------------------- publish ---
+  # Point of no return. Gated on the `release` environment's required
+  # reviewers: the appcast the build job generated (and you reviewed in the
+  # step summary) is committed to main, attached to the release, and only
+  # then is the draft published as latest.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Switch to latest main
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B main origin/main
+
+      - name: Download appcast artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: appcast
+          path: Updates
+
+      - name: Guard against non-tag triggers
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_NAME}" != v* ]]; then
+            echo "::error::publish must only run from a v* tag push (got ${GITHUB_REF_NAME})"
+            exit 1
+          fi
+
       # Commit the appcast to main with the owner PAT (RELEASE_PAT): the branch
       # ruleset only allows pushes from the owner, so the Actions bot cannot
-      # push. It is also still attached to the release below so that existing
+      # push. It is also attached to the release below so that existing
       # installs (whose Info.plist points at the /releases/latest/download URL)
       # keep receiving update checks during the transition to the raw URL.
       - name: Commit appcast to main
@@ -347,22 +469,80 @@ jobs:
             echo "::notice::appcast.xml unchanged, nothing to commit"
           fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            ${{ steps.dmg.outputs.dmg_path }}
-            Updates/appcast.xml
-          # GitHub generates notes server-side (PRs + contributors); no local
-          # tag math, so it survives rewritten tags.
-          generate_release_notes: true
-          make_latest: true
-
-      # Tear down signing material even when an earlier step failed (the runner
-      # is ephemeral, but never leave the decoded private key behind).
-      - name: Clean up signing credentials
-        if: always()
+      - name: Attach appcast and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          rm -f /tmp/holeberry-cert.p12 /tmp/holeberry-apple-api-key.p8 /tmp/holeberry-app.zip
-          security delete-keychain build.keychain-db 2>/dev/null || true
-          echo "::notice::Signing material cleaned up"
+          gh release upload "${{ github.ref_name }}" Updates/appcast.xml --clobber
+          gh release edit "${{ github.ref_name }}" --draft=false --latest
+
+  # --------------------------------------------------------------- verify ---
+  # Post-publish audit: proves what users actually download/poll matches what
+  # was built and reviewed. It cannot stop a bad release (publish already ran),
+  # so treat it as detection + audit trail — recovery is manual (draft-stage
+  # problems are re-tagged freely; published problems mean a version bump).
+  verify:
+    needs: [build, publish]
+    runs-on: macos-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download appcast artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: appcast
+          path: Updates
+
+      - name: Download published DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/published
+          mkdir -p /tmp/published
+          gh release download "${{ github.ref_name }}" --pattern 'Holeberry-*.dmg' --dir /tmp/published --clobber
+
+      - name: Verify published DMG
+        run: |
+          set -euo pipefail
+          PUBLISHED_DMG=$(ls /tmp/published/Holeberry-*.dmg)
+          ACTUAL=$(shasum -a 256 "$PUBLISHED_DMG" | cut -d' ' -f1)
+          EXPECTED="${{ needs.build.outputs.dmg_sha256 }}"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Published DMG checksum mismatch: got $ACTUAL, expected $EXPECTED"
+            exit 1
+          fi
+          xcrun stapler validate "$PUBLISHED_DMG"
+          echo "::notice::Published DMG verified (sha256 $ACTUAL)"
+
+      - name: Verify appcast on main and as release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # What Sparkle clients actually poll (raw main) must be byte-identical
+          # to the generated, reviewed appcast.
+          curl -fsSL "https://raw.githubusercontent.com/${{ github.repository }}/main/Updates/appcast.xml" -o /tmp/remote-appcast.xml
+          if ! diff -u Updates/appcast.xml /tmp/remote-appcast.xml >/dev/null; then
+            echo "::error::appcast.xml on main differs from the generated one"
+            exit 1
+          fi
+          # Legacy feed URL (/releases/latest/download) fallback asset.
+          rm -rf /tmp/release-assets
+          mkdir -p /tmp/release-assets
+          gh release download "${{ github.ref_name }}" --pattern appcast.xml --dir /tmp/release-assets --clobber
+          if ! diff -u Updates/appcast.xml /tmp/release-assets/appcast.xml >/dev/null; then
+            echo "::error::appcast.xml release asset differs from the generated one"
+            exit 1
+          fi
+          # The release must truly be published (not left in draft).
+          gh api "repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" --jq \
+            'if .draft then error("release is still a draft") else "published" end'
+          echo "::notice::appcast verified on main and as release asset; release is published"

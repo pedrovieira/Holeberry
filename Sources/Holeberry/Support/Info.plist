@@ -34,5 +34,7 @@
 	<string>https://raw.githubusercontent.com/pedrovieira/Holeberry/main/Updates/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM=</string>
+	<key>SUShowReleaseNotes</key>
+	<false/>
 </dict>
 </plist>

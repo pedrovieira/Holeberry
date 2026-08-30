@@ -43,6 +43,10 @@ targets:
         SUEnableInstallerLauncherService: true
         SUFeedURL: "https://raw.githubusercontent.com/pedrovieira/Holeberry/main/Updates/appcast.xml"
         SUPublicEDKey: "xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM="
+        # Keep the update window minimal (no release-notes text view); notes
+        # live on the GitHub release page. Sparkle would otherwise show the
+        # notes box whenever an item has a description or a releaseNotesLink.
+        SUShowReleaseNotes: false
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Support/Holeberry.entitlements
