@@ -38,6 +38,11 @@ extension Defaults.Keys {
     Defaults.Key<Bool>("showPerInstanceStats", default: true, suite: suite)
   }
 
+  /// Whether the main menu shows the Gravity update item (on by default).
+  public static func showGravityMenuItem(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("showGravityMenuItem", default: true, suite: suite)
+  }
+
   /// Whether to notify when a temporary unblock ends on its own (on by default).
   /// Never fires when the user re-enables blocking manually.
   public static func notifyWhenUnblockEnds(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
@@ -49,6 +54,12 @@ extension Defaults.Keys {
   /// Blocked menu and the browser tab.
   public static func notifyWhenDomainUnblockEnds(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
     Defaults.Key<Bool>("notifyWhenDomainUnblockEnds", default: true, suite: suite)
+  }
+
+  /// Whether to notify when an in-app gravity update completes (on by default).
+  /// Failure notifications are always shown.
+  public static func notifyGravityUpdateCompleted(suite: UserDefaults = .standard) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("notifyGravityUpdateCompleted", default: true, suite: suite)
   }
 
   /// Ordered list of numeric unblock durations shown in the duration menus.

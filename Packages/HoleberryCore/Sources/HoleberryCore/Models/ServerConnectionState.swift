@@ -22,6 +22,7 @@ public enum AuthFailureReason: Equatable, Sendable {
 public enum ServerCheckFailure: Equatable, Sendable {
   case auth(AuthFailureReason)
   case unreachable
+  case unsupported
 
   public static func classify(_ error: PiholeError) -> ServerCheckFailure {
     switch error {
@@ -40,6 +41,8 @@ public enum ServerCheckFailure: Equatable, Sendable {
       return .auth(.rateLimited)
     case .sessionLimitReached:
       return .auth(.sessionLimitReached)
+    case .unsupported:
+      return .unsupported
     case .network, .tlsUntrusted, .duplicateDomain, .decoding, .unknown:
       return .unreachable
     case .server:

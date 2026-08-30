@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import HoleberryCore
 import OSLog
 import Sparkle
@@ -27,6 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var shortcutController: ShortcutController?
   private var unblockEndedNotifier: UnblockEndedNotifier?
   private var notificationCoordinator: NotificationCoordinator?
+  private var notificationServerCancellable: AnyCancellable?
   private var updateManager: UpdateManager?
   private var settingsWindowController: SettingsWindowController?
 
@@ -47,10 +49,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   )
   private lazy var localIPResolver = LocalIPAddressResolver()
   private lazy var dnsServerResolver = EffectiveDNSServerResolver()
+  private lazy var pollScheduler = TaskPollScheduler()
+  private lazy var gravityUpdater = LiveGravityUpdater(manager: serverManager)
   private lazy var statusPoller = ServerStatusPoller(
     manager: serverManager,
     networkInterface: localIPResolver,
-    timerManager: timerManager
+    pollingInterval: 30,
+    scheduler: pollScheduler,
+    timerManager: timerManager,
+    gravityUpdater: gravityUpdater
   )
   private lazy var reachability = ReachabilityMonitor()
   private lazy var timerManager = TimerManager()
@@ -83,7 +90,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       self?.settingsWindowController?.showWindow()
     }
     self.notificationCoordinator = notificationCoordinator
-    notificationCoordinator.requestAuthorizationIfNeeded()
+    requestNotificationAuthorizationIfNeeded()
+
+    // A fresh prompt once the first server is added; authorization is asked
+    // only while .notDetermined.
+    notificationServerCancellable = serverManager.serversPublisher
+      .dropFirst()
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.requestNotificationAuthorizationIfNeeded()
+      }
 
     // Start Sparkle updater
     let updaterManager = UpdateManager()
@@ -122,6 +138,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       serverManager: serverManager,
       notificationCoordinator: notificationCoordinator
     )
+  }
+
+  /// Asks for notification permission once a server is configured; the
+  /// coordinator itself doesn't know about servers.
+  private func requestNotificationAuthorizationIfNeeded() {
+    guard !serverManager.servers.isEmpty else { return }
+    notificationCoordinator?.requestAuthorizationIfNeeded()
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

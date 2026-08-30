@@ -13,7 +13,7 @@ private let statusAmber = NSColor(calibratedRed: 1.0, green: 0.624, blue: 0.039,
 /// No dependencies on `PiholeServerManager`, `TimerManager`, or `SPUUpdater`.
 @MainActor
 struct MenuBuilder {
-  // swiftlint:disable:next function_parameter_count
+  // swiftlint:disable:next function_parameter_count function_body_length
   func buildMenu(
     actions: MenuActions,
     isTimerDisabled: Bool,
@@ -25,6 +25,7 @@ struct MenuBuilder {
     isConnected: Bool,
     connectionStatuses: [UUID: ConnectionStatus],
     blockingStatuses: [UUID: BlockingStatus],
+    gravityState: GravityMenuState,
     querySummaries: [UUID: QuerySummary],
     servers: [ServerConfig],
     browserTabStatus: ResolvedBrowserTab,
@@ -86,6 +87,14 @@ struct MenuBuilder {
       durations: durations,
       isConnected: isConnected,
       hasHealthyInstance: hasHealthyInstance,
+      target: target
+    )
+    addGravitySection(
+      to: menu,
+      servers: servers,
+      connectionStatuses: connectionStatuses,
+      querySummaries: querySummaries,
+      gravityState: gravityState,
       target: target
     )
     menu.addItem(.separator())
@@ -289,6 +298,128 @@ struct MenuBuilder {
       menuItem.isEnabled = isConnected && hasServers && hasHealthyInstance
       menu.addItem(menuItem)
     }
+  }
+
+  // MARK: - Gravity section
+
+  // swiftlint:disable:next function_parameter_count
+  private func addGravitySection(
+    to menu: NSMenu,
+    servers: [ServerConfig],
+    connectionStatuses: [UUID: ConnectionStatus],
+    querySummaries: [UUID: QuerySummary],
+    gravityState: GravityMenuState,
+    target: MenuActionTarget
+  ) {
+    let v6Servers = servers.filter { $0.version == .v6 }
+    guard !v6Servers.isEmpty else { return }
+
+    switch gravityState {
+    case .hidden:
+      return
+
+    case .updating:
+      menu.addItem(.separator())
+      menu.addItem(makeGravityUpdatingItem())
+
+    case .ready(let completedAt):
+      menu.addItem(.separator())
+
+      let connectedV6 = v6Servers.filter { connectionStatuses[$0.id] == .connected }
+      let hasConnectedV6 = !connectedV6.isEmpty
+      // Show the stalest server: the oldest "last updated" date = the max age.
+      // Pi-hole stamps `last_update` mid-run, so it lags the actual completion.
+      // Clamp to the app-observed completion time when it's newer.
+      let maxAge =
+        connectedV6
+        .compactMap { server -> Date? in
+          guard let serverDate = querySummaries[server.id]?.gravityLastUpdated else { return nil }
+          guard let appCompletedAt = completedAt[server.id] else { return serverDate }
+          return max(serverDate, appCompletedAt)
+        }
+        .min()
+
+      let item = NSMenuItem(
+        title: "Update Gravity",
+        action: #selector(MenuActionTarget.triggerGravityUpdate),
+        keyEquivalent: ""
+      )
+      item.target = target
+      item.isEnabled = hasConnectedV6
+      item.setAccessibilityLabel("Update gravity filter lists")
+      if let maxAge {
+        item.attributedTitle = gravityAttributedTitle(maxAge: maxAge, showAtMost: connectedV6.count > 1)
+      }
+      menu.addItem(item)
+    }
+  }
+
+  /// Disabled row with a spinner while a gravity update is in flight.
+  private func makeGravityUpdatingItem() -> NSMenuItem {
+    let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    item.isEnabled = false
+    item.setAccessibilityLabel("Updating gravity")
+
+    // Match AppKit's menu columns: item images start at x=18, titles at x=37.5.
+    // (Measured on macOS 26; older systems can differ a little.)
+    let view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+    let spinner = NSProgressIndicator()
+    spinner.style = .spinning
+    spinner.controlSize = .small
+    spinner.isDisplayedWhenStopped = false
+    spinner.usesThreadedAnimation = true
+    spinner.startAnimation(nil)
+
+    let label = NSTextField(labelWithString: "Updating gravity…")
+    label.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+    label.textColor = .disabledControlTextColor
+
+    for subview in [spinner, label] {
+      subview.translatesAutoresizingMaskIntoConstraints = false
+      view.addSubview(subview)
+    }
+    NSLayoutConstraint.activate([
+      spinner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
+      spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+      spinner.widthAnchor.constraint(equalToConstant: 16),
+      spinner.heightAnchor.constraint(equalToConstant: 16),
+      label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 37.5),
+      label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -6),
+      label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+    ])
+    item.view = view
+    return item
+  }
+
+  /// "Update Gravity" over "Gravity updated <relative> ago"; "at most" for
+  /// several servers, never for "a few moments ago".
+  private func gravityAttributedTitle(maxAge: Date, showAtMost: Bool) -> NSAttributedString {
+    // Fresh timestamps use the fixed wording until the next poll lands.
+    let isMomentsAgo = Date().timeIntervalSince(maxAge) < 60
+    let relative = isMomentsAgo ? "a few moments ago" : MenuItemFactory.relativeTimestamp(since: maxAge)
+    let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
+
+    let result = NSMutableAttributedString()
+    result.append(
+      NSAttributedString(
+        string: "Update Gravity",
+        attributes: [
+          .font: NSFont.systemFont(ofSize: NSFont.systemFontSize),
+          .foregroundColor: NSColor.labelColor
+        ]
+      )
+    )
+    result.append(NSAttributedString(string: "\n"))
+    result.append(
+      NSAttributedString(
+        string: "Updated \(prefix)\(relative)",
+        attributes: [
+          .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+          .foregroundColor: NSColor.secondaryLabelColor
+        ]
+      )
+    )
+    return result
   }
 
   private func addDisableDurationItem(

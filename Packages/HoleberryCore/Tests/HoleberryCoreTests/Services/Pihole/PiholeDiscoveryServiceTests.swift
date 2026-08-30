@@ -107,12 +107,12 @@ struct PiholeDiscoveryServiceScanTests {
     mockSession.handlers = unreachableHandlers()
 
     let task1 = Task { await service.scan() }
-    try? await Task.sleep(for: .milliseconds(50))
+    try? await Task.sleep(nanoseconds: UInt64(50 * 1_000_000))
 
     let scanningDuring = service.isScanning
 
     let task2 = Task { await service.scan() }
-    try? await Task.sleep(for: .milliseconds(50))
+    try? await Task.sleep(nanoseconds: UInt64(50 * 1_000_000))
 
     await task1.value
     await task2.value

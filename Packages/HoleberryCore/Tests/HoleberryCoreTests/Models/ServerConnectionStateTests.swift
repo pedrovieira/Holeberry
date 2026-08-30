@@ -35,6 +35,14 @@ struct ServerCheckFailureTests {
     #expect(ServerCheckFailure.classify(.unknown("weird")) == .unreachable)
     #expect(ServerCheckFailure.classify(.duplicateDomain) == .unreachable)
   }
+
+  @Test("unsupported is its own classification, not unreachable")
+  func unsupportedIsDistinct() {
+    #expect(
+      ServerCheckFailure.classify(.unsupported("Gravity updates via API are not supported by Pi-hole v5"))
+        == .unsupported
+    )
+  }
 }
 
 @Suite("ServerConnectionState")

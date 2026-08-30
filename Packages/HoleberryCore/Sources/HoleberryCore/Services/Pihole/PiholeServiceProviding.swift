@@ -3,6 +3,13 @@ import Foundation
 public struct QuerySummary: Sendable {
   public let totalQueries: Int
   public let totalBlocked: Int
+  public let gravityLastUpdated: Date?
+
+  public init(totalQueries: Int, totalBlocked: Int, gravityLastUpdated: Date? = nil) {
+    self.totalQueries = totalQueries
+    self.totalBlocked = totalBlocked
+    self.gravityLastUpdated = gravityLastUpdated
+  }
 }
 
 /// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
@@ -28,6 +35,11 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
   func getQuerySummary() async throws -> QuerySummary
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws
   func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain]
+
+  // MARK: - Gravity
+
+  /// Triggers a gravity (filter list) update
+  func updateGravity() async throws
 
   // MARK: - Session
 

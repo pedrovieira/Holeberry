@@ -9,6 +9,7 @@ extension KeyboardShortcuts.Name {
   static let disableCustom = Self("disableCustom")
   static let reEnableBlocking = Self("reEnableBlocking")
   static let unblockCurrentTab = Self("unblockCurrentTab")
+  static let updateGravity = Self("updateGravity")
 
   /// The shortcut name bound to a stored duration entry.
   ///

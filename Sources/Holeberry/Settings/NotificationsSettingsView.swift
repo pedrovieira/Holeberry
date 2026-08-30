@@ -6,6 +6,7 @@ import SwiftUI
 struct NotificationsSettingsView: View {
   @Default var notifyWhenUnblockEnds: Bool
   @Default var notifyWhenDomainUnblockEnds: Bool
+  @Default var notifyGravityUpdateCompleted: Bool
 
   @State private var permissionStatus: NotificationPermissionStatus?
 
@@ -17,6 +18,7 @@ struct NotificationsSettingsView: View {
   ) {
     _notifyWhenUnblockEnds = .init(.notifyWhenUnblockEnds(suite: defaultsSuite))
     _notifyWhenDomainUnblockEnds = .init(.notifyWhenDomainUnblockEnds(suite: defaultsSuite))
+    _notifyGravityUpdateCompleted = .init(.notifyGravityUpdateCompleted(suite: defaultsSuite))
     self.notificationCoordinator = notificationCoordinator
   }
 
@@ -31,6 +33,7 @@ struct NotificationsSettingsView: View {
       Section("Notifications") {
         Toggle("Notify when an unblock timer ends", isOn: $notifyWhenUnblockEnds)
         Toggle("Notify when a domain unblock timer ends", isOn: $notifyWhenDomainUnblockEnds)
+        Toggle("Notify when an in-app gravity update completes", isOn: $notifyGravityUpdateCompleted)
       }
     }
     .task {

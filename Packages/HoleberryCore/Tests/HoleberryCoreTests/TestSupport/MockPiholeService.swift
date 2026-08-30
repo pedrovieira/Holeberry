@@ -29,6 +29,9 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var getQuerySummaryStub: Result<QuerySummary, any Error> = .success(QuerySummary(totalQueries: 0, totalBlocked: 0))
   private(set) var getQuerySummaryCallCount = 0
 
+  var updateGravityStub: Result<Void, any Error> = .success(())
+  private(set) var updateGravityCallCount = 0
+
   var addDomainStub: Result<DomainEntry, any Error> = .success(
     DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil))
   private(set) var addDomainCallCount = 0
@@ -71,6 +74,11 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   func getQuerySummary() async throws -> QuerySummary {
     getQuerySummaryCallCount += 1
     return try getQuerySummaryStub.get()
+  }
+
+  func updateGravity() async throws {
+    updateGravityCallCount += 1
+    try updateGravityStub.get()
   }
 
   func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {

@@ -118,7 +118,28 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding("Unexpected summary format: \(body)")
     }
 
-    return QuerySummary(totalQueries: totalQueries, totalBlocked: totalBlocked)
+    let gravityLastUpdated: Date?
+    if let gravity = response.gravityLastUpdated,
+      gravity.fileExists,
+      let absolute = gravity.absolute
+    {
+      gravityLastUpdated = Date(timeIntervalSince1970: absolute)
+    } else {
+      gravityLastUpdated = nil
+    }
+
+    return QuerySummary(
+      totalQueries: totalQueries,
+      totalBlocked: totalBlocked,
+      gravityLastUpdated: gravityLastUpdated
+    )
+  }
+
+  public func updateGravity() async throws {
+    // v5 has no token-authenticated gravity trigger (the web UI's internal
+    // script requires a PHP session cookie). Supported automation is
+    // server-side only (cron / `pihole -g`).
+    throw PiholeError.unsupported("Gravity updates via API are not supported by Pi-hole v5")
   }
 
   public func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
@@ -285,10 +306,22 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
 private struct V5SummaryResponse: Decodable {
   let dnsQueriesToday: Double
   let adsBlockedToday: Double
+  let gravityLastUpdated: V5GravityLastUpdated?
 
   enum CodingKeys: String, CodingKey {
     case dnsQueriesToday = "dns_queries_today"
     case adsBlockedToday = "ads_blocked_today"
+    case gravityLastUpdated = "gravity_last_updated"
+  }
+}
+
+private struct V5GravityLastUpdated: Decodable {
+  let fileExists: Bool
+  let absolute: Double?
+
+  enum CodingKeys: String, CodingKey {
+    case fileExists = "file_exists"
+    case absolute
   }
 }
 

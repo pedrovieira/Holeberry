@@ -483,6 +483,36 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
+  /// Triggers a gravity update on all servers; unsupported ones are skipped.
+  public func updateGravity() async -> [UUID: Result<Void, PiholeError>] {
+    let svcs = services
+    return await withTaskGroup(of: (UUID, Result<Void, PiholeError>).self) { group in
+      for config in servers {
+        let svc = svcs[config.id]
+        let id = config.id
+        group.addTask {
+          guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
+          do {
+            try await svc.updateGravity()
+            return (id, .success(()))
+          } catch {
+            let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
+            return (id, .failure(piholeError))
+          }
+        }
+      }
+      var results: [UUID: Result<Void, PiholeError>] = [:]
+      for await (id, result) in group {
+        // Skip servers whose API reports gravity updates as unsupported.
+        if case .failure(PiholeError.unsupported) = result {
+          continue
+        }
+        results[id] = result
+      }
+      return results
+    }
+  }
+
   // MARK: - Multi-server workflows
 
   public func unblock(domain: String, duration: TimeInterval) async throws {

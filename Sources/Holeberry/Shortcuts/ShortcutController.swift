@@ -74,6 +74,9 @@ final class ShortcutController {
         }
       }
     }
+    KeyboardShortcuts.onKeyDown(for: .updateGravity) { [weak self] in
+      Task { await self?.triggerGravityUpdate() }
+    }
 
     registerDurationShortcuts()
 
@@ -197,6 +200,21 @@ final class ShortcutController {
 
     guard let duration = seconds else { return }
     await unblockOnAllServers(domain: domain, duration: duration)
+  }
+
+  // MARK: - Gravity
+
+  private func triggerGravityUpdate() async {
+    // No-op without a connected v6 instance or while an update is in flight.
+    let hasConnectedV6 = serverManager.servers.contains {
+      $0.version == .v6 && statusMonitor.connectionStatuses[$0.id] == .connected
+    }
+    guard hasConnectedV6, !statusMonitor.isGravityUpdating else { return }
+
+    let outcomes = await statusMonitor.applyGravityUpdate()
+    notificationCoordinator.scheduleGravityOutcomeNotifications(outcomes) { [serverManager] id in
+      serverManager.servers.first { $0.id == id }?.label
+    }
   }
 
   // MARK: - Error Notification

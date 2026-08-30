@@ -85,12 +85,23 @@ final class MenuBarController: NSObject {
   }
 
 
+  // swiftlint:disable:next function_body_length
   @objc private func handleClick() {
     // Refresh data in the background for next time, but show the menu now with cached data
     statusMonitor.pollNow()
 
     let browserTabStatus = browserTabCoordinator.resolve()
     let browserIcon = browserTabStatus.browser.flatMap { resolveBrowserIcon(for: $0) }
+
+    let gravityState: GravityMenuState
+    if !Defaults[.showGravityMenuItem(suite: defaultsSuite)] {
+      gravityState = .hidden
+    } else if statusMonitor.isGravityUpdating {
+      gravityState = .updating
+    } else {
+      gravityState = .ready(completedAt: statusMonitor.gravityCompletedAt)
+    }
+
     let menu = menuBuilder.buildMenu(
       actions: MenuActions(
         openAppSettings: { [settingsWindowController] in settingsWindowController.showWindow() },
@@ -104,6 +115,12 @@ final class MenuBarController: NSObject {
         reEnableBlocking: { [statusMonitor] in
           Task {
             await statusMonitor.applyBlockingChange(enabled: true, duration: nil)
+          }
+        },
+        triggerGravityUpdate: { [weak self, statusMonitor] in
+          Task {
+            let outcomes = await statusMonitor.applyGravityUpdate()
+            self?.handleGravityOutcomes(outcomes)
           }
         },
         disableURL: { [weak self] domain, duration in
@@ -130,6 +147,7 @@ final class MenuBarController: NSObject {
       isConnected: reachability.isConnected,
       connectionStatuses: statusMonitor.connectionStatuses,
       blockingStatuses: statusMonitor.blockingStatuses,
+      gravityState: gravityState,
       querySummaries: statusMonitor.querySummaries,
       servers: serverManager.servers,
       browserTabStatus: browserTabStatus,
@@ -258,6 +276,14 @@ final class MenuBarController: NSObject {
           .unblockFailed(domain: domain, error: error.localizedDescription)
         )
       }
+    }
+  }
+
+  // MARK: - Gravity
+
+  private func handleGravityOutcomes(_ outcomes: [UUID: GravityUpdateOutcome]) {
+    notificationCoordinator.scheduleGravityOutcomeNotifications(outcomes) { [serverManager] id in
+      serverManager.servers.first { $0.id == id }?.label
     }
   }
 

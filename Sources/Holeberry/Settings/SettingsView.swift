@@ -33,6 +33,7 @@ struct SettingsView: View {
   @Default var browserTabUnblockEnabled: Bool
   @Default var showAllClientsRecentBlocked: Bool
   @Default var showPerInstanceStats: Bool
+  @Default var showGravityMenuItem: Bool
   @Default var durations: [UnblockDurationEntry]
   @Default var unblockCurrentTabDuration: UnblockCurrentTabDurationSelection
 
@@ -69,6 +70,7 @@ struct SettingsView: View {
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
     _showPerInstanceStats = .init(.showPerInstanceStats(suite: defaultsSuite))
+    _showGravityMenuItem = .init(.showGravityMenuItem(suite: defaultsSuite))
     _durations = .init(.unblockDurations(suite: defaultsSuite))
     _unblockCurrentTabDuration = .init(.unblockCurrentTabDuration(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
@@ -204,6 +206,17 @@ struct SettingsView: View {
 
     BrowserTabSettingsView(isEnabled: $browserTabUnblockEnabled)
 
+    Section("Gravity") {
+      VStack(alignment: .leading) {
+        Toggle("Show \"Update Gravity\" in main menu", isOn: $showGravityMenuItem)
+
+        Text("The Update Gravity shortcut still works when this is off.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+
     Section("Recently Blocked") {
       VStack(alignment: .leading) {
         Toggle("Show recently blocked for all clients", isOn: $showAllClientsRecentBlocked)
@@ -242,6 +255,8 @@ struct SettingsView: View {
             .padding(.top, 5)
         }
       }
+
+      KeyboardShortcuts.Recorder("Update Gravity:", name: .updateGravity)
     } header: {
       Text("Global Shortcuts")
       Text(

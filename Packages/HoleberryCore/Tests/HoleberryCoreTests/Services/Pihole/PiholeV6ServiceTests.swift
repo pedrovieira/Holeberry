@@ -204,13 +204,32 @@ final class PiholeV6ServiceTests {
         #expect(request.url?.path == "/api/stats/summary")
         #expect(request.httpMethod == "GET")
         let response = try #require(v6Response())
-        let data = Data(#"{"queries":{"total":5000,"blocked":250,"cached":1000,"forwarded":3750}}"#.utf8)
+        let data = Data(
+          #"{"queries":{"total":5000,"blocked":250,"cached":1000,"forwarded":3750},"gravity":{"domains_being_blocked":450350,"last_update":1726223567}}"#
+            .utf8)
         return (data, response)
       }
     ]
     let summary = try await makeService().getQuerySummary()
     #expect(summary.totalQueries == 5000)
     #expect(summary.totalBlocked == 250)
+    #expect(summary.gravityLastUpdated == Date(timeIntervalSince1970: 1_726_223_567))
+  }
+
+  @Test("getQuerySummary treats zero last_update as nil")
+  func getQuerySummaryZeroLastUpdate() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/stats/summary")
+        #expect(request.httpMethod == "GET")
+        let response = try #require(v6Response())
+        let data = Data(
+          #"{"queries":{"total":1,"blocked":0},"gravity":{"domains_being_blocked":0,"last_update":0}}"#.utf8)
+        return (data, response)
+      }
+    ]
+    let summary = try await makeService().getQuerySummary()
+    #expect(summary.gravityLastUpdated == nil)
   }
 
   @Test("getQuerySummary throws on missing keys")
@@ -246,6 +265,36 @@ final class PiholeV6ServiceTests {
     ]
     await #expect(throws: PiholeError.server(500, "Error")) {
       try await makeService().getQuerySummary()
+    }
+  }
+
+  // MARK: - updateGravity
+
+  @Test("updateGravity POSTs with a long timeout")
+  func updateGravity() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/action/gravity")
+        #expect(request.httpMethod == "POST")
+        #expect(request.timeoutInterval == 900)
+        let response = try #require(v6Response())
+        return (Data("streamed output".utf8), response)
+      }
+    ]
+    try await makeService().updateGravity()
+    #expect(mockSession.requests.count == 1)
+  }
+
+  @Test("updateGravity throws on server error")
+  func updateGravityServerError() async throws {
+    mockSession.handlers = [
+      { request in
+        let response = try #require(v6Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().updateGravity()
     }
   }
 

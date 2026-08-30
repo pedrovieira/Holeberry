@@ -16,6 +16,16 @@ enum UserNotificationKind {
   /// A temporary unblock for a specific domain expired on its own.
   case domainUnblockEnded(domain: String)
 
+  /// A gravity update finished successfully on every server.
+  case gravityUpdateCompleted
+
+  /// Some servers updated, others did not; names the failed servers and the
+  /// category of their error.
+  case gravityUpdatePartiallyCompleted(failures: [(serverName: String, category: String)])
+
+  /// No server updated.
+  case gravityUpdateFailedAll
+
   /// A temporary unblock of a domain failed.
   case unblockFailed(domain: String, error: String)
 }

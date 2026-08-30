@@ -5,6 +5,8 @@ import OSLog
 
 @MainActor
 public final class ServerStatusPoller: ObservableObject {
+  // MARK: - Published state
+
   @Published public var servers: [ServerConfig] = []
   @Published public var connectionStatuses: [UUID: ConnectionStatus] = [:]
   @Published public var blockingStatuses: [UUID: BlockingStatus] = [:]
@@ -13,46 +15,60 @@ public final class ServerStatusPoller: ObservableObject {
   @Published public var recentBlocked: [BlockedDomain] = []
   @Published public var connectionStates: [UUID: ServerConnectionState] = [:]
   @Published public var checkingServerIDs: Set<UUID> = []
-  private var lastSuccessfulCheck: [UUID: Date] = [:]
-
-  private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
-  private let pollingInterval: TimeInterval
-  private let scheduler: any PollScheduler
-  private var cancellables = Set<AnyCancellable>()
-  private var isPolling = false
-
-  public let manager: any PiholeServerManaging
-  public let networkInterface: any LocalIPAddressProviding
-  private let defaultsSuite: UserDefaults
-
-  /// Owns the countdown pill (start/cancel on blocking changes) so every
-  /// caller — menu actions and shortcuts — behaves identically. The status
-  /// fetch also re-syncs it from the server's remaining time when idle.
-  private let timerManager: TimerManager
-  private let sleep: (TimeInterval) async throws -> Void
-
-  /// How long the timer-end re-check keeps polling after the countdown ends
-  /// before falling back to the scheduled poll cadence.
-  private static let unblockRecheckAttempts = 6
-  private static let unblockRecheckInterval: TimeInterval = 2
-
-  /// Bumped by every manual `applyBlockingChange`; status fetches discard their
-  /// results when it changes mid-request.
-  private var blockingChangeGeneration = 0
 
   /// Fired when a poll observes blocking flip `.disabled` → `.enabled` without
   /// a manual action (manual toggles reflect locally and never trigger this).
   /// Fires once, when the last disabled server re-enables.
   public var onBlockingRestoredAutomatically: ((Set<UUID>) -> Void)?
 
+  /// True while the gravity trigger phase runs.
+  public var isGravityUpdating: Bool { gravityUpdater.isUpdating }
+
+  /// App-observed gravity completion times, clamped into the menu's
+  /// staleness subtext (see `GravityUpdating.completedAt`).
+  public var gravityCompletedAt: [UUID: Date] { gravityUpdater.completedAt }
+
+  // MARK: - Injected dependencies
+
+  public let manager: any PiholeServerManaging
+  public let networkInterface: any LocalIPAddressProviding
+  private let defaultsSuite: UserDefaults
+  /// Owns the gravity update state machine (trigger/verify/watchdog) and the
+  /// app-observed completion times; delegating keeps blocking/polling logic
+  /// separate and makes the gravity path testable in isolation.
+  private let gravityUpdater: any GravityUpdating
+  /// Owns the countdown pill (start/cancel on blocking changes) so every
+  /// caller — menu actions and shortcuts — behaves identically. The status
+  /// fetch also re-syncs it from the server's remaining time when idle.
+  private let timerManager: TimerManager
+  private let scheduler: any PollScheduler
+  private let pollingInterval: TimeInterval
+  private let sleep: (TimeInterval) async throws -> Void
+  private let logger = Logger(subsystem: Logger.appSubsystem, category: "status-monitor")
+
+  // MARK: - Private state
+
+  private var lastSuccessfulCheck: [UUID: Date] = [:]
+  /// Bumped by every manual `applyBlockingChange`; status fetches discard their
+  /// results when it changes mid-request.
+  private var blockingChangeGeneration = 0
+  private var cancellables = Set<AnyCancellable>()
+  private var isPolling = false
+
+  /// How long the timer-end re-check keeps polling after the countdown ends
+  /// before falling back to the scheduled poll cadence.
+  private static let unblockRecheckAttempts = 6
+  private static let unblockRecheckInterval: TimeInterval = 2
+
   public init(
     manager: any PiholeServerManaging,
     networkInterface: any LocalIPAddressProviding,
-    pollingInterval: TimeInterval = 30,
+    pollingInterval: TimeInterval,
     defaultsSuite: UserDefaults = .standard,
-    scheduler: any PollScheduler = TaskPollScheduler(),
-    timerManager: TimerManager = TimerManager(),
-    sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+    scheduler: any PollScheduler,
+    timerManager: TimerManager,
+    gravityUpdater: any GravityUpdating,
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) }
   ) {
     self.manager = manager
     self.networkInterface = networkInterface
@@ -61,6 +77,7 @@ public final class ServerStatusPoller: ObservableObject {
     self.scheduler = scheduler
     self.timerManager = timerManager
     self.sleep = sleep
+    self.gravityUpdater = gravityUpdater
     self.servers = manager.servers
     self.lastSuccessfulCheck = Dictionary(
       uniqueKeysWithValues: manager.servers.map { ($0.id, Date()) }
@@ -88,6 +105,7 @@ public final class ServerStatusPoller: ObservableObject {
         self.querySummaries = self.querySummaries.filter { newIDs.contains($0.key) }
         self.connectionStates = self.connectionStates.filter { newIDs.contains($0.key) }
         self.lastSuccessfulCheck = self.lastSuccessfulCheck.filter { newIDs.contains($0.key) }
+        self.gravityUpdater.prune(keeping: newIDs)
         self.servers = newServers
         guard structuralChange, !self.isPolling else { return }
         Task { await self.performPoll() }
@@ -152,6 +170,14 @@ public final class ServerStatusPoller: ObservableObject {
     return results
   }
 
+  /// Triggers a gravity update on all servers via the injected
+  /// `gravityUpdater` and reports per-server outcomes. The funnel for gravity
+  /// updates — prefer this over calling `manager.updateGravity()` directly.
+  @discardableResult
+  public func applyGravityUpdate() async -> [UUID: GravityUpdateOutcome] {
+    await gravityUpdater.applyUpdate()
+  }
+
   /// Manual retry: one authoritative check for a single server, applied
   /// immediately (the same first-failure onset as polling). The result lets
   /// the UI relabel "Retry" → "Edit connection" on failure.
@@ -174,17 +200,24 @@ public final class ServerStatusPoller: ObservableObject {
       blockingStatuses[id] = status
       return .healthy
     case .failure(let error):
-      let state: ServerConnectionState
       switch ServerCheckFailure.classify(error) {
       case .auth(let reason):
-        state = .authError(reason: reason)
+        let state = ServerConnectionState.authError(reason: reason)
+        connectionStates[id] = state
+        connectionStatuses[id] = .disconnected
+        blockingStatuses.removeValue(forKey: id)
+        return state
       case .unreachable:
-        state = .unreachable(lastSeen: lastSuccessfulCheck[id])
+        let state = ServerConnectionState.unreachable(lastSeen: lastSuccessfulCheck[id])
+        connectionStates[id] = state
+        connectionStatuses[id] = .disconnected
+        blockingStatuses.removeValue(forKey: id)
+        return state
+      case .unsupported:
+        // The server responded, it just can't do the requested operation —
+        // not an auth or connectivity failure, so leave the row as-is.
+        return connectionStates[id] ?? .unreachable(lastSeen: lastSuccessfulCheck[id])
       }
-      connectionStates[id] = state
-      connectionStatuses[id] = .disconnected
-      blockingStatuses.removeValue(forKey: id)
-      return state
     }
   }
 
@@ -296,6 +329,10 @@ public final class ServerStatusPoller: ObservableObject {
           connectionStates[id] = .authError(reason: reason)
         case .unreachable:
           connectionStates[id] = .unreachable(lastSeen: lastSuccessfulCheck[id])
+        case .unsupported:
+          // Server responded but can't do the operation — not a connectivity
+          // or auth failure, so leave the row as-is.
+          continue
         }
         blockingStatuses.removeValue(forKey: id)
       }

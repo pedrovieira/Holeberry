@@ -22,7 +22,7 @@ struct TaskPollSchedulerTests {
   ) async throws {
     let deadline = ContinuousClock.now.advanced(by: timeout)
     while condition() == false, ContinuousClock.now < deadline {
-      try await Task.sleep(for: .milliseconds(10))
+      try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000))
     }
   }
 
@@ -84,7 +84,7 @@ struct TaskPollSchedulerTests {
     #expect(scheduler.isRunning == false)
 
     // No tick may fire after stop; wait several intervals to be sure.
-    try await Task.sleep(for: .milliseconds(200))
+    try await Task.sleep(nanoseconds: UInt64(200 * 1_000_000))
     #expect(tickCount == stoppedCount)
   }
 
@@ -99,7 +99,7 @@ struct TaskPollSchedulerTests {
     scheduler.start(interval: 0.05) { tickCount += 1 }
     scheduler.start(interval: 5.0) { tickCount += 1 }
 
-    try await Task.sleep(for: .milliseconds(200))
+    try await Task.sleep(nanoseconds: UInt64(200 * 1_000_000))
     #expect(tickCount == 1)
   }
 }

@@ -172,12 +172,32 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding("Unexpected summary format: \(error.localizedDescription)")
     }
 
+    let gravityLastUpdated: Date?
+    if let lastUpdate = response.gravity?.lastUpdate, lastUpdate > 0 {
+      gravityLastUpdated = Date(timeIntervalSince1970: lastUpdate)
+    } else {
+      gravityLastUpdated = nil
+    }
+
     return QuerySummary(
       totalQueries: response.queries.total,
-      totalBlocked: response.queries.blocked
+      totalBlocked: response.queries.blocked,
+      gravityLastUpdated: gravityLastUpdated
     )
   }
 
+  public func updateGravity() async throws {
+    // The response body streams `pihole -g` output and only completes when
+    // the gravity process exits, so this request can legitimately run for
+    // minutes. 900s covers the longest realistic run.
+    let (data, httpResponse) = try await authenticatedRequest(
+      path: "/api/action/gravity", method: .post, timeoutInterval: 900
+    )
+
+    guard httpResponse.isSuccess else {
+      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+    }
+  }
 
   public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
     try await addDomain(domain, to: list, comment: nil)
@@ -250,22 +270,24 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   private func authenticatedRequest(
     path: String,
     method: HTTPMethod = .get,
-    body: (any Encodable)? = nil
+    body: (any Encodable)? = nil,
+    timeoutInterval: TimeInterval = 15
   ) async throws -> (Data, HTTPURLResponse) {
     let url = baseURL.appendingPathComponent(path)
-    return try await authenticatedRequest(url: url, method: method, body: body)
+    return try await authenticatedRequest(url: url, method: method, body: body, timeoutInterval: timeoutInterval)
   }
 
   private func authenticatedRequest(
     url: URL,
     method: HTTPMethod = .get,
-    body: (any Encodable)? = nil
+    body: (any Encodable)? = nil,
+    timeoutInterval: TimeInterval = 15
   ) async throws -> (Data, HTTPURLResponse) {
     let bodyData = try body.map { try Self.encoder.encode($0) }
     return try await authSession.authorizedRequest { sid in
       var request = URLRequest(url: url)
       request.httpMethod = method.rawValue
-      request.timeoutInterval = 15
+      request.timeoutInterval = timeoutInterval
 
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       // No SID on password-less servers
@@ -307,9 +329,24 @@ private struct AddDomainBody: Encodable {
   let comment: String?
 }
 
-/// `/api/stats/summary` response.
+/// `/api/stats/summary` response. `gravity` is optional because some FTL
+/// builds omit it; `last_update` is 0 before the first gravity run.
 private struct SummaryResponse: Decodable {
   let queries: SummaryQueries
+  let gravity: SummaryGravity?
+}
+
+private struct SummaryGravity: Decodable {
+  let lastUpdate: Double?
+
+  init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: SummaryGravityKey.self)
+    lastUpdate = try container.decodeIfPresent(Double.self, forKey: .lastUpdate)
+  }
+}
+
+private enum SummaryGravityKey: String, CodingKey {
+  case lastUpdate = "last_update"
 }
 
 private struct SummaryQueries: Decodable {

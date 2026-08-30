@@ -150,6 +150,21 @@ final class PiholeV5ServiceTests {
     let summary = try await makeService().getQuerySummary()
     #expect(summary.totalQueries == 1500)
     #expect(summary.totalBlocked == 75)
+    #expect(summary.gravityLastUpdated == Date(timeIntervalSince1970: 1_726_223_567))
+  }
+
+  @Test("getQuerySummary returns nil gravity date when file missing")
+  func getQuerySummaryGravityFileMissing() async throws {
+    mockSession.handlers = [
+      { request in
+        let response = try #require(v5Response())
+        let data = Data(
+          #"{"dns_queries_today":1500.0,"ads_blocked_today":75.0,"gravity_last_updated":{"file_exists":false}}"#.utf8)
+        return (data, response)
+      }
+    ]
+    let summary = try await makeService().getQuerySummary()
+    #expect(summary.gravityLastUpdated == nil)
   }
 
   @Test("getQuerySummary throws on missing keys")
@@ -163,6 +178,15 @@ final class PiholeV5ServiceTests {
     ]
     await #expect(throws: PiholeError.decoding("Unexpected summary format: {\"other\":\"data\"}")) {
       try await makeService().getQuerySummary()
+    }
+  }
+
+  // MARK: - updateGravity
+
+  @Test("updateGravity is unsupported on v5")
+  func updateGravityUnsupported() async {
+    await #expect(throws: PiholeError.unsupported("Gravity updates via API are not supported by Pi-hole v5")) {
+      try await makeService().updateGravity()
     }
   }
 

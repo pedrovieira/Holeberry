@@ -27,6 +27,7 @@
 		626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */; };
 		676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */; };
 		6CEB0E6770122CF53F8C4025 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858324575623497A21100873 /* UpdateManager.swift */; };
+		72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
 		8F1976F9A92FB5F96E9A0570 /* LimitedTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 708D635B240324C5A79BA870 /* LimitedTextField.swift */; };
 		93759451DE4548FB5243741B /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */; };
@@ -49,6 +50,7 @@
 /* Begin PBXFileReference section */
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthFailureReason+Copy.swift"; sourceTree = "<group>"; };
+		20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GravityMenuState.swift; sourceTree = "<group>"; };
 		273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabSettingsView.swift; sourceTree = "<group>"; };
 		2A6D689F10D80D71CAF6934F /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
 		2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationPickerAlert.swift; sourceTree = "<group>"; };
@@ -187,6 +189,7 @@
 		7F52781CCA397B67BB88F3F7 /* MenuBar */ = {
 			isa = PBXGroup;
 			children = (
+				20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */,
 				7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */,
 				C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */,
 				D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */,
@@ -392,6 +395,7 @@
 				11C4A4764BB4E912153238E2 /* DurationField.swift in Sources */,
 				1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */,
 				5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */,
+				72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */,
 				7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */,
 				8F1976F9A92FB5F96E9A0570 /* LimitedTextField.swift in Sources */,
 				3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */,

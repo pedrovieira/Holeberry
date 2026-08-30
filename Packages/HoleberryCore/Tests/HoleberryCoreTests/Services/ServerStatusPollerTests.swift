@@ -17,13 +17,17 @@ struct ServerStatusPollerTests {
   /// Configure `mockManager.servers` BEFORE calling this unless the test exercises
   /// the `$servers` sink: the subscription drops the initial emission, so
   /// pre-seeding servers prevents an unexpected sink-triggered poll.
-  private func makePoller() -> ServerStatusPoller {
+  private func makePoller(
+    gravityUpdater: any GravityUpdating = MockGravityUpdater()
+  ) -> ServerStatusPoller {
     ServerStatusPoller(
       manager: mockManager,
       networkInterface: mockNetwork,
       pollingInterval: 3600,
       defaultsSuite: testSuite,
-      scheduler: scheduler
+      scheduler: scheduler,
+      timerManager: TimerManager(),
+      gravityUpdater: gravityUpdater
     )
   }
 
@@ -530,7 +534,8 @@ struct ServerStatusPollerTests {
       pollingInterval: 3600,
       defaultsSuite: testSuite,
       scheduler: scheduler,
-      timerManager: timer
+      timerManager: timer,
+      gravityUpdater: MockGravityUpdater()
     )
 
     // Time-boxed disable starts the countdown pill...
@@ -797,7 +802,9 @@ struct ServerStatusPollerTests {
   /// Poller wired to a real (injectable) `TimerManager`, like the composition root.
   private func makePollerWithTimer(
     _ timer: TimerManager,
-    sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+    sleep: @escaping (TimeInterval) async throws -> Void = {
+      try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
+    }
   ) -> ServerStatusPoller {
     ServerStatusPoller(
       manager: mockManager,
@@ -806,6 +813,7 @@ struct ServerStatusPollerTests {
       defaultsSuite: testSuite,
       scheduler: scheduler,
       timerManager: timer,
+      gravityUpdater: MockGravityUpdater(),
       sleep: sleep
     )
   }
@@ -1013,5 +1021,52 @@ struct ServerStatusPollerTests {
     await scheduler.fireTick()
 
     #expect(timer.isRunning == false)
+  }
+
+  // MARK: - Gravity Delegation
+
+  @Test("applyGravityUpdate forwards the updater's outcomes")
+  func applyGravityUpdateForwardsOutcomes() async {
+    let id = UUID()
+    let mockUpdater = MockGravityUpdater()
+    mockUpdater.applyUpdateResult = [id: .succeeded]
+    let poller = makePoller(gravityUpdater: mockUpdater)
+
+    let outcomes = await poller.applyGravityUpdate()
+
+    #expect(outcomes == [id: .succeeded])
+    #expect(mockUpdater.applyUpdateCallCount == 1)
+  }
+
+  @Test("forwards isGravityUpdating and gravityCompletedAt from the updater")
+  func forwardsGravityState() async {
+    let id = UUID()
+    let completedAt = Date(timeIntervalSince1970: 1_000)
+    let mockUpdater = MockGravityUpdater()
+    mockUpdater.isUpdating = true
+    mockUpdater.completedAt = [id: completedAt]
+    let poller = makePoller(gravityUpdater: mockUpdater)
+
+    #expect(poller.isGravityUpdating)
+    #expect(poller.gravityCompletedAt == [id: completedAt])
+  }
+
+  @Test("removing a server drops its gravity completion record")
+  func removingServerDropsGravityCompletionRecord() async {
+    let id = UUID()
+    mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
+    mockManager.getQuerySummaryResponses = [
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 1_000))],
+      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 2_000))]
+    ]
+    mockManager.updateGravityStub = [id: .success(())]
+    let poller = makePoller(gravityUpdater: LiveGravityUpdater(manager: mockManager))
+    _ = await poller.applyGravityUpdate()
+    #expect(poller.gravityCompletedAt[id] != nil)
+
+    mockManager.servers = []
+    await settle()
+
+    #expect(poller.gravityCompletedAt.isEmpty)
   }
 }

@@ -29,7 +29,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let deadline = clock.now.advanced(by: timeout)
     while clock.now < deadline {
       if condition() { return true }
-      try? await Task.sleep(for: .milliseconds(10))
+      try? await Task.sleep(nanoseconds: UInt64(10 * 1_000_000))
     }
     return condition()
   }
@@ -104,7 +104,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       defaultsSuite: TestDefaults.makeSuite()
     ) { duration in
       if duration < 10 { return }
-      try await Task.sleep(for: .milliseconds(60000))
+      try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
     }
     try await decorator.unblockDomain("test.com", duration: 0.5)
 
@@ -136,7 +136,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       // the gate so the test can swap the stub before the retry runs.
       if duration < 10 { return }
       while !gate.isOpen {
-        try await Task.sleep(for: .milliseconds(10))
+        try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000))
       }
     }
     try await decorator.unblockDomain("test.com", duration: 0.5)
@@ -170,7 +170,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       sleeps += 1
       // Expiry + first two backoffs are instant; the third backoff stalls
       if duration < 10 || sleeps <= 3 { return }
-      try await Task.sleep(for: .milliseconds(60000))
+      try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
     }
     try await decorator.unblockDomain("test.com", duration: 0.5)
 
@@ -197,7 +197,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     ) { duration in
       if duration < 10 { return }
       while !gate.isOpen {
-        try await Task.sleep(for: .milliseconds(10))
+        try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000))
       }
     }
     try await decorator.unblockDomain("test.com", duration: 0.5)
@@ -275,7 +275,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       notificationCenter: center
     ) { duration in
       if duration < 10 { return }
-      try await Task.sleep(for: .milliseconds(60000))
+      try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
     }
     try await decorator.unblockDomain("manual-delete.com", duration: 3600)
     try await decorator.deleteDomain(domain: "manual-delete.com")
@@ -350,6 +350,14 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(mock.getQuerySummaryCallCount == 1)
     #expect(summary.totalQueries == 100)
     #expect(summary.totalBlocked == 10)
+  }
+
+  @Test("updateGravity passes through")
+  func updateGravityPassesThrough() async throws {
+    let mock = MockPiholeService()
+    let decorator = makeDecorator(service: mock)
+    try await decorator.updateGravity()
+    #expect(mock.updateGravityCallCount == 1)
   }
 
   @Test("setBlocking passes through")

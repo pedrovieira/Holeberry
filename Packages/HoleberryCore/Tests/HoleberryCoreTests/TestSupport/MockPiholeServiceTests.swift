@@ -51,4 +51,15 @@ struct MockPiholeServiceTests {
     try await mock.deleteDomain(domain: "test.com")
     #expect(mock.deleteDomainByNameCallCount == 1)
   }
+
+  @Test func updateGravity() async throws {
+    let mock = MockPiholeService()
+    try await mock.updateGravity()
+    #expect(mock.updateGravityCallCount == 1)
+
+    mock.updateGravityStub = .failure(PiholeError.network("down"))
+    await #expect(throws: PiholeError.network("down")) {
+      try await mock.updateGravity()
+    }
+  }
 }

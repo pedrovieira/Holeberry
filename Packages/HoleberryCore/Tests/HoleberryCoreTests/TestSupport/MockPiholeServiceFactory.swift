@@ -8,6 +8,8 @@ import Foundation
 @MainActor
 final class MockPiholeServiceFactory: PiholeServiceFactory {
   var buildServiceStub: (any PiholeServiceCommentAdding)?
+  /// Optional per-config handler; takes precedence over `buildServiceStub`.
+  var buildServiceHandler: ((ServerConfig) -> (any PiholeServiceCommentAdding))?
   var buildServiceError: (any Error)?
   private(set) var buildServiceCallCount = 0
   private(set) var buildServiceLastConfig: ServerConfig?
@@ -22,6 +24,9 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
     buildServiceLastConfig = config
     if let buildServiceError {
       throw buildServiceError
+    }
+    if let buildServiceHandler {
+      return buildServiceHandler(config)
     }
     if let buildServiceStub {
       return buildServiceStub
