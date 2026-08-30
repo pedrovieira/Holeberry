@@ -96,6 +96,12 @@ final class MenuBarController: NSObject {
     let gravityState: GravityMenuState
     if !Defaults[.showGravityMenuItem(suite: defaultsSuite)] {
       gravityState = .hidden
+    } else if serverManager.servers.contains(where: { $0.version == .v5 }),
+      !serverManager.servers.contains(where: { $0.version == .v6 })
+    {
+      // No instance can update gravity via the API (v5-only); show a
+      // "last updated" row instead.
+      gravityState = .noUpdateCapableInstances
     } else if statusMonitor.isGravityUpdating {
       gravityState = .updating
     } else {

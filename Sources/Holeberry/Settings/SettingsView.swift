@@ -208,9 +208,18 @@ struct SettingsView: View {
 
     Section("Gravity") {
       VStack(alignment: .leading) {
-        Toggle("Show \"Update Gravity\" in main menu", isOn: $showGravityMenuItem)
+        Toggle("Show gravity update in main menu", isOn: $showGravityMenuItem)
 
-        Text("The Update Gravity shortcut still works when this is off.")
+        Text(
+          "Pi-hole v6 instances show an \"Update Gravity\" item. "
+            + "With only Pi-hole v5 instances, the menu shows when gravity "
+            + "was last updated instead — v5 can't update gravity via the API."
+        )
+        .font(.callout)
+        .foregroundColor(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+
+        Text("The Update Gravity shortcut still works when this is off (v6 only).")
           .font(.callout)
           .foregroundColor(.secondary)
           .fixedSize(horizontal: false, vertical: true)

@@ -312,17 +312,29 @@ struct MenuBuilder {
     target: MenuActionTarget
   ) {
     let v6Servers = servers.filter { $0.version == .v6 }
-    guard !v6Servers.isEmpty else { return }
 
     switch gravityState {
     case .hidden:
       return
+
+    case .noUpdateCapableInstances:
+      guard servers.contains(where: { $0.version == .v5 }) else { return }
+      menu.addItem(.separator())
+      menu.addItem(
+        makeGravityLastUpdatedItem(
+          servers: servers,
+          connectionStatuses: connectionStatuses,
+          querySummaries: querySummaries
+        )
+      )
 
     case .updating:
       menu.addItem(.separator())
       menu.addItem(makeGravityUpdatingItem())
 
     case .ready(let completedAt):
+      guard !v6Servers.isEmpty else { return }
+
       menu.addItem(.separator())
 
       let connectedV6 = v6Servers.filter { connectionStatuses[$0.id] == .connected }
@@ -391,14 +403,34 @@ struct MenuBuilder {
     return item
   }
 
+  /// Disabled row for setups with only Pi-hole v5 instances: the API can't
+  /// trigger a gravity update, so show when gravity was last updated instead.
+  private func makeGravityLastUpdatedItem(
+    servers: [ServerConfig],
+    connectionStatuses: [UUID: ConnectionStatus],
+    querySummaries: [UUID: QuerySummary]
+  ) -> NSMenuItem {
+    let connectedV5 = servers.filter { $0.version == .v5 && connectionStatuses[$0.id] == .connected }
+    // Show the stalest server: the oldest "last updated" date = the max age.
+    let stalestDate = connectedV5.compactMap { querySummaries[$0.id]?.gravityLastUpdated }.min()
+
+    let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    item.isEnabled = false
+    item.title = gravityLastUpdatedTitle(maxAge: stalestDate, showAtMost: connectedV5.count > 1)
+    item.setAccessibilityLabel("Gravity last updated")
+    return item
+  }
+
+  /// "Gravity last updated <relative> ago"; "at most" for several servers,
+  /// never for "a few moments ago"; "unknown" when no timestamp is available.
+  private func gravityLastUpdatedTitle(maxAge: Date?, showAtMost: Bool) -> String {
+    guard let maxAge else { return "Gravity last updated: unknown" }
+    return "Gravity last updated \(gravityRelativeText(maxAge: maxAge, showAtMost: showAtMost))"
+  }
+
   /// "Update Gravity" over "Gravity updated <relative> ago"; "at most" for
   /// several servers, never for "a few moments ago".
   private func gravityAttributedTitle(maxAge: Date, showAtMost: Bool) -> NSAttributedString {
-    // Fresh timestamps use the fixed wording until the next poll lands.
-    let isMomentsAgo = Date().timeIntervalSince(maxAge) < 60
-    let relative = isMomentsAgo ? "a few moments ago" : MenuItemFactory.relativeTimestamp(since: maxAge)
-    let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
-
     let result = NSMutableAttributedString()
     result.append(
       NSAttributedString(
@@ -412,7 +444,7 @@ struct MenuBuilder {
     result.append(NSAttributedString(string: "\n"))
     result.append(
       NSAttributedString(
-        string: "Updated \(prefix)\(relative)",
+        string: "Updated \(gravityRelativeText(maxAge: maxAge, showAtMost: showAtMost))",
         attributes: [
           .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
           .foregroundColor: NSColor.secondaryLabelColor
@@ -420,6 +452,15 @@ struct MenuBuilder {
       )
     )
     return result
+  }
+
+  /// "a few moments ago" until the next poll lands; "at most " only for
+  /// several servers, never alongside "a few moments ago".
+  private func gravityRelativeText(maxAge: Date, showAtMost: Bool) -> String {
+    let isMomentsAgo = Date().timeIntervalSince(maxAge) < 60
+    let relative = isMomentsAgo ? "a few moments ago" : MenuItemFactory.relativeTimestamp(since: maxAge)
+    let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
+    return "\(prefix)\(relative)"
   }
 
   private func addDisableDurationItem(
