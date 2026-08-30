@@ -368,20 +368,22 @@ jobs:
         run: |
           set -euo pipefail
           DMG_NAME="${{ steps.dmg.outputs.dmg_name }}"
-          ASSET_URL=$(gh api "repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" \
-            --jq ".assets[] | select(.name == \"$DMG_NAME\") | .url")
-          if [ -z "$ASSET_URL" ]; then
-            echo "::error::$DMG_NAME not found in draft release ${{ github.ref_name }}"
-            exit 1
-          fi
-          gh api -H "Accept: application/octet-stream" "$ASSET_URL" -o "/tmp/draft-$DMG_NAME"
-          ACTUAL=$(shasum -a 256 "/tmp/draft-$DMG_NAME" | cut -d' ' -f1)
+          TMP_DIR="/tmp/draft-verify"
+          mkdir -p "$TMP_DIR"
+          # gh release download resolves draft releases; the raw
+          # releases/tags/{tag} REST endpoint 404s until the release is
+          # published, and gh api cannot fetch browser download URLs.
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "$DMG_NAME" \
+            --dir "$TMP_DIR" --clobber
+          ACTUAL=$(shasum -a 256 "$TMP_DIR/$DMG_NAME" | cut -d' ' -f1)
           EXPECTED="${{ steps.dmg_notarized.outputs.dmg_sha256 }}"
           if [ "$ACTUAL" != "$EXPECTED" ]; then
             echo "::error::Draft asset checksum mismatch: got $ACTUAL, expected $EXPECTED"
             exit 1
           fi
-          xcrun stapler validate "/tmp/draft-$DMG_NAME"
+          xcrun stapler validate "$TMP_DIR/$DMG_NAME"
           echo "::notice::Draft DMG verified (sha256 $ACTUAL)"
 
       # appcast.xml is public-at-publish content, so a short-lived artifact is
