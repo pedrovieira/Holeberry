@@ -330,27 +330,3 @@ struct DurationsSettingsView: View {
     }
   }
 }
-
-/// A squared `NSVisualEffectView` used as the stage behind the opaque
-/// menu mock, so the preview reads as a real menu floating on a vibrancy
-/// surface (the effect the user asked for: NSVisualEffectView underneath,
-/// opaque menu on top).
-private struct VisualEffectView: NSViewRepresentable {
-  var material: NSVisualEffectView.Material = .menu
-  var blendingMode: NSVisualEffectView.BlendingMode = .withinWindow
-  var state: NSVisualEffectView.State = .active
-
-  func makeNSView(context: Context) -> NSVisualEffectView {
-    let view = NSVisualEffectView()
-    view.material = material
-    view.blendingMode = blendingMode
-    view.state = state
-    return view
-  }
-
-  func updateNSView(_ view: NSVisualEffectView, context: Context) {
-    view.material = material
-    view.blendingMode = blendingMode
-    view.state = state
-  }
-}

@@ -3,8 +3,8 @@
     {
       "value" : {
         "linear-gradient" : [
-          "display-p3:0.22901,0.46707,0.30692,1.00000",
-          "display-p3:0.00038,0.22627,0.04052,1.00000"
+          "display-p3:0.19254,0.21584,0.47256,1.00000",
+          "display-p3:0.03306,0.03309,0.14836,1.00000"
         ],
         "orientation" : {
           "start" : {
@@ -41,43 +41,31 @@
         {
           "blend-mode-specializations" : [
             {
-              "value" : "multiply"
-            },
-            {
-              "appearance" : "dark",
-              "value" : "normal"
+              "value" : "plus-darker"
             },
             {
               "appearance" : "tinted",
               "value" : "normal"
             }
           ],
-          "fill" : {
-            "linear-gradient" : [
-              "display-p3:0.38289,0.75000,0.25952,1.00000",
-              "extended-srgb:1.00000,0.21961,0.23529,1.00000"
-            ],
-            "orientation" : {
-              "start" : {
-                "x" : 0.5,
-                "y" : 0.3244234941570717
-              },
-              "stop" : {
-                "x" : 0.5,
-                "y" : 0.36004673984648
-              }
-            }
-          },
           "glass" : true,
           "hidden" : false,
-          "image-name" : "logo_transparent.png",
-          "name" : "logo_transparent",
-          "opacity" : 1,
+          "image-name" : "holeberry-logo.png",
+          "name" : "holeberry-logo",
+          "opacity-specializations" : [
+            {
+              "value" : 1
+            },
+            {
+              "appearance" : "tinted",
+              "value" : 1
+            }
+          ],
           "position" : {
-            "scale" : 0.72,
+            "scale" : 0.7,
             "translation-in-points" : [
-              2.159999999999968,
-              6.479999999999961
+              -3.1499999999999773,
+              3.5000000000001137
             ]
           }
         }

@@ -77,7 +77,7 @@ final class MenuBarController: NSObject {
   private func configureStatusItem() {
     guard let button = statusItem.button else { return }
     let image = NSImage(named: "StatusBar")
-    image?.size = NSSize(width: 17, height: 17)
+    image?.size = NSSize(width: 20, height: 20)
     button.image = image
     button.image?.isTemplate = true
     button.action = #selector(handleClick)

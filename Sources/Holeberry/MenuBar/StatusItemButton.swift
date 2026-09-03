@@ -6,7 +6,7 @@ final class StatusItemButton: NSView {
   // MARK: - Constants
 
   private enum Layout {
-    static let iconSize: CGFloat = 18
+    static let iconSize: CGFloat = 19
     static let horizontalPadding: CGFloat = 8
     static let iconTextGap: CGFloat = 8
     static let height: CGFloat = 22
@@ -242,12 +242,12 @@ final class StatusItemButton: NSView {
 
   private func drawIcon() {
     guard
-      let shield = tintedImage(named: "StatusBar-unblocked-shield", color: .secondaryLabelColor, size: iconRect.size),
+      let shield = tintedImage(named: "StatusBar", color: .secondaryLabelColor, size: iconRect.size),
       let slash = tintedImage(named: "StatusBar-unblocked-slash", color: .labelColor, size: iconRect.size)
     else { return }
 
     shield.draw(in: iconRect)
-    slash.draw(in: iconRect)
+    slash.draw(in: iconRect.offsetBy(dx: 1, dy: 0))
   }
 
   private func drawTimeText() {
