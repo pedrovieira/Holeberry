@@ -336,20 +336,8 @@ struct SettingsView: View {
           Section {
             HStack(spacing: 30) {
               Spacer(minLength: 0)
-              Button {
-                openURL("https://github.com/pedrovieira/Holeberry")
-              } label: {
-                VStack(spacing: 5) {
-                  Image("Github")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 18)
-                  Text("GitHub")
-                }
-                .contentShape(Rectangle())
-                socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://holeberryapp.com/")
-              }
-              .buttonStyle(PlainButtonStyle())
+              socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://holeberryapp.com/")
+              socialButton(icon: Image("Github"), label: "GitHub", url: "https://github.com/pedrovieira/Holeberry")
               Spacer(minLength: 0)
             }
           }
@@ -357,26 +345,13 @@ struct SettingsView: View {
           Section {
             HStack(spacing: 24) {
               Spacer()
-              socialButton(icon: Image("X"), label: "X", url: "https://x.com/w1tch_")
-              Button {
-                openURL("https://github.com/pedrovieira")
-              } label: {
-                VStack(spacing: 4) {
-                  Image("Github")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-                  Text("GitHub")
-                    .font(.caption2)
-                }
-                .contentShape(Rectangle())
-              }
-              .buttonStyle(PlainButtonStyle())
               socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://pedrovieira.me/")
+              socialButton(icon: Image("Github"), label: "GitHub", url: "https://github.com/pedrovieira")
+              socialButton(icon: Image("X"), label: "X", url: "https://x.com/w1tch_")
               Spacer()
             }
           } header: {
-            Text("Find the developer behind Holeberry on")
+            Text("Find the developer behind Holeberry on:")
               .frame(maxWidth: .infinity)
           }
 

@@ -3,8 +3,8 @@
     {
       "value" : {
         "linear-gradient" : [
-          "display-p3:0.19254,0.21584,0.47256,1.00000",
-          "display-p3:0.03306,0.03309,0.14836,1.00000"
+          "display-p3:0.06369,0.00000,0.21574,1.00000",
+          "display-p3:0.17462,0.13351,0.37373,1.00000"
         ],
         "orientation" : {
           "start" : {
@@ -39,15 +39,7 @@
     {
       "layers" : [
         {
-          "blend-mode-specializations" : [
-            {
-              "value" : "plus-darker"
-            },
-            {
-              "appearance" : "tinted",
-              "value" : "normal"
-            }
-          ],
+          "blend-mode" : "normal",
           "glass" : true,
           "hidden" : false,
           "image-name" : "holeberry-logo.png",
