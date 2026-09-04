@@ -311,98 +311,84 @@ struct SettingsView: View {
   }
 
   @ViewBuilder private var aboutView: some View {
-    Form {
-      Section("About Holeberry") {
-        HStack {
-          Label("Version", systemImage: "info.circle")
-          Spacer()
+    ScrollView {
+      VStack(spacing: 12) {
+        VStack(alignment: .center, spacing: 5) {
+          AboutAppIconTile()
+
+          Text("Holeberry")
+            .font(.title2.weight(.semibold))
+            .padding(.top, 5)
           if let version = Bundle.main.releaseVersionNumber {
             Text(version)
+              .font(.subheadline)
               .foregroundStyle(.secondary)
           }
         }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 16)
 
-        if let updater {
-          UpdaterSettingsView(updater: updater)
-        }
-      }
-
-      Section {
-        HStack(spacing: 30) {
-          Spacer(minLength: 0)
-          Button {
-            openURL("https://github.com/pedrovieira/Holeberry")
-          } label: {
-            VStack(spacing: 5) {
-              Image("Github")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 18)
-              Text("GitHub")
-            }
-            .contentShape(Rectangle())
+        Form {
+          if let updater {
+            UpdaterSettingsView(updater: updater)
           }
-          .buttonStyle(PlainButtonStyle())
-          Spacer(minLength: 0)
-        }
-      }
 
-      Section {
-        HStack(spacing: 24) {
-          Spacer()
-          socialButton(icon: Image("X"), label: "X", url: "https://x.com/w1tch_")
-          Button {
-            openURL("https://github.com/pedrovieira")
-          } label: {
-            VStack(spacing: 4) {
-              Image("Github")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 16, height: 16)
-              Text("GitHub")
-                .font(.caption2)
+          Section {
+            HStack(spacing: 30) {
+              Spacer(minLength: 0)
+              socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://holeberryapp.com/")
+              socialButton(icon: Image("Github"), label: "GitHub", url: "https://github.com/pedrovieira/Holeberry")
+              Spacer(minLength: 0)
             }
-            .contentShape(Rectangle())
           }
-          .buttonStyle(PlainButtonStyle())
-          socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://holeberryapp.com/")
-          Spacer()
-        }
-      } header: {
-        Text("Find me on")
-          .frame(maxWidth: .infinity)
-      }
 
-      Section {}
-
-      Section {
-        HStack(spacing: 30) {
-          Spacer(minLength: 0)
-          VStack(spacing: 8) {
-            Text("Buy me a coffee! ☕️")
-              .foregroundStyle(.secondary)
-            Button {
-              openURL("https://ko-fi.com/pedrovieiradev")
-            } label: {
-              Text("Donate")
+          Section {
+            HStack(spacing: 24) {
+              Spacer()
+              socialButton(icon: Image(systemName: "globe"), label: "Website", url: "https://pedrovieira.me/")
+              socialButton(icon: Image("Github"), label: "GitHub", url: "https://github.com/pedrovieira")
+              socialButton(icon: Image("X"), label: "X", url: "https://x.com/w1tch_")
+              Spacer()
             }
-            .controlSize(.large)
+          } header: {
+            Text("Find the developer behind Holeberry on:")
+              .frame(maxWidth: .infinity)
           }
-          Spacer(minLength: 0)
-        }
-      }
 
-      Section {
-      } footer: {
-        Text(
-          "Pi-hole® is a registered trademark of Pi-hole LLC. "
-            + "Holeberry is an independent project and is not affiliated with Pi-hole LLC."
-        )
-        .font(.caption)
-        .foregroundStyle(.secondary)
+          Section {}
+
+          Section {
+            HStack(spacing: 30) {
+              Spacer(minLength: 0)
+              VStack(spacing: 8) {
+                Text("Buy me a coffee! ☕️")
+                  .foregroundStyle(.secondary)
+                Button {
+                  openURL("https://ko-fi.com/pedrovieiradev")
+                } label: {
+                  Text("Donate")
+                }
+                .controlSize(.large)
+              }
+              Spacer(minLength: 0)
+            }
+          }
+
+          Section {
+          } footer: {
+            Text(
+              "Pi-hole® is a registered trademark of Pi-hole LLC. "
+                + "Holeberry is an independent project and is not affiliated with Pi-hole LLC."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          }
+        }
+        .formStyle(.grouped)
+        .scrollDisabled(true)
       }
+      .padding(.bottom, 12)
     }
-    .formStyle(.grouped)
   }
 
   private func openURL(_ string: String) {

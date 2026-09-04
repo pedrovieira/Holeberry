@@ -71,8 +71,6 @@ struct UpdaterSettingsView: View {
         .onChange(of: automaticallyChecksForUpdates) { _, newValue in
           updater.automaticallyChecksForUpdates = newValue
         }
-    } header: {
-      Text("Software updates")
     }
   }
 }

@@ -23,6 +23,7 @@
 		3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
 		4FCA20D74CFACF8A70C6B09D /* ConnectionStatus+Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = C151C0B11314A1587D7CF5F2 /* ConnectionStatus+Colors.swift */; };
+		58FB67ADD81EED114FFA75A3 /* AboutAppIconTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90575EF61BAE2C9987472387 /* AboutAppIconTile.swift */; };
 		5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */; };
 		626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */; };
 		676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */; };
@@ -32,6 +33,7 @@
 		93759451DE4548FB5243741B /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */; };
 		97E0F4753A5EE8C4E5E09E2B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 740E0351B8319723BD1DD852 /* AppIcon.icon */; };
 		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
+		A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145FEF2113A4C79130480D19 /* VisualEffectView.swift */; };
 		B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */; };
 		BBD4E8FAA636A794162F8A60 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4A7925530C12A1C1F48C21F6 /* Sparkle */; };
 		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
@@ -49,6 +51,7 @@
 /* Begin PBXFileReference section */
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthFailureReason+Copy.swift"; sourceTree = "<group>"; };
+		145FEF2113A4C79130480D19 /* VisualEffectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualEffectView.swift; sourceTree = "<group>"; };
 		20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GravityMenuState.swift; sourceTree = "<group>"; };
 		273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabSettingsView.swift; sourceTree = "<group>"; };
 		2A6D689F10D80D71CAF6934F /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
@@ -68,6 +71,7 @@
 		8A5D9D07B8EC02852147638F /* Holeberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Holeberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AEAE3D3AF6DF75263144C73 /* ShortcutNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutNames.swift; sourceTree = "<group>"; };
 		8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
+		90575EF61BAE2C9987472387 /* AboutAppIconTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutAppIconTile.swift; sourceTree = "<group>"; };
 		93ACB69A774CC5CB1E5035F5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A448330B12ABCB4F06CFCB5C /* HoleberryCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HoleberryCore; path = Packages/HoleberryCore; sourceTree = SOURCE_ROOT; };
 		A95D78A3AB479976D7E8CF46 /* DurationField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationField.swift; sourceTree = "<group>"; };
@@ -210,12 +214,14 @@
 		8BB69277240BEEB373A07922 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				90575EF61BAE2C9987472387 /* AboutAppIconTile.swift */,
 				273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */,
 				ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */,
 				DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */,
 				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
 				4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */,
 				551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */,
+				145FEF2113A4C79130480D19 /* VisualEffectView.swift */,
 				05E28E2794738F28F909ADBD /* ConnectionViews */,
 			);
 			path = Settings;
@@ -383,6 +389,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				58FB67ADD81EED114FFA75A3 /* AboutAppIconTile.swift in Sources */,
 				32B3DB91B041007E362C5BF1 /* AuthFailureReason+Copy.swift in Sources */,
 				2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */,
 				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,
@@ -414,6 +421,7 @@
 				CD040B18D5CF4518731EC852 /* UnblockCurrentTabDurationPicker.swift in Sources */,
 				B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */,
 				E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */,
+				A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
