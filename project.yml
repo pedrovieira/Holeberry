@@ -33,8 +33,8 @@ targets:
     info:
       path: Sources/Holeberry/Support/Info.plist
       properties:
-        CFBundleShortVersionString: "1.1.0"
-        CFBundleVersion: "1.1.0"
+        CFBundleShortVersionString: "1.1.1"
+        CFBundleVersion: "1.1.1"
         LSUIElement: true
         CFBundleIconFile: AppIcon
         NSLocalNetworkUsageDescription: Holeberry needs local network access to connect to your Pi-hole instances.
