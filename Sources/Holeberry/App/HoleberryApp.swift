@@ -28,7 +28,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var shortcutController: ShortcutController?
   private var unblockEndedNotifier: UnblockEndedNotifier?
   private var notificationCoordinator: NotificationCoordinator?
-  private var gravityOutcomeNotifier: GravityOutcomeNotifier?
   private var gravityCadenceScheduler: (any GravityCadenceScheduling)?
   private var wakeObserver: (any NSObjectProtocol)?
   private var notificationServerCancellable: AnyCancellable?
@@ -98,7 +97,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       notificationCoordinator: notificationCoordinator,
       serverManager: serverManager
     )
-    self.gravityOutcomeNotifier = gravityOutcomeNotifier
 
     let gravityCadenceScheduler = LiveGravityCadenceScheduler(
       triggerUpdate: { [statusPoller] in await statusPoller.applyGravityUpdate() },

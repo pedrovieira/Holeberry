@@ -183,6 +183,58 @@ struct GravityCadenceSchedulerTests {
     }
   }
 
+  @Test("Mid-flight cadence change to weekly wins; completed run does not clobber nextDue")
+  func midFlightChangeToWeekly() async {
+    let suite = TestDefaults.makeSuite()
+    let sleep = SleepSpy()
+    let trigger = TriggerStub()
+    var reported = false
+    let scheduler = makeScheduler(
+      suite: suite, sleep: sleep, trigger: trigger,
+      outcomes: { _ in reported = true }
+    )
+
+    Defaults[.gravityUpdateCadence(suite: suite)] = .daily
+    Defaults[.gravityUpdateNextDue(suite: suite)] = clock.now.addingTimeInterval(-1)
+    scheduler.checkNow()
+    // Wait for the spawned update task to reach the trigger seam.
+    await waitUntil { trigger.callCount == 1 }
+    // User changes the cadence while the update is in flight.
+    Defaults[.gravityUpdateCadence(suite: suite)] = .weekly
+    scheduler.cadenceDidChange()
+    trigger.completeNext()
+    await waitUntil { reported }
+
+    #expect(Defaults[.gravityUpdateNextDue(suite: suite)] == clock.now.addingTimeInterval(7 * 24 * 3600))
+    #expect(trigger.callCount == 1)
+  }
+
+  @Test("Mid-flight change to Never clears nextDue; completed run does not restore it")
+  func midFlightChangeToNever() async {
+    let suite = TestDefaults.makeSuite()
+    let sleep = SleepSpy()
+    let trigger = TriggerStub()
+    var reported = false
+    let scheduler = makeScheduler(
+      suite: suite, sleep: sleep, trigger: trigger,
+      outcomes: { _ in reported = true }
+    )
+
+    Defaults[.gravityUpdateCadence(suite: suite)] = .daily
+    Defaults[.gravityUpdateNextDue(suite: suite)] = clock.now.addingTimeInterval(-1)
+    scheduler.checkNow()
+    // Wait for the spawned update task to reach the trigger seam.
+    await waitUntil { trigger.callCount == 1 }
+    // User disables the cadence while the update is in flight.
+    Defaults[.gravityUpdateCadence(suite: suite)] = .never
+    scheduler.cadenceDidChange()
+    trigger.completeNext()
+    await waitUntil { reported }
+
+    #expect(Defaults[.gravityUpdateNextDue(suite: suite)] == nil)
+    #expect(trigger.callCount == 1)
+  }
+
   @Test("Firing the armed one-shot runs the due check")
   func armedTimerFires() async {
     let suite = TestDefaults.makeSuite()
