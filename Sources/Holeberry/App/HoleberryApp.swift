@@ -28,6 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var shortcutController: ShortcutController?
   private var unblockEndedNotifier: UnblockEndedNotifier?
   private var notificationCoordinator: NotificationCoordinator?
+  private var gravityOutcomeNotifier: GravityOutcomeNotifier?
   private var notificationServerCancellable: AnyCancellable?
   private var updaterController: SPUStandardUpdaterController?
   private var settingsWindowController: SettingsWindowController?
@@ -90,6 +91,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       self?.settingsWindowController?.showWindow()
     }
     self.notificationCoordinator = notificationCoordinator
+    let gravityOutcomeNotifier = GravityOutcomeNotifier(
+      notificationCoordinator: notificationCoordinator,
+      serverManager: serverManager
+    )
+    self.gravityOutcomeNotifier = gravityOutcomeNotifier
     requestNotificationAuthorizationIfNeeded()
 
     // A fresh prompt once the first server is added; authorization is asked
@@ -129,6 +135,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       localIPAddressResolver: localIPResolver,
       updater: updaterController.updater,
       notificationCoordinator: notificationCoordinator,
+      gravityOutcomeNotifier: gravityOutcomeNotifier,
       settingsWindowController: settingsWindowController
     )
     shortcutController = ShortcutController(

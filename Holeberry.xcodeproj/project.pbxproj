@@ -33,6 +33,7 @@
 		93759451DE4548FB5243741B /* SoftwareUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */; };
 		97E0F4753A5EE8C4E5E09E2B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 740E0351B8319723BD1DD852 /* AppIcon.icon */; };
 		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
+		99B98E3D2641197AC15A764A /* GravityOutcomeNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB0932AC37D03E558E68FC8 /* GravityOutcomeNotifier.swift */; };
 		A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145FEF2113A4C79130480D19 /* VisualEffectView.swift */; };
 		B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */; };
 		BBD4E8FAA636A794162F8A60 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4A7925530C12A1C1F48C21F6 /* Sparkle */; };
@@ -85,6 +86,7 @@
 		D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		D48A2E625686DBB46B548D0E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsView.swift; sourceTree = "<group>"; };
+		DEB0932AC37D03E558E68FC8 /* GravityOutcomeNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GravityOutcomeNotifier.swift; sourceTree = "<group>"; };
 		E02F9A5864E11136906AE2FF /* ShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutController.swift; sourceTree = "<group>"; };
 		F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
 		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
@@ -230,6 +232,7 @@
 		977CD55D23B21DE364A2D23C /* Notifications */ = {
 			isa = PBXGroup;
 			children = (
+				DEB0932AC37D03E558E68FC8 /* GravityOutcomeNotifier.swift */,
 				F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */,
 				34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */,
 				5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */,
@@ -400,6 +403,7 @@
 				1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */,
 				5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */,
 				72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */,
+				99B98E3D2641197AC15A764A /* GravityOutcomeNotifier.swift in Sources */,
 				7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */,
 				8F1976F9A92FB5F96E9A0570 /* LimitedTextField.swift in Sources */,
 				3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */,
