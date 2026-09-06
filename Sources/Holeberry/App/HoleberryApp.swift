@@ -29,6 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var unblockEndedNotifier: UnblockEndedNotifier?
   private var notificationCoordinator: NotificationCoordinator?
   private var gravityOutcomeNotifier: GravityOutcomeNotifier?
+  private var gravityCadenceScheduler: (any GravityCadenceScheduling)?
   private var notificationServerCancellable: AnyCancellable?
   private var updaterController: SPUStandardUpdaterController?
   private var settingsWindowController: SettingsWindowController?
@@ -84,6 +85,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     dnsServerResolver: dnsServerResolver
   )
 
+  // swiftlint:disable:next function_body_length
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
@@ -96,6 +98,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       serverManager: serverManager
     )
     self.gravityOutcomeNotifier = gravityOutcomeNotifier
+
+    let gravityCadenceScheduler = LiveGravityCadenceScheduler(
+      triggerUpdate: { [statusPoller] in await statusPoller.applyGravityUpdate() },
+      onOutcomes: { [gravityOutcomeNotifier] outcomes in gravityOutcomeNotifier.notify(outcomes) }
+    )
+    self.gravityCadenceScheduler = gravityCadenceScheduler
     requestNotificationAuthorizationIfNeeded()
 
     // A fresh prompt once the first server is added; authorization is asked
@@ -120,7 +128,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       updater: updaterController.updater,
       discoveryService: discoveryService,
       statusPoller: statusPoller,
-      notificationCoordinator: notificationCoordinator
+      notificationCoordinator: notificationCoordinator,
+      gravityCadenceScheduler: gravityCadenceScheduler
     )
     self.settingsWindowController = settingsWindowController
 

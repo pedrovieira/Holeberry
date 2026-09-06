@@ -34,6 +34,7 @@ struct SettingsView: View {
   @Default var showAllClientsRecentBlocked: Bool
   @Default var showPerInstanceStats: Bool
   @Default var showGravityMenuItem: Bool
+  @Default var gravityUpdateCadence: GravityUpdateCadence
   @Default var durations: [UnblockDurationEntry]
   @Default var unblockCurrentTabDuration: UnblockCurrentTabDurationSelection
 
@@ -46,6 +47,7 @@ struct SettingsView: View {
   let discoveryService: PiholeDiscoveryService
   let statusPoller: ServerStatusPoller
   let notificationCoordinator: NotificationCoordinator
+  let gravityCadenceScheduler: any GravityCadenceScheduling
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
@@ -58,19 +60,22 @@ struct SettingsView: View {
     defaultsSuite: UserDefaults = .standard,
     discoveryService: PiholeDiscoveryService,
     statusPoller: ServerStatusPoller,
-    notificationCoordinator: NotificationCoordinator
+    notificationCoordinator: NotificationCoordinator,
+    gravityCadenceScheduler: any GravityCadenceScheduling
   ) {
     self.serverManager = serverManager
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
     self.notificationCoordinator = notificationCoordinator
+    self.gravityCadenceScheduler = gravityCadenceScheduler
     self.defaultsSuite = defaultsSuite
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
     _showPerInstanceStats = .init(.showPerInstanceStats(suite: defaultsSuite))
     _showGravityMenuItem = .init(.showGravityMenuItem(suite: defaultsSuite))
+    _gravityUpdateCadence = .init(.gravityUpdateCadence(suite: defaultsSuite))
     _durations = .init(.unblockDurations(suite: defaultsSuite))
     _unblockCurrentTabDuration = .init(.unblockCurrentTabDuration(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
@@ -207,6 +212,28 @@ struct SettingsView: View {
     BrowserTabSettingsView(isEnabled: $browserTabUnblockEnabled)
 
     Section("Gravity") {
+      VStack(alignment: .leading) {
+        HStack {
+          Text("Update Gravity automatically")
+          Spacer()
+          Picker("", selection: $gravityUpdateCadence) {
+            ForEach(GravityUpdateCadence.allCases, id: \.self) { option in
+              Text(option.menuTitle).tag(option)
+            }
+          }
+          .pickerStyle(.menu)
+          .labelsHidden()
+          .frame(maxWidth: 180)
+        }
+        Text("Automatically refreshes ad-list gravity on this schedule.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      .onChange(of: gravityUpdateCadence) { _, _ in
+        gravityCadenceScheduler.cadenceDidChange()
+      }
+
       VStack(alignment: .leading) {
         Toggle("Show Gravity update in menu bar", isOn: $showGravityMenuItem)
 
