@@ -85,6 +85,9 @@ Unblocking a single domain beats a global disable: the page loads while the rest
 
 Keep Pi-hole's blocklists fresh without opening the web admin interface: trigger a **gravity update** right from the menu bar, on **all your servers simultaneously**. It's available from the main menu or via a global keyboard shortcut you can set in Settings.
 
+- **Automatic gravity updates** — update your Pi-hole's gravity on a schedule
+  (every 6/12 hours, daily, weekly, or never).
+
 ### Glance the recently blocked domains
 
 Browse the domains Pi-hole® blocked recently (from your Mac or all clients), and unblock or allowlist any of them straight from the menu.
