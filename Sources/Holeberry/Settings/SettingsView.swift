@@ -213,28 +213,6 @@ struct SettingsView: View {
 
     Section("Gravity") {
       VStack(alignment: .leading) {
-        HStack {
-          Text("Update Gravity automatically")
-          Spacer()
-          Picker("", selection: $gravityUpdateCadence) {
-            ForEach(GravityUpdateCadence.allCases, id: \.self) { option in
-              Text(option.menuTitle).tag(option)
-            }
-          }
-          .pickerStyle(.menu)
-          .labelsHidden()
-          .frame(maxWidth: 180)
-        }
-        Text("Automatically refreshes ad-list gravity on this schedule.")
-          .font(.callout)
-          .foregroundColor(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      .onChange(of: gravityUpdateCadence) { _, _ in
-        gravityCadenceScheduler.cadenceDidChange()
-      }
-
-      VStack(alignment: .leading) {
         Toggle("Show Gravity update in menu bar", isOn: $showGravityMenuItem)
 
         Text(
@@ -248,6 +226,27 @@ struct SettingsView: View {
           .font(.callout)
           .foregroundColor(.secondary)
           .fixedSize(horizontal: false, vertical: true)
+      }
+
+      VStack(alignment: .leading) {
+        HStack {
+          Text("Update Gravity automatically:")
+          Spacer()
+          Picker("", selection: $gravityUpdateCadence) {
+            ForEach(GravityUpdateCadence.allCases, id: \.self) { option in
+              Text(option.menuTitle).tag(option)
+            }
+          }
+          .pickerStyle(.menu)
+          .labelsHidden()
+        }
+        Text("Holeberry needs to be running for the update schedule to take effect.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      .onChange(of: gravityUpdateCadence) { _, _ in
+        gravityCadenceScheduler.cadenceDidChange()
       }
     }
 
