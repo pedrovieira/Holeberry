@@ -30,6 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var notificationCoordinator: NotificationCoordinator?
   private var gravityOutcomeNotifier: GravityOutcomeNotifier?
   private var gravityCadenceScheduler: (any GravityCadenceScheduling)?
+  private var wakeObserver: (any NSObjectProtocol)?
   private var notificationServerCancellable: AnyCancellable?
   private var updaterController: SPUStandardUpdaterController?
   private var settingsWindowController: SettingsWindowController?
@@ -134,6 +135,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     self.settingsWindowController = settingsWindowController
 
     statusPoller.startPolling()
+
+    // Catch up on a missed cadence right at launch, and again when the Mac
+    // wakes from sleep (a one-shot task doesn't run while asleep).
+    gravityCadenceScheduler.start()
+    wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.didWakeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      Task { @MainActor in
+        self?.gravityCadenceScheduler?.checkNow()
+      }
+    }
 
     menuBarController = MenuBarController(
       timerManager: timerManager,
