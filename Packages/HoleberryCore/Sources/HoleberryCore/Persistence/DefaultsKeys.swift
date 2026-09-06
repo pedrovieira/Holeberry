@@ -92,4 +92,20 @@ extension Defaults.Keys {
   ) -> Defaults.Key<[TempUnblockRecord]> {
     Defaults.Key<[TempUnblockRecord]>("tempUnblocks-\(serverID.uuidString)", default: [], suite: suite)
   }
+
+  /// The cadence for automatic gravity updates (off by default: `.never`).
+  public static func gravityUpdateCadence(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<GravityUpdateCadence> {
+    Defaults.Key<GravityUpdateCadence>("gravityUpdateCadence", default: .never, suite: suite)
+  }
+
+  /// Single source of truth for "when should this next fire." Persisting the
+  /// computed due date (rather than `lastRun` + recomputed interval) means
+  /// "is it due" is always a one-line comparison.
+  public static func gravityUpdateNextDue(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Date?> {
+    Defaults.Key<Date?>("gravityUpdateNextDue", default: nil, suite: suite)
+  }
 }
