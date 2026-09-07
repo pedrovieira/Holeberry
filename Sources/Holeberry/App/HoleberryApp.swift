@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Defaults
 import HoleberryCore
 import OSLog
 import Sparkle
@@ -31,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var gravityCadenceScheduler: (any GravityCadenceScheduling)?
   private var wakeObserver: (any NSObjectProtocol)?
   private var notificationServerCancellable: AnyCancellable?
+  private var cadenceCancellable: AnyCancellable?
   private var updaterController: SPUStandardUpdaterController?
   private var settingsWindowController: SettingsWindowController?
 
@@ -103,6 +105,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       onOutcomes: { [gravityOutcomeNotifier] outcomes in gravityOutcomeNotifier.notify(outcomes) }
     )
     self.gravityCadenceScheduler = gravityCadenceScheduler
+    // React to cadence changes from any writer (currently the Settings picker)
+    // without coupling the settings UI to the scheduler.
+    cadenceCancellable = Defaults.publisher(.gravityUpdateCadence(suite: .standard))
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.gravityCadenceScheduler?.cadenceDidChange()
+      }
     requestNotificationAuthorizationIfNeeded()
 
     // A fresh prompt once the first server is added; authorization is asked
@@ -127,8 +136,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       updater: updaterController.updater,
       discoveryService: discoveryService,
       statusPoller: statusPoller,
-      notificationCoordinator: notificationCoordinator,
-      gravityCadenceScheduler: gravityCadenceScheduler
+      notificationCoordinator: notificationCoordinator
     )
     self.settingsWindowController = settingsWindowController
 

@@ -10,7 +10,6 @@ final class SettingsWindowController: NSWindowController {
   private var updater: SPUUpdater?
   private let statusPoller: ServerStatusPoller
   private let notificationCoordinator: NotificationCoordinator
-  private let gravityCadenceScheduler: any GravityCadenceScheduling
   private var hasSetContentView = false
 
   init(
@@ -19,7 +18,6 @@ final class SettingsWindowController: NSWindowController {
     discoveryService: PiholeDiscoveryService,
     statusPoller: ServerStatusPoller,
     notificationCoordinator: NotificationCoordinator,
-    gravityCadenceScheduler: any GravityCadenceScheduling,
     defaultsSuite: UserDefaults = .standard
   ) {
     let window = NSWindow(
@@ -34,7 +32,6 @@ final class SettingsWindowController: NSWindowController {
     self.updater = updater
     self.statusPoller = statusPoller
     self.notificationCoordinator = notificationCoordinator
-    self.gravityCadenceScheduler = gravityCadenceScheduler
     super.init(window: window)
     setupWindow()
   }
@@ -72,8 +69,7 @@ final class SettingsWindowController: NSWindowController {
           defaultsSuite: defaultsSuite,
           discoveryService: discoveryService,
           statusPoller: statusPoller,
-          notificationCoordinator: notificationCoordinator,
-          gravityCadenceScheduler: gravityCadenceScheduler
+          notificationCoordinator: notificationCoordinator
         )
       )
       hasSetContentView = true

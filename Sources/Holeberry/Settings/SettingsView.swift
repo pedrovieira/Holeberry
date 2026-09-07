@@ -47,7 +47,6 @@ struct SettingsView: View {
   let discoveryService: PiholeDiscoveryService
   let statusPoller: ServerStatusPoller
   let notificationCoordinator: NotificationCoordinator
-  let gravityCadenceScheduler: any GravityCadenceScheduling
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
@@ -60,15 +59,13 @@ struct SettingsView: View {
     defaultsSuite: UserDefaults = .standard,
     discoveryService: PiholeDiscoveryService,
     statusPoller: ServerStatusPoller,
-    notificationCoordinator: NotificationCoordinator,
-    gravityCadenceScheduler: any GravityCadenceScheduling
+    notificationCoordinator: NotificationCoordinator
   ) {
     self.serverManager = serverManager
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
     self.notificationCoordinator = notificationCoordinator
-    self.gravityCadenceScheduler = gravityCadenceScheduler
     self.defaultsSuite = defaultsSuite
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
@@ -244,9 +241,6 @@ struct SettingsView: View {
           .font(.callout)
           .foregroundColor(.secondary)
           .fixedSize(horizontal: false, vertical: true)
-      }
-      .onChange(of: gravityUpdateCadence) { _, _ in
-        gravityCadenceScheduler.cadenceDidChange()
       }
     }
 
