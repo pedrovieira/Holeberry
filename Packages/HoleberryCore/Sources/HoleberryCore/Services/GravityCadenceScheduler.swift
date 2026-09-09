@@ -2,8 +2,7 @@ import Defaults
 import Foundation
 
 /// Single owner of "what counts as due" for automatic gravity updates.
-/// Launch, wake, and the internal one-shot timer all funnel through
-/// `checkNow()`.
+/// Launch, wake, and the internal one-shot timer all funnel through `checkNow()`.
 @MainActor
 public protocol GravityCadenceScheduling: AnyObject {
   /// Check for a due run at launch (covers cold launch + a missed cadence
@@ -57,8 +56,7 @@ public final class LiveGravityCadenceScheduler: GravityCadenceScheduling {
       Defaults[.gravityUpdateNextDue(suite: defaultsSuite)] = nil
       return
     }
-    // Selecting a cadence does NOT run immediately — the first automatic
-    // update fires one full interval from enabling.
+    // The first automatic update fires one full interval from enabling.
     Defaults[.gravityUpdateNextDue(suite: defaultsSuite)] = now().addingTimeInterval(interval)
     armTimer(interval: interval)
   }
@@ -76,8 +74,7 @@ public final class LiveGravityCadenceScheduler: GravityCadenceScheduling {
   }
 
   /// Runs one update, then re-arms if the cadence is unchanged. Anchoring
-  /// `nextDue` to NOW (not the missed due date) gives "catch up once": three
-  /// missed 6h periods fire one run, then the interval resumes.
+  /// `nextDue` to NOW (not the missed date) is the "catch up once" rule.
   private func runUpdate(cadence: GravityUpdateCadence, interval: TimeInterval) {
     checkInFlight = true
     Task { [weak self] in
@@ -89,8 +86,7 @@ public final class LiveGravityCadenceScheduler: GravityCadenceScheduling {
           self.now().addingTimeInterval(interval)
         self.armTimer(interval: interval)
       }
-      // Failure still advances nextDue (above) — avoids hammering an
-      // unreachable server — but the outcome is always reported.
+      // Failure also advances nextDue — avoids hammering an unreachable server.
       self.onOutcomes(outcomes)
     }
   }

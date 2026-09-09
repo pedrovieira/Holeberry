@@ -1,9 +1,8 @@
 import Foundation
 import HoleberryCore
 
-/// Turns gravity update outcomes into user notifications. Shared by the
-/// manual menu action and automatic cadence runs so both are
-/// indistinguishable to the user.
+/// Turns gravity outcomes into notifications; shared by the manual action
+/// and cadence runs.
 @MainActor
 struct GravityOutcomeNotifier {
   private let notificationCoordinator: NotificationCoordinator

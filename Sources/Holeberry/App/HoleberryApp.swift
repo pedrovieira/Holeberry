@@ -105,8 +105,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       onOutcomes: { [gravityOutcomeNotifier] outcomes in gravityOutcomeNotifier.notify(outcomes) }
     )
     self.gravityCadenceScheduler = gravityCadenceScheduler
-    // React to cadence changes from any writer (currently the Settings picker)
-    // without coupling the settings UI to the scheduler.
+    // React to cadence changes without coupling the settings UI to the scheduler.
     cadenceCancellable = Defaults.publisher(.gravityUpdateCadence(suite: .standard))
       .receive(on: DispatchQueue.main)
       .sink { [weak self] _ in
@@ -142,8 +141,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     statusPoller.startPolling()
 
-    // Catch up on a missed cadence right at launch, and again when the Mac
-    // wakes from sleep (a one-shot task doesn't run while asleep).
+    // Catch up at launch and after wake (a one-shot task doesn't run while asleep).
     gravityCadenceScheduler.start()
     wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didWakeNotification,

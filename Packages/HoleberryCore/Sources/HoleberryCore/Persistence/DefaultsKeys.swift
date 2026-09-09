@@ -100,9 +100,7 @@ extension Defaults.Keys {
     Defaults.Key<GravityUpdateCadence>("gravityUpdateCadence", default: .never, suite: suite)
   }
 
-  /// Single source of truth for "when should this next fire." Persisting the
-  /// computed due date (rather than `lastRun` + recomputed interval) means
-  /// "is it due" is always a one-line comparison.
+  /// When the next automatic gravity update is due; nil = not scheduled.
   public static func gravityUpdateNextDue(
     suite: UserDefaults = .standard
   ) -> Defaults.Key<Date?> {
