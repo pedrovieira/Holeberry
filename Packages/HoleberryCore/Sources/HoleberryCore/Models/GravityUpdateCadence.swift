@@ -1,12 +1,9 @@
 import Defaults
 import Foundation
 
-/// The fixed cadence options for automatic gravity updates.
-///
-/// Order matters: `CaseIterable`'s synthesized `allCases` follows declaration
-/// order, and the Settings picker is built from `allCases` — this order IS
-/// the menu order. "Never" is last deliberately (ascending intervals ending
-/// in the off-state, mirroring Apple's interval popups).
+/// The fixed cadence options for automatic gravity updates. Order matters:
+/// `allCases` drives the Settings picker — "Never" is last (ascending
+/// intervals ending in the off-state).
 public enum GravityUpdateCadence: String, Codable, Defaults.Serializable, CaseIterable {
   case every6Hours
   case every12Hours
@@ -16,27 +13,15 @@ public enum GravityUpdateCadence: String, Codable, Defaults.Serializable, CaseIt
 }
 
 extension GravityUpdateCadence {
-  /// `nil` means "don't schedule anything" — the off-state.
-  /// `.daily` and `.weekly` are rolling intervals from the last run, not
-  /// anchored to a wall-clock time of day.
+  /// `nil` is the off-state; `.daily`/`.weekly` roll from the last run,
+  /// not from a wall-clock time of day.
   public var intervalSeconds: TimeInterval? {
     switch self {
-    case .every6Hours: return 6 * 3600
-    case .every12Hours: return 12 * 3600
-    case .daily: return 24 * 3600
-    case .weekly: return 7 * 24 * 3600
+    case .every6Hours: return .hours(6)
+    case .every12Hours: return .hours(12)
+    case .daily: return .days(1)
+    case .weekly: return .days(7)
     case .never: return nil
-    }
-  }
-
-  /// Exact menu copy. Keep in sync with the design spec if either changes.
-  public var menuTitle: String {
-    switch self {
-    case .every6Hours: return "Every 6 hours"
-    case .every12Hours: return "Every 12 hours"
-    case .daily: return "Daily"
-    case .weekly: return "Weekly"
-    case .never: return "Never"
     }
   }
 }

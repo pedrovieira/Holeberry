@@ -39,6 +39,7 @@
 		BBD4E8FAA636A794162F8A60 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4A7925530C12A1C1F48C21F6 /* Sparkle */; };
 		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
 		C02BDEB33D979927C512A11D /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */; };
+		C7D34F00B3B96F867B5519DE /* GravityUpdateCadence+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206F54A71206D5BD72DD7A27 /* GravityUpdateCadence+DisplayName.swift */; };
 		CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */; };
 		CD040B18D5CF4518731EC852 /* UnblockCurrentTabDurationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */; };
 		D8E3C678109A99C500F416AE /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F937B463F6A990098878357C /* KeyboardShortcuts */; };
@@ -54,6 +55,7 @@
 		137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthFailureReason+Copy.swift"; sourceTree = "<group>"; };
 		145FEF2113A4C79130480D19 /* VisualEffectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualEffectView.swift; sourceTree = "<group>"; };
 		20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GravityMenuState.swift; sourceTree = "<group>"; };
+		206F54A71206D5BD72DD7A27 /* GravityUpdateCadence+DisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GravityUpdateCadence+DisplayName.swift"; sourceTree = "<group>"; };
 		273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabSettingsView.swift; sourceTree = "<group>"; };
 		2A6D689F10D80D71CAF6934F /* Holeberry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Holeberry.entitlements; sourceTree = "<group>"; };
 		2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationPickerAlert.swift; sourceTree = "<group>"; };
@@ -219,6 +221,7 @@
 				90575EF61BAE2C9987472387 /* AboutAppIconTile.swift */,
 				273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */,
 				ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */,
+				206F54A71206D5BD72DD7A27 /* GravityUpdateCadence+DisplayName.swift */,
 				DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */,
 				D48A2E625686DBB46B548D0E /* SettingsView.swift */,
 				4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */,
@@ -404,6 +407,7 @@
 				5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */,
 				72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */,
 				99B98E3D2641197AC15A764A /* GravityOutcomeNotifier.swift in Sources */,
+				C7D34F00B3B96F867B5519DE /* GravityUpdateCadence+DisplayName.swift in Sources */,
 				7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */,
 				8F1976F9A92FB5F96E9A0570 /* LimitedTextField.swift in Sources */,
 				3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */,

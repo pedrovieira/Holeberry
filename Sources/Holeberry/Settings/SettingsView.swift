@@ -231,7 +231,7 @@ struct SettingsView: View {
           Spacer()
           Picker("", selection: $gravityUpdateCadence) {
             ForEach(GravityUpdateCadence.allCases, id: \.self) { option in
-              Text(option.menuTitle).tag(option)
+              Text(option.displayName).tag(option)
             }
           }
           .pickerStyle(.menu)
