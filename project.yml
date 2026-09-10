@@ -39,6 +39,10 @@ targets:
         CFBundleIconFile: AppIcon
         NSLocalNetworkUsageDescription: Holeberry needs local network access to connect to your Pi-hole instances.
         NSAppleEventsUsageDescription: Holeberry needs to read the current tab URL from your browser to unblock it.
+        # Allow cleartext HTTP to user-entered hosts (e.g. Pi-hole over Tailscale or another VPN).
+        # Do NOT add NSAllowsLocalNetworking: on macOS 10.12+ it makes ATS ignore NSAllowsArbitraryLoads.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
         SUEnableDownloaderService: true
         SUEnableInstallerLauncherService: true
         SUFeedURL: "https://raw.githubusercontent.com/pedrovieira/Holeberry/main/Updates/appcast.xml"
