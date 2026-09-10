@@ -34,6 +34,7 @@ struct SettingsView: View {
   @Default var showAllClientsRecentBlocked: Bool
   @Default var showPerInstanceStats: Bool
   @Default var showGravityMenuItem: Bool
+  @Default var gravityUpdateCadence: GravityUpdateCadence
   @Default var durations: [UnblockDurationEntry]
   @Default var unblockCurrentTabDuration: UnblockCurrentTabDurationSelection
 
@@ -71,6 +72,7 @@ struct SettingsView: View {
     _showAllClientsRecentBlocked = .init(.showAllClientsRecentBlocked(suite: defaultsSuite))
     _showPerInstanceStats = .init(.showPerInstanceStats(suite: defaultsSuite))
     _showGravityMenuItem = .init(.showGravityMenuItem(suite: defaultsSuite))
+    _gravityUpdateCadence = .init(.gravityUpdateCadence(suite: defaultsSuite))
     _durations = .init(.unblockDurations(suite: defaultsSuite))
     _unblockCurrentTabDuration = .init(.unblockCurrentTabDuration(suite: defaultsSuite))
     _selectedTab = State(initialValue: initialTab)
@@ -218,6 +220,24 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
 
         Text("Shortcut still works regardless of this setting.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+
+      VStack(alignment: .leading) {
+        HStack {
+          Text("Update Gravity automatically:")
+          Spacer()
+          Picker("", selection: $gravityUpdateCadence) {
+            ForEach(GravityUpdateCadence.allCases, id: \.self) { option in
+              Text(option.displayName).tag(option)
+            }
+          }
+          .pickerStyle(.menu)
+          .labelsHidden()
+        }
+        Text("Holeberry needs to be running for the update schedule to take effect.")
           .font(.callout)
           .foregroundColor(.secondary)
           .fixedSize(horizontal: false, vertical: true)

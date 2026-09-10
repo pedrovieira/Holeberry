@@ -16,6 +16,7 @@ final class MenuBarController: NSObject {
   private let localIPAddressResolver: any LocalIPAddressProviding
   private let updater: SPUUpdater
   private let notificationCoordinator: NotificationCoordinator
+  private let gravityOutcomeNotifier: GravityOutcomeNotifier
   private let defaultsSuite: UserDefaults
   private let settingsWindowController: SettingsWindowController
   private let menuBuilder = MenuBuilder()
@@ -48,6 +49,7 @@ final class MenuBarController: NSObject {
     localIPAddressResolver: any LocalIPAddressProviding,
     updater: SPUUpdater,
     notificationCoordinator: NotificationCoordinator,
+    gravityOutcomeNotifier: GravityOutcomeNotifier,
     defaultsSuite: UserDefaults = .standard,
     settingsWindowController: SettingsWindowController
   ) {
@@ -59,6 +61,7 @@ final class MenuBarController: NSObject {
     self.localIPAddressResolver = localIPAddressResolver
     self.updater = updater
     self.notificationCoordinator = notificationCoordinator
+    self.gravityOutcomeNotifier = gravityOutcomeNotifier
     self.defaultsSuite = defaultsSuite
     self.settingsWindowController = settingsWindowController
 
@@ -288,9 +291,7 @@ final class MenuBarController: NSObject {
   // MARK: - Gravity
 
   private func handleGravityOutcomes(_ outcomes: [UUID: GravityUpdateOutcome]) {
-    notificationCoordinator.scheduleGravityOutcomeNotifications(outcomes) { [serverManager] id in
-      serverManager.servers.first { $0.id == id }?.label
-    }
+    gravityOutcomeNotifier.notify(outcomes)
   }
 
   // MARK: - Add to Allowlist

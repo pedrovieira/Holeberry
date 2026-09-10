@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Defaults
 import HoleberryCore
 import OSLog
 import Sparkle
@@ -28,7 +29,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var shortcutController: ShortcutController?
   private var unblockEndedNotifier: UnblockEndedNotifier?
   private var notificationCoordinator: NotificationCoordinator?
+  private var gravityCadenceScheduler: (any GravityCadenceScheduling)?
+  private var wakeObserver: (any NSObjectProtocol)?
   private var notificationServerCancellable: AnyCancellable?
+  private var cadenceCancellable: AnyCancellable?
   private var updaterController: SPUStandardUpdaterController?
   private var settingsWindowController: SettingsWindowController?
 
@@ -83,6 +87,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     dnsServerResolver: dnsServerResolver
   )
 
+  // swiftlint:disable:next function_body_length
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
@@ -90,6 +95,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       self?.settingsWindowController?.showWindow()
     }
     self.notificationCoordinator = notificationCoordinator
+    let gravityOutcomeNotifier = GravityOutcomeNotifier(
+      notificationCoordinator: notificationCoordinator,
+      serverManager: serverManager
+    )
+
+    let gravityCadenceScheduler = LiveGravityCadenceScheduler(
+      triggerUpdate: { [statusPoller] in await statusPoller.applyGravityUpdate() },
+      onOutcomes: { [gravityOutcomeNotifier] outcomes in gravityOutcomeNotifier.notify(outcomes) }
+    )
+    self.gravityCadenceScheduler = gravityCadenceScheduler
+    // React to cadence changes without coupling the settings UI to the scheduler.
+    cadenceCancellable = Defaults.publisher(.gravityUpdateCadence(suite: .standard))
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.gravityCadenceScheduler?.cadenceDidChange()
+      }
     requestNotificationAuthorizationIfNeeded()
 
     // A fresh prompt once the first server is added; authorization is asked
@@ -120,6 +141,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     statusPoller.startPolling()
 
+    // Catch up at launch and after wake (a one-shot task doesn't run while asleep).
+    gravityCadenceScheduler.start()
+    wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.didWakeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      Task { @MainActor in
+        self?.gravityCadenceScheduler?.checkNow()
+      }
+    }
+
     menuBarController = MenuBarController(
       timerManager: timerManager,
       serverManager: serverManager,
@@ -129,6 +162,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       localIPAddressResolver: localIPResolver,
       updater: updaterController.updater,
       notificationCoordinator: notificationCoordinator,
+      gravityOutcomeNotifier: gravityOutcomeNotifier,
       settingsWindowController: settingsWindowController
     )
     shortcutController = ShortcutController(

@@ -92,4 +92,18 @@ extension Defaults.Keys {
   ) -> Defaults.Key<[TempUnblockRecord]> {
     Defaults.Key<[TempUnblockRecord]>("tempUnblocks-\(serverID.uuidString)", default: [], suite: suite)
   }
+
+  /// The cadence for automatic gravity updates (off by default: `.never`).
+  public static func gravityUpdateCadence(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<GravityUpdateCadence> {
+    Defaults.Key<GravityUpdateCadence>("gravityUpdateCadence", default: .never, suite: suite)
+  }
+
+  /// When the next automatic gravity update is due; nil = not scheduled.
+  public static func gravityUpdateNextDue(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Date?> {
+    Defaults.Key<Date?>("gravityUpdateNextDue", default: nil, suite: suite)
+  }
 }
