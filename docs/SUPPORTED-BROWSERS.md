@@ -27,9 +27,16 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 | Brave Browser Beta | `com.brave.Browser.beta` |
 | Brave Browser Nightly | `com.brave.Browser.nightly` |
 | Arc | `company.thebrowser.Browser` |
+| Dia | `company.thebrowser.dia` |
 | Opera | `com.operasoftware.Opera` |
 | Opera Next | `com.operasoftware.OperaNext` |
 | Opera Developer | `com.operasoftware.OperaDeveloper` |
+| Opera GX | `com.operasoftware.OperaGX` |
+| Opera Neon | `com.operasoftware.OperaNeon` |
+| Opera Air | `com.operasoftware.OperaAir` |
+| Perplexity Comet | `ai.perplexity.comet` |
+| Yandex Browser | `ru.yandex.desktop.yandex-browser` |
+| Ecosia Browser | `org.ecosia.browser` |
 | Vivaldi | `com.vivaldi.Vivaldi` |
 | Vivaldi Snapshot | `com.vivaldi.Vivaldi.snapshot` |
 | Helium | `net.imput.helium` |
