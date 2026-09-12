@@ -26,9 +26,16 @@
         <string>com.brave.Browser.beta</string>
         <string>com.brave.Browser.nightly</string>
         <string>company.thebrowser.Browser</string>
+        <string>company.thebrowser.dia</string>
         <string>com.operasoftware.Opera</string>
         <string>com.operasoftware.OperaNext</string>
         <string>com.operasoftware.OperaDeveloper</string>
+        <string>com.operasoftware.OperaGX</string>
+        <string>com.operasoftware.OperaNeon</string>
+        <string>com.operasoftware.OperaAir</string>
+        <string>ai.perplexity.comet</string>
+        <string>ru.yandex.desktop.yandex-browser</string>
+        <string>org.ecosia.browser</string>
         <string>com.vivaldi.Vivaldi</string>
         <string>com.vivaldi.Vivaldi.snapshot</string>
         <string>net.imput.helium</string>
