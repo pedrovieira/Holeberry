@@ -34,8 +34,11 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
     // Chromium-based browsers — all fall through to Chrome
     case .edge, .edgeBeta, .edgeDev, .edgeCanary,
       .brave, .braveBeta, .braveNightly,
-      .arc,
-      .opera, .operaNext, .operaDeveloper,
+      .arc, .dia,
+      .opera, .operaNext, .operaDeveloper, .operaGX, .operaNeon, .operaAir,
+      .comet,
+      .yandex,
+      .ecosia,
       .vivaldi, .vivaldiSnapshot,
       .helium,
       .chrome, .chromeBeta, .chromeDev, .chromeCanary:

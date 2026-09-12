@@ -22,10 +22,20 @@ public enum Browser: String, CaseIterable {
   case braveNightly = "com.brave.Browser.nightly"
   // Arc
   case arc = "company.thebrowser.Browser"
+  case dia = "company.thebrowser.dia"
   // Opera
   case opera = "com.operasoftware.Opera"
   case operaNext = "com.operasoftware.OperaNext"
   case operaDeveloper = "com.operasoftware.OperaDeveloper"
+  case operaGX = "com.operasoftware.OperaGX"
+  case operaNeon = "com.operasoftware.OperaNeon"
+  case operaAir = "com.operasoftware.OperaAir"
+  // Perplexity
+  case comet = "ai.perplexity.comet"
+  // Yandex
+  case yandex = "ru.yandex.desktop.yandex-browser"
+  // Ecosia
+  case ecosia = "org.ecosia.browser"
   // Vivaldi
   case vivaldi = "com.vivaldi.Vivaldi"
   case vivaldiSnapshot = "com.vivaldi.Vivaldi.snapshot"
@@ -60,9 +70,16 @@ public enum Browser: String, CaseIterable {
     case .braveBeta: return "Brave Browser Beta"
     case .braveNightly: return "Brave Browser Nightly"
     case .arc: return "Arc"
+    case .dia: return "Dia"
     case .opera: return "Opera"
     case .operaNext: return "Opera Next"
     case .operaDeveloper: return "Opera Developer"
+    case .operaGX: return "Opera GX"
+    case .operaNeon: return "Opera Neon"
+    case .operaAir: return "Opera Air"
+    case .comet: return "Comet"
+    case .yandex: return "Yandex"
+    case .ecosia: return "Ecosia Browser"
     case .vivaldi: return "Vivaldi"
     case .vivaldiSnapshot: return "Vivaldi Snapshot"
     case .helium: return "Helium"

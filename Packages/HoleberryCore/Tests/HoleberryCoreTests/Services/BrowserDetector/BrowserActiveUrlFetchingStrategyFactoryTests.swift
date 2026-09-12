@@ -44,6 +44,14 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
     #expect(strategy is GeckoSessionStoreUrlFetchingStrategy)
   }
 
+  @Test("New Chromium browsers use ChromiumUrlFetchingStrategy")
+  func newChromiumBrowsersStrategy() {
+    for browser in [Browser.dia, .comet, .yandex, .ecosia, .operaGX, .operaNeon, .operaAir] {
+      let strategy = factory.strategy(for: browser)
+      #expect(strategy is ChromiumUrlFetchingStrategy)
+    }
+  }
+
   @Test("Helium uses ChromiumUrlFetchingStrategy")
   func heliumStrategy() {
     let strategy = factory.strategy(for: .helium)
