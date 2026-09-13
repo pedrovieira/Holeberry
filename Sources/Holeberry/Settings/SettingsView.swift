@@ -336,14 +336,19 @@ struct SettingsView: View {
         VStack(alignment: .center, spacing: 5) {
           AboutAppIconTile()
 
-          Text("Holeberry")
-            .font(.title2.weight(.semibold))
-            .padding(.top, 5)
-          if let version = Bundle.main.releaseVersionNumber {
-            Text(version)
-              .font(.subheadline)
-              .foregroundStyle(.secondary)
+          HStack(alignment: .firstTextBaseline) {
+            Text("Holeberry")
+              .font(.title2.weight(.semibold))
+            if let version = Bundle.main.releaseVersionNumber {
+              Text(version)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
           }
+          .padding(.top, 6)
+
+          releaseNotesButton
+            .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.top, 16)
@@ -409,6 +414,21 @@ struct SettingsView: View {
       }
       .padding(.bottom, 12)
     }
+  }
+
+  /// A small secondary button that opens the release notes for the exact
+  /// version currently running (e.g. `.../releases/tag/v1.1.1`), so users on
+  /// an older build see that build's notes rather than the latest release's.
+  private var releaseNotesButton: some View {
+    Button {
+      guard let version = Bundle.main.releaseVersionNumber else { return }
+      openURL("https://github.com/pedrovieira/Holeberry/releases/tag/v\(version)")
+    } label: {
+      Label("Release notes", systemImage: "doc.text")
+    }
+    .buttonStyle(.bordered)
+    .controlSize(.small)
+    .accessibilityLabel("Release notes")
   }
 
   private func openURL(_ string: String) {
