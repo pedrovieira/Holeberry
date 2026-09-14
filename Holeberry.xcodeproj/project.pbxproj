@@ -635,7 +635,7 @@
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 2.6.0;
+				minimumVersion = 2.10.0;
 			};
 		};
 		7F2B9C0AA668218507868FBC /* XCRemoteSwiftPackageReference "SymbolPicker" */ = {
