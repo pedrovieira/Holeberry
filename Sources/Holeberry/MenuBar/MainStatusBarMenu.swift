@@ -8,6 +8,8 @@ final class MainStatusBarMenu: NSMenu {
   init(actionTarget: MenuActionTarget) {
     self.actionTarget = actionTarget
     super.init(title: "")
+    // Manual enablement is authoritative; AppKit auto-validation would override it.
+    autoenablesItems = false
   }
 
   required init(coder: NSCoder) {
