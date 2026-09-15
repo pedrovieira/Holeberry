@@ -266,7 +266,7 @@ struct MenuBuilder {
       item.isEnabled = isConnected && hasServers && hasHealthyInstance
       menu.addItem(item)
     } else {
-      let submenu = NSMenu()
+      let submenu = makeManuallyEnabledMenu()
 
       for entry in durations {
         addDisableDurationItem(
@@ -516,7 +516,7 @@ struct MenuBuilder {
     durations: [UnblockDurationEntry],
     target: MenuActionTarget
   ) -> NSMenu {
-    let submenu = NSMenu()
+    let submenu = makeManuallyEnabledMenu()
 
     for entry in durations {
       addDurationItem(
@@ -671,6 +671,13 @@ struct MenuBuilder {
   }
 
   // MARK: - Helpers
+
+  /// Menu with manual enablement (matches `MainStatusBarMenu`).
+  private func makeManuallyEnabledMenu() -> NSMenu {
+    let menu = NSMenu()
+    menu.autoenablesItems = false
+    return menu
+  }
 
   /// Builds a two-line attributed title: icon + "No instances configured" / "Configure in Settings…" below.
   private func noInstancesAttributedTitle() -> NSAttributedString {
