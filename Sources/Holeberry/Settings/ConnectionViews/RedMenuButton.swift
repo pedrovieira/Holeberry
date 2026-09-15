@@ -34,7 +34,7 @@ enum RedMenuBuilder {
         keyEquivalent: ""
       )
       reauthItem.target = target
-      reauthItem.image = NSImage(
+      reauthItem.visibleImage = NSImage(
         systemSymbolName: "lock.fill", accessibilityDescription: "Re-authenticate")
       menu.addItem(reauthItem)
     }
@@ -46,7 +46,7 @@ enum RedMenuBuilder {
         keyEquivalent: ""
       )
       retryItem.target = target
-      retryItem.image = NSImage(
+      retryItem.visibleImage = NSImage(
         systemSymbolName: "arrow.clockwise", accessibilityDescription: "Retry connection")
       menu.addItem(retryItem)
     }
@@ -57,7 +57,7 @@ enum RedMenuBuilder {
       keyEquivalent: ""
     )
     editItem.target = target
-    editItem.image = NSImage(
+    editItem.visibleImage = NSImage(
       systemSymbolName: "pencil", accessibilityDescription: "Edit")
     menu.addItem(editItem)
 
@@ -70,7 +70,7 @@ enum RedMenuBuilder {
     )
     deleteItem.target = target
     let redConfig = NSImage.SymbolConfiguration(hierarchicalColor: .systemRed)
-    deleteItem.image = NSImage(
+    deleteItem.visibleImage = NSImage(
       systemSymbolName: "trash", accessibilityDescription: "Delete"
     )?.withSymbolConfiguration(redConfig)
     deleteItem.attributedTitle = NSAttributedString(

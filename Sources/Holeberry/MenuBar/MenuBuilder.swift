@@ -126,7 +126,7 @@ struct MenuBuilder {
         keyEquivalent: ""
       )
       item.target = target
-      item.image = NSImage(
+      item.visibleImage = NSImage(
         systemSymbolName: "arrow.up.forward.square",
         accessibilityDescription: "Open Settings"
       )
@@ -586,7 +586,7 @@ struct MenuBuilder {
     case .noBrowser:
       let item = NSMenuItem(title: "No browser detected", action: nil, keyEquivalent: "")
       item.isEnabled = false
-      item.image = browserIcon
+      item.visibleImage = browserIcon
       menu.addItem(item)
 
     case .permissionDenied(let browser):
@@ -597,7 +597,7 @@ struct MenuBuilder {
       )
       item.target = target
       item.isEnabled = true
-      item.image = browserIcon
+      item.visibleImage = browserIcon
       menu.addItem(item)
 
     case .permissionNeeded(let browser):
@@ -608,14 +608,14 @@ struct MenuBuilder {
       )
       item.target = target
       item.isEnabled = true
-      item.image = browserIcon
+      item.visibleImage = browserIcon
       item.representedObject = browser
       menu.addItem(item)
 
     case .noURL:
       let item = NSMenuItem(title: "Could not get tab URL", action: nil, keyEquivalent: "")
       item.isEnabled = false
-      item.image = browserIcon
+      item.visibleImage = browserIcon
       menu.addItem(item)
 
     case .url(_, let domain):
@@ -625,7 +625,7 @@ struct MenuBuilder {
         keyEquivalent: ""
       )
       item.isEnabled = hasHealthyInstance
-      item.image = browserIcon
+      item.visibleImage = browserIcon
       item.submenu = buildDurationSubmenu(for: domain, durations: durations, target: target)
       menu.addItem(item)
     }
@@ -651,7 +651,6 @@ struct MenuBuilder {
       keyEquivalent: ","
     )
     settingsItem.target = target
-    settingsItem.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "Settings")
     menu.addItem(settingsItem)
 
     let checkForUpdatesItem = NSMenuItem(

@@ -56,7 +56,7 @@ final class RecentlyBlockedMenu: NSMenu, NSMenuDelegate {
       domainItem.submenu = buildDurationSubmenu(entry.domain)
 
       if showAllClients, entry.fromClientIp == userIP {
-        domainItem.image = .init(systemSymbolName: "person.circle", accessibilityDescription: "")
+        domainItem.visibleImage = .init(systemSymbolName: "person.circle", accessibilityDescription: "")
       }
 
       addItem(domainItem)
