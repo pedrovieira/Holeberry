@@ -20,7 +20,7 @@ struct ResolvedBrowserTabTests {
     #expect(ResolvedBrowserTab.disabled.browser == nil)
     #expect(ResolvedBrowserTab.noBrowser.browser == nil)
     #expect(ResolvedBrowserTab.permissionNeeded(.firefox).browser == .firefox)
-    #expect(ResolvedBrowserTab.permissionDenied(.chrome).browser == .chrome)
+    #expect(ResolvedBrowserTab.permissionDenied(.chrome, .automation).browser == .chrome)
     #expect(ResolvedBrowserTab.noURL(.safari).browser == .safari)
     #expect(ResolvedBrowserTab.url(.arc, "test.com").browser == .arc)
   }

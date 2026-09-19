@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Browser: String, CaseIterable {
+public enum Browser: String, CaseIterable, Sendable {
   // WebKit
   case safari = "com.apple.Safari"
   case safariTechnologyPreview = "com.apple.SafariTechnologyPreview"

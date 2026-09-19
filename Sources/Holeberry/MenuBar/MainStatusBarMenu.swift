@@ -1,4 +1,5 @@
 import AppKit
+import HoleberryCore
 
 /// Strongly retains the `MenuActionTarget` so that weak `NSMenuItem.target`
 /// references stay valid for the entire lifetime of the status-bar menu.
@@ -89,7 +90,11 @@ final class MenuActionTarget: NSObject {
   // MARK: - Browser tab
 
   @objc func enableBrowserPermissionAction(_ sender: Any?) { actions.enableBrowserPermission() }
-  @objc func openAutomationSettingsAction(_ sender: Any?) { actions.openAutomationSettings() }
+
+  @objc func openBrowserPermissionSettingsAction(_ sender: NSMenuItem) {
+    guard let pane = sender.representedObject as? PermissionSettingsPane else { return }
+    actions.openBrowserPermissionSettings(pane)
+  }
 
   // MARK: - Duration-prompt default implementation
 

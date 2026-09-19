@@ -7,6 +7,19 @@ struct BrowserTabSettingsView: View {
 
   @State private var showingBrowserInfo = false
 
+  /// The sentence about which permission browser tab unblocking may require.
+  /// The Files & Folders (app-data) part only exists on macOS 27 and later,
+  /// so older systems keep the original wording.
+  private var permissionRequirementText: String {
+    var prefixText = "May require Automation"
+
+    if #available(macOS 27.0, *) {
+      prefixText += " or \"Files and Folders\""
+    }
+
+    return prefixText + " permission to read the current browser tab."
+  }
+
   var body: some View {
     Section("Browser Tab") {
       VStack(alignment: .leading) {
@@ -36,13 +49,10 @@ struct BrowserTabSettingsView: View {
             .accessibilityLabel("Enable browser tab unblocking")
         }
 
-        Text(
-          "Quickly unblock a URL from your browser. "
-            + "May require Automation permission to read the current browser tab."
-        )
-        .font(.callout)
-        .foregroundColor(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
+        Text("Quickly unblock a URL from your browser. " + permissionRequirementText)
+          .font(.callout)
+          .foregroundColor(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
   }

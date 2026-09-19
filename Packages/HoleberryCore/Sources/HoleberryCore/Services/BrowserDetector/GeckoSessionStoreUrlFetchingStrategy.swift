@@ -3,16 +3,35 @@ import Foundation
 import OSLog
 
 final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrategy {
-  private let logger: Logger
-  private let supportDir: URL
-
-  init(supportDirName: String, category: String) {
-    let home = FileManager.default.homeDirectoryForCurrentUser
-    self.supportDir = home.appendingPathComponent("Library/Application Support/\(supportDirName)")
-    self.logger = Logger(subsystem: Logger.appSubsystem, category: category)
+  /// The result of probing the browser's support directory.
+  enum SupportDirectoryAccess: Equatable {
+    case readable
+    case denied
+    case unavailable
   }
 
-  func getCurrentURL(for browser: Browser) -> String? {
+  let browser: Browser
+  private let logger: Logger
+  private let supportDir: URL
+  private let listDirectory: DirectoryListing
+
+  /// Directory listing, injected so tests can drive the probe with synthetic errors.
+  typealias DirectoryListing = (String) throws -> [String]
+
+  init(
+    browser: Browser,
+    supportDirName: String,
+    category: String,
+    homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+    listDirectory: @escaping DirectoryListing = { try FileManager.default.contentsOfDirectory(atPath: $0) }
+  ) {
+    self.browser = browser
+    self.supportDir = homeDirectory.appendingPathComponent("Library/Application Support/\(supportDirName)")
+    self.logger = Logger(subsystem: Logger.appSubsystem, category: category)
+    self.listDirectory = listDirectory
+  }
+
+  func getCurrentURL() -> URL? {
     let profilesINI = supportDir.appendingPathComponent("profiles.ini")
     guard let profilePath = resolveDefaultProfilePath(from: profilesINI) else {
       logger.warning("Could not resolve default profile from profiles.ini")
@@ -42,12 +61,50 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
 
   // MARK: - Permission
 
-  func isPermissionGranted(for browser: Browser) -> AutomationPermission {
-    .allowed  // Gecko-based browsers read session files, no Apple Events needed
+  func accessState() -> BrowserAccessState {
+    switch checkSupportDirectoryAccess() {
+    case .readable:
+      return .allowed
+    case .denied:
+      logger.notice("System denied access to \(self.supportDir.path, privacy: .public)")
+      return .denied(.filesAndFolders)
+    case .unavailable:
+      // Not installed or never launched — treated as "no permission problem".
+      return .allowed
+    }
   }
 
-  func requestPermission(for browser: Browser) {
-    // No-op: Gecko-based browsers don't use Apple Events
+  /// Intentionally empty: macOS has no consent dialog for Gecko folder access,
+  /// so `accessState()` never reports `.notDetermined` and a denial is only
+  /// fixable in System Settings → Files & Folders.
+  func requestAccess() {}
+
+  /// Probes the support directory. macOS 27+ app-data protection fails the read
+  /// with `NSFileReadNoPermissionError`.
+  private func checkSupportDirectoryAccess() -> SupportDirectoryAccess {
+    do {
+      _ = try listDirectory(supportDir.path)
+      return .readable
+    } catch {
+      return Self.isPermissionError(error) ? .denied : .unavailable
+    }
+  }
+
+  /// Whether an error is a POSIX-level permission failure rather than, say,
+  /// a missing file. Permission errors come from the OS policy, not from the
+  /// browser's own state, so the user can fix them in System Settings.
+  private static func isPermissionError(_ error: any Error) -> Bool {
+    let nsError = error as NSError
+    if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoPermissionError {
+      return true
+    }
+    if nsError.domain == NSPOSIXErrorDomain, nsError.code == Int(EPERM) || nsError.code == Int(EACCES) {
+      return true
+    }
+    if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+      return isPermissionError(underlying)
+    }
+    return false
   }
 
   // MARK: - profiles.ini parsing
@@ -234,8 +291,8 @@ final class GeckoSessionStoreUrlFetchingStrategy: BrowserActiveUrlFetchingStrate
     return entry["url"] as? String
   }
 
-  /// Instance wrapper around the static `extractURL(from:)` for internal use.
-  private func extractURL(from compressedData: Data) -> String? {
-    Self.extractURL(from: compressedData)
+  /// Instance wrapper around the static `extractURL(from:)`, parsed into a URL.
+  private func extractURL(from compressedData: Data) -> URL? {
+    Self.extractURL(from: compressedData).flatMap { URL(string: $0) }
   }
 }

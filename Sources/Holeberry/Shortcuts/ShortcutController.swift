@@ -47,10 +47,8 @@ final class ShortcutController {
     KeyboardShortcuts.onKeyDown(for: .unblockCurrentTab) { [weak self] in
       guard let self else { return }
       let result = self.browserTabCoordinator.requestPermissionIfNeededAndResolve()
-      if case .permissionDenied = result {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Automation") {
-          NSWorkspace.shared.open(url)
-        }
+      if case .permissionDenied(let browser, let pane) = result {
+        self.presentBrowserPermissionAlert(for: browser, pane: pane)
         return
       }
       guard case .url(_, let domain) = result else {
@@ -111,6 +109,33 @@ final class ShortcutController {
     for name in registeredDurationNames.subtracting(currentNames) {
       KeyboardShortcuts.reset(name)
       registeredDurationNames.remove(name)
+    }
+  }
+
+  // MARK: - Browser Permission
+
+  /// Explains the block and offers to open the matching System Settings pane.
+  private func presentBrowserPermissionAlert(for browser: Browser, pane: PermissionSettingsPane) {
+    var informative = "Holeberry only reads the domain of your current browser tab. "
+    switch pane {
+    case .automation:
+      informative += "Turn on Holeberry for \(browser.appName) in Settings → Automation, then try again."
+    case .filesAndFolders:
+      informative += "Turn on \(browser.appName) for Holeberry in Settings → Files & Folders, then try again."
+    }
+
+    let alert = NSAlert()
+    alert.messageText = "Grant Holeberry access to \(browser.appName)?"
+    alert.informativeText = informative
+    alert.addButton(withTitle: "Open Settings")
+    alert.addButton(withTitle: "Cancel")
+
+    // Activate first so the modal alert becomes key in a menu-bar app.
+    NSApp.activate(ignoringOtherApps: true)
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+    if let url = pane.systemSettingsURL {
+      NSWorkspace.shared.open(url)
     }
   }
 

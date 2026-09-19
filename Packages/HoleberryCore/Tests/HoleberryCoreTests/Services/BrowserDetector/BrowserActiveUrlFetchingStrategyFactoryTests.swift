@@ -3,12 +3,11 @@ import Testing
 
 @testable import HoleberryCore
 
-// swiftlint:disable type_name
-
 @Suite("BrowserActiveUrlFetchingStrategyFactory")
+// swiftlint:disable:next type_name
 struct BrowserActiveUrlFetchingStrategyFactoryTests {
   private let factory = BrowserActiveUrlFetchingStrategyFactory(
-    permissionChecker: LivePermissionChecker(),
+    permissionChecker: AutomationPermissionChecker(),
     scriptExecutor: LiveAppleScriptExecutor()
   )
 
@@ -42,6 +41,13 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
   func waterfoxStrategy() {
     let strategy = factory.strategy(for: .waterfox)
     #expect(strategy is GeckoSessionStoreUrlFetchingStrategy)
+  }
+
+  @Test("Every browser is paired with a strategy built for that browser")
+  func strategyIsBuiltForItsBrowser() {
+    for browser in Browser.allCases {
+      #expect(factory.strategy(for: browser).browser == browser)
+    }
   }
 
   @Test("New Chromium browsers use ChromiumUrlFetchingStrategy")
