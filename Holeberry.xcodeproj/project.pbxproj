@@ -20,6 +20,7 @@
 		2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */; };
 		2D274003B08DCE0B66A48C96 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02F9A5864E11136906AE2FF /* ShortcutController.swift */; };
 		32B3DB91B041007E362C5BF1 /* AuthFailureReason+Copy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */; };
+		33B8E2A4506E2533450F3E0D /* PermissionSettingsPane+SystemSettingsURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47828B67486390E088F4DC1E /* PermissionSettingsPane+SystemSettingsURL.swift */; };
 		3954D278E114FB875FCEBE6C /* MainStatusBarMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */; };
 		4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */; };
 		4FCA20D74CFACF8A70C6B09D /* ConnectionStatus+Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = C151C0B11314A1587D7CF5F2 /* ConnectionStatus+Colors.swift */; };
@@ -48,6 +49,7 @@
 		E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */; };
 		E2DDD32077C331E692744C30 /* StatusItemButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD85F69FAB5C5F95C69DC645 /* StatusItemButton.swift */; };
 		EE740A057FF86AEE57DE71D3 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */; };
+		F0DE9A37F4CD8D2CA0D915D8 /* PermissionSettingsPane+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D091BB87DB07CA7594C13D /* PermissionSettingsPane+DisplayName.swift */; };
 		FC35883F96C2B771D58E99B0 /* MenuItemFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */; };
 /* End PBXBuildFile section */
 
@@ -64,9 +66,11 @@
 		3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleberryApp.swift; sourceTree = "<group>"; };
 		3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSheet.swift; sourceTree = "<group>"; };
 		47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyBlockedMenu.swift; sourceTree = "<group>"; };
+		47828B67486390E088F4DC1E /* PermissionSettingsPane+SystemSettingsURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PermissionSettingsPane+SystemSettingsURL.swift"; sourceTree = "<group>"; };
 		4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotificationKind.swift; sourceTree = "<group>"; };
 		551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnblockCurrentTabDurationPicker.swift; sourceTree = "<group>"; };
+		55D091BB87DB07CA7594C13D /* PermissionSettingsPane+DisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PermissionSettingsPane+DisplayName.swift"; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
 		6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		708D635B240324C5A79BA870 /* LimitedTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LimitedTextField.swift; sourceTree = "<group>"; };
@@ -260,6 +264,8 @@
 			children = (
 				2A6D689F10D80D71CAF6934F /* Holeberry.entitlements */,
 				93ACB69A774CC5CB1E5035F5 /* Info.plist */,
+				55D091BB87DB07CA7594C13D /* PermissionSettingsPane+DisplayName.swift */,
+				47828B67486390E088F4DC1E /* PermissionSettingsPane+SystemSettingsURL.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -422,6 +428,8 @@
 				676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */,
 				011C13B859278B5DB78C9BE9 /* NotificationCoordinator.swift in Sources */,
 				247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */,
+				F0DE9A37F4CD8D2CA0D915D8 /* PermissionSettingsPane+DisplayName.swift in Sources */,
+				33B8E2A4506E2533450F3E0D /* PermissionSettingsPane+SystemSettingsURL.swift in Sources */,
 				1E4C2C53C279A2F1E82D3594 /* RecentlyBlockedMenu.swift in Sources */,
 				4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */,
 				BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */,

@@ -589,20 +589,21 @@ struct MenuBuilder {
       item.visibleImage = browserIcon
       menu.addItem(item)
 
-    case .permissionDenied(let browser):
+    case .permissionDenied(let browser, let pane):
       let item = NSMenuItem(
-        title: "\(browser.appName) Permission Denied. Open Settings",
-        action: #selector(MenuActionTarget.openAutomationSettingsAction),
+        title: "\(browser.appName) Permission Denied. Enable Permission…",
+        action: #selector(MenuActionTarget.openBrowserPermissionSettingsAction),
         keyEquivalent: ""
       )
       item.target = target
       item.isEnabled = true
       item.visibleImage = browserIcon
+      item.representedObject = pane
       menu.addItem(item)
 
     case .permissionNeeded(let browser):
       let item = NSMenuItem(
-        title: "\(browser.appName) Detected. Enable Permission",
+        title: "\(browser.appName) Detected. Enable Permission…",
         action: #selector(MenuActionTarget.enableBrowserPermissionAction),
         keyEquivalent: ""
       )

@@ -13,23 +13,20 @@ public protocol BrowserTabCoordinating {
 }
 
 /// Coordinates browser tab detection: tracks the last-seen browser via
-/// AppFocusMonitor, checks Automation permission, and fetches the URL.
+/// AppFocusMonitor, checks its access state, and fetches the URL.
 @MainActor
 public final class BrowserTabCoordinator: BrowserTabCoordinating {
   private let monitor: any AppFocusMonitoring
-  private let urlFetcher: any BrowserUrlFetching
   private let defaultsSuite: UserDefaults
   private let strategyFactory: any UrlFetchingStrategyFactory
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "browser-tab")
 
   public init(
     monitor: any AppFocusMonitoring,
-    urlFetcher: any BrowserUrlFetching,
     strategyFactory: any UrlFetchingStrategyFactory,
     defaultsSuite: UserDefaults = .standard
   ) {
     self.monitor = monitor
-    self.urlFetcher = urlFetcher
     self.strategyFactory = strategyFactory
     self.defaultsSuite = defaultsSuite
   }
@@ -47,17 +44,16 @@ public final class BrowserTabCoordinator: BrowserTabCoordinating {
     }
 
     let strategy = strategyFactory.strategy(for: browser)
-    switch strategy.isPermissionGranted(for: browser) {
+    switch strategy.accessState() {
     case .allowed:
       break
-    case .denied:
-      return .permissionDenied(browser)
     case .notDetermined:
       return .permissionNeeded(browser)
+    case .denied(let pane):
+      return .permissionDenied(browser, pane)
     }
 
-    let domain = urlFetcher.resolveCurrentTabDomain(for: browser)
-    guard let domain, !domain.isEmpty else {
+    guard let domain = strategy.getCurrentURL()?.domain else {
       return .noURL(browser)
     }
     return .url(browser, domain)
@@ -65,16 +61,14 @@ public final class BrowserTabCoordinator: BrowserTabCoordinating {
 
   // MARK: - Request Permission & Resolve
 
-  /// Requests Automation permission if needed (may show TCC dialog), then resolves.
+  /// Shows the OS consent dialog when the state allows one, then resolves.
+  /// `.notDetermined` is the only promptable state, and the strategy owns the
+  /// mechanism that may fix it — this type never names one directly.
   public func requestPermissionIfNeededAndResolve() -> ResolvedBrowserTab {
     let result = resolve()
-    switch result {
-    case .permissionNeeded(let browser), .permissionDenied(let browser):
-      strategyFactory.strategy(for: browser).requestPermission(for: browser)
-      return resolve()
-    default:
-      return result
-    }
+    guard case .permissionNeeded(let browser) = result else { return result }
+    strategyFactory.strategy(for: browser).requestAccess()
+    return resolve()
   }
 
   // MARK: - Browser Icon

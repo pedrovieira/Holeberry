@@ -141,10 +141,8 @@ final class MenuBarController: NSObject {
         enableBrowserPermission: { [weak self] in
           self?.handleEnableBrowserPermission()
         },
-        openAutomationSettings: {
-          if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Automation") {
-            NSWorkspace.shared.open(url)
-          }
+        openBrowserPermissionSettings: { [weak self] pane in
+          self?.openBrowserPermissionSettings(for: pane)
         }
       ),
       isTimerDisabled: timerManager.isRunning,
@@ -302,11 +300,6 @@ final class MenuBarController: NSObject {
     }
   }
 
-  /// Returns the browser tab status for menu rendering.
-  func resolveBrowserTabStatus() -> ResolvedBrowserTab {
-    browserTabCoordinator.resolve()
-  }
-
   // MARK: - Browser Icon
 
   private func resolveBrowserIcon(for browser: Browser) -> NSImage? {
@@ -331,6 +324,15 @@ final class MenuBarController: NSObject {
     _ = browserTabCoordinator.requestPermissionIfNeededAndResolve()
     // Rebuild the menu to show updated state
     handleClick()
+  }
+
+  // MARK: - Browser Permission Settings
+
+  /// Opens the System Settings pane that can fix the browser's permission state.
+  private func openBrowserPermissionSettings(for pane: PermissionSettingsPane) {
+    if let url = pane.systemSettingsURL {
+      NSWorkspace.shared.open(url)
+    }
   }
 
   // MARK: - Check for Updates

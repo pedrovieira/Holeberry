@@ -70,16 +70,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   ) { notification in
     (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
   }
-  private lazy var permissionChecker = LivePermissionChecker()
+  private lazy var permissionChecker = AutomationPermissionChecker()
   private lazy var scriptExecutor = LiveAppleScriptExecutor()
   private lazy var urlFetchingStrategyFactory = BrowserActiveUrlFetchingStrategyFactory(
     permissionChecker: permissionChecker,
     scriptExecutor: scriptExecutor
   )
-  private lazy var browserUrlFetcher = BrowserUrlFetcher(strategyFactory: urlFetchingStrategyFactory)
   private lazy var browserTabCoordinator = BrowserTabCoordinator(
     monitor: appFocusMonitor,
-    urlFetcher: browserUrlFetcher,
     strategyFactory: urlFetchingStrategyFactory
   )
   private lazy var discoveryService = PiholeDiscoveryService(

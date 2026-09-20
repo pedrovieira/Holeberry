@@ -1,4 +1,5 @@
 import Foundation
+import HoleberryCore
 
 /// Pure-data contract between `MenuBarController` and `MenuBuilder`:
 /// every action the app menu can trigger, expressed as closures.
@@ -15,5 +16,7 @@ struct MenuActions {
   var addToAllowlist: (String) -> Void
 
   var enableBrowserPermission: () -> Void
-  var openAutomationSettings: () -> Void
+
+  /// Opens the System Settings pane that fixes the browser's permission state.
+  var openBrowserPermissionSettings: (PermissionSettingsPane) -> Void
 }

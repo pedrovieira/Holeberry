@@ -122,7 +122,7 @@ Yes. Password-less instances (no web password set) are fully supported for both 
 No, and it's not meant to. Holeberry is the remote control for the actions you take daily: status, toggling, and targeted unblocking. For deep configuration (adlists, DHCP), the web interface remains the tool — though you can now trigger gravity updates from the menu bar.
 
 ### Why doesn't my browser tab appear?
-Browser-tab unblocking must be enabled in Settings → General, and Holeberry needs Automation permission for your browser (granted via System Settings on first use).
+Browser-tab unblocking must be enabled in Settings → General, and Holeberry needs Automation permission for your browser (granted via System Settings on first use). On macOS 27 and later, Firefox/Zen/Waterfox access also needs a one-time toggle under System Settings → Privacy & Security → Files & Folders (Holeberry → your browser); Holeberry links to that setting when access is blocked.
 
 ## Building from source
 

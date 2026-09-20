@@ -20,16 +20,28 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
     switch browser {
     case .safari, .safariTechnologyPreview, .orion, .orionRC:
       return WebKitUrlFetchingStrategy(
-        appName: browser.appName,
+        browser: browser,
         permissionChecker: permissionChecker,
         scriptExecutor: scriptExecutor
       )
     case .firefox, .firefoxDeveloperEdition, .firefoxNightly:
-      return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "Firefox", category: "firefox-sessionstore")
+      return GeckoSessionStoreUrlFetchingStrategy(
+        browser: browser,
+        supportDirName: "Firefox",
+        category: "firefox-sessionstore"
+      )
     case .zen:
-      return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "zen", category: "zen-sessionstore")
+      return GeckoSessionStoreUrlFetchingStrategy(
+        browser: browser,
+        supportDirName: "zen",
+        category: "zen-sessionstore"
+      )
     case .waterfox:
-      return GeckoSessionStoreUrlFetchingStrategy(supportDirName: "Waterfox", category: "waterfox-sessionstore")
+      return GeckoSessionStoreUrlFetchingStrategy(
+        browser: browser,
+        supportDirName: "Waterfox",
+        category: "waterfox-sessionstore"
+      )
 
     // Chromium-based browsers — all fall through to Chrome
     case .edge, .edgeBeta, .edgeDev, .edgeCanary,
@@ -43,7 +55,7 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
       .helium,
       .chrome, .chromeBeta, .chromeDev, .chromeCanary:
       return ChromiumUrlFetchingStrategy(
-        appName: browser.appName,
+        browser: browser,
         permissionChecker: permissionChecker,
         scriptExecutor: scriptExecutor
       )
