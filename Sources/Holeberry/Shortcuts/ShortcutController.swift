@@ -116,13 +116,13 @@ final class ShortcutController {
 
   /// Explains the block and offers to open the matching System Settings pane.
   private func presentBrowserPermissionAlert(for browser: Browser, pane: PermissionSettingsPane) {
-    var informative = "Holeberry only reads the domain of your current browser tab. "
-    switch pane {
-    case .automation:
-      informative += "Turn on Holeberry for \(browser.appName) in Settings → Automation, then try again."
-    case .filesAndFolders:
-      informative += "Turn on \(browser.appName) for Holeberry in Settings → Files & Folders, then try again."
-    }
+    // In both panes Holeberry is the parent row, so the browser is the toggle
+    // to turn on.
+    let informative = """
+      Holeberry only reads the domain of your current browser tab. Turn on \
+      \(browser.appName) under Holeberry in Settings → Privacy & Security → \
+      \(pane.displayName), then try again.
+      """
 
     let alert = NSAlert()
     alert.messageText = "Grant Holeberry access to \(browser.appName)?"
