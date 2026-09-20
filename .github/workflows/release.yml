@@ -22,7 +22,13 @@ jobs:
   # main and no update is offered to Sparkle clients before the gated
   # `publish` job below runs.
   build:
-    runs-on: macos-latest
+    # macOS 27 SDK is required to compile Sources/Holeberry
+    # (NSMenuItem+ImageVisibility uses preferredImageVisibility), and
+    # macos-latest still ships Xcode 26.6. GitHub's xcode-27 preview image has
+    # Xcode 27 as its default /Applications/Xcode.app:
+    # https://github.com/actions/runner-images/issues/14404 — switch back to
+    # macos-latest once the macOS 27 image reaches GA.
+    runs-on: xcode-27
     outputs:
       dmg_sha256: ${{ steps.dmg_notarized.outputs.dmg_sha256 }}
 
