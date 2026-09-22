@@ -155,7 +155,7 @@ struct DurationsSettingsView: View {
         )
         .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
     )
-    .frame(maxWidth: 220)
+    .frame(maxWidth: 240)
     // Squared NSVisualEffectView stage, edge to edge behind the menu, with
     // a small corner radius and matching hairline border.
     // Vertical padding is taller than horizontal so the stage reads as a
