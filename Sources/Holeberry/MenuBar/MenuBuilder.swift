@@ -268,18 +268,25 @@ struct MenuBuilder {
     } else {
       let submenu = makeManuallyEnabledMenu()
 
-      for entry in durations {
+      for (index, entry) in durations.enumerated() {
         addDisableDurationItem(
           to: submenu,
           duration: entry.seconds,
           title: UnblockDurationFormatter.string(from: entry.seconds),
+          shortcut: DurationMenuShortcut.duration(at: index),
           target: target
         )
       }
 
       submenu.addItem(.separator())
 
-      addDisableDurationItem(to: submenu, duration: nil, title: "Indefinitely", target: target)
+      addDisableDurationItem(
+        to: submenu,
+        duration: nil,
+        title: "Indefinitely",
+        shortcut: .noTimer,
+        target: target
+      )
 
       let customItem = NSMenuItem(
         title: "Custom...",
@@ -287,6 +294,7 @@ struct MenuBuilder {
         keyEquivalent: ""
       )
       customItem.target = target
+      customItem.applyDurationShortcut(.custom)
       submenu.addItem(customItem)
 
       for item in submenu.items {
@@ -466,6 +474,7 @@ struct MenuBuilder {
     to menu: NSMenu,
     duration: TimeInterval?,
     title: String,
+    shortcut: DurationMenuShortcut?,
     target: MenuActionTarget
   ) {
     let item = NSMenuItem(
@@ -474,6 +483,7 @@ struct MenuBuilder {
       keyEquivalent: ""
     )
     item.target = target
+    item.applyDurationShortcut(shortcut)
     // nil representedObject = indefinitely (handled by toggleDisableBlocking)
     item.representedObject = duration as Any?
     menu.addItem(item)
@@ -518,12 +528,13 @@ struct MenuBuilder {
   ) -> NSMenu {
     let submenu = makeManuallyEnabledMenu()
 
-    for entry in durations {
+    for (index, entry) in durations.enumerated() {
       addDurationItem(
         to: submenu,
         domain: domain,
         duration: entry.seconds,
         title: UnblockDurationFormatter.string(from: entry.seconds),
+        shortcut: DurationMenuShortcut.duration(at: index),
         target: target
       )
     }
@@ -537,6 +548,7 @@ struct MenuBuilder {
     )
     allowlistItem.target = target
     allowlistItem.representedObject = domain
+    allowlistItem.applyDurationShortcut(.noTimer)
     submenu.addItem(allowlistItem)
 
     let customItem = NSMenuItem(
@@ -546,16 +558,19 @@ struct MenuBuilder {
     )
     customItem.target = target
     customItem.representedObject = domain
+    customItem.applyDurationShortcut(.custom)
     submenu.addItem(customItem)
 
     return submenu
   }
 
+  // swiftlint:disable:next function_parameter_count
   private func addDurationItem(
     to menu: NSMenu,
     domain: String,
     duration: TimeInterval,
     title: String,
+    shortcut: DurationMenuShortcut?,
     target: MenuActionTarget
   ) {
     let item = NSMenuItem(
@@ -564,6 +579,7 @@ struct MenuBuilder {
       keyEquivalent: ""
     )
     item.target = target
+    item.applyDurationShortcut(shortcut)
     item.representedObject = ["domain": domain, "duration": duration] as NSDictionary
     menu.addItem(item)
   }

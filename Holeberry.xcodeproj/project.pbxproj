@@ -18,6 +18,7 @@
 		208911EBF1F6B4A2D6038E83 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */; };
 		247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */; };
 		2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */; };
+		2B8502196952CB0360511F10 /* DurationMenuShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6400CCFEF0D77716DB29E0 /* DurationMenuShortcut.swift */; };
 		2D274003B08DCE0B66A48C96 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02F9A5864E11136906AE2FF /* ShortcutController.swift */; };
 		32B3DB91B041007E362C5BF1 /* AuthFailureReason+Copy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */; };
 		33B8E2A4506E2533450F3E0D /* PermissionSettingsPane+SystemSettingsURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47828B67486390E088F4DC1E /* PermissionSettingsPane+SystemSettingsURL.swift */; };
@@ -71,6 +72,7 @@
 		5133ABA682E0577A2E9D0C5B /* UserNotificationKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotificationKind.swift; sourceTree = "<group>"; };
 		551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnblockCurrentTabDurationPicker.swift; sourceTree = "<group>"; };
 		55D091BB87DB07CA7594C13D /* PermissionSettingsPane+DisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PermissionSettingsPane+DisplayName.swift"; sourceTree = "<group>"; };
+		5C6400CCFEF0D77716DB29E0 /* DurationMenuShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationMenuShortcut.swift; sourceTree = "<group>"; };
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
 		6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		708D635B240324C5A79BA870 /* LimitedTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LimitedTextField.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 		7F52781CCA397B67BB88F3F7 /* MenuBar */ = {
 			isa = PBXGroup;
 			children = (
+				5C6400CCFEF0D77716DB29E0 /* DurationMenuShortcut.swift */,
 				20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */,
 				7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */,
 				C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */,
@@ -412,6 +415,7 @@
 				626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */,
 				4FCA20D74CFACF8A70C6B09D /* ConnectionStatus+Colors.swift in Sources */,
 				11C4A4764BB4E912153238E2 /* DurationField.swift in Sources */,
+				2B8502196952CB0360511F10 /* DurationMenuShortcut.swift in Sources */,
 				1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */,
 				5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */,
 				72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */,

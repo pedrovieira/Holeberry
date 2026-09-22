@@ -14,7 +14,7 @@ public struct UnblockDurationEntry: Codable, Identifiable, Equatable, Sendable {
     self.seconds = seconds
   }
 
-  /// Upper bound on stored durations, to keep menus from growing unwieldy.
+  /// Upper bound on stored durations, to keep menus from growing indefinitely.
   public static let maxCount = 10
 
   /// Stable ids for the default entries. These are literals so that
