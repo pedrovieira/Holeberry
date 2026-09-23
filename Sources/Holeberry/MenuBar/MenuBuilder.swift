@@ -6,13 +6,16 @@ import HoleberryCore
 /// Amber color (#ff9f0a) for the "instances disagree" state.
 private let statusAmber = NSColor(calibratedRed: 1.0, green: 0.624, blue: 0.039, alpha: 1.0)
 
-/// Stateless menu-construction helper.
+/// Menu-construction helper.
 ///
 /// Receives all data and actions as parameters; returns a fully-built
 /// `MainStatusBarMenu` whose items target the shared `MenuActionTarget`.
 /// No dependencies on `PiholeServerManager`, `TimerManager`, or `SPUUpdater`.
 @MainActor
 struct MenuBuilder {
+  /// Retained here so duration submenus keep their delegate alive.
+  private let shortcutScoper = DurationShortcutScoper()
+
   // swiftlint:disable:next function_parameter_count function_body_length
   func buildMenu(
     actions: MenuActions,
@@ -267,13 +270,13 @@ struct MenuBuilder {
       menu.addItem(item)
     } else {
       let submenu = makeManuallyEnabledMenu()
+      submenu.delegate = shortcutScoper
 
-      for (index, entry) in durations.enumerated() {
+      for entry in durations {
         addDisableDurationItem(
           to: submenu,
           duration: entry.seconds,
           title: UnblockDurationFormatter.string(from: entry.seconds),
-          shortcut: DurationMenuShortcut.duration(at: index),
           target: target
         )
       }
@@ -284,7 +287,6 @@ struct MenuBuilder {
         to: submenu,
         duration: nil,
         title: "Indefinitely",
-        shortcut: .noTimer,
         target: target
       )
 
@@ -294,7 +296,6 @@ struct MenuBuilder {
         keyEquivalent: ""
       )
       customItem.target = target
-      customItem.applyDurationShortcut(.custom)
       submenu.addItem(customItem)
 
       for item in submenu.items {
@@ -474,7 +475,6 @@ struct MenuBuilder {
     to menu: NSMenu,
     duration: TimeInterval?,
     title: String,
-    shortcut: DurationMenuShortcut?,
     target: MenuActionTarget
   ) {
     let item = NSMenuItem(
@@ -483,7 +483,6 @@ struct MenuBuilder {
       keyEquivalent: ""
     )
     item.target = target
-    item.applyDurationShortcut(shortcut)
     // nil representedObject = indefinitely (handled by toggleDisableBlocking)
     item.representedObject = duration as Any?
     menu.addItem(item)
@@ -527,14 +526,14 @@ struct MenuBuilder {
     target: MenuActionTarget
   ) -> NSMenu {
     let submenu = makeManuallyEnabledMenu()
+    submenu.delegate = shortcutScoper
 
-    for (index, entry) in durations.enumerated() {
+    for entry in durations {
       addDurationItem(
         to: submenu,
         domain: domain,
         duration: entry.seconds,
         title: UnblockDurationFormatter.string(from: entry.seconds),
-        shortcut: DurationMenuShortcut.duration(at: index),
         target: target
       )
     }
@@ -548,7 +547,6 @@ struct MenuBuilder {
     )
     allowlistItem.target = target
     allowlistItem.representedObject = domain
-    allowlistItem.applyDurationShortcut(.noTimer)
     submenu.addItem(allowlistItem)
 
     let customItem = NSMenuItem(
@@ -558,19 +556,16 @@ struct MenuBuilder {
     )
     customItem.target = target
     customItem.representedObject = domain
-    customItem.applyDurationShortcut(.custom)
     submenu.addItem(customItem)
 
     return submenu
   }
 
-  // swiftlint:disable:next function_parameter_count
   private func addDurationItem(
     to menu: NSMenu,
     domain: String,
     duration: TimeInterval,
     title: String,
-    shortcut: DurationMenuShortcut?,
     target: MenuActionTarget
   ) {
     let item = NSMenuItem(
@@ -579,7 +574,6 @@ struct MenuBuilder {
       keyEquivalent: ""
     )
     item.target = target
-    item.applyDurationShortcut(shortcut)
     item.representedObject = ["domain": domain, "duration": duration] as NSDictionary
     menu.addItem(item)
   }
