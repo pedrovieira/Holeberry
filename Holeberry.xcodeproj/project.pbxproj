@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		011C13B859278B5DB78C9BE9 /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */; };
 		038FEAFB14DC67AFACF9724F /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AEAE3D3AF6DF75263144C73 /* ShortcutNames.swift */; };
+		0C28607455580131782E946F /* DurationShortcutScoper.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61E1630F877D0AADD5D70B7 /* DurationShortcutScoper.swift */; };
 		11C4A4764BB4E912153238E2 /* DurationField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95D78A3AB479976D7E8CF46 /* DurationField.swift */; };
 		1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */; };
 		190DDC489CC23486BD2C7290 /* SymbolPicker in Frameworks */ = {isa = PBXBuildFile; productRef = B0E62A40CEFA9876FE31890F /* SymbolPicker */; };
@@ -91,6 +92,7 @@
 		BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedMenuButton.swift; sourceTree = "<group>"; };
 		C0DC65D5EABF4AAD66A2EEE5 /* MenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBuilder.swift; sourceTree = "<group>"; };
 		C151C0B11314A1587D7CF5F2 /* ConnectionStatus+Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ConnectionStatus+Colors.swift"; sourceTree = "<group>"; };
+		C61E1630F877D0AADD5D70B7 /* DurationShortcutScoper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationShortcutScoper.swift; sourceTree = "<group>"; };
 		C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		D48A2E625686DBB46B548D0E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 			isa = PBXGroup;
 			children = (
 				5C6400CCFEF0D77716DB29E0 /* DurationMenuShortcut.swift */,
+				C61E1630F877D0AADD5D70B7 /* DurationShortcutScoper.swift */,
 				20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */,
 				7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */,
 				C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */,
@@ -417,6 +420,7 @@
 				11C4A4764BB4E912153238E2 /* DurationField.swift in Sources */,
 				2B8502196952CB0360511F10 /* DurationMenuShortcut.swift in Sources */,
 				1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */,
+				0C28607455580131782E946F /* DurationShortcutScoper.swift in Sources */,
 				5D786DACA1DC14E4C8FE0B4D /* DurationsSettingsView.swift in Sources */,
 				72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */,
 				99B98E3D2641197AC15A764A /* GravityOutcomeNotifier.swift in Sources */,
