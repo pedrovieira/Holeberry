@@ -57,11 +57,13 @@ struct CheckForUpdatesView: View {
 
 struct UpdaterSettingsView: View {
   private let updater: SPUUpdater
+  private let notificationCoordinator: NotificationCoordinator
 
   @State private var automaticallyChecksForUpdates: Bool
 
-  init(updater: SPUUpdater) {
+  init(updater: SPUUpdater, notificationCoordinator: NotificationCoordinator) {
     self.updater = updater
+    self.notificationCoordinator = notificationCoordinator
     self.automaticallyChecksForUpdates = updater.automaticallyChecksForUpdates
   }
 
@@ -70,6 +72,10 @@ struct UpdaterSettingsView: View {
       Toggle("Automatically check for updates", isOn: $automaticallyChecksForUpdates)
         .onChange(of: automaticallyChecksForUpdates) { _, newValue in
           updater.automaticallyChecksForUpdates = newValue
+          if !newValue {
+            // Opting out stops future reminders and clears one already posted.
+            notificationCoordinator.withdrawUpdateReminder()
+          }
         }
     }
   }

@@ -34,6 +34,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var notificationServerCancellable: AnyCancellable?
   private var cadenceCancellable: AnyCancellable?
   private var updaterController: SPUStandardUpdaterController?
+  // Sparkle references its user-driver delegate weakly; keep it alive here.
+  private var gentleUpdateReminderDelegate: GentleUpdateReminderDelegate?
   private var settingsWindowController: SettingsWindowController?
 
   // MARK: - Composition Root (lazy var dependency graph)
@@ -89,9 +91,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
-    let notificationCoordinator = NotificationCoordinator(defaultsSuite: .standard) { [weak self] in
-      self?.settingsWindowController?.showWindow()
-    }
+    let notificationCoordinator = NotificationCoordinator(
+      defaultsSuite: .standard,
+      openSettings: { [weak self] in self?.settingsWindowController?.showWindow() },
+      openUpdateAlert: { [weak self] in self?.updaterController?.checkForUpdates(nil) }
+    )
     self.notificationCoordinator = notificationCoordinator
     let gravityOutcomeNotifier = GravityOutcomeNotifier(
       notificationCoordinator: notificationCoordinator,
@@ -120,11 +124,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self?.requestNotificationAuthorizationIfNeeded()
       }
 
-    // Start Sparkle updater with the standard UI.
+    // Start Sparkle updater with the standard UI and gentle reminders, so a
+    // scheduled update in the background surfaces as a notification instead
+    // of an alert the person may never notice.
+    let gentleUpdateReminderDelegate = GentleUpdateReminderDelegate(
+      notificationCoordinator: notificationCoordinator,
+      isAutomaticUpdateCheckEnabled: { [weak self] in
+        self?.updaterController?.updater.automaticallyChecksForUpdates ?? false
+      },
+      openUpdateAlert: { [weak self] in self?.updaterController?.checkForUpdates(nil) }
+    )
+    self.gentleUpdateReminderDelegate = gentleUpdateReminderDelegate
     let updaterController = SPUStandardUpdaterController(
       startingUpdater: true,
       updaterDelegate: nil,
-      userDriverDelegate: nil
+      userDriverDelegate: gentleUpdateReminderDelegate
     )
     self.updaterController = updaterController
 
