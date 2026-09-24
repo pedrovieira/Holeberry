@@ -355,7 +355,7 @@ struct SettingsView: View {
 
         Form {
           if let updater {
-            UpdaterSettingsView(updater: updater)
+            UpdaterSettingsView(updater: updater, notificationCoordinator: notificationCoordinator)
           }
 
           Section {

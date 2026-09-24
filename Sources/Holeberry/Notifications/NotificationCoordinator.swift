@@ -25,17 +25,22 @@ final class NotificationCoordinator: NSObject {
   private static let gravityErrorCategory = "GRAVITY_ERROR"
   private static let gravityCompletedCategory = "GRAVITY_COMPLETED"
   private static let unblockFailureCategory = "UNBLOCK_FAILURE"
+  private static let updateAvailableCategory = "UPDATE_AVAILABLE"
+  private static let updateAvailableIdentifier = "update-available"
 
   private let defaultsSuite: UserDefaults
   private let openSettings: () -> Void
+  private let openUpdateAlert: () -> Void
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "notifications")
 
   init(
     defaultsSuite: UserDefaults = .standard,
-    openSettings: @escaping () -> Void
+    openSettings: @escaping () -> Void,
+    openUpdateAlert: @escaping () -> Void
   ) {
     self.defaultsSuite = defaultsSuite
     self.openSettings = openSettings
+    self.openUpdateAlert = openUpdateAlert
     super.init()
     // This coordinator is the app's only UNUserNotificationCenterDelegate.
     UNUserNotificationCenter.current().delegate = self
@@ -73,6 +78,8 @@ final class NotificationCoordinator: NSObject {
       content.subtitle = "Check your servers' connectivity."
     case .unblockFailed(let domain, let error):
       content.body = "Failed to unblock \(domain): \(error)"
+    case .updateAvailable(let version):
+      content.body = "Version \(version) is available."
     }
 
     let request = UNNotificationRequest(
@@ -87,6 +94,15 @@ final class NotificationCoordinator: NSObject {
         )
       }
     }
+  }
+
+  /// Removes a delivered or pending update reminder, e.g. once the update
+  /// got the person's attention through another path (menu check, install).
+  func withdrawUpdateReminder() {
+    let center = UNUserNotificationCenter.current()
+    let identifiers = [Self.updateAvailableIdentifier]
+    center.removeDeliveredNotifications(withIdentifiers: identifiers)
+    center.removePendingNotificationRequests(withIdentifiers: identifiers)
   }
 
   // MARK: - Gravity outcomes
@@ -170,6 +186,10 @@ final class NotificationCoordinator: NSObject {
     case .unblockFailed:
       // Always on — failures should never go unnoticed.
       return true
+    case .updateAvailable:
+      // No dedicated toggle; the reminder only fires while the person keeps
+      // automatic update checks on (gated in GentleUpdateReminderDelegate).
+      return true
     }
   }
 
@@ -181,6 +201,7 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return gravityErrorCategory
     case .gravityUpdateCompleted: return gravityCompletedCategory
     case .unblockFailed: return unblockFailureCategory
+    case .updateAvailable: return updateAvailableCategory
     }
   }
 
@@ -193,6 +214,9 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return "gravity-error-\(id)"
     case .gravityUpdateCompleted: return "gravity-completed-\(id)"
     case .unblockFailed: return "unblock-failed-\(id)"
+    // Stable across reminders so a newer one replaces a stale banner
+    // instead of stacking; `withdrawUpdateReminder()` reuses this id.
+    case .updateAvailable: return updateAvailableIdentifier
     }
   }
 }
@@ -220,8 +244,17 @@ extension NotificationCoordinator: @preconcurrency UNUserNotificationCenterDeleg
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    if response.notification.request.content.categoryIdentifier == Self.shortcutErrorCategory {
+    switch response.notification.request.content.categoryIdentifier {
+    case Self.shortcutErrorCategory:
       openSettings()
+    case Self.updateAvailableCategory:
+      // A click on the banner (the default action) opens the update alert;
+      // plain dismissal never reaches this callback.
+      if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+        openUpdateAlert()
+      }
+    default:
+      break
     }
     completionHandler()
   }

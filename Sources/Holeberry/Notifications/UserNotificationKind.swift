@@ -28,4 +28,8 @@ enum UserNotificationKind {
 
   /// A temporary unblock of a domain failed.
   case unblockFailed(domain: String, error: String)
+
+  /// A scheduled update check found a new Holeberry version while the app
+  /// ran in the background (Sparkle gentle reminder).
+  case updateAvailable(version: String)
 }
