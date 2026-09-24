@@ -131,16 +131,16 @@ struct DurationsSettingsView: View {
 
   private var fakeMenu: some View {
     VStack(spacing: 0) {
-      ForEach(durations) { entry in
-        menuRow(entry)
+      ForEach(Array(durations.enumerated()), id: \.element.id) { index, entry in
+        menuRow(entry, index: index)
       }
       if !durations.isEmpty {
         Divider()
           .padding(.horizontal, 8)
           .padding(.vertical, 4)
       }
-      lockedRow(title: "Indefinitely")
-      lockedRow(title: "Custom…")
+      lockedRow(title: "Indefinitely", shortcut: DurationMenuShortcut.noTimer.displayString)
+      lockedRow(title: "Custom…", shortcut: DurationMenuShortcut.custom.displayString)
     }
     .padding(5)
     // The menu panel uses the native menu material so it adapts to the
@@ -155,7 +155,7 @@ struct DurationsSettingsView: View {
         )
         .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
     )
-    .frame(maxWidth: 220)
+    .frame(maxWidth: 240)
     // Squared NSVisualEffectView stage, edge to edge behind the menu, with
     // a small corner radius and matching hairline border.
     // Vertical padding is taller than horizontal so the stage reads as a
@@ -173,9 +173,10 @@ struct DurationsSettingsView: View {
     )
   }
 
-  private func menuRow(_ entry: UnblockDurationEntry) -> some View {
+  private func menuRow(_ entry: UnblockDurationEntry, index: Int) -> some View {
     let isHovered = hoveredEntryID == entry.id
     let isDragging = draggedEntryID == entry.id
+    let shortcutBadge = DurationMenuShortcut.duration(at: index)?.displayString ?? ""
     return HStack(spacing: 6) {
       Image(systemName: "line.3.horizontal")
         .font(.system(size: 11, weight: .medium))
@@ -185,6 +186,9 @@ struct DurationsSettingsView: View {
       Text(UnblockDurationFormatter.string(from: entry.seconds))
         .font(.system(size: 13))
         .frame(maxWidth: .infinity, alignment: .leading)
+      Text(shortcutBadge)
+        .font(.system(size: 13))
+        .foregroundStyle(.secondary)
       Button {
         entryPendingDeletion = entry
         showDeleteConfirmation = true
@@ -225,12 +229,15 @@ struct DurationsSettingsView: View {
     )
   }
 
-  private func lockedRow(title: String) -> some View {
+  private func lockedRow(title: String, shortcut: String) -> some View {
     HStack(spacing: 6) {
       Color.clear.frame(width: 14)
       Text(title)
         .font(.system(size: 13))
         .frame(maxWidth: .infinity, alignment: .leading)
+      Text(shortcut)
+        .font(.system(size: 13))
+        .foregroundStyle(.secondary)
       Image(systemName: "lock.fill")
         .font(.system(size: 9))
         .foregroundStyle(.tertiary)

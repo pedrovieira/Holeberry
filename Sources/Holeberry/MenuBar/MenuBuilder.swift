@@ -6,13 +6,16 @@ import HoleberryCore
 /// Amber color (#ff9f0a) for the "instances disagree" state.
 private let statusAmber = NSColor(calibratedRed: 1.0, green: 0.624, blue: 0.039, alpha: 1.0)
 
-/// Stateless menu-construction helper.
+/// Menu-construction helper.
 ///
 /// Receives all data and actions as parameters; returns a fully-built
 /// `MainStatusBarMenu` whose items target the shared `MenuActionTarget`.
 /// No dependencies on `PiholeServerManager`, `TimerManager`, or `SPUUpdater`.
 @MainActor
 struct MenuBuilder {
+  /// Retained here so duration submenus keep their delegate alive.
+  private let shortcutScoper = DurationShortcutScoper()
+
   // swiftlint:disable:next function_parameter_count function_body_length
   func buildMenu(
     actions: MenuActions,
@@ -267,6 +270,7 @@ struct MenuBuilder {
       menu.addItem(item)
     } else {
       let submenu = makeManuallyEnabledMenu()
+      submenu.delegate = shortcutScoper
 
       for entry in durations {
         addDisableDurationItem(
@@ -279,7 +283,12 @@ struct MenuBuilder {
 
       submenu.addItem(.separator())
 
-      addDisableDurationItem(to: submenu, duration: nil, title: "Indefinitely", target: target)
+      addDisableDurationItem(
+        to: submenu,
+        duration: nil,
+        title: "Indefinitely",
+        target: target
+      )
 
       let customItem = NSMenuItem(
         title: "Custom...",
@@ -517,6 +526,7 @@ struct MenuBuilder {
     target: MenuActionTarget
   ) -> NSMenu {
     let submenu = makeManuallyEnabledMenu()
+    submenu.delegate = shortcutScoper
 
     for entry in durations {
       addDurationItem(
