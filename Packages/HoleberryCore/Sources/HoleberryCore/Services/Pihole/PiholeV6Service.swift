@@ -240,6 +240,18 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     }
   }
 
+  /// Exact-match lookup in the allowlist. `nil` = not present.
+  public func allowEntry(_ domain: String) async throws -> DomainEntry? {
+    guard let encoded = domain.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+      throw PiholeError.unknown("Invalid domain: \(domain)")
+    }
+    let (data, httpResponse) = try await authenticatedRequest(path: "/api/domains/allow/exact/\(encoded)")
+    guard httpResponse.isSuccess else {
+      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+    }
+    return try Self.decoder.decode(DomainsResponse.self, from: data).domains.first
+  }
+
   public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
     _ = try await addDomain(domain, to: .allow, comment: nil)
   }

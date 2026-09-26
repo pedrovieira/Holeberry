@@ -16,6 +16,18 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in }
   }
 
+  /// Like `makeDecorator`, but real-world durations (≥10s) park for the whole
+  /// test so scheduled records can be observed before any expiry side effect.
+  private func makeParkingDecorator(
+    service: any PiholeServiceCommentAdding,
+    suite: UserDefaults = TestDefaults.makeSuite()
+  ) -> TemporaryUnblockPiholeServiceDecorator {
+    TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { duration in
+      if duration < 10 { return }
+      try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
+    }
+  }
+
   /// Polls `condition` until it holds or `timeout` elapses. Async side effects
   /// (init reconciliation, expiry tasks) run on the main actor and can be
   /// delayed under parallel test load, so fixed sleeps are unreliable.
@@ -537,5 +549,86 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(mock.getDomainsCallCount == 1, "Reconciliation should fetch domains")
     let persisted = Defaults[.tempUnblocks(for: mock.id, suite: suite)]
     #expect(persisted.isEmpty, "All records should be removed (stale filtered, matching expired)")
+  }
+
+  // MARK: - v5 probe-first flow and expiry guard
+
+  @Test("v5 probes first and never adds when the entry exists")
+  func v5ProbeHit() async throws {
+    let mock = MockPiholeService(version: .v5)
+    mock.allowEntryStub = .success(DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil, enabled: true))
+    let decorator = makeDecorator(service: mock)
+    try await decorator.unblockDomain("x.com", duration: 60)
+    #expect(mock.addDomainCallCount == 0, "A pre-existing entry must not be re-added")
+    #expect(mock.deleteDomainByNameCallCount == 0)
+  }
+
+  @Test("v5 adds and records when absent")
+  func v5ProbeMissAdds() async throws {
+    let mock = MockPiholeService(version: .v5)
+    mock.allowEntryStub = .success(nil)
+    let suite = TestDefaults.makeSuite()
+    let decorator = makeParkingDecorator(service: mock, suite: suite)
+    try await decorator.unblockDomain("x.com", duration: 60)
+    #expect(mock.addDomainCallCount == 1)
+    #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
+  }
+
+  @Test("v5 probe failure propagates without adding")
+  func v5ProbeFailurePropagates() async throws {
+    let mock = MockPiholeService(version: .v5)
+    mock.allowEntryStub = .failure(PiholeError.network("down"))
+    let decorator = makeDecorator(service: mock)
+    await #expect(throws: PiholeError.network("down")) {
+      try await decorator.unblockDomain("x.com", duration: 60)
+    }
+    #expect(mock.addDomainCallCount == 0)
+  }
+
+  @Test("expiry: v5 skips the delete when the entry is already gone")
+  func expiryV5AbsentEntryFinalizes() async throws {
+    let mock = MockPiholeService(version: .v5)
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)])
+    mock.allowEntryStub = .success(nil)
+    mock.deleteDomainByNameStub = .success(())
+
+    let suite = TestDefaults.makeSuite()
+    Defaults[.tempUnblocks(for: mock.id, suite: suite)] = [
+      TempUnblockRecord(domain: "x.com", uuid: "uuid-v5", startDateUTC: Date(), durationSeconds: 0.5)
+    ]
+
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock,
+      defaultsSuite: suite
+    ) { _ in }
+    _ = decorator
+
+    #expect(
+      await eventually { Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty },
+      "A missing v5 entry ends the record without deleting")
+    #expect(mock.deleteDomainByNameCallCount == 0)
+  }
+
+  @Test("expiry: v5 deletes the allow entry when present")
+  func expiryV5PresentEntryDeletes() async throws {
+    let mock = MockPiholeService(version: .v5)
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)])
+    mock.allowEntryStub = .success(DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil, enabled: true))
+    mock.deleteDomainByNameStub = .success(())
+
+    let suite = TestDefaults.makeSuite()
+    Defaults[.tempUnblocks(for: mock.id, suite: suite)] = [
+      TempUnblockRecord(domain: "x.com", uuid: "uuid-v5", startDateUTC: Date(), durationSeconds: 0.5)
+    ]
+
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock,
+      defaultsSuite: suite
+    ) { _ in }
+    _ = decorator
+
+    #expect(
+      await eventually { mock.deleteDomainByNameCallCount == 1 },
+      "A present v5 entry is removed on expiry, from the allow list only")
   }
 }

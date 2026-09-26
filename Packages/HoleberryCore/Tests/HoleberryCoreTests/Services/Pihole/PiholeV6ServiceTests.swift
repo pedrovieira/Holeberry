@@ -354,6 +354,23 @@ final class PiholeV6ServiceTests {
   }
 
 
+  // MARK: - allowEntry
+
+  @Test("allowEntry returns the entry or nil")
+  func allowEntrySingleDomain() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact/example.com")
+        let body =
+          #"{"domains":[{"id":1,"domain":"example.com","type":"allow","kind":"exact","comment":"","enabled":true}]}"#
+        return (Data(body.utf8), try #require(v6Response()))
+      },
+      { _ in (Data(#"{"domains":[]}"#.utf8), try #require(v6Response())) }
+    ]
+    #expect(try await makeService().allowEntry("example.com")?.domain == "example.com")
+    #expect(try await makeService().allowEntry("other.com") == nil)
+  }
+
   // MARK: - getRecentBlocked
 
   @Test("getRecentBlocked parses v6 response")

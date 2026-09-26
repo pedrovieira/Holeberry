@@ -16,14 +16,11 @@ public protocol PiholeServiceFactory {
 
 public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
   private let authSessionFactory: any AuthSessionFactory
-  private let htmlParser: any PiholeV5HTMLParsing
 
   public init(
-    authSessionFactory: any AuthSessionFactory,
-    htmlParser: any PiholeV5HTMLParsing
+    authSessionFactory: any AuthSessionFactory
   ) {
     self.authSessionFactory = authSessionFactory
-    self.htmlParser = htmlParser
   }
 
   public func buildService(
@@ -59,8 +56,7 @@ public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
         version: config.version,
         baseURL: url,
         session: session,
-        apiToken: credential,
-        htmlParser: htmlParser
+        apiToken: credential
       )
     }
     return TemporaryUnblockPiholeServiceDecorator(service: raw, defaultsSuite: suite)

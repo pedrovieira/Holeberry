@@ -6,9 +6,10 @@ public struct DomainEntry: Codable, Equatable, Sendable {
   public let domain: String
   public let type: Int
   public let comment: String?
+  public let enabled: Bool?
 
   enum CodingKeys: String, CodingKey {
-    case id, domain, type, comment
+    case id, domain, type, comment, enabled
   }
 
   public init(from decoder: any Decoder) throws {
@@ -24,6 +25,15 @@ public struct DomainEntry: Codable, Equatable, Sendable {
       let stringType = try container.decode(String.self, forKey: .type)
       type = stringType == "deny" ? 1 : 0
     }
+
+    // v6 returns enabled as a Bool, v5 as an Int; absent stays nil.
+    if let boolEnabled = try? container.decode(Bool.self, forKey: .enabled) {
+      enabled = boolEnabled
+    } else if let intEnabled = try? container.decode(Int.self, forKey: .enabled) {
+      enabled = intEnabled != 0
+    } else {
+      enabled = nil
+    }
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -32,14 +42,16 @@ public struct DomainEntry: Codable, Equatable, Sendable {
     try container.encode(domain, forKey: .domain)
     try container.encode(type, forKey: .type)
     try container.encodeIfPresent(comment, forKey: .comment)
+    try container.encodeIfPresent(enabled, forKey: .enabled)
   }
 
-  /// Convenience initializer used by v5 HTML parsing.
-  public init(id: Int?, domain: String, type: Int, comment: String?) {
+  /// Convenience initializer for synthetic entries.
+  public init(id: Int?, domain: String, type: Int, comment: String?, enabled: Bool? = nil) {
     self.id = id
     self.domain = domain
     self.type = type
     self.comment = comment
+    self.enabled = enabled
   }
 }
 

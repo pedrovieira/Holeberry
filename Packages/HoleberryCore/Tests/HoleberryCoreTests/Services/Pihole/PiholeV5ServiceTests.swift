@@ -23,8 +23,7 @@ final class PiholeV5ServiceTests {
       version: .v5,
       baseURL: v5BaseURL,
       session: mockSession,
-      apiToken: "test-token",
-      htmlParser: PiholeV5HTMLParser()
+      apiToken: "test-token"
     )
   }
 
@@ -91,8 +90,7 @@ final class PiholeV5ServiceTests {
       version: .v5,
       baseURL: v5BaseURL,
       session: mockSession,
-      apiToken: "",
-      htmlParser: PiholeV5HTMLParser()
+      apiToken: ""
     )
     mockSession.handlers = [
       { request in
@@ -242,31 +240,98 @@ final class PiholeV5ServiceTests {
     #expect(entry.domain == "example.com")
   }
 
-  @Test("deleteDomain fetches domains then deletes")
-  func deleteDomain() async throws {
+  @Test("allowEntry finds the exact allow entry case-insensitively")
+  func allowEntryHit() async throws {
     mockSession.handlers = [
       { _ in
-        // First parseDomainList call (white list) — contains the domain
         let response = try #require(v5Response())
-        let html = """
-          <table><tr><td>example.com</td></tr></table>
-          """
-        return (Data(html.utf8), response)
-      },
+        let json = #"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1,"comment":null,"groups":[0]}]}"#
+        return (Data(json.utf8), response)
+      }
+    ]
+    let entry = try await makeService().allowEntry("Example.COM")
+    #expect(entry?.domain == "example.com")
+    #expect(entry?.enabled == true)
+  }
+
+  @Test("allowEntry returns nil when absent")
+  func allowEntryMiss() async throws {
+    mockSession.handlers = [
       { _ in
-        // Second parseDomainList call (black list) — empty
         let response = try #require(v5Response())
-        return (Data("<table></table>".utf8), response)
-      },
+        return (Data(#"{"data":[]}"#.utf8), response)
+      }
+    ]
+    #expect(try await makeService().allowEntry("absent.com") == nil)
+  }
+
+  @Test("deleteDomain always targets the allow list")
+  func deleteDomainTargetsAllowList() async throws {
+    mockSession.handlers = [
       { request in
-        // Actual delete call
-        #expect(request.url?.absoluteString.contains("sub=example.com") == true)
+        #expect(request.url?.absoluteString.contains("list=white") == true)
+        #expect(request.url?.absoluteString.contains("list=black") == false)
         let response = try #require(v5Response())
-        return (Data("OK".utf8), response)
+        return (Data(#"{"success":true}"#.utf8), response)
       }
     ]
     try await makeService().deleteDomain(domain: "example.com")
-    #expect(mockSession.requests.count == 3)
+  }
+
+  @Test("getDomains decodes JSON lists for white and black")
+  func getDomainsDecodesJSON() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.absoluteString.contains("list=white") == true)
+        let response = try #require(v5Response())
+        let json = #"{"data":[{"id":1,"domain":"allowed.com","type":0,"enabled":1,"comment":null,"groups":[0]}]}"#
+        return (Data(json.utf8), response)
+      },
+      { request in
+        #expect(request.url?.absoluteString.contains("list=black") == true)
+        let response = try #require(v5Response())
+        let json = #"{"data":[{"id":2,"domain":"blocked.com","type":1,"enabled":1,"comment":"manual","groups":[0]}]}"#
+        return (Data(json.utf8), response)
+      }
+    ]
+    let domains = try await makeService().getDomains()
+    #expect(domains.count == 2)
+    #expect(domains[0].domain == "allowed.com")
+    #expect(domains[0].enabled == true)
+    #expect(domains[1].domain == "blocked.com")
+    #expect(domains[1].comment == "manual")
+  }
+
+  @Test("getDomains throws when a list fetch fails")
+  func getDomainsThrowsOnFetchFailure() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().getDomains()
+    }
+  }
+
+  @Test("getDomains throws a decoding error on a malformed body")
+  func getDomainsThrowsOnMalformedBody() async throws {
+    mockSession.handlers = [
+      { _ in
+        let response = try #require(v5Response())
+        return (Data([0xFF, 0xFE, 0x80, 0x81]), response)
+      }
+    ]
+    await #expect {
+      try await makeService().getDomains()
+    } throws: { error in
+      guard case PiholeError.decoding = error else {
+        Issue.record("Expected decoding error, got \(error)")
+        return false
+      }
+      return true
+    }
   }
 
   // MARK: - Auth lifecycle
@@ -416,14 +481,6 @@ final class PiholeV5ServiceTests {
   func deleteDomainServerError() async throws {
     mockSession.handlers = [
       { _ in
-        let response = try #require(v5Response())
-        return (Data("<table><tr><td>example.com</td></tr></table>".utf8), response)
-      },
-      { _ in
-        let response = try #require(v5Response())
-        return (Data("<table></table>".utf8), response)
-      },
-      { _ in
         let response = try #require(v5Response(statusCode: 500))
         return (Data("Error".utf8), response)
       }
@@ -431,39 +488,5 @@ final class PiholeV5ServiceTests {
     await #expect(throws: PiholeError.server(500, "Error")) {
       try await makeService().deleteDomain(domain: "example.com")
     }
-  }
-
-  @Test("getDomains skips lists that fail to fetch")
-  func getDomainsListFetchFailure() async throws {
-    mockSession.handlers = [
-      { _ in
-        // White list fetch fails with 500 → parseDomainList returns []
-        let response = try #require(v5Response(statusCode: 500))
-        return (Data("Error".utf8), response)
-      },
-      { _ in
-        let response = try #require(v5Response())
-        return (Data("<table><tr><td>blocked.com</td></tr></table>".utf8), response)
-      }
-    ]
-    let domains = try await makeService().getDomains()
-    #expect(domains.count == 1)
-    #expect(domains[0].domain == "blocked.com")
-  }
-
-  @Test("getDomains skips lists with non-UTF8 HTML")
-  func getDomainsNonUTF8HTML() async throws {
-    mockSession.handlers = [
-      { _ in
-        let response = try #require(v5Response())
-        return (Data([0xFF, 0xFE, 0x80, 0x81]), response)
-      },
-      { _ in
-        let response = try #require(v5Response())
-        return (Data("<table></table>".utf8), response)
-      }
-    ]
-    let domains = try await makeService().getDomains()
-    #expect(domains.isEmpty)
   }
 }

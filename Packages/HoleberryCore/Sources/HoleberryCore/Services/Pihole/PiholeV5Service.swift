@@ -11,7 +11,7 @@ private enum V5QueryStatus: String, CaseIterable {
   static let blocked: Set<String> = Set(V5QueryStatus.allCases.map(\.rawValue))
 }
 
-/// Pi-hole v5 API implementation using static token auth and query-string endpoints. HTML parsing for domain lists.
+/// Pi-hole v5 API implementation using static token auth and query-string endpoints.
 public final class PiholeV5Service: PiholeServiceCommentAdding {
   // MARK: - Identity & Config
   public let id: UUID
@@ -24,7 +24,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   private var baseURL: URL
   private var session: any HTTPRequestable
   private let apiToken: String
-  private let htmlParser: any PiholeV5HTMLParsing
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
   /// Safety cap on the number of rows the server returns. The real filter is the time
@@ -40,8 +39,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     version: ServerVersion,
     baseURL: URL,
     session: any HTTPRequestable,
-    apiToken: String,
-    htmlParser: any PiholeV5HTMLParsing
+    apiToken: String
   ) {
     self.id = id
     self.label = label
@@ -50,7 +48,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     self.baseURL = baseURL
     self.session = session
     self.apiToken = apiToken
-    self.htmlParser = htmlParser
   }
 
   public func login() async throws {
@@ -230,37 +227,44 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   }
 
   public func deleteDomain(domain: String) async throws {
-    let entries = try await getDomains()
-    let listName = entries.contains { $0.domain == domain } ? "white" : "black"
+    // Holeberry only ever adds exact allow entries, so delete from that list only.
     let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listName, "sub": domain]
+      path: "/admin/api.php", params: ["list": "white", "sub": domain]
     )
-
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
   }
 
   public func getDomains() async throws -> [DomainEntry] {
-    let allowEntries = try await parseDomainList(listType: "white", typeValue: 0)
-    let denyEntries = try await parseDomainList(listType: "black", typeValue: 1)
-    return allowEntries + denyEntries
+    let white = try await fetchDomainList(listType: "white")
+    let black = try await fetchDomainList(listType: "black")
+    return white + black
   }
 
-  private func parseDomainList(listType: String, typeValue: Int) async throws -> [DomainEntry] {
+  /// Exact-match lookup in the allowlist (type 0), case-insensitively.
+  public func allowEntry(_ domain: String) async throws -> DomainEntry? {
+    let entries = try await fetchDomainList(listType: "white")
+    return entries.first {
+      $0.type == DomainListType.allow.rawValue && $0.domain.caseInsensitiveCompare(domain) == .orderedSame
+    }
+  }
+
+  private func fetchDomainList(listType: String) async throws -> [DomainEntry] {
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listType]
     )
 
     guard httpResponse.isSuccess else {
-      return []
+      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    guard let html = String(data: data, encoding: .utf8) else {
-      return []
+    do {
+      // v5 returns {"data":[…]} as JSON; it has never returned HTML (verified v5.5–v5.21).
+      return try Self.decoder.decode(V5DomainsResponse.self, from: data).data
+    } catch {
+      throw PiholeError.decoding("Domain list \(listType): \(error.localizedDescription)")
     }
-
-    return htmlParser.parseDomains(from: html, type: typeValue)
   }
 
   private func getRequest(path: String, params: [String: String?], method: HTTPMethod = .get) async throws -> (
@@ -299,6 +303,11 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     }
     return (data, httpResponse)
   }
+}
+
+/// `/admin/api.php?list=…` response — v5 wraps the domain rows in a `data` array.
+private struct V5DomainsResponse: Decodable {
+  let data: [DomainEntry]
 }
 
 /// `/admin/api.php?summaryRaw` response. v5 serves the FTL stats with
