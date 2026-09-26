@@ -310,13 +310,82 @@ final class PiholeV6ServiceTests {
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["domain"] as? String == "example.com")
         let response = try #require(v6Response())
-        let data = Data(#"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":""}]}"#.utf8)
+        let data = Data(
+          #"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":"","enabled":true}],"processed":{"errors":[],"success":[{"item":"example.com"}]}}"#
+            .utf8)
         return (data, response)
       }
     ]
-    let entry = try await makeService().addDomain("example.com", to: .allow)
-    #expect(entry.domain == "example.com")
-    #expect(entry.type == 0)
+    let result = try await makeService().addDomain("example.com", to: .allow)
+    guard case .inserted(let entry) = result else {
+      Issue.record("expected inserted, got \(result)")
+      return
+    }
+    #expect(entry?.domain == "example.com")
+    #expect(entry?.type == 0)
+  }
+
+  @Test("addDomain parses a 201 success reply")
+  func addDomainParsesSuccess() async throws {
+    mockSession.handlers = [
+      { _ in
+        let body =
+          #"{"domains":[{"id":7,"domain":"example.com","type":"allow","kind":"exact","comment":"via holeberryapp.com / t1","enabled":true}],"processed":{"success":[{"item":"example.com"}],"errors":[]}}"#
+        return (Data(body.utf8), try #require(v6Response()))
+      }
+    ]
+    let result = try await makeService().addDomain("example.com", to: .allow, comment: "via holeberryapp.com / t1")
+    #expect(
+      result
+        == .inserted(
+          DomainEntry(id: 7, domain: "example.com", type: 0, comment: "via holeberryapp.com / t1", enabled: true)))
+  }
+
+  @Test("addDomain parses a 201 not-inserted reply (FTL <= 6.6 duplicate)")
+  func addDomainParsesNotInserted() async throws {
+    mockSession.handlers = [
+      { _ in
+        let body =
+          #"{"domains":[{"id":9,"domain":"example.com","type":"allow","kind":"exact","comment":"user note","enabled":false}],"processed":{"success":[],"errors":[{"item":"example.com","error":"UNIQUE constraint failed: domainlist.domain, domainlist.type"}]}}"#
+        return (Data(body.utf8), try #require(v6Response()))
+      }
+    ]
+    let result = try await makeService().addDomain("example.com", to: .allow, comment: nil)
+    guard case .notInserted(let entry) = result else {
+      Issue.record("expected notInserted, got \(result)")
+      return
+    }
+    #expect(entry.comment == "user note")
+    #expect(entry.enabled == false)
+  }
+
+  @Test("allowEntry returns the entry or nil")
+  func allowEntrySingleDomain() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact/example.com")
+        let body =
+          #"{"domains":[{"id":1,"domain":"example.com","type":"allow","kind":"exact","comment":"","enabled":true}]}"#
+        return (Data(body.utf8), try #require(v6Response()))
+      },
+      { _ in (Data(#"{"domains":[]}"#.utf8), try #require(v6Response())) }
+    ]
+    #expect(try await makeService().allowEntry("example.com")?.domain == "example.com")
+    #expect(try await makeService().allowEntry("other.com") == nil)
+  }
+
+  @Test("addDomain throws when the reply reports errors without an entry")
+  func addDomainErrorsWithoutEntry() async throws {
+    mockSession.handlers = [
+      { _ in
+        let body =
+          #"{"domains":[],"processed":{"success":[],"errors":[{"item":"x.com","error":"attempt to write a readonly database"}]}}"#
+        return (Data(body.utf8), try #require(v6Response()))
+      }
+    ]
+    await #expect(throws: PiholeError.unknown("attempt to write a readonly database")) {
+      _ = try await makeService().addDomain("x.com", to: .allow, comment: nil)
+    }
   }
 
   @Test("addDomain throws duplicateDomain on 409")
@@ -353,23 +422,6 @@ final class PiholeV6ServiceTests {
     try await makeService().deleteDomain(domain: "example.com")
   }
 
-
-  // MARK: - allowEntry
-
-  @Test("allowEntry returns the entry or nil")
-  func allowEntrySingleDomain() async throws {
-    mockSession.handlers = [
-      { request in
-        #expect(request.url?.path == "/api/domains/allow/exact/example.com")
-        let body =
-          #"{"domains":[{"id":1,"domain":"example.com","type":"allow","kind":"exact","comment":"","enabled":true}]}"#
-        return (Data(body.utf8), try #require(v6Response()))
-      },
-      { _ in (Data(#"{"domains":[]}"#.utf8), try #require(v6Response())) }
-    ]
-    #expect(try await makeService().allowEntry("example.com")?.domain == "example.com")
-    #expect(try await makeService().allowEntry("other.com") == nil)
-  }
 
   // MARK: - getRecentBlocked
 
@@ -534,11 +586,15 @@ final class PiholeV6ServiceTests {
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["domain"] as? String == "example.com")
         let response = try #require(v6Response())
-        let data = Data(#"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":""}]}"#.utf8)
+        let data = Data(
+          #"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":""}],"processed":{"errors":[],"success":[{"item":"example.com"}]}}"#
+            .utf8)
         return (data, response)
       }
     ]
-    try await makeService().unblockDomain("example.com", duration: 300)
+    let outcome = try await makeService().unblockDomain(
+      "example.com", duration: 300, ownershipID: UUID())
+    #expect(outcome == .added)
   }
 
   // MARK: - Error branches

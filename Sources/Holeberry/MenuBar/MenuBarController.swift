@@ -277,7 +277,8 @@ final class MenuBarController: NSObject {
   private func performTempUnblock(domain: String, duration: TimeInterval) {
     Task {
       do {
-        try await serverManager.unblock(domain: domain, duration: duration)
+        let outcomes = try await serverManager.unblock(domain: domain, duration: duration)
+        notificationCoordinator.scheduleUnblockNoopNotificationsIfNeeded(domain: domain, outcomes: outcomes)
       } catch {
         notificationCoordinator.schedule(
           .unblockFailed(domain: domain, error: error.localizedDescription)
@@ -296,7 +297,8 @@ final class MenuBarController: NSObject {
 
   private func addToAllowlist(domain: String) {
     Task {
-      await serverManager.addToAllowlist(domain: domain)
+      let outcomes = await serverManager.addToAllowlist(domain: domain)
+      notificationCoordinator.scheduleUnblockNoopNotificationsIfNeeded(domain: domain, outcomes: outcomes)
     }
   }
 

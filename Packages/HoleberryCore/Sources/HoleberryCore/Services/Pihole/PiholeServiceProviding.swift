@@ -14,6 +14,9 @@ public struct QuerySummary: Sendable {
 
 /// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
 /// No `comment` parameter — that's internal (see `PiholeServiceCommentAdding`).
+/// The `ownershipID` token threaded through `unblockDomain` is an internal
+/// detail: a stable, opaque UUID that the decorator turns into the entry
+/// marker it uses for ownership checks. Callers act on the returned outcome.
 @MainActor
 public protocol PiholeServiceProviding: AnyObject, Sendable {
   var id: UUID { get }
@@ -24,8 +27,8 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
 
   // MARK: - Domain operations
 
-  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry
-  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws
+  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainListAddResult
+  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> UnblockOutcome
   func deleteDomain(domain: String) async throws
   func getDomains() async throws -> [DomainEntry]
 

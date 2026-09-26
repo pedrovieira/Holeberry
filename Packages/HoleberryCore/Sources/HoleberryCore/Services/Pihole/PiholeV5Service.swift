@@ -205,11 +205,12 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     return blocked
   }
 
-  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
+  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainListAddResult {
     try await addDomain(domain, to: list, comment: nil)
   }
 
-  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
+  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainListAddResult
+  {
     let listName = list == .allow ? "white" : "black"
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listName, "add": domain]
@@ -219,11 +220,19 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: nil)
+    // v5's reply is unclassifiable (always {"success":true} plus a message
+    // string, and a duplicate add rewrites the entry's comment); see
+    // `DomainListAddResult`. The decorator's v5 flow probes before adding.
+    return .inserted(nil)
   }
 
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
+  /// Dead-code conformance for the v5 path — the decorator's v5 flow calls
+  /// `addDomain`/`allowEntry` directly instead.
+  public func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws
+    -> UnblockOutcome
+  {
     _ = try await addDomain(domain, to: .allow, comment: nil)
+    return .added
   }
 
   public func deleteDomain(domain: String) async throws {

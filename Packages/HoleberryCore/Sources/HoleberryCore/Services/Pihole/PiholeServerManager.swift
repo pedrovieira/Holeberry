@@ -2,6 +2,7 @@ import Combine
 import Defaults
 import Foundation
 import OSLog
+
 // swiftlint:disable file_length type_body_length
 
 @MainActor
@@ -329,27 +330,32 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Typed Operations
 
   /// Unblock a domain on all servers. Returns per-server result (success or error).
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async -> [UUID: Result<Void, any Error>] {
+  private func unblockOnAllServers(
+    _ domain: String, duration: TimeInterval?
+  ) async -> [UUID: Result<UnblockOutcome, any Error>] {
     let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
     let configs = servers
     let svcs = services
-    return await withTaskGroup(of: (UUID, Result<Void, any Error>).self) { group in
+    // Generated above the retry boundary so every retry attempt adopts the
+    // entry created by an earlier attempt (token stability).
+    let ownershipID = UUID()
+    return await withTaskGroup(of: (UUID, Result<UnblockOutcome, any Error>).self) { group in
       for config in configs {
         let svc = svcs[config.id]
         let id = config.id
         group.addTask {
           do {
             guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
-            try await withRetry(.destructive) {
-              try await svc.unblockDomain(stripped, duration: duration)
+            let outcome = try await withRetry(.destructive) {
+              try await svc.unblockDomain(stripped, duration: duration, ownershipID: ownershipID)
             }
-            return (id, .success(()))
+            return (id, .success(outcome))
           } catch {
             return (id, .failure(error))
           }
         }
       }
-      var results: [UUID: Result<Void, any Error>] = [:]
+      var results: [UUID: Result<UnblockOutcome, any Error>] = [:]
       for await (id, result) in group {
         results[id] = result
       }
@@ -515,25 +521,24 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Multi-server workflows
 
-  public func unblock(domain: String, duration: TimeInterval) async throws {
+  public func unblock(domain: String, duration: TimeInterval) async throws -> [UUID: UnblockOutcome] {
     guard !servers.isEmpty else { throw PiholeError.unknown("No configured Pi-hole instance") }
 
-    let results = await unblockDomain(domain, duration: duration)
-    let anySuccess = results.values.contains {
-      if case .success = $0 { return true }
-      return false
-    }
-    guard anySuccess else {
+    let results = await unblockOnAllServers(domain, duration: duration)
+    let successes = results.compactMapValues { try? $0.get() }
+    guard !successes.isEmpty else {
       let lastError = results.values.compactMap {
         if case .failure(let error) = $0 { return error }
         return nil
       }.last
       throw lastError ?? PiholeError.unknown("Failed to unblock on all servers")
     }
+    return successes
   }
 
-  public func addToAllowlist(domain: String) async {
-    let results = await unblockDomain(domain, duration: nil)
+  @discardableResult
+  public func addToAllowlist(domain: String) async -> [UUID: UnblockOutcome] {
+    let results = await unblockOnAllServers(domain, duration: nil)
     for (configId, result) in results {
       if case .failure(let error) = result {
         let label = servers.first { $0.id == configId }?.label ?? configId.uuidString
@@ -542,6 +547,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         )
       }
     }
+    return results.compactMapValues { try? $0.get() }
   }
 
   // MARK: - Persistence

@@ -236,8 +236,8 @@ final class PiholeV5ServiceTests {
         return (Data("OK".utf8), response)
       }
     ]
-    let entry = try await makeService().addDomain("example.com", to: .allow)
-    #expect(entry.domain == "example.com")
+    let result = try await makeService().addDomain("example.com", to: .allow)
+    #expect(result == .inserted(nil))
   }
 
   @Test("allowEntry finds the exact allow entry case-insensitively")
@@ -359,7 +359,9 @@ final class PiholeV5ServiceTests {
         return (Data("OK".utf8), response)
       }
     ]
-    try await makeService().unblockDomain("example.com", duration: 300)
+    let outcome = try await makeService().unblockDomain(
+      "example.com", duration: 300, ownershipID: UUID())
+    #expect(outcome == .added)
   }
 
   // MARK: - Error branches

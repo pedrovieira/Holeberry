@@ -29,9 +29,9 @@ struct MockPiholeServiceTests {
   @Test func addDomain() async throws {
     let mock = MockPiholeService()
     let expected = DomainEntry(id: 99, domain: "test.com", type: 0, comment: "test-uuid")
-    mock.addDomainStub = .success(expected)
+    mock.addDomainStub = .success(.inserted(expected))
     let result = try await mock.addDomain("test.com", to: .allow, comment: "test-uuid")
-    #expect(result == expected)
+    #expect(result == .inserted(expected))
     #expect(mock.addDomainCallCount == 1)
     #expect(mock.addDomainLastDomain == "test.com")
     #expect(mock.addDomainLastList == .allow)

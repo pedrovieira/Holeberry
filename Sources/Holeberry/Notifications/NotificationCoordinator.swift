@@ -25,6 +25,7 @@ final class NotificationCoordinator: NSObject {
   private static let gravityErrorCategory = "GRAVITY_ERROR"
   private static let gravityCompletedCategory = "GRAVITY_COMPLETED"
   private static let unblockFailureCategory = "UNBLOCK_FAILURE"
+  private static let unblockNoopCategory = "UNBLOCK_NOOP"
   private static let updateAvailableCategory = "UPDATE_AVAILABLE"
   private static let updateAvailableIdentifier = "update-available"
 
@@ -54,18 +55,32 @@ final class NotificationCoordinator: NSObject {
   func schedule(_ kind: UserNotificationKind) {
     guard isEnabled(kind) else { return }
 
+    let request = UNNotificationRequest(
+      identifier: Self.identifier(for: kind),
+      content: Self.content(for: kind),
+      trigger: nil
+    )
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error {
+        self.logger.warning(
+          "Failed to deliver notification: \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    }
+  }
+
+  /// Builds the banner content — title, copy, category, and per-kind extras
+  /// (subtitle/sound) — for `kind`.
+  private static func content(for kind: UserNotificationKind) -> UNMutableNotificationContent {
     let content = UNMutableNotificationContent()
     content.title = "Holeberry"
-    content.categoryIdentifier = Self.category(for: kind)
+    content.categoryIdentifier = category(for: kind)
     switch kind {
     case .shortcutError(let action, let error):
       content.body = "Failed to \(action) blocking: \(error)"
       content.sound = .default
     case .unblockEnded(let serverNames):
-      content.body =
-        serverNames.isEmpty
-        ? "Blocking is active again."
-        : "Blocking is active again on \(serverNames.joined(separator: ", "))."
+      content.body = unblockEndedBody(serverNames: serverNames)
     case .domainUnblockEnded(let domain):
       content.body = "\(domain) is blocked again."
     case .gravityUpdateCompleted:
@@ -78,21 +93,30 @@ final class NotificationCoordinator: NSObject {
       content.subtitle = "Check your servers' connectivity."
     case .unblockFailed(let domain, let error):
       content.body = "Failed to unblock \(domain): \(error)"
+    case .unblockNoop(let domain, let reason):
+      content.body = unblockNoopBody(domain: domain, reason: reason)
     case .updateAvailable(let version):
       content.body = "Version \(version) is available."
     }
+    return content
+  }
 
-    let request = UNNotificationRequest(
-      identifier: Self.identifier(for: kind),
-      content: content,
-      trigger: nil
-    )
-    UNUserNotificationCenter.current().add(request) { error in
-      if let error {
-        self.logger.warning(
-          "Failed to deliver notification: \(error.localizedDescription, privacy: .public)"
-        )
-      }
+  /// Copy for the unblock-ended banner; kept separate to keep
+  /// `content(for:)` within the complexity budget.
+  private static func unblockEndedBody(serverNames: [String]) -> String {
+    serverNames.isEmpty
+      ? "Blocking is active again."
+      : "Blocking is active again on \(serverNames.joined(separator: ", "))."
+  }
+
+  /// Copy for a no-op unblock; kept separate to keep `content(for:)` within
+  /// the complexity budget.
+  private static func unblockNoopBody(domain: String, reason: UnblockNoopReason) -> String {
+    switch reason {
+    case .alreadyAllowed:
+      return "\(domain) is already in the allowlist — no timer set."
+    case .ineffective:
+      return "\(domain) is in the allowlist but disabled — no timer set."
     }
   }
 
@@ -142,6 +166,19 @@ final class NotificationCoordinator: NSObject {
     }
   }
 
+  // MARK: - Unblock outcomes
+
+  /// Posts one informational banner when a temp-unblock turned out to be a
+  /// no-op because the domain is already allowlisted (enabled, or disabled —
+  /// the latter stays blocked and the user should know).
+  func scheduleUnblockNoopNotificationsIfNeeded(domain: String, outcomes: [UUID: UnblockOutcome]) {
+    let values = outcomes.values
+    let reason: UnblockNoopReason? =
+      values.contains(.ineffective) ? .ineffective : (values.contains(.alreadyAllowed) ? .alreadyAllowed : nil)
+    guard let reason else { return }
+    schedule(.unblockNoop(domain: domain, reason: reason))
+  }
+
   // MARK: - Authorization
 
   /// Asks for permission once, while the status is still undetermined.
@@ -186,6 +223,9 @@ final class NotificationCoordinator: NSObject {
     case .unblockFailed:
       // Always on — failures should never go unnoticed.
       return true
+    case .unblockNoop:
+      // Informational; no dedicated toggle yet.
+      return true
     case .updateAvailable:
       // No dedicated toggle; the reminder only fires while the person keeps
       // automatic update checks on (gated in GentleUpdateReminderDelegate).
@@ -201,6 +241,7 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return gravityErrorCategory
     case .gravityUpdateCompleted: return gravityCompletedCategory
     case .unblockFailed: return unblockFailureCategory
+    case .unblockNoop: return unblockNoopCategory
     case .updateAvailable: return updateAvailableCategory
     }
   }
@@ -214,6 +255,7 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return "gravity-error-\(id)"
     case .gravityUpdateCompleted: return "gravity-completed-\(id)"
     case .unblockFailed: return "unblock-failed-\(id)"
+    case .unblockNoop: return "unblock-noop-\(id)"
     // Stable across reminders so a newer one replaces a stale banner
     // instead of stacking; `withdrawUpdateReminder()` reuses this id.
     case .updateAvailable: return updateAvailableIdentifier

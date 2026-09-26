@@ -29,7 +29,18 @@ enum UserNotificationKind {
   /// A temporary unblock of a domain failed.
   case unblockFailed(domain: String, error: String)
 
+  /// A temp-unblock request was a no-op because the domain is already allowlisted.
+  case unblockNoop(domain: String, reason: UnblockNoopReason)
+
   /// A scheduled update check found a new Holeberry version while the app
   /// ran in the background (Sparkle gentle reminder).
   case updateAvailable(version: String)
+}
+
+/// Why an unblock request did not change anything.
+enum UnblockNoopReason {
+  /// An enabled entry already exists (not ours).
+  case alreadyAllowed
+  /// An entry exists but is disabled — the domain stays blocked.
+  case ineffective
 }

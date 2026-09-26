@@ -6,11 +6,36 @@ Every `.json` file is a verbatim reply body — statuses and headers noted
 below, not embedded in the files.
 
 No fallbacks were used: every file is a live capture. The tests inline
-these bodies (see `PiholeV5ServiceTests`) and cite this directory.
+these bodies (see `PiholeV5ServiceTests`, `PiholeV6ServiceTests`) and cite
+this directory.
 
 | Image tag | core | web | FTL | duplicate-add reply |
 |---|---|---|---|---|
+| `pihole/pihole:2026.09.0` | v6.4.3 | v6.6 | **v6.7.1** | 400 `database_error` |
+| `pihole/pihole:2026.04.0` | v6.4.1 | v6.5 | **v6.6** | 201 + `processed.errors` |
 | `pihole/pihole:2024.07.0` | v5.18.3 | v5.21 | v5.25.2 | 200 + message string |
+
+## v6 — FTL ≥ 6.6.1 family (image `2026.09.0`, FTL v6.7.1)
+
+- `v6-domains-allow-exact-miss.json` — `GET /api/domains/allow/exact/example.com`
+  before any add → **200**, empty `domains` array.
+- `v6-add-success-201.json` — first `POST /api/domains/allow/exact`
+  (comment `via holeberryapp.com / probe`) → **201**; `processed.success`
+  non-empty and the read-back entry carries `enabled: true` plus our comment.
+- `v6-domains-allow-exact-hit.json` — the same GET after the add → **200**,
+  one entry (comment and `enabled` echoed).
+- `v6-add-duplicate-400.json` — the same POST again → **400**
+  `database_error` with `hint: "The item is already present"`; the body has
+  no list. The app disambiguates with one single-domain GET — it never
+  parses the hint text.
+
+## v6 — FTL ≤ 6.6 family (image `2026.04.0`, FTL v6.6)
+
+- `v6-add-duplicate-201.json` — duplicate `POST /api/domains/allow/exact` →
+  **201** with the pre-existing entry read back and
+  `processed.errors = [{item, error: "UNIQUE constraint failed:
+  domainlist.domain, domainlist.type"}]`, `processed.success = []`.
+  `processed` is the structural signal; the error string is informational.
 
 ## v5 (image `2024.07.0`, web v5.21)
 

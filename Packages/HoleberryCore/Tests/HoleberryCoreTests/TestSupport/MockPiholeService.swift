@@ -32,8 +32,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var updateGravityStub: Result<Void, any Error> = .success(())
   private(set) var updateGravityCallCount = 0
 
-  var addDomainStub: Result<DomainEntry, any Error> = .success(
-    DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil))
+  var addDomainStub: Result<DomainListAddResult, any Error> = .success(.inserted(nil))
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
@@ -42,6 +41,9 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var allowEntryStub: Result<DomainEntry?, any Error> = .success(nil)
   private(set) var allowEntryCallCount = 0
   var allowEntryLastDomain: String?
+
+  var unblockDomainStub: Result<UnblockOutcome, any Error> = .success(.added)
+  var unblockOwnershipIDLastArgs: UUID?
 
   var deleteDomainByNameStub: Result<Void, any Error> = .success(())
   private(set) var deleteDomainByNameCallCount = 0
@@ -85,11 +87,11 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     try updateGravityStub.get()
   }
 
-  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
+  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainListAddResult {
     try await addDomain(domain, to: list, comment: nil)
   }
 
-  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
+  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainListAddResult {
     addDomainCallCount += 1
     addDomainLastDomain = domain
     addDomainLastList = list
@@ -97,14 +99,15 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     return try addDomainStub.get()
   }
 
-  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
-    _ = try await addDomain(domain, to: .allow, comment: nil)
-  }
-
   func allowEntry(_ domain: String) async throws -> DomainEntry? {
     allowEntryCallCount += 1
     allowEntryLastDomain = domain
     return try allowEntryStub.get()
+  }
+
+  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> UnblockOutcome {
+    unblockOwnershipIDLastArgs = ownershipID
+    return try unblockDomainStub.get()
   }
 
   func deleteDomain(domain: String) async throws {

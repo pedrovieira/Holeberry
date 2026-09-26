@@ -199,11 +199,13 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     }
   }
 
-  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
+  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainListAddResult {
     try await addDomain(domain, to: list, comment: nil)
   }
 
-  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
+  public func addDomain(
+    _ domain: String, to list: DomainListType, comment: String?
+  ) async throws -> DomainListAddResult {
     let body = AddDomainBody(domain: domain, comment: comment)
     let listType = list == .allow ? "allow" : "deny"
     let path = "/api/domains/\(listType)/exact"
@@ -219,10 +221,20 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    // V6 wraps the response in {"domains":[...]} — our DomainEntry struct
-    // can't decode that directly. Since callers ignore the return value,
-    // just return a synthetic entry from the known inputs.
-    return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: comment)
+    guard let reply = try? Self.decoder.decode(V6AddDomainReply.self, from: data),
+      let processed = reply.processed
+    else {
+      // Unparseable reply: throw so the decorator falls back to one read-back.
+      throw PiholeError.decoding("Unexpected add-domain reply")
+    }
+    let entry = reply.domains?.first
+    if !processed.success.isEmpty {
+      return .inserted(entry)
+    }
+    if let entry {
+      return .notInserted(entry)
+    }
+    throw PiholeError.unknown(processed.errors.first?.error ?? "Add did not take effect")
   }
 
   public func deleteDomain(domain: String) async throws {
@@ -252,8 +264,13 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     return try Self.decoder.decode(DomainsResponse.self, from: data).domains.first
   }
 
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
-    _ = try await addDomain(domain, to: .allow, comment: nil)
+  public func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws
+    -> UnblockOutcome
+  {
+    switch try await addDomain(domain, to: .allow, comment: ownershipID.uuidString) {
+    case .inserted: return .added
+    case .notInserted(let entry): return entry.enabled == false ? .ineffective : .alreadyAllowed
+    }
   }
 
   public func getDomains() async throws -> [DomainEntry] {
@@ -334,6 +351,22 @@ private struct SetBlockingBody: Encodable {
 
 public struct DomainsResponse: Decodable {
   let domains: [DomainEntry]
+}
+
+/// Reply to `POST /api/domains/{type}/{kind}` (list add).
+private struct V6AddDomainReply: Decodable {
+  let domains: [DomainEntry]?
+  let processed: V6AddDomainProcessed?
+}
+
+private struct V6AddDomainProcessed: Decodable {
+  let success: [V6AddDomainItem]
+  let errors: [V6AddDomainItem]
+}
+
+private struct V6AddDomainItem: Decodable {
+  let item: String
+  let error: String?
 }
 
 private struct AddDomainBody: Encodable {

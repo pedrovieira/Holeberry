@@ -454,4 +454,44 @@ struct PiholeServerManagerDomainTests {
     let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
     #expect(stripped == "example.com")
   }
+
+  @Test("unblock returns per-server outcomes")
+  func unblockReturnsOutcomes() async throws {
+    let suite = TestDefaults.makeSuite()
+    let config = ServerConfig(label: "A", url: "http://a.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [config]
+    let service = MockPiholeService(id: config.id, url: config.url, version: .v6)
+    service.unblockDomainStub = .success(.alreadyAllowed)
+    mockServiceFactory.buildServiceStub = service
+    defer { mockServiceFactory.buildServiceStub = nil }
+
+    let manager = makeManager(suite: suite)
+    let outcomes = try await manager.unblock(domain: "example.com", duration: 300)
+
+    #expect(outcomes.count == 1)
+    #expect(outcomes[config.id] == .alreadyAllowed)
+  }
+
+  @Test("addToAllowlist returns successful outcomes and logs failures")
+  func addToAllowlistReturnsOutcomes() async throws {
+    let suite = TestDefaults.makeSuite()
+    let configA = ServerConfig(label: "A", url: "http://a.local", version: .v6)
+    let configB = ServerConfig(label: "B", url: "http://b.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [configA, configB]
+    let serviceA = MockPiholeService(id: configA.id, url: configA.url, version: .v6)
+    let serviceB = MockPiholeService(id: configB.id, url: configB.url, version: .v6)
+    serviceA.unblockDomainStub = .success(.added)
+    serviceB.unblockDomainStub = .failure(PiholeError.network("down"))
+    mockServiceFactory.buildServiceHandler = { config in
+      config.id == configA.id ? serviceA : serviceB
+    }
+    defer { mockServiceFactory.buildServiceHandler = nil }
+
+    let manager = makeManager(suite: suite)
+    let outcomes = await manager.addToAllowlist(domain: "example.com")
+
+    #expect(outcomes.count == 1, "Only the successful server is reported")
+    #expect(outcomes[configA.id] == .added)
+    #expect(outcomes[configB.id] == nil)
+  }
 }

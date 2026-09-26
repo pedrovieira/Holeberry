@@ -168,7 +168,8 @@ final class ShortcutController {
 
     if let duration {
       do {
-        try await serverManager.unblock(domain: domain, duration: duration)
+        let outcomes = try await serverManager.unblock(domain: domain, duration: duration)
+        notificationCoordinator.scheduleUnblockNoopNotificationsIfNeeded(domain: domain, outcomes: outcomes)
       } catch {
         logger.warning(
           """
@@ -181,7 +182,8 @@ final class ShortcutController {
     } else {
       // Indefinite: the same non-expiring unblock the menu's "Add to
       // allowlist" action performs (allowlist add, no record, no expiry task).
-      await serverManager.addToAllowlist(domain: domain)
+      let outcomes = await serverManager.addToAllowlist(domain: domain)
+      notificationCoordinator.scheduleUnblockNoopNotificationsIfNeeded(domain: domain, outcomes: outcomes)
     }
   }
 
