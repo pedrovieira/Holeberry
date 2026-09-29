@@ -62,14 +62,13 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     try await wrapped.addDomain(domain, to: list, comment: comment)
   }
 
-  public func allowEntry(_ domain: String) async throws -> DomainEntry? {
-    try await wrapped.allowEntry(domain)
-  }
-
-  public func deleteDomain(domain: String) async throws {
-    try await wrapped.deleteDomain(domain: domain)
-    activeRecords.removeAll { $0.domain == domain }
-    saveRecords()
+  public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
+    try await wrapped.deleteDomain(domain, from: list)
+    // Only allow entries have a matching temp-unblock record to drop.
+    if list == .allow {
+      activeRecords.removeAll { $0.domain == domain }
+      saveRecords()
+    }
   }
 
   public func checkStatus() async throws -> BlockingStatus {
@@ -92,8 +91,8 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     try await wrapped.getRecentBlocked(forClientIp: forClientIp, interval: interval)
   }
 
-  public func getDomains() async throws -> [DomainEntry] {
-    try await wrapped.getDomains()
+  public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
+    try await wrapped.getDomains(from: list)
   }
 
   public func logout() async {
@@ -110,7 +109,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     // v5's add reply cannot be classified and a duplicate add rewrites the
     // entry's comment — read the list first and leave a pre-existing entry
     // untouched (it is not ours to expire).
-    if wrapped.version == .v5, try await wrapped.allowEntry(domain) != nil {
+    if wrapped.version == .v5, try await hasAllowEntry(domain) {
       return
     }
     if let duration {
@@ -130,6 +129,15 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     }
   }
 
+  // MARK: - Unblock list probe
+
+  /// Exact, case-insensitive lookup in the allowlist. v5 has no per-domain
+  /// endpoint, so read the list and match here.
+  private func hasAllowEntry(_ domain: String) async throws -> Bool {
+    let entries = try await wrapped.getDomains(from: .allow)
+    return entries.contains { $0.domain.caseInsensitiveCompare(domain) == .orderedSame }
+  }
+
   // MARK: - Persistence
 
   private func restoreFromDefaults() -> [TempUnblockRecord] {
@@ -147,7 +155,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     let initialRecords = activeRecords
     guard !initialRecords.isEmpty else { return }
 
-    guard let domains = try? await wrapped.getDomains() else {
+    guard let domains = try? await wrapped.getDomains(from: .allow) else {
       for record in initialRecords where !record.pendingRemoval {
         startExpiryTask(for: record)
       }
@@ -180,11 +188,11 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     do {
       // v5 has no ownership marker on entries; a missing entry means there is
       // nothing left to remove.
-      if wrapped.version == .v5, try await wrapped.allowEntry(record.domain) == nil {
+      if wrapped.version == .v5, try await hasAllowEntry(record.domain) == false {
         finalizeExpiry(uuid: uuid, domain: record.domain)
         return
       }
-      try await wrapped.deleteDomain(domain: record.domain)
+      try await wrapped.deleteDomain(record.domain, from: .allow)
       finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch PiholeError.unknown {
       finalizeExpiry(uuid: uuid, domain: record.domain)
@@ -217,11 +225,11 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     do {
       // v5 has no ownership marker on entries; a missing entry means there is
       // nothing left to remove.
-      if wrapped.version == .v5, try await wrapped.allowEntry(record.domain) == nil {
+      if wrapped.version == .v5, try await hasAllowEntry(record.domain) == false {
         finalizeExpiry(uuid: uuid, domain: record.domain)
         return
       }
-      try await wrapped.deleteDomain(domain: record.domain)
+      try await wrapped.deleteDomain(record.domain, from: .allow)
       finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch PiholeError.unknown {
       finalizeExpiry(uuid: uuid, domain: record.domain)

@@ -205,8 +205,7 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
 
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
     let body = AddDomainBody(domain: domain, comment: comment)
-    let listType = list == .allow ? "allow" : "deny"
-    let path = "/api/domains/\(listType)/exact"
+    let path = "/api/domains/\(listTypeName(for: list))/exact"
     let (data, httpResponse) = try await authenticatedRequest(
       path: path, method: .post, body: body
     )
@@ -225,14 +224,12 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: comment)
   }
 
-  public func deleteDomain(domain: String) async throws {
-    // Holeberry only ever adds to allow/exact, so delete from there directly.
-    let kind = "exact"
+  public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
     guard let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
       throw PiholeError.unknown("Invalid domain: \(domain)")
     }
-    let path = "/api/domains/allow/\(kind)/\(encodedDomain)"
-    logger.debug("deleteDomain(domain:) DELETE \(path)")
+    let path = "/api/domains/\(listTypeName(for: list))/exact/\(encodedDomain)"
+    logger.debug("deleteDomain DELETE \(path)")
     let (data, httpResponse) = try await authenticatedRequest(path: path, method: .delete)
 
     guard httpResponse.isSuccess else {
@@ -240,24 +237,18 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     }
   }
 
-  /// Exact-match lookup in the allowlist. `nil` = not present.
-  public func allowEntry(_ domain: String) async throws -> DomainEntry? {
-    guard let encoded = domain.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-      throw PiholeError.unknown("Invalid domain: \(domain)")
-    }
-    let (data, httpResponse) = try await authenticatedRequest(path: "/api/domains/allow/exact/\(encoded)")
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-    return try Self.decoder.decode(DomainsResponse.self, from: data).domains.first
-  }
-
   public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
     _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
-  public func getDomains() async throws -> [DomainEntry] {
-    let (data, httpResponse) = try await authenticatedRequest(path: "/api/domains")
+  public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
+    // Server-side filter. `/exact` (not the read-only `/allow` and `/deny`
+    // forms) lines up with v5's `?list=white|black`, which is exact-only too.
+    try await fetchDomains(path: "/api/domains/\(listTypeName(for: list))/exact")
+  }
+
+  private func fetchDomains(path: String) async throws -> [DomainEntry] {
+    let (data, httpResponse) = try await authenticatedRequest(path: path)
 
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
@@ -271,12 +262,17 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
       logger.error(
         """
-        GET /api/domains decode failed. Status \(httpResponse.statusCode). \
+        GET \(path, privacy: .public) decode failed. Status \(httpResponse.statusCode). \
         Error: \(String(describing: error)). Body: \(body, privacy: .public)
         """
       )
       throw PiholeError.decoding(error.localizedDescription)
     }
+  }
+
+  /// v6 names the lists allow/deny in its REST API.
+  private func listTypeName(for list: DomainListType) -> String {
+    list == .allow ? "allow" : "deny"
   }
 
   private func authenticatedRequest(

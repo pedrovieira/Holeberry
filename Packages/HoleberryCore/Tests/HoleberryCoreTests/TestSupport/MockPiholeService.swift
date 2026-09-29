@@ -39,15 +39,18 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
 
-  var allowEntryStub: Result<DomainEntry?, any Error> = .success(nil)
-  private(set) var allowEntryCallCount = 0
-  var allowEntryLastDomain: String?
-
   var deleteDomainByNameStub: Result<Void, any Error> = .success(())
   private(set) var deleteDomainByNameCallCount = 0
+  var deleteDomainLastDomain: String?
+  var deleteDomainLastList: DomainListType?
 
   var getDomainsStub: Result<[DomainEntry], any Error> = .success([])
+  /// Consumed before `getDomainsStub` when non-empty, so a test can answer
+  /// successive reads differently (reconciliation, then the expiry probe).
+  var getDomainsStubQueue: [Result<[DomainEntry], any Error>] = []
   private(set) var getDomainsCallCount = 0
+  /// List passed to the most recent `getDomains(from:)` call.
+  var getDomainsLastList: DomainListType?
 
   private(set) var logoutCallCount = 0
 
@@ -101,19 +104,23 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
-  func allowEntry(_ domain: String) async throws -> DomainEntry? {
-    allowEntryCallCount += 1
-    allowEntryLastDomain = domain
-    return try allowEntryStub.get()
-  }
-
-  func deleteDomain(domain: String) async throws {
+  func deleteDomain(_ domain: String, from list: DomainListType) async throws {
     deleteDomainByNameCallCount += 1
+    deleteDomainLastDomain = domain
+    deleteDomainLastList = list
     try deleteDomainByNameStub.get()
   }
 
-  func getDomains() async throws -> [DomainEntry] {
+  func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
+    getDomainsLastList = list
+    return try nextGetDomainsResult()
+  }
+
+  private func nextGetDomainsResult() throws -> [DomainEntry] {
     getDomainsCallCount += 1
+    if !getDomainsStubQueue.isEmpty {
+      return try getDomainsStubQueue.removeFirst().get()
+    }
     return try getDomainsStub.get()
   }
 

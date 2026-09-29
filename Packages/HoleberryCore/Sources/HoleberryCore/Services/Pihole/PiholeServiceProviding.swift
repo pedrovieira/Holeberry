@@ -26,8 +26,8 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
 
   func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws
-  func deleteDomain(domain: String) async throws
-  func getDomains() async throws -> [DomainEntry]
+  func deleteDomain(_ domain: String, from list: DomainListType) async throws
+  func getDomains(from list: DomainListType) async throws -> [DomainEntry]
 
   // MARK: - Status & queries
 

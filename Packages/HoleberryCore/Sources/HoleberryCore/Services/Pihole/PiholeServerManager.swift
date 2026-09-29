@@ -357,7 +357,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
-  public func deleteDomain(_ domain: String) async {
+  public func deleteDomain(_ domain: String, from list: DomainListType) async {
     let serverList = servers
     let svcs = services
     let log = logger
@@ -368,7 +368,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         group.addTask {
           do {
             try await withRetry(.destructive) {
-              try await service.deleteDomain(domain: domain)
+              try await service.deleteDomain(domain, from: list)
             }
           } catch {
             log.warning(
@@ -378,41 +378,6 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         }
       }
     }
-  }
-
-  public func getDomains() async throws -> [UUID: [DomainEntry]] {
-    let serverList = servers
-    let svcs = services
-    let log = logger
-    let collected: [(UUID, [DomainEntry])] = await withTaskGroup(
-      of: (UUID, [DomainEntry])?.self
-    ) { group in
-      for config in serverList {
-        guard let service = svcs[config.id] else { continue }
-        let id = config.id
-        let label = config.label ?? config.url
-        group.addTask {
-          do {
-            let domains = try await service.getDomains()
-            return (id, domains)
-          } catch {
-            log.warning(
-              "getDomains failed on \(label): \(error.localizedDescription, privacy: .public)"
-            )
-            return nil
-          }
-        }
-      }
-
-      var collected: [(UUID, [DomainEntry])] = []
-      for await result in group {
-        if let pair = result {
-          collected.append(pair)
-        }
-      }
-      return collected
-    }
-    return Dictionary(uniqueKeysWithValues: collected)
   }
 
   public func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {

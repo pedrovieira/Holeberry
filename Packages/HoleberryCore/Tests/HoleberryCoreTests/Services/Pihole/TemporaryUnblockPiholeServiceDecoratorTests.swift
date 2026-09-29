@@ -290,7 +290,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
     }
     try await decorator.unblockDomain("manual-delete.com", duration: 3600)
-    try await decorator.deleteDomain(domain: "manual-delete.com")
+    try await decorator.deleteDomain("manual-delete.com", from: .allow)
 
     #expect(
       Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty,
@@ -321,9 +321,30 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     mock.deleteDomainByNameStub = .success(())
     let decorator = makeDecorator(service: mock)
 
-    try await decorator.deleteDomain(domain: "test.com")
+    try await decorator.deleteDomain("test.com", from: .deny)
 
     #expect(mock.deleteDomainByNameCallCount == 1)
+    #expect(mock.deleteDomainLastDomain == "test.com")
+    #expect(mock.deleteDomainLastList == .deny)
+  }
+
+  @Test("deny deletion keeps the temp-unblock record")
+  func deleteDenyEntryKeepsRecord() async throws {
+    let mock = MockPiholeService()
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "keepme.com", type: 0, comment: nil)])
+    mock.deleteDomainByNameStub = .success(())
+
+    let suite = TestDefaults.makeSuite()
+    Defaults[.tempUnblocks(for: mock.id, suite: suite)] = [
+      TempUnblockRecord(domain: "keepme.com", uuid: "uuid-keep", startDateUTC: Date(), durationSeconds: 3600)
+    ]
+    let decorator = makeParkingDecorator(service: mock, suite: suite)
+
+    try await decorator.deleteDomain("keepme.com", from: .deny)
+
+    #expect(
+      Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1,
+      "Only an allow deletion ends a temp unblock")
   }
 
   @Test("checkStatus passes through")
@@ -338,17 +359,17 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(status == .enabled)
   }
 
-  @Test("getDomains passes through")
+  @Test("getDomains(from:) passes through")
   func getDomainsPassesThrough() async throws {
     let mock = MockPiholeService()
     mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil)])
     let decorator = makeDecorator(service: mock)
 
-    let domains = try await decorator.getDomains()
+    let domains = try await decorator.getDomains(from: .deny)
 
     #expect(mock.getDomainsCallCount == 1)
-    #expect(domains.count == 1)
-    #expect(domains[0].domain == "test.com")
+    #expect(mock.getDomainsLastList == .deny)
+    #expect(domains.map(\.domain) == ["test.com"])
   }
 
   @Test("getQuerySummary passes through")
@@ -553,20 +574,20 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
   // MARK: - v5 probe-first flow and expiry guard
 
-  @Test("v5 probes first and never adds when the entry exists")
+  @Test("v5 probes first (case-insensitively) and never adds when the entry exists")
   func v5ProbeHit() async throws {
     let mock = MockPiholeService(version: .v5)
-    mock.allowEntryStub = .success(DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil, enabled: true))
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil, enabled: true)])
     let decorator = makeDecorator(service: mock)
-    try await decorator.unblockDomain("x.com", duration: 60)
+    try await decorator.unblockDomain("X.COM", duration: 60)
     #expect(mock.addDomainCallCount == 0, "A pre-existing entry must not be re-added")
+    #expect(mock.getDomainsLastList == .allow, "The probe reads the allow list only")
     #expect(mock.deleteDomainByNameCallCount == 0)
   }
 
   @Test("v5 adds and records when absent")
   func v5ProbeMissAdds() async throws {
     let mock = MockPiholeService(version: .v5)
-    mock.allowEntryStub = .success(nil)
     let suite = TestDefaults.makeSuite()
     let decorator = makeParkingDecorator(service: mock, suite: suite)
     try await decorator.unblockDomain("x.com", duration: 60)
@@ -577,7 +598,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("v5 probe failure propagates without adding")
   func v5ProbeFailurePropagates() async throws {
     let mock = MockPiholeService(version: .v5)
-    mock.allowEntryStub = .failure(PiholeError.network("down"))
+    mock.getDomainsStub = .failure(PiholeError.network("down"))
     let decorator = makeDecorator(service: mock)
     await #expect(throws: PiholeError.network("down")) {
       try await decorator.unblockDomain("x.com", duration: 60)
@@ -588,8 +609,11 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("expiry: v5 skips the delete when the entry is already gone")
   func expiryV5AbsentEntryFinalizes() async throws {
     let mock = MockPiholeService(version: .v5)
-    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)])
-    mock.allowEntryStub = .success(nil)
+    // Reconciliation still sees the entry, the expiry probe no longer does.
+    mock.getDomainsStubQueue = [
+      .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)]),
+      .success([]),
+    ]
     mock.deleteDomainByNameStub = .success(())
 
     let suite = TestDefaults.makeSuite()
@@ -607,13 +631,13 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       await eventually { Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty },
       "A missing v5 entry ends the record without deleting")
     #expect(mock.deleteDomainByNameCallCount == 0)
+    #expect(mock.getDomainsCallCount == 2, "Reconciliation and expiry each read the allow list")
   }
 
   @Test("expiry: v5 deletes the allow entry when present")
   func expiryV5PresentEntryDeletes() async throws {
     let mock = MockPiholeService(version: .v5)
     mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)])
-    mock.allowEntryStub = .success(DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil, enabled: true))
     mock.deleteDomainByNameStub = .success(())
 
     let suite = TestDefaults.makeSuite()
@@ -630,5 +654,6 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(
       await eventually { mock.deleteDomainByNameCallCount == 1 },
       "A present v5 entry is removed on expiry, from the allow list only")
+    #expect(mock.deleteDomainLastList == .allow)
   }
 }

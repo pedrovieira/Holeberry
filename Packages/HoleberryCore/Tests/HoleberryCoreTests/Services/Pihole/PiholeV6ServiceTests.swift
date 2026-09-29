@@ -340,7 +340,7 @@ final class PiholeV6ServiceTests {
 
   // MARK: - deleteDomain
 
-  @Test("deleteDomain sends DELETE")
+  @Test("deleteDomain sends DELETE to the allow list")
   func deleteDomain() async throws {
     mockSession.handlers = [
       { request in
@@ -350,25 +350,81 @@ final class PiholeV6ServiceTests {
         return (Data("OK".utf8), response)
       }
     ]
-    try await makeService().deleteDomain(domain: "example.com")
+    try await makeService().deleteDomain("example.com", from: .allow)
   }
 
-
-  // MARK: - allowEntry
-
-  @Test("allowEntry returns the entry or nil")
-  func allowEntrySingleDomain() async throws {
+  @Test("deleteDomain sends DELETE to the deny list")
+  func deleteDomainDeny() async throws {
     mockSession.handlers = [
       { request in
-        #expect(request.url?.path == "/api/domains/allow/exact/example.com")
-        let body =
-          #"{"domains":[{"id":1,"domain":"example.com","type":"allow","kind":"exact","comment":"","enabled":true}]}"#
+        #expect(request.url?.path == "/api/domains/deny/exact/ads.example")
+        #expect(request.httpMethod == "DELETE")
+        let response = try #require(v6Response())
+        return (Data("OK".utf8), response)
+      }
+    ]
+    try await makeService().deleteDomain("ads.example", from: .deny)
+  }
+
+  // MARK: - getDomains(from:)
+
+  @Test("getDomains(from:) reads the list-specific endpoint")
+  func getDomainsFromList() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact")
+        #expect(request.httpMethod == "GET")
+        let body = #"""
+          {"domains":[
+            {"id":1,"domain":"example.com","type":"allow","kind":"exact","comment":"","enabled":true},
+            {"id":2,"domain":"other.example","type":"allow","kind":"exact","comment":"manual"}
+          ]}
+          """#
         return (Data(body.utf8), try #require(v6Response()))
       },
-      { _ in (Data(#"{"domains":[]}"#.utf8), try #require(v6Response())) }
+      { request in
+        #expect(request.url?.path == "/api/domains/deny/exact")
+        #expect(request.httpMethod == "GET")
+        let body =
+          #"{"domains":[{"id":3,"domain":"ads.example","type":"deny","kind":"exact","comment":"","enabled":true}]}"#
+        return (Data(body.utf8), try #require(v6Response()))
+      },
     ]
-    #expect(try await makeService().allowEntry("example.com")?.domain == "example.com")
-    #expect(try await makeService().allowEntry("other.com") == nil)
+    let allow = try await makeService().getDomains(from: .allow)
+    #expect(allow.map(\.domain) == ["example.com", "other.example"])
+    #expect(allow.last?.comment == "manual")
+    #expect(allow.allSatisfy { $0.type == DomainListType.allow.rawValue })
+    let deny = try await makeService().getDomains(from: .deny)
+    #expect(deny.map(\.domain) == ["ads.example"])
+    #expect(deny.first?.type == DomainListType.deny.rawValue)
+  }
+
+  @Test("getDomains(from:) returns an empty list")
+  func getDomainsEmpty() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/deny/exact")
+        #expect(request.httpMethod == "GET")
+        let response = try #require(v6Response())
+        return (Data(#"{"domains":[]}"#.utf8), response)
+      }
+    ]
+    #expect(try await makeService().getDomains(from: .deny).isEmpty)
+  }
+
+  @Test("getDomains(from:) throws on server error")
+  func getDomainsServerError() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact")
+        #expect(request.httpMethod == "GET")
+        let response = try #require(v6Response(statusCode: 500))
+        return (Data("Error".utf8), response)
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().getDomains(from: .allow)
+    }
   }
 
   // MARK: - getRecentBlocked
@@ -435,60 +491,6 @@ final class PiholeV6ServiceTests {
         forClientIp: nil,
         interval: DateInterval(start: Date(), end: Date())
       )
-    }
-  }
-
-  // MARK: - getDomains
-
-  @Test("getDomains decodes v6 wrapped response")
-  func getDomains() async throws {
-    mockSession.handlers = [
-      { request in
-        #expect(request.url?.path == "/api/domains")
-        #expect(request.httpMethod == "GET")
-        let response = try #require(v6Response())
-        let data = Data(
-          #"""
-          {"domains":[
-            {"id":1,"domain":"allowed.com","type":"allow","comment":""},
-            {"id":2,"domain":"blocked.com","type":"deny","comment":"manual"}
-          ]}
-          """#.utf8)
-        return (data, response)
-      }
-    ]
-    let domains = try await makeService().getDomains()
-    #expect(domains.count == 2)
-    #expect(domains[0].domain == "allowed.com")
-    #expect(domains[1].domain == "blocked.com")
-  }
-
-  @Test("getDomains returns empty list")
-  func getDomainsEmpty() async throws {
-    mockSession.handlers = [
-      { request in
-        #expect(request.url?.path == "/api/domains")
-        #expect(request.httpMethod == "GET")
-        let response = try #require(v6Response())
-        return (Data(#"{"domains":[]}"#.utf8), response)
-      }
-    ]
-    let domains = try await makeService().getDomains()
-    #expect(domains.isEmpty)
-  }
-
-  @Test("getDomains throws on server error")
-  func getDomainsServerError() async throws {
-    mockSession.handlers = [
-      { request in
-        #expect(request.url?.path == "/api/domains")
-        #expect(request.httpMethod == "GET")
-        let response = try #require(v6Response(statusCode: 500))
-        return (Data("Error".utf8), response)
-      }
-    ]
-    await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().getDomains()
     }
   }
 
@@ -584,7 +586,7 @@ final class PiholeV6ServiceTests {
       }
     ]
     await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().deleteDomain(domain: "example.com")
+      try await makeService().deleteDomain("example.com", from: .allow)
     }
   }
 
@@ -630,18 +632,18 @@ final class PiholeV6ServiceTests {
     #expect(blocked.isEmpty)
   }
 
-  @Test("getDomains throws on decode failure")
+  @Test("getDomains(from:) throws on decode failure")
   func getDomainsDecodeFailure() async throws {
     mockSession.handlers = [
       { request in
-        #expect(request.url?.path == "/api/domains")
+        #expect(request.url?.path == "/api/domains/allow/exact")
         #expect(request.httpMethod == "GET")
         let response = try #require(v6Response())
         return (Data("{bad json}".utf8), response)
       }
     ]
     await #expect {
-      try await makeService().getDomains()
+      try await makeService().getDomains(from: .allow)
     } throws: { error in
       guard case PiholeError.decoding = error else {
         Issue.record("Expected decoding error, got \(error)")

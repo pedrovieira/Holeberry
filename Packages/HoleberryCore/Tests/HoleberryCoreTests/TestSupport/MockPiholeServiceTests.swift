@@ -48,8 +48,10 @@ struct MockPiholeServiceTests {
 
   @Test func deleteDomainByName() async throws {
     let mock = MockPiholeService()
-    try await mock.deleteDomain(domain: "test.com")
+    try await mock.deleteDomain("test.com", from: .deny)
     #expect(mock.deleteDomainByNameCallCount == 1)
+    #expect(mock.deleteDomainLastDomain == "test.com")
+    #expect(mock.deleteDomainLastList == .deny)
   }
 
   @Test func updateGravity() async throws {

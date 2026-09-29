@@ -210,9 +210,8 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   }
 
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
-    let listName = list == .allow ? "white" : "black"
     let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listName, "add": domain]
+      path: "/admin/api.php", params: ["list": listName(for: list), "add": domain]
     )
 
     guard httpResponse.isSuccess else {
@@ -226,28 +225,22 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
-  public func deleteDomain(domain: String) async throws {
-    // Holeberry only ever adds exact allow entries, so delete from that list only.
+  public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
     let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": "white", "sub": domain]
+      path: "/admin/api.php", params: ["list": listName(for: list), "sub": domain]
     )
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
   }
 
-  public func getDomains() async throws -> [DomainEntry] {
-    let white = try await fetchDomainList(listType: "white")
-    let black = try await fetchDomainList(listType: "black")
-    return white + black
+  public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
+    try await fetchDomainList(listType: listName(for: list))
   }
 
-  /// Exact-match lookup in the allowlist (type 0), case-insensitively.
-  public func allowEntry(_ domain: String) async throws -> DomainEntry? {
-    let entries = try await fetchDomainList(listType: "white")
-    return entries.first {
-      $0.type == DomainListType.allow.rawValue && $0.domain.caseInsensitiveCompare(domain) == .orderedSame
-    }
+  /// v5 names the lists white/black in its admin API.
+  private func listName(for list: DomainListType) -> String {
+    list == .allow ? "white" : "black"
   }
 
   private func fetchDomainList(listType: String) async throws -> [DomainEntry] {

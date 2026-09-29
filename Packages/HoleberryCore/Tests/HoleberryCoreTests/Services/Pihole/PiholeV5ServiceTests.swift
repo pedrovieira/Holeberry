@@ -240,69 +240,58 @@ final class PiholeV5ServiceTests {
     #expect(entry.domain == "example.com")
   }
 
-  @Test("allowEntry finds the exact allow entry case-insensitively")
-  func allowEntryHit() async throws {
-    mockSession.handlers = [
-      { _ in
-        let response = try #require(v5Response())
-        let json = #"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1,"comment":null,"groups":[0]}]}"#
-        return (Data(json.utf8), response)
-      }
-    ]
-    let entry = try await makeService().allowEntry("Example.COM")
-    #expect(entry?.domain == "example.com")
-    #expect(entry?.enabled == true)
-  }
-
-  @Test("allowEntry returns nil when absent")
-  func allowEntryMiss() async throws {
-    mockSession.handlers = [
-      { _ in
-        let response = try #require(v5Response())
-        return (Data(#"{"data":[]}"#.utf8), response)
-      }
-    ]
-    #expect(try await makeService().allowEntry("absent.com") == nil)
-  }
-
-  @Test("deleteDomain always targets the allow list")
+  @Test("deleteDomain targets the allow list")
   func deleteDomainTargetsAllowList() async throws {
     mockSession.handlers = [
       { request in
         #expect(request.url?.absoluteString.contains("list=white") == true)
         #expect(request.url?.absoluteString.contains("list=black") == false)
+        #expect(request.url?.absoluteString.contains("sub=example.com") == true)
         let response = try #require(v5Response())
         return (Data(#"{"success":true}"#.utf8), response)
       }
     ]
-    try await makeService().deleteDomain(domain: "example.com")
+    try await makeService().deleteDomain("example.com", from: .allow)
   }
 
-  @Test("getDomains decodes JSON lists for white and black")
-  func getDomainsDecodesJSON() async throws {
+  @Test("deleteDomain targets the deny list")
+  func deleteDomainTargetsDenyList() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.absoluteString.contains("list=black") == true)
+        #expect(request.url?.absoluteString.contains("sub=ads.example") == true)
+        let response = try #require(v5Response())
+        return (Data(#"{"success":true}"#.utf8), response)
+      }
+    ]
+    try await makeService().deleteDomain("ads.example", from: .deny)
+  }
+
+  @Test("getDomains(from:) reads the matching list")
+  func getDomainsFromList() async throws {
     mockSession.handlers = [
       { request in
         #expect(request.url?.absoluteString.contains("list=white") == true)
         let response = try #require(v5Response())
-        let json = #"{"data":[{"id":1,"domain":"allowed.com","type":0,"enabled":1,"comment":null,"groups":[0]}]}"#
+        let json = #"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1,"comment":null,"groups":[0]}]}"#
         return (Data(json.utf8), response)
       },
       { request in
         #expect(request.url?.absoluteString.contains("list=black") == true)
         let response = try #require(v5Response())
-        let json = #"{"data":[{"id":2,"domain":"blocked.com","type":1,"enabled":1,"comment":"manual","groups":[0]}]}"#
+        let json = #"{"data":[{"id":2,"domain":"ads.example","type":1,"enabled":1,"comment":"manual","groups":[0]}]}"#
         return (Data(json.utf8), response)
-      }
+      },
     ]
-    let domains = try await makeService().getDomains()
-    #expect(domains.count == 2)
-    #expect(domains[0].domain == "allowed.com")
-    #expect(domains[0].enabled == true)
-    #expect(domains[1].domain == "blocked.com")
-    #expect(domains[1].comment == "manual")
+    let allow = try await makeService().getDomains(from: .allow)
+    #expect(allow.map(\.domain) == ["example.com"])
+    #expect(allow[0].enabled == true)
+    let deny = try await makeService().getDomains(from: .deny)
+    #expect(deny.map(\.domain) == ["ads.example"])
+    #expect(deny[0].comment == "manual")
   }
 
-  @Test("getDomains throws when a list fetch fails")
+  @Test("getDomains(from:) throws when a list fetch fails")
   func getDomainsThrowsOnFetchFailure() async throws {
     mockSession.handlers = [
       { _ in
@@ -311,11 +300,11 @@ final class PiholeV5ServiceTests {
       }
     ]
     await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().getDomains()
+      try await makeService().getDomains(from: .allow)
     }
   }
 
-  @Test("getDomains throws a decoding error on a malformed body")
+  @Test("getDomains(from:) throws a decoding error on a malformed body")
   func getDomainsThrowsOnMalformedBody() async throws {
     mockSession.handlers = [
       { _ in
@@ -324,7 +313,7 @@ final class PiholeV5ServiceTests {
       }
     ]
     await #expect {
-      try await makeService().getDomains()
+      try await makeService().getDomains(from: .deny)
     } throws: { error in
       guard case PiholeError.decoding = error else {
         Issue.record("Expected decoding error, got \(error)")
@@ -486,7 +475,7 @@ final class PiholeV5ServiceTests {
       }
     ]
     await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().deleteDomain(domain: "example.com")
+      try await makeService().deleteDomain("example.com", from: .allow)
     }
   }
 }
