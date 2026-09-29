@@ -108,7 +108,9 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
   public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
     // v5's add reply cannot be classified and a duplicate add rewrites the
     // entry's comment — read the list first and leave a pre-existing entry
-    // untouched (it is not ours to expire).
+    // untouched (it is not ours to expire). Records persisted by builds older
+    // than this probe are still trusted, so those can still delete an entry
+    // that was already there.
     if wrapped.version == .v5, try await hasAllowEntry(domain) {
       return
     }
@@ -119,10 +121,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
         domain: domain,
         uuid: uuid,
         startDateUTC: Date(),
-        durationSeconds: duration,
-        // The probe above (v5) or the add itself (v6) established that the entry
-        // is ours, so expiry may delete it.
-        ownsAllowEntry: true
+        durationSeconds: duration
       )
       activeRecords.append(record)
       saveRecords()
@@ -144,30 +143,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
   // MARK: - Persistence
 
   private func restoreFromDefaults() -> [TempUnblockRecord] {
-    let stored = Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)]
-    let legacy = stored.filter { !$0.ownsAllowEntry }
-    guard !legacy.isEmpty else { return stored }
-
-    // Records written by builds that predate the v5 add probe cannot prove the
-    // allow entry is theirs — a duplicate add looked like a success — so expiry
-    // could delete an entry the user added themselves. Drop those records and
-    // leave the entries in place. v6 rejects duplicate adds with 409, so its
-    // older records are still ours.
-    let migrated: [TempUnblockRecord]
-    if wrapped.version == .v5 {
-      logger.warning(
-        "Dropping \(legacy.count) temp-unblock record(s) from before the allow probe; their allow entries stay in place"
-      )
-      migrated = stored.filter(\.ownsAllowEntry)
-    } else {
-      migrated = stored.map { record in
-        var updated = record
-        updated.ownsAllowEntry = true
-        return updated
-      }
-    }
-    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)] = migrated
-    return migrated
+    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)]
   }
 
   private func saveRecords() {
