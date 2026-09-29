@@ -388,7 +388,7 @@ final class PiholeV6ServiceTests {
         let body =
           #"{"domains":[{"id":3,"domain":"ads.example","type":"deny","kind":"exact","comment":"","enabled":true}]}"#
         return (Data(body.utf8), try #require(v6Response()))
-      },
+      }
     ]
     let allow = try await makeService().getDomains(from: .allow)
     #expect(allow.map(\.domain) == ["example.com", "other.example"])

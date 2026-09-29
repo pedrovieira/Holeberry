@@ -693,7 +693,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     // Reconciliation still sees the entry, the expiry probe no longer does.
     mock.getDomainsStubQueue = [
       .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)]),
-      .success([]),
+      .success([])
     ]
     mock.deleteDomainByNameStub = .success(())
 

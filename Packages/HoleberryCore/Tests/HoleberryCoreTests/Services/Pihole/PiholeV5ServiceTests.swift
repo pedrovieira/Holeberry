@@ -281,7 +281,7 @@ final class PiholeV5ServiceTests {
         let response = try #require(v5Response())
         let json = #"{"data":[{"id":2,"domain":"ads.example","type":1,"enabled":1,"comment":"manual","groups":[0]}]}"#
         return (Data(json.utf8), response)
-      },
+      }
     ]
     let allow = try await makeService().getDomains(from: .allow)
     #expect(allow.map(\.domain) == ["example.com"])
