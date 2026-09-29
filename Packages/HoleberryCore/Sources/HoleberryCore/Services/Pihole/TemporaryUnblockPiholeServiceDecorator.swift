@@ -119,7 +119,10 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
         domain: domain,
         uuid: uuid,
         startDateUTC: Date(),
-        durationSeconds: duration
+        durationSeconds: duration,
+        // The probe above (v5) or the add itself (v6) established that the entry
+        // is ours, so expiry may delete it.
+        ownsAllowEntry: true
       )
       activeRecords.append(record)
       saveRecords()
@@ -141,7 +144,30 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
   // MARK: - Persistence
 
   private func restoreFromDefaults() -> [TempUnblockRecord] {
-    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)]
+    let stored = Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)]
+    let legacy = stored.filter { !$0.ownsAllowEntry }
+    guard !legacy.isEmpty else { return stored }
+
+    // Records written by builds that predate the v5 add probe cannot prove the
+    // allow entry is theirs — a duplicate add looked like a success — so expiry
+    // could delete an entry the user added themselves. Drop those records and
+    // leave the entries in place. v6 rejects duplicate adds with 409, so its
+    // older records are still ours.
+    let migrated: [TempUnblockRecord]
+    if wrapped.version == .v5 {
+      logger.warning(
+        "Dropping \(legacy.count) temp-unblock record(s) from before the allow probe; their allow entries stay in place"
+      )
+      migrated = stored.filter(\.ownsAllowEntry)
+    } else {
+      migrated = stored.map { record in
+        var updated = record
+        updated.ownsAllowEntry = true
+        return updated
+      }
+    }
+    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)] = migrated
+    return migrated
   }
 
   private func saveRecords() {

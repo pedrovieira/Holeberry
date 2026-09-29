@@ -254,10 +254,31 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
 
     do {
       // v5 returns {"data":[…]} as JSON; it has never returned HTML (verified v5.5–v5.21).
-      return try Self.decoder.decode(V5DomainsResponse.self, from: data).data
+      let entries = try Self.decoder.decode(V5DomainsResponse.self, from: data).data
+      return entries.map { entry in
+        DomainEntry(
+          id: entry.id,
+          domain: Self.domainIdentity(from: entry.domain),
+          type: entry.type,
+          comment: entry.comment,
+          enabled: entry.enabled
+        )
+      }
     } catch {
       throw PiholeError.decoding("Domain list \(listType): \(error.localizedDescription)")
     }
+  }
+
+  /// v5 answers `?list=` with the web UI's display value for international
+  /// domains — `b&uuml;cher.de (xn--bcher-kva.de)` — because its API runs the
+  /// same formatter as `groups.php`: the unicode form, HTML-escaped, with the
+  /// ASCII name in parentheses. The parenthesised ASCII name is the entry's
+  /// identity, and the only form that compares equal to what callers add.
+  private static func domainIdentity(from value: String) -> String {
+    guard value.hasSuffix(")"), let open = value.lastIndex(of: "(") else { return value }
+    let ascii = value[value.index(after: open)..<value.index(before: value.endIndex)]
+    guard ascii.hasPrefix("xn--"), !ascii.contains(" ") else { return value }
+    return String(ascii)
   }
 
   private func getRequest(path: String, params: [String: String?], method: HTTPMethod = .get) async throws -> (

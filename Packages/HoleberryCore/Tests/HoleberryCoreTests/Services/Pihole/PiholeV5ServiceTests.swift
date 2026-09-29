@@ -291,6 +291,24 @@ final class PiholeV5ServiceTests {
     #expect(deny[0].comment == "manual")
   }
 
+  @Test("getDomains(from:) reduces an international entry to its punycode identity")
+  func getDomainsNormalizesIDN() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.absoluteString.contains("list=white") == true)
+        let response = try #require(v5Response())
+        // web v5.21 formats an international entry as the unicode form,
+        // HTML-escaped, with the ASCII name in parentheses (groups.php).
+        let json = #"""
+          {"data":[{"id":1,"domain":"b&uuml;cher.de (xn--bcher-kva.de)","type":0,"enabled":1,"comment":null,"groups":[0]}]}
+          """#
+        return (Data(json.utf8), response)
+      }
+    ]
+    let allow = try await makeService().getDomains(from: .allow)
+    #expect(allow.map(\.domain) == ["xn--bcher-kva.de"])
+  }
+
   @Test("getDomains(from:) throws when a list fetch fails")
   func getDomainsThrowsOnFetchFailure() async throws {
     mockSession.handlers = [

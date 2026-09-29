@@ -465,6 +465,87 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     Defaults[.tempUnblocks(for: serviceId, suite: suite)] = records
   }
 
+  /// Writes a record the way builds that predate the v5 add probe did: without
+  /// the ownership key, so it must never delete its allow entry. `Defaults`
+  /// stores `[TempUnblockRecord]` as an array of JSON strings.
+  private func writeLegacyRecord(
+    suite: UserDefaults,
+    serviceId: UUID,
+    domain: String,
+    uuid: String,
+    durationSeconds: TimeInterval
+  ) throws {
+    let record = TempUnblockRecord(
+      domain: domain,
+      uuid: uuid,
+      startDateUTC: Date(),
+      durationSeconds: durationSeconds
+    )
+    var row = try #require(
+      try JSONSerialization.jsonObject(with: TestJSON.encoder.encode(record)) as? [String: Any]
+    )
+    row.removeValue(forKey: "ownsAllowEntry")
+    let legacyJSON = try #require(
+      String(data: try JSONSerialization.data(withJSONObject: row), encoding: .utf8)
+    )
+    let key = Defaults.Keys.tempUnblocks(for: serviceId, suite: suite)
+    suite.set([legacyJSON], forKey: key.name)
+  }
+
+  @Test("Upgrade: pre-probe v5 record leaves the permanent allow entry alone")
+  func legacyV5RecordDoesNotDeletePermanentEntry() async throws {
+    let mock = MockPiholeService(version: .v5)
+    // The entry the user added themselves. The old build also wrote a record for
+    // it, because v5 answers a duplicate add with a success.
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "permanent.com", type: 0, comment: nil)])
+    mock.deleteDomainByNameStub = .success(())
+
+    let suite = TestDefaults.makeSuite()
+    try writeLegacyRecord(
+      suite: suite,
+      serviceId: mock.id,
+      domain: "permanent.com",
+      uuid: "via holeberryapp.com / legacy-uuid",
+      durationSeconds: 0.5
+    )
+    let restored = Defaults[.tempUnblocks(for: mock.id, suite: suite)]
+    #expect(restored.count == 1, "The legacy payload must decode before the migration is exercised")
+    #expect(restored.first?.ownsAllowEntry == false)
+
+    let decorator = makeDecorator(service: mock, suite: suite)
+    _ = decorator
+
+    #expect(
+      await eventually { Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty },
+      "The ambiguous v5 record is dropped on launch")
+    #expect(mock.deleteDomainByNameCallCount == 0, "The permanent allow entry must survive the upgrade")
+    #expect(mock.getDomainsCallCount == 0, "Dropped records are not reconciled")
+  }
+
+  @Test("Upgrade: pre-probe v6 records stay trusted and still expire")
+  func legacyV6RecordStaysTrusted() async throws {
+    let mock = MockPiholeService()
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "tracked.com", type: 0, comment: nil)])
+    mock.deleteDomainByNameStub = .success(())
+
+    let suite = TestDefaults.makeSuite()
+    try writeLegacyRecord(
+      suite: suite,
+      serviceId: mock.id,
+      domain: "tracked.com",
+      uuid: "via holeberryapp.com / legacy-uuid-v6",
+      durationSeconds: 0.5
+    )
+
+    let decorator = makeDecorator(service: mock, suite: suite)
+    _ = decorator
+
+    #expect(
+      await eventually { mock.deleteDomainByNameCallCount == 1 },
+      "v6 rejects duplicate adds with 409, so its older records are still ours")
+    #expect(mock.deleteDomainLastList == .allow)
+  }
+
   @Test("Reconciliation: server has domain → record kept, expiry runs")
   func reconcileDomainStillOnServer() async throws {
     let mock = MockPiholeService()
@@ -655,5 +736,44 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       await eventually { mock.deleteDomainByNameCallCount == 1 },
       "A present v5 entry is removed on expiry, from the allow list only")
     #expect(mock.deleteDomainLastList == .allow)
+  }
+
+  // MARK: - International domains
+
+  @Test("v5 probe matches the punycode identity of an international entry")
+  func v5ProbeMatchesIDNEntry() async throws {
+    let mock = MockPiholeService(version: .v5)
+    // The identity PiholeV5Service reduces v5's "b&uuml;cher.de (xn--bcher-kva.de)"
+    // display value to.
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "xn--bcher-kva.de", type: 0, comment: nil)])
+    let decorator = makeDecorator(service: mock)
+
+    try await decorator.unblockDomain("xn--bcher-kva.de", duration: 60)
+
+    #expect(mock.addDomainCallCount == 0, "The entry exists, so it must not be re-added")
+  }
+
+  @Test("expiry: v5 deletes an international entry by its punycode identity")
+  func expiryV5DeletesIDNEntry() async throws {
+    let mock = MockPiholeService(version: .v5)
+    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "xn--bcher-kva.de", type: 0, comment: nil)])
+    mock.deleteDomainByNameStub = .success(())
+
+    let suite = TestDefaults.makeSuite()
+    Defaults[.tempUnblocks(for: mock.id, suite: suite)] = [
+      TempUnblockRecord(
+        domain: "xn--bcher-kva.de", uuid: "uuid-idn", startDateUTC: Date(), durationSeconds: 0.5)
+    ]
+
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock,
+      defaultsSuite: suite
+    ) { _ in }
+    _ = decorator
+
+    #expect(
+      await eventually { mock.deleteDomainByNameCallCount == 1 },
+      "The probe must find the entry, so expiry deletes it instead of dropping the record")
+    #expect(mock.deleteDomainLastDomain == "xn--bcher-kva.de")
   }
 }

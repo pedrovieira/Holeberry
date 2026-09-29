@@ -56,7 +56,7 @@ public struct DomainEntry: Codable, Equatable, Sendable {
 }
 
 /// Whether a domain belongs to the allowlist or denylist. Matches Pi-hole's `type` field (0=allow, 1=deny).
-public enum DomainListType: Int {
+public enum DomainListType: Int, Sendable {
   case allow = 0
   case deny = 1
 }
