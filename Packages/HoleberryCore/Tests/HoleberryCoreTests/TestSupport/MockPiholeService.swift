@@ -39,6 +39,12 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
 
+  var addDomainUnlessPresentStub: Result<DomainAddOutcome, any Error> = .success(.added)
+  private(set) var addDomainUnlessPresentCallCount = 0
+  var addDomainUnlessPresentLastDomain: String?
+  var addDomainUnlessPresentLastList: DomainListType?
+  var addDomainUnlessPresentLastComment: String?
+
   var deleteDomainByNameStub: Result<Void, any Error> = .success(())
   private(set) var deleteDomainByNameCallCount = 0
   var deleteDomainLastDomain: String?
@@ -46,7 +52,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
 
   var getDomainsStub: Result<[DomainEntry], any Error> = .success([])
   /// Consumed before `getDomainsStub` when non-empty, so a test can answer
-  /// successive reads differently (reconciliation, then the expiry probe).
+  /// successive reads differently.
   var getDomainsStubQueue: [Result<[DomainEntry], any Error>] = []
   private(set) var getDomainsCallCount = 0
   /// List passed to the most recent `getDomains(from:)` call.
@@ -98,6 +104,18 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     addDomainLastList = list
     addDomainLastComment = comment
     return try addDomainStub.get()
+  }
+
+  func addDomainUnlessPresent(
+    _ domain: String,
+    to list: DomainListType,
+    comment: String?
+  ) async throws -> DomainAddOutcome {
+    addDomainUnlessPresentCallCount += 1
+    addDomainUnlessPresentLastDomain = domain
+    addDomainUnlessPresentLastList = list
+    addDomainUnlessPresentLastComment = comment
+    return try addDomainUnlessPresentStub.get()
   }
 
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {

@@ -38,6 +38,17 @@ struct MockPiholeServiceTests {
     #expect(mock.addDomainLastComment == "test-uuid")
   }
 
+  @Test func addDomainUnlessPresent() async throws {
+    let mock = MockPiholeService()
+    mock.addDomainUnlessPresentStub = .success(.alreadyPresent)
+    let outcome = try await mock.addDomainUnlessPresent("test.com", to: .allow, comment: "test-uuid")
+    #expect(outcome == .alreadyPresent)
+    #expect(mock.addDomainUnlessPresentCallCount == 1)
+    #expect(mock.addDomainUnlessPresentLastDomain == "test.com")
+    #expect(mock.addDomainUnlessPresentLastList == .allow)
+    #expect(mock.addDomainUnlessPresentLastComment == "test-uuid")
+  }
+
   @Test func failureInjection() async {
     let mock = MockPiholeService()
     mock.checkStatusStub = .failure(PiholeError.unauthorized)

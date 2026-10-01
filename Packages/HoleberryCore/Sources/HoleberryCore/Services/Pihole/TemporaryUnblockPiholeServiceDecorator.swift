@@ -62,6 +62,14 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     try await wrapped.addDomain(domain, to: list, comment: comment)
   }
 
+  public func addDomainUnlessPresent(
+    _ domain: String,
+    to list: DomainListType,
+    comment: String?
+  ) async throws -> DomainAddOutcome {
+    try await wrapped.addDomainUnlessPresent(domain, to: list, comment: comment)
+  }
+
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
     try await wrapped.deleteDomain(domain, from: list)
     // Only allow entries have a matching temp-unblock record to drop.
@@ -106,17 +114,11 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
   // MARK: - Unblock
 
   public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
-    // v5's add reply cannot be classified and a duplicate add rewrites the
-    // entry's comment — read the list first and leave a pre-existing entry
-    // untouched (it is not ours to expire). Records persisted by builds older
-    // than this probe are still trusted, so those can still delete an entry
-    // that was already there.
-    if wrapped.version == .v5, try await hasAllowEntry(domain) {
-      return
-    }
     if let duration {
       let uuid = "via holeberryapp.com / \(UUID().uuidString)"
-      _ = try await wrapped.addDomain(domain, to: .allow, comment: uuid)
+      // An entry that is already on the allowlist is not ours to expire.
+      let outcome = try await wrapped.addDomainUnlessPresent(domain, to: .allow, comment: uuid)
+      guard outcome == .added else { return }
       let record = TempUnblockRecord(
         domain: domain,
         uuid: uuid,
@@ -129,15 +131,6 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     } else {
       _ = try await wrapped.addDomain(domain, to: .allow, comment: "via holeberryapp.com")
     }
-  }
-
-  // MARK: - Unblock list probe
-
-  /// Exact, case-insensitive lookup in the allowlist. v5 has no per-domain
-  /// endpoint, so read the list and match here.
-  private func hasAllowEntry(_ domain: String) async throws -> Bool {
-    let entries = try await wrapped.getDomains(from: .allow)
-    return entries.contains { $0.domain.caseInsensitiveCompare(domain) == .orderedSame }
   }
 
   // MARK: - Persistence
@@ -188,12 +181,6 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     guard let record = activeRecords.first(where: { $0.uuid == uuid }) else { return }
 
     do {
-      // v5 has no ownership marker on entries; a missing entry means there is
-      // nothing left to remove.
-      if wrapped.version == .v5, try await hasAllowEntry(record.domain) == false {
-        finalizeExpiry(uuid: uuid, domain: record.domain)
-        return
-      }
       try await wrapped.deleteDomain(record.domain, from: .allow)
       finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch PiholeError.unknown {
@@ -225,12 +212,6 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     else { return }
 
     do {
-      // v5 has no ownership marker on entries; a missing entry means there is
-      // nothing left to remove.
-      if wrapped.version == .v5, try await hasAllowEntry(record.domain) == false {
-        finalizeExpiry(uuid: uuid, domain: record.domain)
-        return
-      }
       try await wrapped.deleteDomain(record.domain, from: .allow)
       finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch PiholeError.unknown {

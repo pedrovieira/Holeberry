@@ -366,6 +366,52 @@ final class PiholeV6ServiceTests {
     try await makeService().deleteDomain("ads.example", from: .deny)
   }
 
+  @Test("deleteDomain treats a missing entry as deleted")
+  func deleteDomainMissingEntry() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact/gone.com")
+        #expect(request.httpMethod == "DELETE")
+        let response = try #require(v6Response(statusCode: 404))
+        return (Data("Not found".utf8), response)
+      }
+    ]
+    try await makeService().deleteDomain("gone.com", from: .allow)
+  }
+
+  // MARK: - addDomainUnlessPresent
+
+  @Test("addDomainUnlessPresent reports an existing entry on 409")
+  func addUnlessPresentDuplicate() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact")
+        #expect(request.httpMethod == "POST")
+        return (Data("Conflict".utf8), try #require(v6Response(statusCode: 409)))
+      }
+    ]
+    let outcome = try await makeService().addDomainUnlessPresent(
+      "dupe.com", to: .allow, comment: "uuid"
+    )
+    #expect(outcome == .alreadyPresent)
+  }
+
+  @Test("addDomainUnlessPresent reports a fresh entry")
+  func addUnlessPresentAdded() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact")
+        #expect(request.httpMethod == "POST")
+        let body = #"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":"uuid"}]}"#
+        return (Data(body.utf8), try #require(v6Response(statusCode: 201)))
+      }
+    ]
+    let outcome = try await makeService().addDomainUnlessPresent(
+      "example.com", to: .allow, comment: "uuid"
+    )
+    #expect(outcome == .added)
+  }
+
   // MARK: - getDomains(from:)
 
   @Test("getDomains(from:) reads the list-specific endpoint")

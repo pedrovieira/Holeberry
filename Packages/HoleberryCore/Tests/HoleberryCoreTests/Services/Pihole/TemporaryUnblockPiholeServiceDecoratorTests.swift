@@ -48,23 +48,23 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
   // MARK: - unblockDomain (temporary)
 
-  @Test("Temporary unblock adds tracking comment")
+  @Test("Temporary unblock adds with a tracking comment")
   func unblockDomainAddsTrackingComment() async throws {
     let mock = MockPiholeService()
-    mock.addDomainStub = .success(
-      DomainEntry(id: 42, domain: "doubleclick.net", type: 0, comment: "via holeberryapp.com / test-uuid")
-    )
-    let decorator = makeDecorator(service: mock)
+    mock.addDomainUnlessPresentStub = .success(.added)
+    let suite = TestDefaults.makeSuite()
+    let decorator = makeParkingDecorator(service: mock, suite: suite)
 
     try await decorator.unblockDomain("doubleclick.net", duration: 300)
 
-    #expect(mock.addDomainCallCount == 1, "Should call addDomain on wrapped service")
-    #expect(mock.addDomainLastDomain == "doubleclick.net")
-    #expect(mock.addDomainLastList == .allow)
+    #expect(mock.addDomainUnlessPresentCallCount == 1, "Should add through the unless-present path")
+    #expect(mock.addDomainUnlessPresentLastDomain == "doubleclick.net")
+    #expect(mock.addDomainUnlessPresentLastList == .allow)
     #expect(
-      mock.addDomainLastComment?.hasPrefix("via holeberryapp.com / ") ?? false,
+      mock.addDomainUnlessPresentLastComment?.hasPrefix("via holeberryapp.com / ") ?? false,
       "Comment should have holeberryapp prefix"
     )
+    #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
   }
 
   // MARK: - unblockDomain (permanent)
@@ -574,68 +574,53 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
   // MARK: - v5 probe-first flow and expiry guard
 
-  @Test("v5 probes first (case-insensitively) and never adds when the entry exists")
-  func v5ProbeHit() async throws {
-    let mock = MockPiholeService(version: .v5)
-    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil, enabled: true)])
-    let decorator = makeDecorator(service: mock)
-    try await decorator.unblockDomain("X.COM", duration: 60)
-    #expect(mock.addDomainCallCount == 0, "A pre-existing entry must not be re-added")
-    #expect(mock.getDomainsLastList == .allow, "The probe reads the allow list only")
-    #expect(mock.deleteDomainByNameCallCount == 0)
-  }
+  // MARK: - Temporary unblock bookkeeping
 
-  @Test("v5 adds and records when absent")
-  func v5ProbeMissAdds() async throws {
+  @Test("an allow entry that is already there is left alone and not tracked")
+  func alreadyPresentEntryIsNotTracked() async throws {
     let mock = MockPiholeService(version: .v5)
+    mock.addDomainUnlessPresentStub = .success(.alreadyPresent)
     let suite = TestDefaults.makeSuite()
     let decorator = makeParkingDecorator(service: mock, suite: suite)
+
     try await decorator.unblockDomain("x.com", duration: 60)
-    #expect(mock.addDomainCallCount == 1)
+
+    #expect(mock.addDomainUnlessPresentCallCount == 1)
+    #expect(mock.addDomainUnlessPresentLastDomain == "x.com")
+    #expect(mock.addDomainUnlessPresentLastList == .allow)
+    #expect(
+      Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty,
+      "An entry we did not add is not ours to expire")
+  }
+
+  @Test("a fresh allow entry is tracked")
+  func freshEntryIsTracked() async throws {
+    let mock = MockPiholeService(version: .v5)
+    mock.addDomainUnlessPresentStub = .success(.added)
+    let suite = TestDefaults.makeSuite()
+    let decorator = makeParkingDecorator(service: mock, suite: suite)
+
+    try await decorator.unblockDomain("x.com", duration: 60)
+
+    #expect(mock.addDomainUnlessPresentCallCount == 1)
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
   }
 
-  @Test("v5 probe failure propagates without adding")
-  func v5ProbeFailurePropagates() async throws {
+  @Test("add failure propagates without tracking")
+  func addFailurePropagates() async throws {
     let mock = MockPiholeService(version: .v5)
-    mock.getDomainsStub = .failure(PiholeError.network("down"))
-    let decorator = makeDecorator(service: mock)
+    mock.addDomainUnlessPresentStub = .failure(PiholeError.network("down"))
+    let suite = TestDefaults.makeSuite()
+    let decorator = makeParkingDecorator(service: mock, suite: suite)
+
     await #expect(throws: PiholeError.network("down")) {
       try await decorator.unblockDomain("x.com", duration: 60)
     }
-    #expect(mock.addDomainCallCount == 0)
+    #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty)
   }
 
-  @Test("expiry: v5 skips the delete when the entry is already gone")
-  func expiryV5AbsentEntryFinalizes() async throws {
-    let mock = MockPiholeService(version: .v5)
-    // Reconciliation still sees the entry, the expiry probe no longer does.
-    mock.getDomainsStubQueue = [
-      .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)]),
-      .success([])
-    ]
-    mock.deleteDomainByNameStub = .success(())
-
-    let suite = TestDefaults.makeSuite()
-    Defaults[.tempUnblocks(for: mock.id, suite: suite)] = [
-      TempUnblockRecord(domain: "x.com", uuid: "uuid-v5", startDateUTC: Date(), durationSeconds: 0.5)
-    ]
-
-    let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock,
-      defaultsSuite: suite
-    ) { _ in }
-    _ = decorator
-
-    #expect(
-      await eventually { Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty },
-      "A missing v5 entry ends the record without deleting")
-    #expect(mock.deleteDomainByNameCallCount == 0)
-    #expect(mock.getDomainsCallCount == 2, "Reconciliation and expiry each read the allow list")
-  }
-
-  @Test("expiry: v5 deletes the allow entry when present")
-  func expiryV5PresentEntryDeletes() async throws {
+  @Test("expiry deletes from the allow list and stops reading it")
+  func expiryDeletesWithoutProbe() async throws {
     let mock = MockPiholeService(version: .v5)
     mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)])
     mock.deleteDomainByNameStub = .success(())
@@ -653,46 +638,8 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
     #expect(
       await eventually { mock.deleteDomainByNameCallCount == 1 },
-      "A present v5 entry is removed on expiry, from the allow list only")
+      "A tracked entry is removed on expiry, from the allow list only")
     #expect(mock.deleteDomainLastList == .allow)
-  }
-
-  // MARK: - International domains
-
-  @Test("v5 probe matches the punycode identity of an international entry")
-  func v5ProbeMatchesIDNEntry() async throws {
-    let mock = MockPiholeService(version: .v5)
-    // The identity PiholeV5Service reduces v5's "b&uuml;cher.de (xn--bcher-kva.de)"
-    // display value to.
-    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "xn--bcher-kva.de", type: 0, comment: nil)])
-    let decorator = makeDecorator(service: mock)
-
-    try await decorator.unblockDomain("xn--bcher-kva.de", duration: 60)
-
-    #expect(mock.addDomainCallCount == 0, "The entry exists, so it must not be re-added")
-  }
-
-  @Test("expiry: v5 deletes an international entry by its punycode identity")
-  func expiryV5DeletesIDNEntry() async throws {
-    let mock = MockPiholeService(version: .v5)
-    mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "xn--bcher-kva.de", type: 0, comment: nil)])
-    mock.deleteDomainByNameStub = .success(())
-
-    let suite = TestDefaults.makeSuite()
-    Defaults[.tempUnblocks(for: mock.id, suite: suite)] = [
-      TempUnblockRecord(
-        domain: "xn--bcher-kva.de", uuid: "uuid-idn", startDateUTC: Date(), durationSeconds: 0.5)
-    ]
-
-    let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock,
-      defaultsSuite: suite
-    ) { _ in }
-    _ = decorator
-
-    #expect(
-      await eventually { mock.deleteDomainByNameCallCount == 1 },
-      "The probe must find the entry, so expiry deletes it instead of dropping the record")
-    #expect(mock.deleteDomainLastDomain == "xn--bcher-kva.de")
+    #expect(mock.getDomainsCallCount == 1, "Only reconciliation reads the list; expiry does not probe")
   }
 }

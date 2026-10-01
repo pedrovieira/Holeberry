@@ -12,6 +12,14 @@ public struct QuerySummary: Sendable {
   }
 }
 
+/// Outcome of `PiholeServiceProviding.addDomainUnlessPresent(_:to:comment:)`.
+public enum DomainAddOutcome: Sendable, Equatable {
+  /// The entry was not there and is now.
+  case added
+  /// A matching entry already existed, so nothing was written.
+  case alreadyPresent
+}
+
 /// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
 /// No `comment` parameter — that's internal (see `PiholeServiceCommentAdding`).
 @MainActor
@@ -25,6 +33,16 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
   // MARK: - Domain operations
 
   func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry
+  /// Adds an exact entry, reporting whether one was already there instead of
+  /// overwriting it.
+  ///
+  /// v5 cannot classify a duplicate add — it answers like a fresh one — so it
+  /// reads the list first; v6 reports the duplicate as 409.
+  func addDomainUnlessPresent(
+    _ domain: String,
+    to list: DomainListType,
+    comment: String?
+  ) async throws -> DomainAddOutcome
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws
   func deleteDomain(_ domain: String, from list: DomainListType) async throws
   func getDomains(from list: DomainListType) async throws -> [DomainEntry]

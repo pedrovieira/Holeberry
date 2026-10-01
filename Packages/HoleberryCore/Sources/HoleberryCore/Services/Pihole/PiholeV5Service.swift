@@ -221,11 +221,27 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: nil)
   }
 
+  public func addDomainUnlessPresent(
+    _ domain: String,
+    to list: DomainListType,
+    comment: String?
+  ) async throws -> DomainAddOutcome {
+    // A duplicate add looks like a fresh one, so read the list before writing.
+    let entries = try await getDomains(from: list)
+    if entries.contains(where: { $0.domain.caseInsensitiveCompare(domain) == .orderedSame }) {
+      return .alreadyPresent
+    }
+    _ = try await addDomain(domain, to: list, comment: comment)
+    return .added
+  }
+
   public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
     _ = try await addDomain(domain, to: .allow, comment: nil)
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
+    // Deleting an entry that is already gone succeeds upstream, so this is
+    // idempotent for callers.
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listName(for: list), "sub": domain]
     )
@@ -270,10 +286,8 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   }
 
   /// v5 answers `?list=` with the web UI's display value for international
-  /// domains — `b&uuml;cher.de (xn--bcher-kva.de)` — because its API runs the
-  /// same formatter as `groups.php`: the unicode form, HTML-escaped, with the
-  /// ASCII name in parentheses. The parenthesised ASCII name is the entry's
-  /// identity, and the only form that compares equal to what callers add.
+  /// domains — `b&uuml;cher.de (xn--bcher-kva.de)` (`groups.php`) — but the
+  /// parenthesised ASCII name is the identity callers match against.
   private static func domainIdentity(from value: String) -> String {
     guard value.hasSuffix(")"), let open = value.lastIndex(of: "(") else { return value }
     let ascii = value[value.index(after: open)..<value.index(before: value.endIndex)]

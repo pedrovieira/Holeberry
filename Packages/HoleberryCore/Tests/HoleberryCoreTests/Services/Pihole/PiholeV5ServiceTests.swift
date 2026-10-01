@@ -240,6 +240,57 @@ final class PiholeV5ServiceTests {
     #expect(entry.domain == "example.com")
   }
 
+  @Test("addDomainUnlessPresent leaves a pre-existing entry alone")
+  func addUnlessPresentHit() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.absoluteString.contains("list=white") == true)
+        let response = try #require(v5Response())
+        let json = #"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1,"comment":null,"groups":[0]}]}"#
+        return (Data(json.utf8), response)
+      }
+    ]
+    let outcome = try await makeService().addDomainUnlessPresent(
+      "Example.COM", to: .allow, comment: "uuid"
+    )
+    #expect(outcome == .alreadyPresent)
+    #expect(mockSession.requests.count == 1, "Nothing is added, so the list read is the only request")
+  }
+
+  @Test("addDomainUnlessPresent matches an international entry by its punycode identity")
+  func addUnlessPresentMatchesIDN() async throws {
+    mockSession.handlers = [
+      { _ in
+        let json = #"""
+          {"data":[{"id":1,"domain":"b&uuml;cher.de (xn--bcher-kva.de)","type":0,"enabled":1,"comment":null,"groups":[0]}]}
+          """#
+        return (Data(json.utf8), try #require(v5Response()))
+      }
+    ]
+    let outcome = try await makeService().addDomainUnlessPresent(
+      "xn--bcher-kva.de", to: .allow, comment: "uuid"
+    )
+    #expect(outcome == .alreadyPresent)
+    #expect(mockSession.requests.count == 1)
+  }
+
+  @Test("addDomainUnlessPresent adds an entry that is not there")
+  func addUnlessPresentMiss() async throws {
+    mockSession.handlers = [
+      { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
+      { request in
+        #expect(request.url?.absoluteString.contains("list=white") == true)
+        #expect(request.url?.absoluteString.contains("add=example.com") == true)
+        return (Data(#"{"success":true}"#.utf8), try #require(v5Response()))
+      }
+    ]
+    let outcome = try await makeService().addDomainUnlessPresent(
+      "example.com", to: .allow, comment: "uuid"
+    )
+    #expect(outcome == .added)
+    #expect(mockSession.requests.count == 2, "The list read is followed by the add")
+  }
+
   @Test("deleteDomain targets the allow list")
   func deleteDomainTargetsAllowList() async throws {
     mockSession.handlers = [

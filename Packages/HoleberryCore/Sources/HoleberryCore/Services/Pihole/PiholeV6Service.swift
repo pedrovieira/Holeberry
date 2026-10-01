@@ -224,6 +224,19 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: comment)
   }
 
+  public func addDomainUnlessPresent(
+    _ domain: String,
+    to list: DomainListType,
+    comment: String?
+  ) async throws -> DomainAddOutcome {
+    do {
+      _ = try await addDomain(domain, to: list, comment: comment)
+      return .added
+    } catch PiholeError.duplicateDomain {
+      return .alreadyPresent
+    }
+  }
+
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
     guard let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
       throw PiholeError.unknown("Invalid domain: \(domain)")
@@ -232,7 +245,9 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     logger.debug("deleteDomain DELETE \(path)")
     let (data, httpResponse) = try await authenticatedRequest(path: path, method: .delete)
 
-    guard httpResponse.isSuccess else {
+    // 404 is "Item not found": the entry is already gone, which is the state the
+    // caller asked for. Anything else is a real failure.
+    guard httpResponse.isSuccess || httpResponse.statusCode == 404 else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
   }
