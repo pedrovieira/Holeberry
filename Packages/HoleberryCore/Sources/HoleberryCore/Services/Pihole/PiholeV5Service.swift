@@ -31,7 +31,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   /// (which ignore those params) still bound their response.
   private static let queryLimit = 5000
 
-
   public init(
     id: UUID,
     label: String?,
@@ -59,7 +58,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     // v5 has no session-based auth — just tear down the session
     session.invalidateAndCancel()
   }
-
 
   public func checkStatus() async throws -> BlockingStatus {
     let (data, httpResponse) = try await getRequest(path: "/admin/api.php", params: ["status": nil])
@@ -215,10 +213,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       path: "/admin/api.php", params: ["list": listName(for: list), "add": domain]
     )
 
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
+    try validateDomainMutationResponse(data, httpResponse)
     return .added
   }
 
@@ -227,13 +222,25 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
-    // Deleting an entry that is already gone succeeds upstream, so this is
-    // idempotent for callers.
+    // Deleting an entry that is already gone succeeds upstream.
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listName(for: list), "sub": domain]
     )
+    try validateDomainMutationResponse(data, httpResponse)
+  }
+
+  private func validateDomainMutationResponse(_ data: Data, _ httpResponse: HTTPURLResponse) throws {
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+    }
+
+    guard let response = try? Self.decoder.decode(V5DomainMutationResponse.self, from: data) else {
+      throw PiholeError.decoding("Domain operation: expected a success flag and optional message")
+    }
+
+    // v5 reports operation errors in JSON without changing the HTTP 200 status.
+    guard response.success else {
+      throw PiholeError.server(httpResponse.statusCode, response.message)
     }
   }
 
@@ -323,6 +330,12 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
 /// `/admin/api.php?list=…` response — v5 wraps the domain rows in a `data` array.
 private struct V5DomainsResponse: Decodable {
   let data: [DomainEntry]
+}
+
+/// v5 add/delete replies use a success flag and an optional message.
+private struct V5DomainMutationResponse: Decodable {
+  let success: Bool
+  let message: String?
 }
 
 /// `/admin/api.php?summaryRaw` response. v5 serves the FTL stats with

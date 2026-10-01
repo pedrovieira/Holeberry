@@ -1,3 +1,4 @@
+import Defaults
 import Foundation
 import Testing
 
@@ -308,6 +309,120 @@ final class PiholeV5ServiceTests {
     try await makeService().deleteDomain("ads.example", from: .deny)
   }
 
+  @Test("Domain writes reject HTTP 200 operation failures", arguments: [true, false])
+  func domainMutationRejected(adding: Bool) async throws {
+    // JSON_error adds an action object under the numeric key "0".
+    let body = #"{"success":false,"message":"database is locked","0":{"action":"add_domain"}}"#
+    if adding {
+      mockSession.handlers.append { _ in
+        (Data(#"{"data":[]}"#.utf8), try #require(v5Response()))
+      }
+    }
+    mockSession.handlers.append { _ in (Data(body.utf8), try #require(v5Response())) }
+
+    await #expect(throws: PiholeError.server(200, "database is locked")) {
+      if adding {
+        _ = try await makeService().addDomain("example.com", to: .allow, comment: nil)
+      } else {
+        try await makeService().deleteDomain("example.com", from: .allow)
+      }
+    }
+  }
+
+  @Test("Domain writes reject failure replies without a message", arguments: [true, false])
+  func domainMutationRejectedWithoutMessage(adding: Bool) async throws {
+    if adding {
+      mockSession.handlers.append { _ in
+        (Data(#"{"data":[]}"#.utf8), try #require(v5Response()))
+      }
+    }
+    mockSession.handlers.append { _ in
+      (Data(#"{"success":false,"message":null}"#.utf8), try #require(v5Response()))
+    }
+
+    await #expect(throws: PiholeError.server(200, nil)) {
+      if adding {
+        _ = try await makeService().addDomain("example.com", to: .allow, comment: nil)
+      } else {
+        try await makeService().deleteDomain("example.com", from: .allow)
+      }
+    }
+  }
+
+  @Test(
+    "Domain writes reject malformed or unconfirmed replies",
+    arguments: [true, false],
+    ["", "Not authorized!", "{}", #"{"success":null}"#, #"{"success":"true"}"#]
+  )
+  func domainMutationMalformed(adding: Bool, body: String) async throws {
+    if adding {
+      mockSession.handlers.append { _ in
+        (Data(#"{"data":[]}"#.utf8), try #require(v5Response()))
+      }
+    }
+    mockSession.handlers.append { _ in (Data(body.utf8), try #require(v5Response())) }
+
+    await #expect {
+      if adding {
+        _ = try await makeService().addDomain("example.com", to: .allow, comment: nil)
+      } else {
+        try await makeService().deleteDomain("example.com", from: .allow)
+      }
+    } throws: { error in
+      guard case PiholeError.decoding = error else { return false }
+      return true
+    }
+  }
+
+  @Test("A rejected v5 add does not create a temporary-unblock record")
+  func rejectedAddIsNotTracked() async throws {
+    mockSession.handlers = [
+      { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
+      { _ in
+        (Data(#"{"success":false,"message":"database is locked"}"#.utf8), try #require(v5Response()))
+      }
+    ]
+    let service = makeService()
+    let suite = TestDefaults.makeSuite()
+    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in }
+
+    await #expect(throws: PiholeError.server(200, "database is locked")) {
+      try await decorator.unblockDomain("example.com", duration: 60)
+    }
+    #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
+    #expect(mockSession.requests.count == 2)
+  }
+
+  @Test("A rejected v5 expiry delete keeps its record and retries")
+  func rejectedExpiryDeletionRetries() async throws {
+    mockSession.handlers = [
+      { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
+      { _ in (Data(#"{"success":true,"message":"Added example.com"}"#.utf8), try #require(v5Response())) },
+      { _ in
+        (Data(#"{"success":false,"message":"database is locked"}"#.utf8), try #require(v5Response()))
+      },
+      { _ in (Data(#"{"success":true,"message":null}"#.utf8), try #require(v5Response())) }
+    ]
+    let service = makeService()
+    let suite = TestDefaults.makeSuite()
+    var releaseRetry = false
+    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { duration in
+      if duration < 10 { return }
+      await waitUntil { releaseRetry }
+    }
+    try await decorator.unblockDomain("example.com", duration: 1)
+
+    let key = Defaults.Keys.tempUnblocks(for: service.id, suite: suite)
+    await waitUntil { Defaults[key].first?.pendingRemoval == true }
+    #expect(Defaults[key].count == 1)
+    #expect(Defaults[key].first?.retryCount == 1)
+    #expect(mockSession.requests.count == 3)
+
+    releaseRetry = true
+    await waitUntil { Defaults[key].isEmpty }
+    #expect(mockSession.requests.count == 4)
+  }
+
   @Test("getDomains(from:) reads the matching list")
   func getDomainsFromList() async throws {
     mockSession.handlers = [
@@ -405,7 +520,7 @@ final class PiholeV5ServiceTests {
         #expect(request.url?.absoluteString.contains("list=white") == true)
         #expect(request.url?.absoluteString.contains("add=example.com") == true)
         let response = try #require(v5Response())
-        return (Data("OK".utf8), response)
+        return (Data(#"{"success":true,"message":"Added example.com"}"#.utf8), response)
       }
     ]
     try await makeService().unblockDomain("example.com", duration: 300)
