@@ -226,22 +226,8 @@ final class PiholeV5ServiceTests {
 
   // MARK: - addDomain / deleteDomain
 
-  @Test("addDomain calls API with list param")
-  func addDomain() async throws {
-    mockSession.handlers = [
-      { request in
-        #expect(request.url?.absoluteString.contains("list=white") == true)
-        #expect(request.url?.absoluteString.contains("add=example.com") == true)
-        let response = try #require(v5Response())
-        return (Data("OK".utf8), response)
-      }
-    ]
-    let entry = try await makeService().addDomain("example.com", to: .allow)
-    #expect(entry.domain == "example.com")
-  }
-
-  @Test("addDomainUnlessPresent leaves a pre-existing entry alone")
-  func addUnlessPresentHit() async throws {
+  @Test("addDomain leaves a pre-existing entry alone")
+  func addDomainHit() async throws {
     mockSession.handlers = [
       { request in
         #expect(request.url?.absoluteString.contains("list=white") == true)
@@ -250,32 +236,36 @@ final class PiholeV5ServiceTests {
         return (Data(json.utf8), response)
       }
     ]
-    let outcome = try await makeService().addDomainUnlessPresent(
+    let outcome = try await makeService().addDomain(
       "Example.COM", to: .allow, comment: "uuid"
     )
     #expect(outcome == .alreadyPresent)
     #expect(mockSession.requests.count == 1, "Nothing is added, so the list read is the only request")
   }
 
-  @Test("addDomainUnlessPresent matches an international entry by its punycode identity")
-  func addUnlessPresentMatchesIDN() async throws {
+  @Test(
+    "addDomain matches an international entry by its punycode identity",
+    arguments: ["xn--bcher-kva.de", "shop.xn--bcher-kva.de", "example.xn--p1ai"]
+  )
+  func addDomainMatchesIDN(domain: String) async throws {
     mockSession.handlers = [
       { _ in
-        let json = #"""
-          {"data":[{"id":1,"domain":"b&uuml;cher.de (xn--bcher-kva.de)","type":0,"enabled":1,"comment":null,"groups":[0]}]}
-          """#
+        let displayDomain = "international.example (\(domain))"
+        let json = """
+          {"data":[{"id":1,"domain":"\(displayDomain)","type":0,"enabled":1,"comment":null,"groups":[0]}]}
+          """
         return (Data(json.utf8), try #require(v5Response()))
       }
     ]
-    let outcome = try await makeService().addDomainUnlessPresent(
-      "xn--bcher-kva.de", to: .allow, comment: "uuid"
+    let outcome = try await makeService().addDomain(
+      domain, to: .allow, comment: "uuid"
     )
     #expect(outcome == .alreadyPresent)
     #expect(mockSession.requests.count == 1)
   }
 
-  @Test("addDomainUnlessPresent adds an entry that is not there")
-  func addUnlessPresentMiss() async throws {
+  @Test("addDomain adds an entry that is not there")
+  func addDomainMiss() async throws {
     mockSession.handlers = [
       { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
       { request in
@@ -284,7 +274,7 @@ final class PiholeV5ServiceTests {
         return (Data(#"{"success":true}"#.utf8), try #require(v5Response()))
       }
     ]
-    let outcome = try await makeService().addDomainUnlessPresent(
+    let outcome = try await makeService().addDomain(
       "example.com", to: .allow, comment: "uuid"
     )
     #expect(outcome == .added)
@@ -410,6 +400,7 @@ final class PiholeV5ServiceTests {
   @Test("unblockDomain adds domain to allow list")
   func unblockDomain() async throws {
     mockSession.handlers = [
+      { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
       { request in
         #expect(request.url?.absoluteString.contains("list=white") == true)
         #expect(request.url?.absoluteString.contains("add=example.com") == true)
@@ -525,14 +516,29 @@ final class PiholeV5ServiceTests {
   @Test("addDomain throws on server error")
   func addDomainServerError() async throws {
     mockSession.handlers = [
+      { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
       { _ in
         let response = try #require(v5Response(statusCode: 500))
         return (Data("Error".utf8), response)
       }
     ]
     await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().addDomain("example.com", to: .allow)
+      try await makeService().addDomain("example.com", to: .allow, comment: nil)
     }
+  }
+
+  @Test("addDomain propagates list probe failure without writing")
+  func addDomainProbeFailure() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.absoluteString.contains("add=") == false)
+        return (Data("Error".utf8), try #require(v5Response(statusCode: 500)))
+      }
+    ]
+    await #expect(throws: PiholeError.server(500, "Error")) {
+      try await makeService().addDomain("example.com", to: .allow, comment: nil)
+    }
+    #expect(mockSession.requests.count == 1)
   }
 
   @Test("deleteDomain throws on server error")

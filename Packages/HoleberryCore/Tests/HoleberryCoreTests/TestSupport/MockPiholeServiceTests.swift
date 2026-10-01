@@ -26,9 +26,9 @@ struct MockPiholeServiceTests {
     #expect(mock.setBlockingLastDuration == 300)
   }
 
-  @Test func addDomain() async throws {
+  @Test(arguments: [DomainAddOutcome.added, .alreadyPresent])
+  func addDomain(expected: DomainAddOutcome) async throws {
     let mock = MockPiholeService()
-    let expected = DomainEntry(id: 99, domain: "test.com", type: 0, comment: "test-uuid")
     mock.addDomainStub = .success(expected)
     let result = try await mock.addDomain("test.com", to: .allow, comment: "test-uuid")
     #expect(result == expected)
@@ -36,17 +36,6 @@ struct MockPiholeServiceTests {
     #expect(mock.addDomainLastDomain == "test.com")
     #expect(mock.addDomainLastList == .allow)
     #expect(mock.addDomainLastComment == "test-uuid")
-  }
-
-  @Test func addDomainUnlessPresent() async throws {
-    let mock = MockPiholeService()
-    mock.addDomainUnlessPresentStub = .success(.alreadyPresent)
-    let outcome = try await mock.addDomainUnlessPresent("test.com", to: .allow, comment: "test-uuid")
-    #expect(outcome == .alreadyPresent)
-    #expect(mock.addDomainUnlessPresentCallCount == 1)
-    #expect(mock.addDomainUnlessPresentLastDomain == "test.com")
-    #expect(mock.addDomainUnlessPresentLastList == .allow)
-    #expect(mock.addDomainUnlessPresentLastComment == "test-uuid")
   }
 
   @Test func failureInjection() async {

@@ -310,33 +310,17 @@ final class PiholeV6ServiceTests {
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["domain"] as? String == "example.com")
         let response = try #require(v6Response())
-        let data = Data(#"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":""}]}"#.utf8)
+        let data = Data(
+          #"""
+          {"domains":[{"id":1,"domain":"example.com","type":"allow","comment":""}],
+           "processed":{"success":[{"item":"example.com"}],"errors":[]}}
+          """#.utf8)
         return (data, response)
       }
     ]
-    let entry = try await makeService().addDomain("example.com", to: .allow)
-    #expect(entry.domain == "example.com")
-    #expect(entry.type == 0)
+    let outcome = try await makeService().addDomain("example.com", to: .allow, comment: nil)
+    #expect(outcome == .added)
   }
-
-  @Test("addDomain throws duplicateDomain on 409")
-  func addDomainDuplicate() async throws {
-    mockSession.handlers = [
-      { request in
-        #expect(request.url?.path == "/api/domains/allow/exact")
-        #expect(request.httpMethod == "POST")
-        let body = try #require(request.httpBody)
-        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
-        #expect(json?["domain"] as? String == "dupe.com")
-        let response = try #require(v6Response(statusCode: 409))
-        return (Data("Conflict".utf8), response)
-      }
-    ]
-    await #expect(throws: PiholeError.duplicateDomain) {
-      try await makeService().addDomain("dupe.com", to: .allow)
-    }
-  }
-
 
   // MARK: - deleteDomain
 
@@ -379,10 +363,10 @@ final class PiholeV6ServiceTests {
     try await makeService().deleteDomain("gone.com", from: .allow)
   }
 
-  // MARK: - addDomainUnlessPresent
+  // MARK: - Add outcomes
 
-  @Test("addDomainUnlessPresent reports an existing entry on 409")
-  func addUnlessPresentDuplicate() async throws {
+  @Test("addDomain reports an existing entry on 409")
+  func addDomainDuplicate() async throws {
     mockSession.handlers = [
       { request in
         #expect(request.url?.path == "/api/domains/allow/exact")
@@ -390,23 +374,111 @@ final class PiholeV6ServiceTests {
         return (Data("Conflict".utf8), try #require(v6Response(statusCode: 409)))
       }
     ]
-    let outcome = try await makeService().addDomainUnlessPresent(
+    let outcome = try await makeService().addDomain(
       "dupe.com", to: .allow, comment: "uuid"
     )
     #expect(outcome == .alreadyPresent)
   }
 
-  @Test("addDomainUnlessPresent reports a fresh entry")
-  func addUnlessPresentAdded() async throws {
+  @Test("addDomain recognizes a duplicate in a 201 response")
+  func addDomainDuplicate201() async throws {
+    mockSession.handlers = [
+      { _ in
+        let body = #"""
+          {"domains":[{"id":1,"domain":"dupe.com","type":"allow","comment":"manual"}],
+           "processed":{"success":[],"errors":[{"item":"dupe.com",
+           "error":"UNIQUE constraint failed: domainlist.domain, domainlist.type"}]}}
+          """#
+        return (Data(body.utf8), try #require(v6Response(statusCode: 201)))
+      }
+    ]
+    let outcome = try await makeService().addDomain("dupe.com", to: .allow, comment: "uuid")
+    #expect(outcome == .alreadyPresent)
+  }
+
+  @Test("addDomain recognizes a duplicate in a 400 response")
+  func addDomainDuplicate400() async throws {
+    mockSession.handlers = [
+      { _ in
+        let body = #"""
+          {"error":{"key":"database_error","message":"Could not add to gravity database",
+           "hint":"UNIQUE constraint failed: domainlist.domain, domainlist.type"}}
+          """#
+        return (Data(body.utf8), try #require(v6Response(statusCode: 400)))
+      }
+    ]
+    let outcome = try await makeService().addDomain("dupe.com", to: .allow, comment: "uuid")
+    #expect(outcome == .alreadyPresent)
+  }
+
+  @Test("addDomain propagates other per-item insert failures")
+  func addDomainInsertFailure() async throws {
+    mockSession.handlers = [
+      { _ in
+        let body = #"""
+          {"domains":[],"processed":{"success":[],"errors":[{"item":"example.com",
+           "error":"attempt to write a readonly database"}]}}
+          """#
+        return (Data(body.utf8), try #require(v6Response(statusCode: 201)))
+      }
+    ]
+    await #expect(throws: PiholeError.server(201, "attempt to write a readonly database")) {
+      try await makeService().addDomain("example.com", to: .allow, comment: "uuid")
+    }
+  }
+
+  @Test("addDomain propagates unrelated 400 errors")
+  func addDomainOther400() async throws {
+    let body = #"""
+      {"error":{"key":"database_error","message":"Could not add to gravity database",
+       "hint":"attempt to write a readonly database"}}
+      """#
+    mockSession.handlers = [
+      { _ in (Data(body.utf8), try #require(v6Response(statusCode: 400))) }
+    ]
+    await #expect(throws: PiholeError.server(400, body)) {
+      try await makeService().addDomain("example.com", to: .allow, comment: "uuid")
+    }
+  }
+
+  @Test(
+    "addDomain requires a confirmed insert",
+    arguments: [
+      "not JSON",
+      #"{"domains":[]}"#,
+      #"{"domains":[],"processed":{"success":[],"errors":[]}}"#,
+      #"{"processed":{"success":"invalid","errors":[]}}"#
+    ]
+  )
+  func addDomainUnconfirmed(body: String) async throws {
+    mockSession.handlers = [
+      { _ in (Data(body.utf8), try #require(v6Response(statusCode: 201))) }
+    ]
+    do {
+      _ = try await makeService().addDomain("example.com", to: .allow, comment: "uuid")
+      Issue.record("An unconfirmed insert must not be reported as added")
+    } catch {
+      guard case .decoding = error as? PiholeError else {
+        Issue.record("Expected a decoding error, got \(error)")
+        return
+      }
+    }
+  }
+
+  @Test("addDomain reports a fresh entry")
+  func addDomainAdded() async throws {
     mockSession.handlers = [
       { request in
         #expect(request.url?.path == "/api/domains/allow/exact")
         #expect(request.httpMethod == "POST")
-        let body = #"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":"uuid"}]}"#
+        let body = #"""
+          {"domains":[{"id":1,"domain":"example.com","type":"allow","comment":"uuid"}],
+           "processed":{"success":[{"item":"example.com"}],"errors":[]}}
+          """#
         return (Data(body.utf8), try #require(v6Response(statusCode: 201)))
       }
     ]
-    let outcome = try await makeService().addDomainUnlessPresent(
+    let outcome = try await makeService().addDomain(
       "example.com", to: .allow, comment: "uuid"
     )
     #expect(outcome == .added)
@@ -582,7 +654,11 @@ final class PiholeV6ServiceTests {
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["domain"] as? String == "example.com")
         let response = try #require(v6Response())
-        let data = Data(#"{"domains":[{"id":1,"domain":"example.com","type":"allow","comment":""}]}"#.utf8)
+        let data = Data(
+          #"""
+          {"domains":[{"id":1,"domain":"example.com","type":"allow","comment":""}],
+           "processed":{"success":[{"item":"example.com"}],"errors":[]}}
+          """#.utf8)
         return (data, response)
       }
     ]
@@ -617,7 +693,7 @@ final class PiholeV6ServiceTests {
       }
     ]
     await #expect(throws: PiholeError.server(500, "Error")) {
-      try await makeService().addDomain("example.com", to: .allow)
+      try await makeService().addDomain("example.com", to: .allow, comment: nil)
     }
   }
 

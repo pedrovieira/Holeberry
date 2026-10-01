@@ -54,20 +54,8 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
 
   // MARK: - Passthrough methods
 
-  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
-    try await wrapped.addDomain(domain, to: list, comment: nil)
-  }
-
-  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
+  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
     try await wrapped.addDomain(domain, to: list, comment: comment)
-  }
-
-  public func addDomainUnlessPresent(
-    _ domain: String,
-    to list: DomainListType,
-    comment: String?
-  ) async throws -> DomainAddOutcome {
-    try await wrapped.addDomainUnlessPresent(domain, to: list, comment: comment)
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
@@ -117,7 +105,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     if let duration {
       let uuid = "via holeberryapp.com / \(UUID().uuidString)"
       // An entry that is already on the allowlist is not ours to expire.
-      let outcome = try await wrapped.addDomainUnlessPresent(domain, to: .allow, comment: uuid)
+      let outcome = try await wrapped.addDomain(domain, to: .allow, comment: uuid)
       guard outcome == .added else { return }
       let record = TempUnblockRecord(
         domain: domain,

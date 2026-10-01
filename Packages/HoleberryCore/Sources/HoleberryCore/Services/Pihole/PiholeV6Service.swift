@@ -172,17 +172,10 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding("Unexpected summary format: \(error.localizedDescription)")
     }
 
-    let gravityLastUpdated: Date?
-    if let lastUpdate = response.gravity?.lastUpdate, lastUpdate > 0 {
-      gravityLastUpdated = Date(timeIntervalSince1970: lastUpdate)
-    } else {
-      gravityLastUpdated = nil
-    }
-
     return QuerySummary(
       totalQueries: response.queries.total,
       totalBlocked: response.queries.blocked,
-      gravityLastUpdated: gravityLastUpdated
+      gravityLastUpdated: response.gravity?.lastUpdate.flatMap { $0 > 0 ? Date(timeIntervalSince1970: $0) : nil }
     )
   }
 
@@ -199,11 +192,7 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     }
   }
 
-  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
-    try await addDomain(domain, to: list, comment: nil)
-  }
-
-  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
+  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
     let body = AddDomainBody(domain: domain, comment: comment)
     let path = "/api/domains/\(listTypeName(for: list))/exact"
     let (data, httpResponse) = try await authenticatedRequest(
@@ -211,30 +200,41 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     )
 
     if httpResponse.statusCode == 409 {
-      throw PiholeError.duplicateDomain
+      return .alreadyPresent
+    }
+
+    // Newer FTL versions report a failed single insert as a 400 database error.
+    if httpResponse.statusCode == 400,
+      let response = try? Self.decoder.decode(DomainAddErrorResponse.self, from: data),
+      response.error.key == "database_error",
+      DomainAddResponse.isDuplicateError(response.error.hint)
+    {
+      return .alreadyPresent
     }
 
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    // V6 wraps the response in {"domains":[...]} — our DomainEntry struct
-    // can't decode that directly. Since callers ignore the return value,
-    // just return a synthetic entry from the known inputs.
-    return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: comment)
-  }
-
-  public func addDomainUnlessPresent(
-    _ domain: String,
-    to list: DomainListType,
-    comment: String?
-  ) async throws -> DomainAddOutcome {
+    let response: DomainAddResponse
     do {
-      _ = try await addDomain(domain, to: list, comment: comment)
-      return .added
-    } catch PiholeError.duplicateDomain {
-      return .alreadyPresent
+      response = try Self.decoder.decode(DomainAddResponse.self, from: data)
+    } catch {
+      throw PiholeError.decoding("Domain add: \(error.localizedDescription)")
     }
+
+    // FTL v6.0 returns 201 even when the insert failed. Only processed.success
+    // confirms that this request created the entry; domains can include an old row.
+    if let failure = response.processed.errors.first {
+      if DomainAddResponse.isDuplicateError(failure.error) {
+        return .alreadyPresent
+      }
+      throw PiholeError.server(httpResponse.statusCode, failure.error)
+    }
+    guard response.processed.success.count == 1 else {
+      throw PiholeError.decoding("Domain add did not confirm a created entry")
+    }
+    return .added
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
@@ -259,10 +259,7 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     // Server-side filter. `/exact` (not the read-only `/allow` and `/deny`
     // forms) lines up with v5's `?list=white|black`, which is exact-only too.
-    try await fetchDomains(path: "/api/domains/\(listTypeName(for: list))/exact")
-  }
-
-  private func fetchDomains(path: String) async throws -> [DomainEntry] {
+    let path = "/api/domains/\(listTypeName(for: list))/exact"
     let (data, httpResponse) = try await authenticatedRequest(path: path)
 
     guard httpResponse.isSuccess else {
@@ -338,6 +335,41 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   }
 }
 
+private struct AddDomainBody: Encodable {
+  let domain: String
+  let comment: String?
+}
+
+/// Domain POST replies include per-item results even when the HTTP status is 201.
+private struct DomainAddResponse: Decodable {
+  let processed: DomainAddProcessed
+
+  static func isDuplicateError(_ message: String?) -> Bool {
+    message == "UNIQUE constraint failed: domainlist.domain, domainlist.type"
+  }
+}
+
+private struct DomainAddProcessed: Decodable {
+  let success: [DomainAddItem]
+  let errors: [DomainAddItem]
+}
+
+private struct DomainAddItem: Decodable {
+  let item: String
+  let error: String?
+}
+
+/// Newer FTL versions report failed inserts through the top-level error object.
+private struct DomainAddErrorResponse: Decodable {
+  let error: DomainAddErrorDetails
+}
+
+private struct DomainAddErrorDetails: Decodable {
+  let key: String
+  let hint: String?
+}
+
+
 private struct SetBlockingBody: Encodable {
   let blocking: Bool
   let timer: TimeInterval?
@@ -345,11 +377,6 @@ private struct SetBlockingBody: Encodable {
 
 public struct DomainsResponse: Decodable {
   let domains: [DomainEntry]
-}
-
-private struct AddDomainBody: Encodable {
-  let domain: String
-  let comment: String?
 }
 
 /// `/api/stats/summary` response. `gravity` is optional because some FTL
@@ -362,14 +389,9 @@ private struct SummaryResponse: Decodable {
 private struct SummaryGravity: Decodable {
   let lastUpdate: Double?
 
-  init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: SummaryGravityKey.self)
-    lastUpdate = try container.decodeIfPresent(Double.self, forKey: .lastUpdate)
+  enum CodingKeys: String, CodingKey {
+    case lastUpdate = "last_update"
   }
-}
-
-private enum SummaryGravityKey: String, CodingKey {
-  case lastUpdate = "last_update"
 }
 
 private struct SummaryQueries: Decodable {

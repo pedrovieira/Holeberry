@@ -205,11 +205,12 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     return blocked
   }
 
-  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
-    try await addDomain(domain, to: list, comment: nil)
-  }
-
-  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
+  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
+    // A duplicate add rewrites the comment, so read the list before writing.
+    let entries = try await getDomains(from: list)
+    if entries.contains(where: { $0.domain.caseInsensitiveCompare(domain) == .orderedSame }) {
+      return .alreadyPresent
+    }
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listName(for: list), "add": domain]
     )
@@ -218,20 +219,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: nil)
-  }
-
-  public func addDomainUnlessPresent(
-    _ domain: String,
-    to list: DomainListType,
-    comment: String?
-  ) async throws -> DomainAddOutcome {
-    // A duplicate add looks like a fresh one, so read the list before writing.
-    let entries = try await getDomains(from: list)
-    if entries.contains(where: { $0.domain.caseInsensitiveCompare(domain) == .orderedSame }) {
-      return .alreadyPresent
-    }
-    _ = try await addDomain(domain, to: list, comment: comment)
     return .added
   }
 
@@ -285,13 +272,13 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     }
   }
 
-  /// v5 answers `?list=` with the web UI's display value for international
-  /// domains — `b&uuml;cher.de (xn--bcher-kva.de)` (`groups.php`) — but the
-  /// parenthesised ASCII name is the identity callers match against.
+  /// v5 returns IDNs as HTML-escaped Unicode followed by the ASCII identity
+  /// in parentheses, e.g. `b&uuml;cher.de (xn--bcher-kva.de)` (`groups.php`).
   private static func domainIdentity(from value: String) -> String {
     guard value.hasSuffix(")"), let open = value.lastIndex(of: "(") else { return value }
     let ascii = value[value.index(after: open)..<value.index(before: value.endIndex)]
-    guard ascii.hasPrefix("xn--"), !ascii.contains(" ") else { return value }
+    let labels = ascii.split(separator: ".")
+    guard labels.contains(where: { $0.hasPrefix("xn--") }), !ascii.contains(" ") else { return value }
     return String(ascii)
   }
 

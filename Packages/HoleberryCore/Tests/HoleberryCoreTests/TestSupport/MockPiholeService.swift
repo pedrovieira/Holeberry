@@ -32,18 +32,11 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var updateGravityStub: Result<Void, any Error> = .success(())
   private(set) var updateGravityCallCount = 0
 
-  var addDomainStub: Result<DomainEntry, any Error> = .success(
-    DomainEntry(id: 1, domain: "test.com", type: 0, comment: nil))
+  var addDomainStub: Result<DomainAddOutcome, any Error> = .success(.added)
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
-
-  var addDomainUnlessPresentStub: Result<DomainAddOutcome, any Error> = .success(.added)
-  private(set) var addDomainUnlessPresentCallCount = 0
-  var addDomainUnlessPresentLastDomain: String?
-  var addDomainUnlessPresentLastList: DomainListType?
-  var addDomainUnlessPresentLastComment: String?
 
   var deleteDomainByNameStub: Result<Void, any Error> = .success(())
   private(set) var deleteDomainByNameCallCount = 0
@@ -94,28 +87,12 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     try updateGravityStub.get()
   }
 
-  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
-    try await addDomain(domain, to: list, comment: nil)
-  }
-
-  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
+  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
     addDomainCallCount += 1
     addDomainLastDomain = domain
     addDomainLastList = list
     addDomainLastComment = comment
     return try addDomainStub.get()
-  }
-
-  func addDomainUnlessPresent(
-    _ domain: String,
-    to list: DomainListType,
-    comment: String?
-  ) async throws -> DomainAddOutcome {
-    addDomainUnlessPresentCallCount += 1
-    addDomainUnlessPresentLastDomain = domain
-    addDomainUnlessPresentLastList = list
-    addDomainUnlessPresentLastComment = comment
-    return try addDomainUnlessPresentStub.get()
   }
 
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
