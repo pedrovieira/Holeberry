@@ -12,14 +12,6 @@ public struct QuerySummary: Sendable {
   }
 }
 
-/// Outcome of `PiholeServiceCommentAdding.addDomain(_:to:comment:)`.
-public enum DomainAddOutcome: Sendable, Equatable {
-  /// The entry was not there and is now.
-  case added
-  /// A matching entry already existed, so nothing was written.
-  case alreadyPresent
-}
-
 /// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
 /// No `comment` parameter — that's internal (see `PiholeServiceCommentAdding`).
 @MainActor

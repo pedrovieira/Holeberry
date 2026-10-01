@@ -1,5 +1,13 @@
 import Foundation
 
+/// Outcome of `PiholeServiceCommentAdding.addDomain(_:to:comment:)`.
+public enum DomainAddOutcome: Sendable, Equatable {
+  /// The entry was not there and is now.
+  case added
+  /// A matching entry already existed, so nothing was written.
+  case alreadyPresent
+}
+
 /// Internal domain-add API with a `comment` parameter.
 /// Only service implementations and the decorator know about this.
 public protocol PiholeServiceCommentAdding: PiholeServiceProviding {
