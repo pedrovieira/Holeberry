@@ -13,7 +13,6 @@ struct PiholeErrorTests {
       PiholeError.server(500, "Internal Server Error").errorDescription
         == "Server error (500): Internal Server Error")
     #expect(PiholeError.tlsUntrusted.errorDescription == "Untrusted TLS certificate")
-    #expect(PiholeError.duplicateDomain.errorDescription == "Domain is already in the list")
     #expect(PiholeError.decoding("bad JSON").errorDescription == "Failed to parse response: bad JSON")
     #expect(PiholeError.totpRequired.errorDescription == "TOTP code required for 2FA")
     #expect(PiholeError.unknown("something broke").errorDescription == "Unexpected error: something broke")
@@ -36,7 +35,6 @@ struct PiholeErrorTests {
   @Test func equality() {
     #expect(PiholeError.unauthorized == PiholeError.unauthorized)
     #expect(PiholeError.unauthorized != PiholeError.totpRequired)
-    #expect(PiholeError.duplicateDomain == PiholeError.duplicateDomain)
     #expect(PiholeError.network("x") == PiholeError.network("x"))
     #expect(PiholeError.network("x") != PiholeError.network("y"))
     #expect(PiholeError.unsupported("x") == PiholeError.unsupported("x"))

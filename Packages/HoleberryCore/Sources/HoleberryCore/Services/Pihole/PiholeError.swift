@@ -6,7 +6,6 @@ public enum PiholeError: Error, LocalizedError, Equatable {
   case network(String)
   case server(Int, String?)
   case tlsUntrusted
-  case duplicateDomain
   case decoding(String)
   case totpRequired
   case invalidCredentials
@@ -30,8 +29,6 @@ public enum PiholeError: Error, LocalizedError, Equatable {
       return "Server error (\(code))"
     case .tlsUntrusted:
       return "Untrusted TLS certificate"
-    case .duplicateDomain:
-      return "Domain is already in the list"
     case .decoding(let description):
       return "Failed to parse response: \(description)"
     case .totpRequired:

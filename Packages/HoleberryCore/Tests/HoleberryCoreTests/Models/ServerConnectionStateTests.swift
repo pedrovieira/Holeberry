@@ -33,7 +33,6 @@ struct ServerCheckFailureTests {
     #expect(ServerCheckFailure.classify(.tlsUntrusted) == .unreachable)
     #expect(ServerCheckFailure.classify(.decoding("garbage")) == .unreachable)
     #expect(ServerCheckFailure.classify(.unknown("weird")) == .unreachable)
-    #expect(ServerCheckFailure.classify(.duplicateDomain) == .unreachable)
   }
 
   @Test("unsupported is its own classification, not unreachable")

@@ -259,8 +259,8 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     // Server-side filter. `/exact` (not the read-only `/allow` and `/deny`
     // forms) lines up with v5's `?list=white|black`, which is exact-only too.
-    let path = "/api/domains/\(listTypeName(for: list))/exact"
-    return try await getDomains(path: path)
+    let url = baseURL.appendingPathComponent("/api/domains/\(listTypeName(for: list))/exact")
+    return try await getDomains(url: url)
   }
 
   public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
@@ -268,10 +268,6 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     let identity = try PiholeDomain.validatedIdentity(domain)
     let entries = try await getDomains(url: domainURL(identity, from: list))
     return entries.first { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }
-  }
-
-  private func getDomains(path: String) async throws -> [DomainEntry] {
-    try await getDomains(url: baseURL.appendingPathComponent(path))
   }
 
   private func domainURL(_ domain: String, from list: DomainListType) throws -> URL {

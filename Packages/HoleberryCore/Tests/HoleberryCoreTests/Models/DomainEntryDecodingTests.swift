@@ -3,6 +3,7 @@ import Testing
 
 @testable import HoleberryCore
 
+@MainActor
 @Suite("DomainEntry decoding")
 struct DomainEntryDecodingTests {
   @Test("decodes enabled as Bool (v6), Int (v5), and absent")

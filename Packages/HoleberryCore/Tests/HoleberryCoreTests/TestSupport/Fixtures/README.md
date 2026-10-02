@@ -6,7 +6,8 @@ Every `.json` file is a verbatim reply body — statuses and headers noted
 below, not embedded in the files.
 
 No fallbacks were used: every file is a live capture. The tests inline
-these bodies (see `PiholeV5ServiceTests`) and cite this directory.
+these bodies (see `PiholeV5ServiceTests`); this directory is captured
+evidence, not read by the test target (`exclude` in `Package.swift`).
 
 | Image tag | core | web | FTL | duplicate-add reply |
 |---|---|---|---|---|
