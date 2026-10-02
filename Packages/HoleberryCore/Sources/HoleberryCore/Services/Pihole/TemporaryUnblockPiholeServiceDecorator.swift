@@ -112,39 +112,95 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
   // MARK: - Unblock
 
   @discardableResult
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+  public func unblockDomain(
+    _ domain: String, duration: TimeInterval?, ownershipID: UUID
+  ) async throws -> DomainUnblockOutcome {
     let identity = try PiholeDomain.validatedIdentity(domain)
     try Task.checkCancellation()
-    guard let duration else {
-      let outcome = try await wrapped.addDomain(identity, to: .allow, comment: "via holeberryapp.com")
-      return await DomainUnblockOutcome.resolve(for: identity, addOutcome: outcome, service: wrapped)
+    let token = "via holeberryapp.com / \(ownershipID.uuidString)"
+    let comment = duration == nil ? "via holeberryapp.com" : token
+    let outcome: DomainAddOutcome
+    do {
+      outcome = try await wrapped.addDomain(identity, to: .allow, comment: comment)
+    } catch {
+      // An insert may commit before its response is lost. The ownership ID
+      // stays stable across manager retries, so that attempt can be adopted.
+      guard let existing = try? await wrapped.getDomain(identity, from: .allow) else { throw error }
+      if existing.comment == token, duration != nil {
+        return classifyExisting(existing, key: identity, duration: duration, token: token)
+      }
+      // Failed v6 inserts can use 400, a 201 with processed errors, or an
+      // unparseable reply. Resolve them from the row rather than hint text.
+      if wrapped.version == .v6 {
+        switch error {
+        case PiholeError.server(400, _), PiholeError.server(201, _), PiholeError.decoding:
+          return classifyExisting(existing, key: identity, duration: duration, token: token)
+        default:
+          break
+        }
+      }
+      throw error
     }
-    let uuid = "via holeberryapp.com / \(UUID().uuidString)"
-    let outcome = try await addTemporaryDomain(identity, comment: uuid)
     guard outcome == .added else {
-      return await DomainUnblockOutcome.resolve(for: identity, addOutcome: outcome, service: wrapped)
+      let existing = try? await wrapped.getDomain(identity, from: .allow)
+      return classifyExisting(existing, key: identity, duration: duration, token: token)
     }
-    // Give the entry its full duration after the add (or recovery) is confirmed.
-    let startDate = Date()
-    let record = TempUnblockRecord(
-      domain: identity, uuid: uuid, startDateUTC: startDate, durationSeconds: duration
-    )
-    activeRecords.append(record)
-    saveRecords()
-    startExpiryTask(for: record)
+    if let duration {
+      startRecord(domain: identity, duration: duration, uuid: token)
+    }
     return .added
   }
 
-  private func addTemporaryDomain(_ domain: String, comment: String) async throws -> DomainAddOutcome {
-    do {
-      return try await wrapped.addDomain(domain, to: .allow, comment: comment)
-    } catch {
-      // An add can commit before its response is lost. Make one lookup to
-      // recover this attempt; otherwise preserve the original error.
-      let existing = try? await wrapped.getDomain(domain, from: .allow)
-      guard existing?.comment == comment else { throw error }
+  private func classifyExisting(
+    _ entry: DomainEntry?, key: String, duration: TimeInterval?, token: String
+  ) -> DomainUnblockOutcome {
+    guard let entry else { return .alreadyPresent(enabled: nil) }
+    if entry.comment == token, let duration {
+      if let record = activeRecords.first(where: { $0.domain == key && $0.uuid == token }) {
+        renewRecord(record, duration: duration)
+      } else {
+        startRecord(domain: key, duration: duration, uuid: token)
+      }
       return .added
     }
+    if let record = activeRecords.first(where: { $0.domain == key }),
+      wrapped.version == .v5 || entry.comment == record.uuid
+    {
+      if let duration {
+        renewRecord(record, duration: duration)
+        return .renewed
+      }
+      cancelRecords(for: key)
+      return .promoted
+    }
+    return .alreadyPresent(enabled: entry.enabled)
+  }
+
+  private func startRecord(domain: String, duration: TimeInterval, uuid: String) {
+    let record = TempUnblockRecord(domain: domain, uuid: uuid, startDateUTC: Date(), durationSeconds: duration)
+    activeRecords.append(record)
+    saveRecords()
+    startExpiryTask(for: record)
+  }
+
+  private func renewRecord(_ record: TempUnblockRecord, duration: TimeInterval) {
+    expiryTasks.removeValue(forKey: record.uuid)?.cancel()
+    retryTasks.removeValue(forKey: record.uuid)?.cancel()
+    guard let index = activeRecords.firstIndex(where: { $0.uuid == record.uuid }) else { return }
+    let renewed = TempUnblockRecord(
+      domain: record.domain, uuid: record.uuid, startDateUTC: Date(), durationSeconds: duration)
+    activeRecords[index] = renewed
+    saveRecords()
+    startExpiryTask(for: renewed)
+  }
+
+  private func cancelRecords(for domain: String) {
+    for record in activeRecords where record.domain == domain {
+      expiryTasks.removeValue(forKey: record.uuid)?.cancel()
+      retryTasks.removeValue(forKey: record.uuid)?.cancel()
+    }
+    activeRecords.removeAll { $0.domain == domain }
+    saveRecords()
   }
 
   // MARK: - Persistence
@@ -212,20 +268,40 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     }
   }
 
+  private enum RemovalOutcome {
+    case removed
+    case alreadyGone
+    case notOurs
+    case retry
+  }
+
+  private func attemptRemoval(_ record: TempUnblockRecord) async -> RemovalOutcome {
+    do {
+      guard let entry = try await wrapped.getDomain(record.domain, from: .allow) else { return .alreadyGone }
+      if wrapped.version == .v6, entry.comment != record.uuid { return .notOurs }
+      try await wrapped.deleteDomain(record.domain, from: .allow)
+      return .removed
+    } catch PiholeError.unknown, PiholeError.invalidDomain {
+      return .alreadyGone
+    } catch PiholeError.server(let code, _) where code == 404 {
+      return .alreadyGone
+    } catch {
+      return .retry
+    }
+  }
+
   private func removeExpired(uuid: String) async {
     guard let record = activeRecords.first(where: { $0.uuid == uuid }) else { return }
-
-    do {
-      try await wrapped.deleteDomain(record.domain, from: .allow)
+    switch await attemptRemoval(record) {
+    case .removed, .alreadyGone:
       finalizeExpiry(uuid: uuid, domain: record.domain)
-    } catch PiholeError.unknown, PiholeError.invalidDomain {
-      // Gone server-side, or a stored domain that cannot name an entry.
-      finalizeExpiry(uuid: uuid, domain: record.domain)
-    } catch {
-      logger.warning("Expiry cleanup failed: \(error.localizedDescription)")
-      if let idx = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
-        activeRecords[idx].pendingRemoval = true
-        activeRecords[idx].retryCount += 1
+    case .notOurs:
+      finalizeExpiry(uuid: uuid, domain: record.domain, notify: false)
+    case .retry:
+      logger.warning("Expiry cleanup failed, will retry: \(record.domain)")
+      if let index = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
+        activeRecords[index].pendingRemoval = true
+        activeRecords[index].retryCount += 1
         saveRecords()
         scheduleRetry(uuid: uuid)
       }
@@ -252,29 +328,28 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
       record.pendingRemoval
     else { return }
 
-    do {
-      try await wrapped.deleteDomain(record.domain, from: .allow)
+    switch await attemptRemoval(record) {
+    case .removed, .alreadyGone:
       finalizeExpiry(uuid: uuid, domain: record.domain)
-    } catch PiholeError.unknown, PiholeError.invalidDomain {
-      // Gone server-side, or a stored domain that cannot name an entry.
-      finalizeExpiry(uuid: uuid, domain: record.domain)
-    } catch {
-      if let idx = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
-        activeRecords[idx].retryCount += 1
+    case .notOurs:
+      finalizeExpiry(uuid: uuid, domain: record.domain, notify: false)
+    case .retry:
+      if let index = activeRecords.firstIndex(where: { $0.uuid == uuid }) {
+        activeRecords[index].retryCount += 1
         saveRecords()
         scheduleRetry(uuid: uuid)
       }
     }
   }
 
-  /// Drops the record after a successful (or server-confirmed) expiry cleanup
-  /// and posts `.domainUnblockExpired` so the app can notify the user that the
-  /// unblock ended on its own.
-  private func finalizeExpiry(uuid: String, domain: String) {
+  /// Drops the record after expiry cleanup. Ownership changes finish silently:
+  /// the entry remains allowed, so an unblock-ended notification would mislead.
+  private func finalizeExpiry(uuid: String, domain: String, notify: Bool = true) {
     expiryTasks.removeValue(forKey: uuid)?.cancel()
     retryTasks.removeValue(forKey: uuid)?.cancel()
     activeRecords.removeAll { $0.uuid == uuid }
     saveRecords()
+    guard notify else { return }
     notificationCenter.post(
       name: .domainUnblockExpired,
       object: nil,

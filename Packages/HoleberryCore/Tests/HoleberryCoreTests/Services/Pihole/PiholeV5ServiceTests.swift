@@ -399,7 +399,13 @@ final class PiholeV5ServiceTests {
       { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
       { _ in (Data(#"{"success":true,"message":"Added example.com"}"#.utf8), try #require(v5Response())) },
       { _ in
+        (Data(#"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1}]}"#.utf8), try #require(v5Response()))
+      },
+      { _ in
         (Data(#"{"success":false,"message":"database is locked"}"#.utf8), try #require(v5Response()))
+      },
+      { _ in
+        (Data(#"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1}]}"#.utf8), try #require(v5Response()))
       },
       { _ in (Data(#"{"success":true,"message":null}"#.utf8), try #require(v5Response())) }
     ]
@@ -416,11 +422,11 @@ final class PiholeV5ServiceTests {
     await waitUntil { Defaults[key].first?.pendingRemoval == true }
     #expect(Defaults[key].count == 1)
     #expect(Defaults[key].first?.retryCount == 1)
-    #expect(mockSession.requests.count == 3)
+    #expect(mockSession.requests.count == 4)
 
     releaseRetry = true
     await waitUntil { Defaults[key].isEmpty }
-    #expect(mockSession.requests.count == 4)
+    #expect(mockSession.requests.count == 6)
   }
 
   @Test("getDomains(from:) reads the matching list")

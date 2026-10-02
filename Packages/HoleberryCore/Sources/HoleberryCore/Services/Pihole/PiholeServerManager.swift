@@ -343,8 +343,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         group.addTask {
           do {
             guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
+            let ownershipID = UUID()
             let outcome = try await withRetry(.destructive) {
-              try await svc.unblockDomain(stripped, duration: duration)
+              try await svc.unblockDomain(stripped, duration: duration, ownershipID: ownershipID)
             }
             return (id, .success(outcome))
           } catch {

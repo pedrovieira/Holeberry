@@ -89,6 +89,9 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Auto-expiry removes record")
   func autoExpiryRemovesRecord() async throws {
     let mock = MockPiholeService()
+    mock.getDomainHandler = { [weak mock] domain in
+      DomainEntry(id: 1, domain: domain, type: 0, comment: mock?.addDomainLastComment)
+    }
     mock.addDomainStub = .success(.added)
     mock.deleteDomainStub = .success(())
 
@@ -102,6 +105,9 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Auto-expiry failure marks pending")
   func autoExpiryFailureMarksPending() async throws {
     let mock = MockPiholeService()
+    mock.getDomainHandler = { [weak mock] domain in
+      DomainEntry(id: 1, domain: domain, type: 0, comment: mock?.addDomainLastComment)
+    }
     mock.addDomainStub = .success(.added)
     mock.deleteDomainStub = .failure(PiholeError.server(500, "Overloaded"))
 
@@ -130,6 +136,9 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Retry succeeds after transient expiry failure")
   func retrySucceedsAfterTransientFailure() async throws {
     let mock = MockPiholeService()
+    mock.getDomainHandler = { [weak mock] domain in
+      DomainEntry(id: 1, domain: domain, type: 0, comment: mock?.addDomainLastComment)
+    }
     mock.addDomainStub = .success(.added)
     mock.deleteDomainStub = .failure(PiholeError.server(500, "Overloaded"))
 
@@ -163,6 +172,9 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Retry failures keep retrying with growing count")
   func retryPersistentFailure() async throws {
     let mock = MockPiholeService()
+    mock.getDomainHandler = { [weak mock] domain in
+      DomainEntry(id: 1, domain: domain, type: 0, comment: mock?.addDomainLastComment)
+    }
     mock.addDomainStub = .success(.added)
     mock.deleteDomainStub = .failure(PiholeError.server(500, "Overloaded"))
 
@@ -189,6 +201,9 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Retry with unknown error removes record")
   func retryUnknownErrorRemovesRecord() async throws {
     let mock = MockPiholeService()
+    mock.getDomainHandler = { [weak mock] domain in
+      DomainEntry(id: 1, domain: domain, type: 0, comment: mock?.addDomainLastComment)
+    }
     mock.addDomainStub = .success(.added)
     mock.deleteDomainStub = .failure(PiholeError.server(500, "Overloaded"))
 
@@ -225,6 +240,9 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Auto-expiry posts domainUnblockExpired")
   func autoExpiryPostsNotification() async throws {
     let mock = MockPiholeService()
+    mock.getDomainHandler = { [weak mock] domain in
+      DomainEntry(id: 1, domain: domain, type: 0, comment: mock?.addDomainLastComment)
+    }
     mock.addDomainStub = .success(.added)
     mock.deleteDomainStub = .success(())
 
@@ -454,6 +472,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Reconciliation: server has domain → record kept, expiry runs")
   func reconcileDomainStillOnServer() async throws {
     let mock = MockPiholeService()
+    mock.getDomainStub = .success(DomainEntry(id: 1, domain: "tracker.com", type: 0, comment: "uuid-1"))
     mock.getDomainsStub = .success([
       DomainEntry(id: 1, domain: "tracker.com", type: 0, comment: nil)
     ])
@@ -505,6 +524,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Reconciliation: server unreachable → expiry task started anyway")
   func reconcileServerUnreachable() async throws {
     let mock = MockPiholeService()
+    mock.getDomainStub = .success(DomainEntry(id: 1, domain: "tracker.com", type: 0, comment: "uuid-3"))
     mock.getDomainsStub = .failure(PiholeError.server(500, "Down"))
     mock.deleteDomainStub = .success(())
 
@@ -528,6 +548,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
   @Test("Reconciliation: mixed records — matching kept, stale removed")
   func reconcileMixedRecords() async throws {
     let mock = MockPiholeService()
+    mock.getDomainStub = .success(DomainEntry(id: 1, domain: "active.com", type: 0, comment: "uuid-4"))
     mock.getDomainsStub = .success([
       DomainEntry(id: 1, domain: "active.com", type: 0, comment: nil)
     ])
@@ -605,9 +626,10 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty)
   }
 
-  @Test("expiry deletes from the allow list and stops reading it")
-  func expiryDeletesWithoutProbe() async throws {
+  @Test("expiry probes the allow list before deletion")
+  func expiryProbesBeforeDeletion() async throws {
     let mock = MockPiholeService(version: .v5)
+    mock.getDomainStub = .success(DomainEntry(id: 1, domain: "x.com", type: 0, comment: "uuid-v5"))
     mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)])
     mock.deleteDomainStub = .success(())
 
@@ -626,6 +648,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       await eventually { mock.deleteDomainCallCount == 1 },
       "A tracked entry is removed on expiry, from the allow list only")
     #expect(mock.deleteDomainLastList == .allow)
-    #expect(mock.getDomainsCallCount == 1, "Only reconciliation reads the list; expiry does not probe")
+    #expect(mock.getDomainsCallCount == 1, "Reconciliation reads the list once")
+    #expect(mock.getDomainCallCount == 1, "Expiry checks whether the entry still exists")
   }
 }
