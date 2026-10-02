@@ -390,7 +390,7 @@ final class PiholeV5ServiceTests {
       try await decorator.unblockDomain("example.com", duration: 60)
     }
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
-    #expect(mockSession.requests.count == 2)
+    #expect(mockSession.requests.count == 3, "An add error triggers one ownership lookup")
   }
 
   @Test("A rejected v5 expiry delete keeps its record and retries")

@@ -45,7 +45,7 @@ struct PiholeV5DomainAddTests {
   }
 
   @Test(
-    "Unconfirmed additions never create an expiry timer",
+    "Unconfirmed additions are not tracked when recovery fails",
     arguments: [
       #"{"success":true}"#, #"{"success":true,"message":null}"#,
       #"{"success":true,"message":"Added other.com"}"#,
@@ -67,7 +67,7 @@ struct PiholeV5DomainAddTests {
       return true
     }
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
-    #expect(session.requests.count == 2)
+    #expect(session.requests.count == 3, "The add error triggers one recovery lookup")
   }
 
   @Test("Overlapping adds of the same domain run serially", arguments: ["Example.COM", "bücher.de"])

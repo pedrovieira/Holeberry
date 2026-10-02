@@ -25,7 +25,7 @@ struct DomainUnblockOutcomeTests {
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
     #expect(service.deleteDomainByNameCallCount == 0)
     #expect(service.getDomainCallCount == 1)
-    #expect(service.getDomainLastDomain == "Example.COM")
+    #expect(service.getDomainLastDomain == "example.com")
     #expect(service.getDomainLastList == .allow)
   }
 

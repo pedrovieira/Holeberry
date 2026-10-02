@@ -592,7 +592,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
   }
 
-  @Test("add failure propagates without tracking")
+  @Test("An add failure propagates when recovery cannot confirm ownership")
   func addFailurePropagates() async throws {
     let mock = MockPiholeService(version: .v5)
     mock.addDomainStub = .failure(PiholeError.network("down"))

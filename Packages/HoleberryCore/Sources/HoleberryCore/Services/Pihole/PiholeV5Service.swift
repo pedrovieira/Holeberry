@@ -209,7 +209,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   }
 
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
-    let identity = (URL(string: "http://\(domain)")?.host ?? domain).lowercased()
+    let identity = try PiholeDomain.validatedIdentity(domain)
     await acquireDomainMutation()
     defer { releaseDomainMutation() }
     try Task.checkCancellation()
@@ -220,7 +220,10 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       return .alreadyPresent
     }
     let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listName(for: list), "add": domain]
+      path: "/admin/api.php",
+      params: ["list": listName(for: list), "add": identity],
+      method: .post,
+      comment: comment
     )
 
     let response = try validateDomainMutationResponse(data, httpResponse)
@@ -252,12 +255,13 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
+    let identity = try PiholeDomain.validatedIdentity(domain)
     await acquireDomainMutation()
     defer { releaseDomainMutation() }
     try Task.checkCancellation()
     // Deleting an entry that is already gone succeeds upstream.
     let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listName(for: list), "sub": domain]
+      path: "/admin/api.php", params: ["list": listName(for: list), "sub": identity]
     )
     try validateDomainMutationResponse(data, httpResponse)
   }
@@ -287,7 +291,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
 
   public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
     // Foundation converts Unicode DNS names to their ASCII (punycode) identity.
-    let identity = (URL(string: "http://\(domain)")?.host ?? domain).lowercased()
+    let identity = try PiholeDomain.validatedIdentity(domain)
     let entries = try await getDomains(from: list)
     return entries.first { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }
   }
@@ -333,7 +337,9 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     return String(ascii)
   }
 
-  private func getRequest(path: String, params: [String: String?], method: HTTPMethod = .get) async throws -> (
+  private func getRequest(
+    path: String, params: [String: String?], method: HTTPMethod = .get, comment: String? = nil
+  ) async throws -> (
     Data, HTTPURLResponse
   ) {
     var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)
@@ -356,6 +362,15 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     var request = URLRequest(url: url)
     request.httpMethod = method.rawValue
     request.timeoutInterval = 15
+    if method == .post {
+      // api.php forwards domain/type to groups.php, which reads the comment from $_POST.
+      let allowed = CharacterSet.alphanumerics
+      guard let encoded = (comment ?? "").addingPercentEncoding(withAllowedCharacters: allowed) else {
+        throw PiholeError.unknown("Invalid domain comment")
+      }
+      request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+      request.httpBody = Data("comment=\(encoded)".utf8)
+    }
 
     let (data, response): (Data, URLResponse)
     do {

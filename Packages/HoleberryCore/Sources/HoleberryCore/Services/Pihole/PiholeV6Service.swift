@@ -195,7 +195,7 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   }
 
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
-    let body = AddDomainBody(domain: domain, comment: comment)
+    let body = AddDomainBody(domain: try PiholeDomain.validatedIdentity(domain), comment: comment)
     let path = "/api/domains/\(listTypeName(for: list))/exact"
     let (data, httpResponse) = try await authenticatedRequest(
       path: path, method: .post, body: body
@@ -246,12 +246,8 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
-    guard let encodedDomain = domain.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-      throw PiholeError.unknown("Invalid domain: \(domain)")
-    }
-    let path = "/api/domains/\(listTypeName(for: list))/exact/\(encodedDomain)"
-    logger.debug("deleteDomain DELETE \(path)")
-    let (data, httpResponse) = try await authenticatedRequest(path: path, method: .delete)
+    let url = try domainURL(domain, from: list)
+    let (data, httpResponse) = try await authenticatedRequest(url: url, method: .delete)
 
     // 404 is "Item not found": the entry is already gone, which is the state the
     // caller asked for. Anything else is a real failure.
@@ -269,17 +265,23 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
 
   public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
     // Foundation converts Unicode DNS names to their ASCII (punycode) identity.
-    let identity = (URL(string: "http://\(domain)")?.host ?? domain).lowercased()
-    guard let encodedDomain = identity.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-      throw PiholeError.unknown("Invalid domain: \(domain)")
-    }
-    let path = "/api/domains/\(listTypeName(for: list))/exact/\(encodedDomain)"
-    let entries = try await getDomains(path: path)
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    let entries = try await getDomains(url: domainURL(identity, from: list))
     return entries.first { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }
   }
 
   private func getDomains(path: String) async throws -> [DomainEntry] {
-    let (data, httpResponse) = try await authenticatedRequest(path: path)
+    try await getDomains(url: baseURL.appendingPathComponent(path))
+  }
+
+  private func domainURL(_ domain: String, from list: DomainListType) throws -> URL {
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    return baseURL.appendingPathComponent("/api/domains/\(listTypeName(for: list))/exact")
+      .appendingPathComponent(identity, isDirectory: false)
+  }
+
+  private func getDomains(url: URL) async throws -> [DomainEntry] {
+    let (data, httpResponse) = try await authenticatedRequest(url: url)
 
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
@@ -293,7 +295,7 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
       logger.error(
         """
-        GET \(path, privacy: .public) decode failed. Status \(httpResponse.statusCode). \
+        GET \(url.path, privacy: .public) decode failed. Status \(httpResponse.statusCode). \
         Error: \(String(describing: error)). Body: \(body, privacy: .public)
         """
       )
