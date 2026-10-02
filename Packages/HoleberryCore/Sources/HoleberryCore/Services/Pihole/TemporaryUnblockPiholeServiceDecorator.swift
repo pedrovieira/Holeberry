@@ -120,11 +120,12 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
       return await DomainUnblockOutcome.resolve(for: identity, addOutcome: outcome, service: wrapped)
     }
     let uuid = "via holeberryapp.com / \(UUID().uuidString)"
-    let startDate = Date()
     let outcome = try await addTemporaryDomain(identity, comment: uuid)
     guard outcome == .added else {
       return await DomainUnblockOutcome.resolve(for: identity, addOutcome: outcome, service: wrapped)
     }
+    // Give the entry its full duration after the add (or recovery) is confirmed.
+    let startDate = Date()
     let record = TempUnblockRecord(
       domain: identity, uuid: uuid, startDateUTC: startDate, durationSeconds: duration
     )
