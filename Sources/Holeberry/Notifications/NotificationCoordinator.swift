@@ -25,7 +25,7 @@ final class NotificationCoordinator: NSObject {
   private static let gravityErrorCategory = "GRAVITY_ERROR"
   private static let gravityCompletedCategory = "GRAVITY_COMPLETED"
   private static let unblockFailureCategory = "UNBLOCK_FAILURE"
-  private static let unblockNoopCategory = "UNBLOCK_NOOP"
+  private static let domainUnblockNoOpCategory = "DOMAIN_UNBLOCK_NO_OP"
   private static let updateAvailableCategory = "UPDATE_AVAILABLE"
   private static let updateAvailableIdentifier = "update-available"
 
@@ -55,9 +55,37 @@ final class NotificationCoordinator: NSObject {
   func schedule(_ kind: UserNotificationKind) {
     guard isEnabled(kind) else { return }
 
+    let content = UNMutableNotificationContent()
+    content.title = "Holeberry"
+    content.categoryIdentifier = Self.category(for: kind)
+    switch kind {
+    case .shortcutError(let action, let error):
+      content.body = "Failed to \(action) blocking: \(error)"
+      content.sound = .default
+    case .unblockEnded(let serverNames):
+      content.body =
+        serverNames.isEmpty
+        ? "Blocking is active again."
+        : "Blocking is active again on \(serverNames.joined(separator: ", "))."
+    case .domainUnblockEnded(let domain):
+      content.body = "\(domain) is blocked again."
+    case .gravityUpdateCompleted:
+      content.body = "Gravity updated."
+    case .gravityUpdatePartiallyCompleted(let failure):
+      content.body = "Gravity partially updated."
+      content.subtitle = "Server \(failure.serverName) failed with \(failure.category)"
+    case .gravityUpdateFailedAll:
+      content.body = "Gravity failed to update for all servers."
+      content.subtitle = "Check your servers' connectivity."
+    case .unblockFailed, .domainAlreadyAllowlisted:
+      Self.configureDomainUnblockContent(content, for: kind)
+    case .updateAvailable(let version):
+      content.body = "Version \(version) is available."
+    }
+
     let request = UNNotificationRequest(
       identifier: Self.identifier(for: kind),
-      content: Self.content(for: kind),
+      content: content,
       trigger: nil
     )
     UNUserNotificationCenter.current().add(request) { error in
@@ -69,54 +97,22 @@ final class NotificationCoordinator: NSObject {
     }
   }
 
-  /// Builds the banner content — title, copy, category, and per-kind extras
-  /// (subtitle/sound) — for `kind`.
-  private static func content(for kind: UserNotificationKind) -> UNMutableNotificationContent {
-    let content = UNMutableNotificationContent()
-    content.title = "Holeberry"
-    content.categoryIdentifier = category(for: kind)
+  private static func configureDomainUnblockContent(
+    _ content: UNMutableNotificationContent, for kind: UserNotificationKind
+  ) {
     switch kind {
-    case .shortcutError(let action, let error):
-      content.body = "Failed to \(action) blocking: \(error)"
-      content.sound = .default
-    case .unblockEnded(let serverNames):
-      content.body = unblockEndedBody(serverNames: serverNames)
-    case .domainUnblockEnded(let domain):
-      content.body = "\(domain) is blocked again."
-    case .gravityUpdateCompleted:
-      content.body = "Gravity updated."
-    case .gravityUpdatePartiallyCompleted(let failure):
-      content.body = "Gravity partially updated."
-      content.subtitle = "Server \(failure.serverName) failed with \(failure.category)"
-    case .gravityUpdateFailedAll:
-      content.body = "Gravity failed to update for all servers."
-      content.subtitle = "Check your servers' connectivity."
     case .unblockFailed(let domain, let error):
       content.body = "Failed to unblock \(domain): \(error)"
-    case .unblockNoop(let domain, let reason):
-      content.body = unblockNoopBody(domain: domain, reason: reason)
-    case .updateAvailable(let version):
-      content.body = "Version \(version) is available."
-    }
-    return content
-  }
-
-  /// Copy for the unblock-ended banner; kept separate to keep
-  /// `content(for:)` within the complexity budget.
-  private static func unblockEndedBody(serverNames: [String]) -> String {
-    serverNames.isEmpty
-      ? "Blocking is active again."
-      : "Blocking is active again on \(serverNames.joined(separator: ", "))."
-  }
-
-  /// Copy for a no-op unblock; kept separate to keep `content(for:)` within
-  /// the complexity budget.
-  private static func unblockNoopBody(domain: String, reason: UnblockNoopReason) -> String {
-    switch reason {
-    case .alreadyAllowed:
-      return "\(domain) is already in the allowlist — no timer set."
-    case .ineffective:
-      return "\(domain) is in the allowlist but disabled — no timer set."
+    case .domainAlreadyAllowlisted(let domain, let serverName, let enabled):
+      if enabled == false {
+        content.body = "The allowlist entry for \(domain) on \(serverName) is disabled. Enable it in Pi-hole."
+        content.subtitle = "No new unblock was applied."
+      } else {
+        content.body = "\(domain) is already allowlisted on \(serverName)."
+        content.subtitle = "No new unblock was applied."
+      }
+    default:
+      break
     }
   }
 
@@ -127,6 +123,21 @@ final class NotificationCoordinator: NSObject {
     let identifiers = [Self.updateAvailableIdentifier]
     center.removeDeliveredNotifications(withIdentifiers: identifiers)
     center.removePendingNotificationRequests(withIdentifiers: identifiers)
+  }
+
+  // MARK: - Domain outcomes
+
+  /// Reports no-ops separately for each server, including partial multi-server runs.
+  func scheduleDomainUnblockNoOps(
+    _ outcomes: [UUID: DomainUnblockOutcome],
+    domain: String,
+    labelFor: (UUID) -> String?
+  ) {
+    for (id, outcome) in outcomes {
+      if case .alreadyPresent(let enabled) = outcome {
+        schedule(.domainAlreadyAllowlisted(domain: domain, serverName: labelFor(id) ?? "Pi-hole", enabled: enabled))
+      }
+    }
   }
 
   // MARK: - Gravity outcomes
@@ -164,19 +175,6 @@ final class NotificationCoordinator: NSObject {
     if let failure {
       schedule(.gravityUpdatePartiallyCompleted(failure: failure))
     }
-  }
-
-  // MARK: - Unblock outcomes
-
-  /// Posts one informational banner when a temp-unblock turned out to be a
-  /// no-op because the domain is already allowlisted (enabled, or disabled —
-  /// the latter stays blocked and the user should know).
-  func scheduleUnblockNoopNotificationsIfNeeded(domain: String, outcomes: [UUID: UnblockOutcome]) {
-    let values = outcomes.values
-    let reason: UnblockNoopReason? =
-      values.contains(.ineffective) ? .ineffective : (values.contains(.alreadyAllowed) ? .alreadyAllowed : nil)
-    guard let reason else { return }
-    schedule(.unblockNoop(domain: domain, reason: reason))
   }
 
   // MARK: - Authorization
@@ -220,11 +218,8 @@ final class NotificationCoordinator: NSObject {
       return true
     case .gravityUpdateCompleted:
       return Defaults[.notifyGravityUpdateCompleted(suite: defaultsSuite)]
-    case .unblockFailed:
-      // Always on — failures should never go unnoticed.
-      return true
-    case .unblockNoop:
-      // Informational; no dedicated toggle yet.
+    case .unblockFailed, .domainAlreadyAllowlisted:
+      // Always on — explain when a user's request did not add an entry.
       return true
     case .updateAvailable:
       // No dedicated toggle; the reminder only fires while the person keeps
@@ -241,7 +236,7 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return gravityErrorCategory
     case .gravityUpdateCompleted: return gravityCompletedCategory
     case .unblockFailed: return unblockFailureCategory
-    case .unblockNoop: return unblockNoopCategory
+    case .domainAlreadyAllowlisted: return domainUnblockNoOpCategory
     case .updateAvailable: return updateAvailableCategory
     }
   }
@@ -255,7 +250,7 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return "gravity-error-\(id)"
     case .gravityUpdateCompleted: return "gravity-completed-\(id)"
     case .unblockFailed: return "unblock-failed-\(id)"
-    case .unblockNoop: return "unblock-noop-\(id)"
+    case .domainAlreadyAllowlisted: return "domain-unblock-no-op-\(id)"
     // Stable across reminders so a newer one replaces a stale banner
     // instead of stacking; `withdrawUpdateReminder()` reuses this id.
     case .updateAvailable: return updateAvailableIdentifier
@@ -316,8 +311,8 @@ extension PiholeError {
       return "server error"
     case .tlsUntrusted:
       return "untrusted certificate"
-    case .duplicateDomain:
-      return "duplicate domain"
+    case .invalidDomain:
+      return "invalid domain"
     case .decoding:
       return "response parsing"
     case .totpRequired:

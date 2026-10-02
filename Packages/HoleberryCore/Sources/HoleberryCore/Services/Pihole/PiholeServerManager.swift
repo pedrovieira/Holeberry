@@ -329,23 +329,21 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Typed Operations
 
-  /// Unblock a domain on all servers. Returns per-server result (success or error).
+  /// Unblock a domain on all servers, preserving per-server additions, no-ops, and errors.
   private func unblockOnAllServers(
     _ domain: String, duration: TimeInterval?
-  ) async -> [UUID: Result<UnblockOutcome, any Error>] {
+  ) async -> [UUID: Result<DomainUnblockOutcome, any Error>] {
     let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
     let configs = servers
     let svcs = services
-    // Generated above the retry boundary so every retry attempt adopts the
-    // entry created by an earlier attempt (token stability).
-    let ownershipID = UUID()
-    return await withTaskGroup(of: (UUID, Result<UnblockOutcome, any Error>).self) { group in
+    return await withTaskGroup(of: (UUID, Result<DomainUnblockOutcome, any Error>).self) { group in
       for config in configs {
         let svc = svcs[config.id]
         let id = config.id
         group.addTask {
           do {
             guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
+            let ownershipID = UUID()
             let outcome = try await withRetry(.destructive) {
               try await svc.unblockDomain(stripped, duration: duration, ownershipID: ownershipID)
             }
@@ -355,7 +353,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
           }
         }
       }
-      var results: [UUID: Result<UnblockOutcome, any Error>] = [:]
+      var results: [UUID: Result<DomainUnblockOutcome, any Error>] = [:]
       for await (id, result) in group {
         results[id] = result
       }
@@ -363,7 +361,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
-  public func deleteDomain(_ domain: String) async {
+  public func deleteDomain(_ domain: String, from list: DomainListType) async {
     let serverList = servers
     let svcs = services
     let log = logger
@@ -374,7 +372,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         group.addTask {
           do {
             try await withRetry(.destructive) {
-              try await service.deleteDomain(domain: domain)
+              try await service.deleteDomain(domain, from: list)
             }
           } catch {
             log.warning(
@@ -384,41 +382,6 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         }
       }
     }
-  }
-
-  public func getDomains() async throws -> [UUID: [DomainEntry]] {
-    let serverList = servers
-    let svcs = services
-    let log = logger
-    let collected: [(UUID, [DomainEntry])] = await withTaskGroup(
-      of: (UUID, [DomainEntry])?.self
-    ) { group in
-      for config in serverList {
-        guard let service = svcs[config.id] else { continue }
-        let id = config.id
-        let label = config.label ?? config.url
-        group.addTask {
-          do {
-            let domains = try await service.getDomains()
-            return (id, domains)
-          } catch {
-            log.warning(
-              "getDomains failed on \(label): \(error.localizedDescription, privacy: .public)"
-            )
-            return nil
-          }
-        }
-      }
-
-      var collected: [(UUID, [DomainEntry])] = []
-      for await result in group {
-        if let pair = result {
-          collected.append(pair)
-        }
-      }
-      return collected
-    }
-    return Dictionary(uniqueKeysWithValues: collected)
   }
 
   public func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
@@ -521,23 +484,22 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Multi-server workflows
 
-  public func unblock(domain: String, duration: TimeInterval) async throws -> [UUID: UnblockOutcome] {
+  public func unblock(domain: String, duration: TimeInterval) async throws -> [UUID: DomainUnblockOutcome] {
     guard !servers.isEmpty else { throw PiholeError.unknown("No configured Pi-hole instance") }
 
     let results = await unblockOnAllServers(domain, duration: duration)
-    let successes = results.compactMapValues { try? $0.get() }
-    guard !successes.isEmpty else {
+    let outcomes = results.compactMapValues { try? $0.get() }
+    guard !outcomes.isEmpty else {
       let lastError = results.values.compactMap {
         if case .failure(let error) = $0 { return error }
         return nil
       }.last
       throw lastError ?? PiholeError.unknown("Failed to unblock on all servers")
     }
-    return successes
+    return outcomes
   }
 
-  @discardableResult
-  public func addToAllowlist(domain: String) async -> [UUID: UnblockOutcome] {
+  public func addToAllowlist(domain: String) async -> [UUID: DomainUnblockOutcome] {
     let results = await unblockOnAllServers(domain, duration: nil)
     for (configId, result) in results {
       if case .failure(let error) = result {

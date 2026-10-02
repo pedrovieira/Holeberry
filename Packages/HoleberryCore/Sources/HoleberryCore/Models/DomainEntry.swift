@@ -1,6 +1,7 @@
 import Foundation
 
-/// A domain in Pi-hole's allow/deny list. `id` is nil for v5 (no server-assigned ID).
+/// A domain in Pi-hole's allow/deny list. v5 and v6 both send a
+/// server-assigned `id`; it is nil only when a response omits it.
 public struct DomainEntry: Codable, Equatable, Sendable {
   public let id: Int?
   public let domain: String
@@ -56,7 +57,7 @@ public struct DomainEntry: Codable, Equatable, Sendable {
 }
 
 /// Whether a domain belongs to the allowlist or denylist. Matches Pi-hole's `type` field (0=allow, 1=deny).
-public enum DomainListType: Int {
+public enum DomainListType: Int, Sendable {
   case allow = 0
   case deny = 1
 }

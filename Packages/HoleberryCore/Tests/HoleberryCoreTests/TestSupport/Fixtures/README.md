@@ -6,8 +6,8 @@ Every `.json` file is a verbatim reply body — statuses and headers noted
 below, not embedded in the files.
 
 No fallbacks were used: every file is a live capture. The tests inline
-these bodies (see `PiholeV5ServiceTests`, `PiholeV6ServiceTests`) and cite
-this directory.
+these bodies (see `PiholeV5ServiceTests` and `PiholeV6ServiceTests`); this directory is captured
+evidence, not read by the test target (`exclude` in `Package.swift`).
 
 | Image tag | core | web | FTL | duplicate-add reply |
 |---|---|---|---|---|
@@ -26,8 +26,8 @@ this directory.
   one entry (comment and `enabled` echoed).
 - `v6-add-duplicate-400.json` — the same POST again → **400**
   `database_error` with `hint: "The item is already present"`; the body has
-  no list. The app disambiguates with one single-domain GET — it never
-  parses the hint text.
+  no list. Temporary unblocking disambiguates this reply with one
+  single-domain GET, including when the hint does not match a known message.
 
 ## v6 — FTL ≤ 6.6 family (image `2026.04.0`, FTL v6.6)
 
@@ -35,7 +35,8 @@ this directory.
   **201** with the pre-existing entry read back and
   `processed.errors = [{item, error: "UNIQUE constraint failed:
   domainlist.domain, domainlist.type"}]`, `processed.success = []`.
-  `processed` is the structural signal; the error string is informational.
+  `processed.success` confirms insertion; an existing row is classified
+  through a single-domain lookup when insertion was not confirmed.
 
 ## v5 (image `2024.07.0`, web v5.21)
 

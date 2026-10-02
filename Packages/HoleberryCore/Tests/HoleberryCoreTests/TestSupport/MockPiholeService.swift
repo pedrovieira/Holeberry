@@ -32,24 +32,32 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var updateGravityStub: Result<Void, any Error> = .success(())
   private(set) var updateGravityCallCount = 0
 
-  var addDomainStub: Result<DomainListAddResult, any Error> = .success(.inserted(nil))
+  var addDomainStub: Result<DomainAddOutcome, any Error> = .success(.added)
+  var addDomainStubQueue: [Result<DomainAddOutcome, any Error>] = []
+  private(set) var unblockDomainOwnershipIDs: [UUID] = []
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
 
-  var allowEntryStub: Result<DomainEntry?, any Error> = .success(nil)
-  private(set) var allowEntryCallCount = 0
-  var allowEntryLastDomain: String?
-
-  var unblockDomainStub: Result<UnblockOutcome, any Error> = .success(.added)
-  var unblockOwnershipIDLastArgs: UUID?
-
-  var deleteDomainByNameStub: Result<Void, any Error> = .success(())
-  private(set) var deleteDomainByNameCallCount = 0
+  var deleteDomainStub: Result<Void, any Error> = .success(())
+  private(set) var deleteDomainCallCount = 0
+  var deleteDomainLastDomain: String?
+  var deleteDomainLastList: DomainListType?
 
   var getDomainsStub: Result<[DomainEntry], any Error> = .success([])
+  /// Consumed before `getDomainsStub` when non-empty, so a test can answer
+  /// successive reads differently.
+  var getDomainsStubQueue: [Result<[DomainEntry], any Error>] = []
   private(set) var getDomainsCallCount = 0
+  /// List passed to the most recent `getDomains(from:)` call.
+  var getDomainsLastList: DomainListType?
+
+  var getDomainStub: Result<DomainEntry?, any Error> = .success(nil)
+  var getDomainHandler: ((String) throws -> DomainEntry?)?
+  private(set) var getDomainCallCount = 0
+  var getDomainLastDomain: String?
+  var getDomainLastList: DomainListType?
 
   private(set) var logoutCallCount = 0
 
@@ -87,36 +95,48 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     try updateGravityStub.get()
   }
 
-  func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainListAddResult {
-    try await addDomain(domain, to: list, comment: nil)
-  }
-
-  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainListAddResult {
+  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
     addDomainCallCount += 1
     addDomainLastDomain = domain
     addDomainLastList = list
     addDomainLastComment = comment
+    if !addDomainStubQueue.isEmpty { return try addDomainStubQueue.removeFirst().get() }
     return try addDomainStub.get()
   }
 
-  func allowEntry(_ domain: String) async throws -> DomainEntry? {
-    allowEntryCallCount += 1
-    allowEntryLastDomain = domain
-    return try allowEntryStub.get()
+  @discardableResult
+  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> DomainUnblockOutcome
+  {
+    unblockDomainOwnershipIDs.append(ownershipID)
+    let outcome = try await addDomain(domain, to: .allow, comment: nil)
+    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
 
-  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> UnblockOutcome {
-    unblockOwnershipIDLastArgs = ownershipID
-    return try unblockDomainStub.get()
+  func deleteDomain(_ domain: String, from list: DomainListType) async throws {
+    deleteDomainCallCount += 1
+    deleteDomainLastDomain = domain
+    deleteDomainLastList = list
+    try deleteDomainStub.get()
   }
 
-  func deleteDomain(domain: String) async throws {
-    deleteDomainByNameCallCount += 1
-    try deleteDomainByNameStub.get()
+  func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
+    getDomainsLastList = list
+    return try nextGetDomainsResult()
   }
 
-  func getDomains() async throws -> [DomainEntry] {
+  func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
+    getDomainCallCount += 1
+    getDomainLastDomain = domain
+    getDomainLastList = list
+    if let getDomainHandler { return try getDomainHandler(domain) }
+    return try getDomainStub.get()
+  }
+
+  private func nextGetDomainsResult() throws -> [DomainEntry] {
     getDomainsCallCount += 1
+    if !getDomainsStubQueue.isEmpty {
+      return try getDomainsStubQueue.removeFirst().get()
+    }
     return try getDomainsStub.get()
   }
 

@@ -12,6 +12,8 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
   /// Queue of response handlers. Each `data(for:)` call pops the next one,
   /// unless it declines the request.
   var handlers: [(URLRequest) throws -> (Data, HTTPURLResponse)] = []
+  /// Optional asynchronous handler for holding a request across concurrent callers.
+  var asyncHandler: (@MainActor (URLRequest) async throws -> (Data, HTTPURLResponse))?
 
   /// All requests made through this session, in order — for post-call verification.
   private(set) var requests: [URLRequest] = []
@@ -28,6 +30,9 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
   @MainActor
   func data(for request: URLRequest) async throws -> (Data, URLResponse) {
     requests.append(request)
+    if let asyncHandler {
+      return try await asyncHandler(request)
+    }
     let initialCount = handlers.count
     var tried = 0
     while tried < initialCount {
