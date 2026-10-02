@@ -91,6 +91,10 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     try await wrapped.getDomains(from: list)
   }
 
+  public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
+    try await wrapped.getDomain(domain, from: list)
+  }
+
   public func logout() async {
     await wrapped.logout()
   }
@@ -101,12 +105,15 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
 
   // MARK: - Unblock
 
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
+  @discardableResult
+  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
     if let duration {
       let uuid = "via holeberryapp.com / \(UUID().uuidString)"
       // An entry that is already on the allowlist is not ours to expire.
       let outcome = try await wrapped.addDomain(domain, to: .allow, comment: uuid)
-      guard outcome == .added else { return }
+      guard outcome == .added else {
+        return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: wrapped)
+      }
       let record = TempUnblockRecord(
         domain: domain,
         uuid: uuid,
@@ -116,8 +123,10 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
       activeRecords.append(record)
       saveRecords()
       startExpiryTask(for: record)
+      return .added
     } else {
-      _ = try await wrapped.addDomain(domain, to: .allow, comment: "via holeberryapp.com")
+      let outcome = try await wrapped.addDomain(domain, to: .allow, comment: "via holeberryapp.com")
+      return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: wrapped)
     }
   }
 

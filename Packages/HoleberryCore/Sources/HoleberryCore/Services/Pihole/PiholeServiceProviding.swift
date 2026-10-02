@@ -12,6 +12,22 @@ public struct QuerySummary: Sendable {
   }
 }
 
+/// Whether an unblock request created a new allow entry or found one already present.
+public enum DomainUnblockOutcome: Equatable, Sendable {
+  case added
+  /// `enabled` is unknown when the existing row cannot be read.
+  case alreadyPresent(enabled: Bool?)
+
+  @MainActor
+  static func resolve(
+    for domain: String, addOutcome: DomainAddOutcome, service: any PiholeServiceProviding
+  ) async -> Self {
+    guard addOutcome == .alreadyPresent else { return .added }
+    let existing = try? await service.getDomain(domain, from: .allow)
+    return .alreadyPresent(enabled: existing?.enabled)
+  }
+}
+
 /// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
 /// No `comment` parameter — that's internal (see `PiholeServiceCommentAdding`).
 @MainActor
@@ -24,9 +40,11 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
 
   // MARK: - Domain operations
 
-  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws
+  @discardableResult
+  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome
   func deleteDomain(_ domain: String, from list: DomainListType) async throws
   func getDomains(from list: DomainListType) async throws -> [DomainEntry]
+  func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry?
 
   // MARK: - Status & queries
 

@@ -1,6 +1,8 @@
 import Foundation
 import OSLog
 
+// swiftlint:disable file_length
+
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
 public final class PiholeV6Service: PiholeServiceCommentAdding {
   private static let blockedStatus = "GRAVITY"
@@ -205,9 +207,9 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
 
     // Newer FTL versions report a failed single insert as a 400 database error.
     if httpResponse.statusCode == 400,
-      let response = try? Self.decoder.decode(DomainAddErrorResponse.self, from: data),
+      let response = try? Self.decoder.decode(V6DomainAddErrorResponse.self, from: data),
       response.error.key == "database_error",
-      DomainAddResponse.isDuplicateError(response.error.hint)
+      V6DomainAddResponse.isDuplicateError(response.error.hint)
     {
       return .alreadyPresent
     }
@@ -216,9 +218,9 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    let response: DomainAddResponse
+    let response: V6DomainAddResponse
     do {
-      response = try Self.decoder.decode(DomainAddResponse.self, from: data)
+      response = try Self.decoder.decode(V6DomainAddResponse.self, from: data)
     } catch {
       throw PiholeError.decoding("Domain add: \(error.localizedDescription)")
     }
@@ -226,7 +228,7 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     // FTL v6.0 returns 201 even when the insert failed. Only processed.success
     // confirms that this request created the entry; domains can include an old row.
     if let failure = response.processed.errors.first {
-      if DomainAddResponse.isDuplicateError(failure.error) {
+      if V6DomainAddResponse.isDuplicateError(failure.error) {
         return .alreadyPresent
       }
       throw PiholeError.server(httpResponse.statusCode, failure.error)
@@ -235,6 +237,12 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding("Domain add did not confirm a created entry")
     }
     return .added
+  }
+
+  @discardableResult
+  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+    let outcome = try await addDomain(domain, to: .allow, comment: nil)
+    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
@@ -252,14 +260,25 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     }
   }
 
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
-    _ = try await addDomain(domain, to: .allow, comment: nil)
-  }
-
   public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     // Server-side filter. `/exact` (not the read-only `/allow` and `/deny`
     // forms) lines up with v5's `?list=white|black`, which is exact-only too.
     let path = "/api/domains/\(listTypeName(for: list))/exact"
+    return try await getDomains(path: path)
+  }
+
+  public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
+    // Foundation converts Unicode DNS names to their ASCII (punycode) identity.
+    let identity = (URL(string: "http://\(domain)")?.host ?? domain).lowercased()
+    guard let encodedDomain = identity.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+      throw PiholeError.unknown("Invalid domain: \(domain)")
+    }
+    let path = "/api/domains/\(listTypeName(for: list))/exact/\(encodedDomain)"
+    let entries = try await getDomains(path: path)
+    return entries.first { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }
+  }
+
+  private func getDomains(path: String) async throws -> [DomainEntry] {
     let (data, httpResponse) = try await authenticatedRequest(path: path)
 
     guard httpResponse.isSuccess else {
@@ -340,36 +359,6 @@ private struct AddDomainBody: Encodable {
   let comment: String?
 }
 
-/// Domain POST replies include per-item results even when the HTTP status is 201.
-private struct DomainAddResponse: Decodable {
-  let processed: DomainAddProcessed
-
-  static func isDuplicateError(_ message: String?) -> Bool {
-    message == "UNIQUE constraint failed: domainlist.domain, domainlist.type"
-  }
-}
-
-private struct DomainAddProcessed: Decodable {
-  let success: [DomainAddItem]
-  let errors: [DomainAddItem]
-}
-
-private struct DomainAddItem: Decodable {
-  let item: String
-  let error: String?
-}
-
-/// Newer FTL versions report failed inserts through the top-level error object.
-private struct DomainAddErrorResponse: Decodable {
-  let error: DomainAddErrorDetails
-}
-
-private struct DomainAddErrorDetails: Decodable {
-  let key: String
-  let hint: String?
-}
-
-
 private struct SetBlockingBody: Encodable {
   let blocking: Bool
   let timer: TimeInterval?
@@ -397,4 +386,33 @@ private struct SummaryGravity: Decodable {
 private struct SummaryQueries: Decodable {
   let total: Int
   let blocked: Int
+}
+
+/// Domain POST replies include per-item results even when the HTTP status is 201.
+private struct V6DomainAddResponse: Decodable {
+  let processed: V6DomainAddProcessed
+
+  static func isDuplicateError(_ message: String?) -> Bool {
+    message == "UNIQUE constraint failed: domainlist.domain, domainlist.type"
+  }
+}
+
+private struct V6DomainAddProcessed: Decodable {
+  let success: [V6DomainAddItem]
+  let errors: [V6DomainAddItem]
+}
+
+private struct V6DomainAddItem: Decodable {
+  let item: String
+  let error: String?
+}
+
+/// Newer FTL versions report failed inserts through the top-level error object.
+private struct V6DomainAddErrorResponse: Decodable {
+  let error: V6DomainAddErrorDetails
+}
+
+private struct V6DomainAddErrorDetails: Decodable {
+  let key: String
+  let hint: String?
 }

@@ -484,6 +484,31 @@ final class PiholeV6ServiceTests {
     #expect(outcome == .added)
   }
 
+  // MARK: - getDomain(_:from:)
+
+  @Test("Decorator forwards single-domain lookups to v6", arguments: [DomainListType.allow, .deny])
+  func getDomainFromList(list: DomainListType) async throws {
+    let listName = list == .allow ? "allow" : "deny"
+    mockSession.handlers = [
+      { request in
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/api/domains/\(listName)/exact/example.com")
+        let body = """
+          {"domains":[{"id":1,"domain":"example.com","type":"\(listName)","enabled":false,"comment":"manual"}]}
+          """
+        return (Data(body.utf8), try #require(v6Response()))
+      }
+    ]
+    let service: any PiholeServiceProviding = TemporaryUnblockPiholeServiceDecorator(
+      service: makeService(), defaultsSuite: TestDefaults.makeSuite()
+    )
+    let entry = try #require(try await service.getDomain("example.com", from: list))
+    #expect(entry.domain == "example.com")
+    #expect(entry.type == list.rawValue)
+    #expect(entry.enabled == false)
+    #expect(mockSession.requests.count == 1)
+  }
+
   // MARK: - getDomains(from:)
 
   @Test("getDomains(from:) reads the list-specific endpoint")

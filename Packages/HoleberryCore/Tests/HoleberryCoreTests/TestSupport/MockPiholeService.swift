@@ -51,6 +51,11 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   /// List passed to the most recent `getDomains(from:)` call.
   var getDomainsLastList: DomainListType?
 
+  var getDomainStub: Result<DomainEntry?, any Error> = .success(nil)
+  private(set) var getDomainCallCount = 0
+  var getDomainLastDomain: String?
+  var getDomainLastList: DomainListType?
+
   private(set) var logoutCallCount = 0
 
   init(id: UUID = UUID(), label: String? = nil, url: String = "http://test.local", version: ServerVersion = .v6) {
@@ -95,8 +100,10 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     return try addDomainStub.get()
   }
 
-  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
-    _ = try await addDomain(domain, to: .allow, comment: nil)
+  @discardableResult
+  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+    let outcome = try await addDomain(domain, to: .allow, comment: nil)
+    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
 
   func deleteDomain(_ domain: String, from list: DomainListType) async throws {
@@ -109,6 +116,13 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     getDomainsLastList = list
     return try nextGetDomainsResult()
+  }
+
+  func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
+    getDomainCallCount += 1
+    getDomainLastDomain = domain
+    getDomainLastList = list
+    return try getDomainStub.get()
   }
 
   private func nextGetDomainsResult() throws -> [DomainEntry] {

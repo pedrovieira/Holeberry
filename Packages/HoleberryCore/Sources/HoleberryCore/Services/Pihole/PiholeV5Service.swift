@@ -1,6 +1,9 @@
 import Foundation
 import OSLog
 
+// Keep the v5 wire models alongside the service.
+// swiftlint:disable file_length
+
 private enum V5QueryStatus: String, CaseIterable {
   case gravity = "1"
   case wildcard = "4"
@@ -26,6 +29,8 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   private let apiToken: String
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
+  private var isMutatingDomains = false
+  private var domainMutationWaiters: [CheckedContinuation<Void, Never>] = []
   /// Safety cap on the number of rows the server returns. The real filter is the time
   /// range (`from`/`until`) and status, but we keep a large limit so v5.0–5.1 servers
   /// (which ignore those params) still bound their response.
@@ -204,24 +209,52 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   }
 
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
+    let identity = (URL(string: "http://\(domain)")?.host ?? domain).lowercased()
+    await acquireDomainMutation()
+    defer { releaseDomainMutation() }
+    try Task.checkCancellation()
+
     // A duplicate add rewrites the comment, so read the list before writing.
     let entries = try await getDomains(from: list)
-    if entries.contains(where: { $0.domain.caseInsensitiveCompare(domain) == .orderedSame }) {
+    if entries.contains(where: { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }) {
       return .alreadyPresent
     }
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listName(for: list), "add": domain]
     )
 
-    try validateDomainMutationResponse(data, httpResponse)
-    return .added
+    let response = try validateDomainMutationResponse(data, httpResponse)
+    return try response.addOutcome(for: identity)
   }
 
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
-    _ = try await addDomain(domain, to: .allow, comment: nil)
+  @discardableResult
+  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+    let outcome = try await addDomain(domain, to: .allow, comment: nil)
+    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
+  }
+
+  private func acquireDomainMutation() async {
+    // v5 classifies an insert using the total domainlist row count. All our
+    // adds and deletes must wait so they cannot skew each other's counts.
+    if isMutatingDomains {
+      await withCheckedContinuation { domainMutationWaiters.append($0) }
+    } else {
+      isMutatingDomains = true
+    }
+  }
+
+  private func releaseDomainMutation() {
+    if domainMutationWaiters.isEmpty {
+      isMutatingDomains = false
+    } else {
+      domainMutationWaiters.removeFirst().resume()
+    }
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
+    await acquireDomainMutation()
+    defer { releaseDomainMutation() }
+    try Task.checkCancellation()
     // Deleting an entry that is already gone succeeds upstream.
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listName(for: list), "sub": domain]
@@ -229,7 +262,10 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     try validateDomainMutationResponse(data, httpResponse)
   }
 
-  private func validateDomainMutationResponse(_ data: Data, _ httpResponse: HTTPURLResponse) throws {
+  @discardableResult
+  private func validateDomainMutationResponse(
+    _ data: Data, _ httpResponse: HTTPURLResponse
+  ) throws -> V5DomainMutationResponse {
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
@@ -242,10 +278,18 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     guard response.success else {
       throw PiholeError.server(httpResponse.statusCode, response.message)
     }
+    return response
   }
 
   public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     try await fetchDomainList(listType: listName(for: list))
+  }
+
+  public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
+    // Foundation converts Unicode DNS names to their ASCII (punycode) identity.
+    let identity = (URL(string: "http://\(domain)")?.host ?? domain).lowercased()
+    let entries = try await getDomains(from: list)
+    return entries.first { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }
   }
 
   /// v5 names the lists white/black in its admin API.
@@ -336,6 +380,16 @@ private struct V5DomainsResponse: Decodable {
 private struct V5DomainMutationResponse: Decodable {
   let success: Bool
   let message: String?
+
+  func addOutcome(for domain: String) throws -> DomainAddOutcome {
+    if message == "Added \(domain)" {
+      return .added
+    }
+    if message == "Not adding \(domain) as it is already on the list" {
+      return .alreadyPresent
+    }
+    throw PiholeError.decoding("Domain add did not confirm whether the entry was created")
+  }
 }
 
 /// `/admin/api.php?summaryRaw` response. v5 serves the FTL stats with

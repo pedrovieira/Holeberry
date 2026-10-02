@@ -272,7 +272,7 @@ final class PiholeV5ServiceTests {
       { request in
         #expect(request.url?.absoluteString.contains("list=white") == true)
         #expect(request.url?.absoluteString.contains("add=example.com") == true)
-        return (Data(#"{"success":true}"#.utf8), try #require(v5Response()))
+        return (Data(#"{"success":true,"message":"Added example.com"}"#.utf8), try #require(v5Response()))
       }
     ]
     let outcome = try await makeService().addDomain(
