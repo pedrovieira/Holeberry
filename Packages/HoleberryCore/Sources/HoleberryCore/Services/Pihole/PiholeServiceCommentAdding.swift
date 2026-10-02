@@ -1,7 +1,17 @@
 import Foundation
 
-/// Internal protocol extending `PiholeServiceProviding` with a `comment` parameter
-/// on `addDomain`. Only service implementations and the decorator know about this.
+/// Outcome of `PiholeServiceCommentAdding.addDomain(_:to:comment:)`.
+public enum DomainAddOutcome: Sendable, Equatable {
+  /// The entry was not there and is now.
+  case added
+  /// A matching entry already existed; no new entry was created.
+  case alreadyPresent
+}
+
+/// Internal domain-add API with a `comment` parameter.
+/// Only service implementations and the decorator know about this.
 public protocol PiholeServiceCommentAdding: PiholeServiceProviding {
-  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry
+  /// Adds an exact entry, skipping existing entries when possible.
+  /// v5 reads first and classifies the add message; v6 reports insert outcomes in JSON.
+  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome
 }

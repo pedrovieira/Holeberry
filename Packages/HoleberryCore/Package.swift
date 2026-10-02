@@ -28,6 +28,7 @@ let package = Package(
         .testTarget(
             name: "HoleberryCoreTests",
             dependencies: ["HoleberryCore"],
+            exclude: ["TestSupport/Fixtures"],
             swiftSettings: [
                 .enableUpcomingFeature("ExistentialAny"),
             ]

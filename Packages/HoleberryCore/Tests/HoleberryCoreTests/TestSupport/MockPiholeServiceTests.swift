@@ -26,9 +26,9 @@ struct MockPiholeServiceTests {
     #expect(mock.setBlockingLastDuration == 300)
   }
 
-  @Test func addDomain() async throws {
+  @Test(arguments: [DomainAddOutcome.added, .alreadyPresent])
+  func addDomain(expected: DomainAddOutcome) async throws {
     let mock = MockPiholeService()
-    let expected = DomainEntry(id: 99, domain: "test.com", type: 0, comment: "test-uuid")
     mock.addDomainStub = .success(expected)
     let result = try await mock.addDomain("test.com", to: .allow, comment: "test-uuid")
     #expect(result == expected)
@@ -46,10 +46,12 @@ struct MockPiholeServiceTests {
     }
   }
 
-  @Test func deleteDomainByName() async throws {
+  @Test func deleteDomain() async throws {
     let mock = MockPiholeService()
-    try await mock.deleteDomain(domain: "test.com")
-    #expect(mock.deleteDomainByNameCallCount == 1)
+    try await mock.deleteDomain("test.com", from: .deny)
+    #expect(mock.deleteDomainCallCount == 1)
+    #expect(mock.deleteDomainLastDomain == "test.com")
+    #expect(mock.deleteDomainLastList == .deny)
   }
 
   @Test func updateGravity() async throws {

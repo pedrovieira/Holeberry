@@ -1,6 +1,9 @@
 import Foundation
 import OSLog
 
+// Keep the v5 wire models alongside the service.
+// swiftlint:disable file_length
+
 private enum V5QueryStatus: String, CaseIterable {
   case gravity = "1"
   case wildcard = "4"
@@ -11,7 +14,7 @@ private enum V5QueryStatus: String, CaseIterable {
   static let blocked: Set<String> = Set(V5QueryStatus.allCases.map(\.rawValue))
 }
 
-/// Pi-hole v5 API implementation using static token auth and query-string endpoints. HTML parsing for domain lists.
+/// Pi-hole v5 API implementation using static token auth and query-string endpoints.
 public final class PiholeV5Service: PiholeServiceCommentAdding {
   // MARK: - Identity & Config
   public let id: UUID
@@ -24,14 +27,14 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
   private var baseURL: URL
   private var session: any HTTPRequestable
   private let apiToken: String
-  private let htmlParser: any PiholeV5HTMLParsing
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v5-service")
   private static let decoder = JSONDecoder()
+  private var isMutatingDomains = false
+  private var domainMutationWaiters: [CheckedContinuation<Void, Never>] = []
   /// Safety cap on the number of rows the server returns. The real filter is the time
   /// range (`from`/`until`) and status, but we keep a large limit so v5.0–5.1 servers
   /// (which ignore those params) still bound their response.
   private static let queryLimit = 5000
-
 
   public init(
     id: UUID,
@@ -40,8 +43,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     version: ServerVersion,
     baseURL: URL,
     session: any HTTPRequestable,
-    apiToken: String,
-    htmlParser: any PiholeV5HTMLParsing
+    apiToken: String
   ) {
     self.id = id
     self.label = label
@@ -50,7 +52,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     self.baseURL = baseURL
     self.session = session
     self.apiToken = apiToken
-    self.htmlParser = htmlParser
   }
 
   public func login() async throws {
@@ -62,7 +63,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     // v5 has no session-based auth — just tear down the session
     session.invalidateAndCancel()
   }
-
 
   public func checkStatus() async throws -> BlockingStatus {
     let (data, httpResponse) = try await getRequest(path: "/admin/api.php", params: ["status": nil])
@@ -208,62 +208,138 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     return blocked
   }
 
-  public func addDomain(_ domain: String, to list: DomainListType) async throws -> DomainEntry {
-    try await addDomain(domain, to: list, comment: nil)
-  }
+  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    await acquireDomainMutation()
+    defer { releaseDomainMutation() }
+    try Task.checkCancellation()
 
-  public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainEntry {
-    let listName = list == .allow ? "white" : "black"
+    // A duplicate add rewrites the comment, so read the list before writing.
+    let entries = try await getDomains(from: list)
+    if entries.contains(where: { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }) {
+      return .alreadyPresent
+    }
     let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listName, "add": domain]
+      path: "/admin/api.php",
+      params: ["list": listName(for: list), "add": identity],
+      method: .post,
+      comment: comment
     )
 
+    let response = try validateDomainMutationResponse(data, httpResponse)
+    return try response.addOutcome(for: identity)
+  }
+
+  @discardableResult
+  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+    let outcome = try await addDomain(domain, to: .allow, comment: nil)
+    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
+  }
+
+  private func acquireDomainMutation() async {
+    // v5 classifies an insert using the total domainlist row count. All our
+    // adds and deletes must wait so they cannot skew each other's counts.
+    if isMutatingDomains {
+      await withCheckedContinuation { domainMutationWaiters.append($0) }
+    } else {
+      isMutatingDomains = true
+    }
+  }
+
+  private func releaseDomainMutation() {
+    if domainMutationWaiters.isEmpty {
+      isMutatingDomains = false
+    } else {
+      domainMutationWaiters.removeFirst().resume()
+    }
+  }
+
+  public func deleteDomain(_ domain: String, from list: DomainListType) async throws {
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    await acquireDomainMutation()
+    defer { releaseDomainMutation() }
+    try Task.checkCancellation()
+    // Deleting an entry that is already gone succeeds upstream.
+    let (data, httpResponse) = try await getRequest(
+      path: "/admin/api.php", params: ["list": listName(for: list), "sub": identity]
+    )
+    try validateDomainMutationResponse(data, httpResponse)
+  }
+
+  @discardableResult
+  private func validateDomainMutationResponse(
+    _ data: Data, _ httpResponse: HTTPURLResponse
+  ) throws -> V5DomainMutationResponse {
     guard httpResponse.isSuccess else {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    return DomainEntry(id: nil, domain: domain, type: list.rawValue, comment: nil)
-  }
-
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws {
-    _ = try await addDomain(domain, to: .allow, comment: nil)
-  }
-
-  public func deleteDomain(domain: String) async throws {
-    let entries = try await getDomains()
-    let listName = entries.contains { $0.domain == domain } ? "white" : "black"
-    let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listName, "sub": domain]
-    )
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
+    guard let response = try? Self.decoder.decode(V5DomainMutationResponse.self, from: data) else {
+      throw PiholeError.decoding("Domain operation: expected a success flag and optional message")
     }
+
+    // v5 reports operation errors in JSON without changing the HTTP 200 status.
+    guard response.success else {
+      throw PiholeError.server(httpResponse.statusCode, response.message)
+    }
+    return response
   }
 
-  public func getDomains() async throws -> [DomainEntry] {
-    let allowEntries = try await parseDomainList(listType: "white", typeValue: 0)
-    let denyEntries = try await parseDomainList(listType: "black", typeValue: 1)
-    return allowEntries + denyEntries
+  public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
+    try await fetchDomainList(listType: listName(for: list))
   }
 
-  private func parseDomainList(listType: String, typeValue: Int) async throws -> [DomainEntry] {
+  public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
+    // Foundation converts Unicode DNS names to their ASCII (punycode) identity.
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    let entries = try await getDomains(from: list)
+    return entries.first { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }
+  }
+
+  /// v5 names the lists white/black in its admin API.
+  private func listName(for list: DomainListType) -> String {
+    list == .allow ? "white" : "black"
+  }
+
+  private func fetchDomainList(listType: String) async throws -> [DomainEntry] {
     let (data, httpResponse) = try await getRequest(
       path: "/admin/api.php", params: ["list": listType]
     )
 
     guard httpResponse.isSuccess else {
-      return []
+      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    guard let html = String(data: data, encoding: .utf8) else {
-      return []
+    do {
+      // v5 returns {"data":[…]} as JSON; it has never returned HTML (verified v5.5–v5.21).
+      let entries = try Self.decoder.decode(V5DomainsResponse.self, from: data).data
+      return entries.map { entry in
+        DomainEntry(
+          id: entry.id,
+          domain: Self.domainIdentity(from: entry.domain),
+          type: entry.type,
+          comment: entry.comment,
+          enabled: entry.enabled
+        )
+      }
+    } catch {
+      throw PiholeError.decoding("Domain list \(listType): \(error.localizedDescription)")
     }
-
-    return htmlParser.parseDomains(from: html, type: typeValue)
   }
 
-  private func getRequest(path: String, params: [String: String?], method: HTTPMethod = .get) async throws -> (
+  /// v5 returns IDNs as HTML-escaped Unicode followed by the ASCII identity
+  /// in parentheses, e.g. `b&uuml;cher.de (xn--bcher-kva.de)` (`groups.php`).
+  private static func domainIdentity(from value: String) -> String {
+    guard value.hasSuffix(")"), let open = value.lastIndex(of: "(") else { return value }
+    let ascii = value[value.index(after: open)..<value.index(before: value.endIndex)]
+    let labels = ascii.split(separator: ".")
+    guard labels.contains(where: { $0.hasPrefix("xn--") }), !ascii.contains(" ") else { return value }
+    return String(ascii)
+  }
+
+  private func getRequest(
+    path: String, params: [String: String?], method: HTTPMethod = .get, comment: String? = nil
+  ) async throws -> (
     Data, HTTPURLResponse
   ) {
     var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)
@@ -286,6 +362,15 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     var request = URLRequest(url: url)
     request.httpMethod = method.rawValue
     request.timeoutInterval = 15
+    if method == .post {
+      // api.php forwards domain/type to groups.php, which reads the comment from $_POST.
+      let allowed = CharacterSet.alphanumerics
+      guard let encoded = (comment ?? "").addingPercentEncoding(withAllowedCharacters: allowed) else {
+        throw PiholeError.unknown("Invalid domain comment")
+      }
+      request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+      request.httpBody = Data("comment=\(encoded)".utf8)
+    }
 
     let (data, response): (Data, URLResponse)
     do {
@@ -298,6 +383,27 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
       throw PiholeError.unknown("Invalid response for \(path)")
     }
     return (data, httpResponse)
+  }
+}
+
+/// `/admin/api.php?list=…` response — v5 wraps the domain rows in a `data` array.
+private struct V5DomainsResponse: Decodable {
+  let data: [DomainEntry]
+}
+
+/// v5 add/delete replies use a success flag and an optional message.
+private struct V5DomainMutationResponse: Decodable {
+  let success: Bool
+  let message: String?
+
+  func addOutcome(for domain: String) throws -> DomainAddOutcome {
+    if message == "Added \(domain)" {
+      return .added
+    }
+    if message == "Not adding \(domain) as it is already on the list" {
+      return .alreadyPresent
+    }
+    throw PiholeError.decoding("Domain add did not confirm whether the entry was created")
   }
 }
 

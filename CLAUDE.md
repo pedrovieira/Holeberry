@@ -37,7 +37,7 @@ swift-format lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
 
 ## Architecture
 
-- **Pi-hole services** — `PiholeV5Service` (v5 web API: static token, `/admin/api.php`, HTML parsing) and `PiholeV6Service` (v6 REST `/api`, session auth via `actor AuthV6SessionProvider`, refresh is automatic). `PiholeVersionDetector` probes `/admin/api.php?version` to pick. `PiholeServiceFactory` wraps every service in `TemporaryUnblockPiholeServiceDecorator` — never bypass the decorator.
+- **Pi-hole services** — `PiholeV5Service` (v5 web API: static token, `/admin/api.php`, JSON responses including domain lists) and `PiholeV6Service` (v6 REST `/api`, session auth via `actor AuthV6SessionProvider`, refresh is automatic). `PiholeVersionDetector` probes `/admin/api.php?version` to pick. `PiholeServiceFactory` wraps every service in `TemporaryUnblockPiholeServiceDecorator` — never bypass the decorator.
 - **Menu state** — `ServerStatusPoller` (30s default) is the single source of truth; blocking toggles MUST flow through `applyBlockingChange`. Time control is abstracted by `PollScheduler` (`TaskPollScheduler` in prod, `MockPollScheduler` in tests) — no raw `Task.sleep` in production code.
 - **Browser tab detection** — `BrowserTabCoordinator` state machine; WebKit/Chromium via AppleScript (`-1743` error = permission denied), Firefox/Zen via `sessionstore.jsonlz4` parsing; permission checks via Carbon `AEDeterminePermissionToAutomateTarget`. Keep the strategy seams (`BrowserActiveUrlFetchingStrategyFactory`).
 - **Persistence** — typed `Defaults` keys centralized in `HoleberryCore/Utils/App+Defaults.swift`; secrets via `KeychainManager` (keyed by server UUID) — never plaintext on disk.

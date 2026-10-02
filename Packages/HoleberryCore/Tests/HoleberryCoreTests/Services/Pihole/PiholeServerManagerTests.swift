@@ -391,6 +391,20 @@ struct PiholeServerManagerDomainTests {
     )
   }
 
+  /// A manager with two configured servers, answered by `mockService1` and
+  /// `mockService2`. The manager retains the isolated defaults suite.
+  private func makeManagerWithTwoServers() -> PiholeServerManager {
+    let suite = TestDefaults.makeSuite()
+    Defaults[.servers(suite: suite)] = [
+      ServerConfig(id: mockService1.id, label: "Server A", url: "http://a.local", version: .v6),
+      ServerConfig(id: mockService2.id, label: "Server B", url: "http://b.local", version: .v6)
+    ]
+    mockServiceFactory.buildServiceHandler = { config in
+      config.id == mockService1.id ? mockService1 : mockService2
+    }
+    return makeManager(suite: suite)
+  }
+
   @Test("getRecentBlocked deduplicates by domain")
   func getRecentBlockedDeduplicates() async throws {
     let suite = TestDefaults.makeSuite()
@@ -453,5 +467,34 @@ struct PiholeServerManagerDomainTests {
     let domain = "example.com"
     let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
     #expect(stripped == "example.com")
+  }
+
+  @Test("Multi-server workflows preserve additions and no-ops", arguments: [true, false])
+  func mixedDomainOutcomes(permanent: Bool) async throws {
+    mockService2.addDomainStub = .success(.alreadyPresent)
+    mockService2.getDomainStub = .success(
+      DomainEntry(id: 1, domain: "example.com", type: 0, comment: "manual", enabled: false)
+    )
+    let manager = makeManagerWithTwoServers()
+    let outcomes: [UUID: DomainUnblockOutcome]
+    if permanent {
+      outcomes = await manager.addToAllowlist(domain: "www.example.com")
+    } else {
+      outcomes = try await manager.unblock(domain: "www.example.com", duration: 60)
+    }
+    #expect(outcomes[mockService1.id] == .added)
+    #expect(outcomes[mockService2.id] == .alreadyPresent(enabled: false))
+    #expect(mockService1.addDomainLastDomain == "example.com")
+    #expect(mockService2.addDomainLastDomain == "example.com")
+  }
+
+  @Test("A run of only no-ops returns no additions")
+  func allExistingEntries() async throws {
+    for service in [mockService1, mockService2] {
+      service.addDomainStub = .success(.alreadyPresent)
+    }
+    let outcomes = try await makeManagerWithTwoServers().unblock(domain: "example.com", duration: 60)
+    #expect(outcomes.count == 2)
+    #expect(outcomes.values.allSatisfy { $0 == .alreadyPresent(enabled: nil) })
   }
 }
