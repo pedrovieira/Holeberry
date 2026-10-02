@@ -16,7 +16,7 @@ enum PiholeDomain {
     guard !identity.isEmpty, !identity.hasPrefix("."), !identity.contains(".."),
       identity.rangeOfCharacter(from: allowed.inverted) == nil
     else {
-      throw PiholeError.unknown("Invalid domain: \(domain)")
+      throw PiholeError.invalidDomain(domain)
     }
     return identity
   }

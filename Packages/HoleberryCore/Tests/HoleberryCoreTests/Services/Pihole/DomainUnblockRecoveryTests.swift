@@ -142,7 +142,7 @@ struct DomainUnblockRecoveryTests {
       try await decorator.unblockDomain("example.com", duration: 300)
     }
     #expect(mock.getDomainCallCount == 1)
-    #expect(mock.deleteDomainByNameCallCount == 0)
+    #expect(mock.deleteDomainCallCount == 0)
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty)
   }
 

@@ -218,7 +218,8 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     do {
       try await wrapped.deleteDomain(record.domain, from: .allow)
       finalizeExpiry(uuid: uuid, domain: record.domain)
-    } catch PiholeError.unknown {
+    } catch PiholeError.unknown, PiholeError.invalidDomain {
+      // Gone server-side, or a stored domain that cannot name an entry.
       finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch {
       logger.warning("Expiry cleanup failed: \(error.localizedDescription)")
@@ -254,7 +255,8 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     do {
       try await wrapped.deleteDomain(record.domain, from: .allow)
       finalizeExpiry(uuid: uuid, domain: record.domain)
-    } catch PiholeError.unknown {
+    } catch PiholeError.unknown, PiholeError.invalidDomain {
+      // Gone server-side, or a stored domain that cannot name an entry.
       finalizeExpiry(uuid: uuid, domain: record.domain)
     } catch {
       if let idx = activeRecords.firstIndex(where: { $0.uuid == uuid }) {

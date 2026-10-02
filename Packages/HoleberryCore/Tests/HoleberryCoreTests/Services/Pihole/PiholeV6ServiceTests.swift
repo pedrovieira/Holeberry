@@ -363,6 +363,20 @@ final class PiholeV6ServiceTests {
     try await makeService().deleteDomain("gone.com", from: .allow)
   }
 
+  @Test("getDomain answers nil when the exact entry is missing")
+  func getDomainMissingEntry() async throws {
+    mockSession.handlers = [
+      { request in
+        #expect(request.url?.path == "/api/domains/allow/exact/gone.com")
+        #expect(request.httpMethod == "GET")
+        let response = try #require(v6Response(statusCode: 404))
+        return (Data("Not found".utf8), response)
+      }
+    ]
+    let entry = try await makeService().getDomain("gone.com", from: .allow)
+    #expect(entry == nil)
+  }
+
   // MARK: - Add outcomes
 
   @Test("addDomain reports an existing entry on 409")

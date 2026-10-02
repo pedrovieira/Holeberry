@@ -23,7 +23,7 @@ struct DomainUnblockOutcomeTests {
     }
     #expect(try await decorator.unblockDomain("Example.COM", duration: 60) == .alreadyPresent(enabled: enabled))
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
-    #expect(service.deleteDomainByNameCallCount == 0)
+    #expect(service.deleteDomainCallCount == 0)
     #expect(service.getDomainCallCount == 1)
     #expect(service.getDomainLastDomain == "example.com")
     #expect(service.getDomainLastList == .allow)

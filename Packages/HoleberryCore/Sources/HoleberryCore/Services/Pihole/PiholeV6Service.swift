@@ -266,7 +266,14 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   public func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry? {
     // Foundation converts Unicode DNS names to their ASCII (punycode) identity.
     let identity = try PiholeDomain.validatedIdentity(domain)
-    let entries = try await getDomains(url: domainURL(identity, from: list))
+    let entries: [DomainEntry]
+    do {
+      entries = try await getDomains(url: domainURL(identity, from: list))
+    } catch PiholeError.server(let code, _) where code == 404 {
+      // 404 is "Item not found": no such entry, so `nil` is the honest answer.
+      // Same status `deleteDomain` treats as already done.
+      return nil
+    }
     return entries.first { $0.domain.caseInsensitiveCompare(identity) == .orderedSame }
   }
 

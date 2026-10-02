@@ -17,13 +17,13 @@ struct PiholeDomainSafetyTests {
   func invalidDomain(version: ServerVersion, domain: String) async throws {
     let session = MockURLSession()
     let service = makeService(version, session: session)
-    await #expect(throws: PiholeError.unknown("Invalid domain: \(domain)")) {
+    await #expect(throws: PiholeError.invalidDomain(domain)) {
       try await service.deleteDomain(domain, from: .allow)
     }
-    await #expect(throws: PiholeError.unknown("Invalid domain: \(domain)")) {
+    await #expect(throws: PiholeError.invalidDomain(domain)) {
       try await service.getDomain(domain, from: .allow)
     }
-    await #expect(throws: PiholeError.unknown("Invalid domain: \(domain)")) {
+    await #expect(throws: PiholeError.invalidDomain(domain)) {
       try await service.addDomain(domain, to: .allow, comment: nil)
     }
     #expect(session.requests.isEmpty)

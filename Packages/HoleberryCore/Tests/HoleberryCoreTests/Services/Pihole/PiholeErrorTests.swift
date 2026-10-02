@@ -13,6 +13,7 @@ struct PiholeErrorTests {
       PiholeError.server(500, "Internal Server Error").errorDescription
         == "Server error (500): Internal Server Error")
     #expect(PiholeError.tlsUntrusted.errorDescription == "Untrusted TLS certificate")
+    #expect(PiholeError.invalidDomain("bad domain").errorDescription == "Not a valid domain: bad domain")
     #expect(PiholeError.decoding("bad JSON").errorDescription == "Failed to parse response: bad JSON")
     #expect(PiholeError.totpRequired.errorDescription == "TOTP code required for 2FA")
     #expect(PiholeError.unknown("something broke").errorDescription == "Unexpected error: something broke")

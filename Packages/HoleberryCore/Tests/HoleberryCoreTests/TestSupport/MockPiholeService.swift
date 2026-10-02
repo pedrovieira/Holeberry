@@ -38,8 +38,8 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
 
-  var deleteDomainByNameStub: Result<Void, any Error> = .success(())
-  private(set) var deleteDomainByNameCallCount = 0
+  var deleteDomainStub: Result<Void, any Error> = .success(())
+  private(set) var deleteDomainCallCount = 0
   var deleteDomainLastDomain: String?
   var deleteDomainLastList: DomainListType?
 
@@ -107,10 +107,10 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   }
 
   func deleteDomain(_ domain: String, from list: DomainListType) async throws {
-    deleteDomainByNameCallCount += 1
+    deleteDomainCallCount += 1
     deleteDomainLastDomain = domain
     deleteDomainLastList = list
-    try deleteDomainByNameStub.get()
+    try deleteDomainStub.get()
   }
 
   func getDomains(from list: DomainListType) async throws -> [DomainEntry] {

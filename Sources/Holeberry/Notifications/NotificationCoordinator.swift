@@ -311,6 +311,8 @@ extension PiholeError {
       return "server error"
     case .tlsUntrusted:
       return "untrusted certificate"
+    case .invalidDomain:
+      return "invalid domain"
     case .decoding:
       return "response parsing"
     case .totpRequired:
