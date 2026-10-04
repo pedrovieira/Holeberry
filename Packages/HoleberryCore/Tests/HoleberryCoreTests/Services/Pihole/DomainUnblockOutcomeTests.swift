@@ -21,7 +21,9 @@ struct DomainUnblockOutcomeTests {
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in
       Issue.record("An existing entry must not start an expiry timer")
     }
-    #expect(try await decorator.unblockDomain("Example.COM", duration: 60) == .alreadyPresent(enabled: enabled))
+    #expect(
+      try await decorator.unblockDomain("Example.COM", duration: 60, ownershipID: UUID())
+        == .alreadyPresent(enabled: enabled))
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
     #expect(service.deleteDomainCallCount == 0)
     #expect(service.getDomainCallCount == 1)
@@ -38,7 +40,9 @@ struct DomainUnblockOutcomeTests {
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in
       Issue.record("A duplicate must not start an expiry timer")
     }
-    #expect(try await decorator.unblockDomain("example.com", duration: 60) == .alreadyPresent(enabled: nil))
+    #expect(
+      try await decorator.unblockDomain("example.com", duration: 60, ownershipID: UUID())
+        == .alreadyPresent(enabled: nil))
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
   }
 
@@ -50,7 +54,9 @@ struct DomainUnblockOutcomeTests {
       DomainEntry(id: 1, domain: "example.com", type: 0, comment: "manual", enabled: false)
     )
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: TestDefaults.makeSuite())
-    #expect(try await decorator.unblockDomain("example.com", duration: nil) == .alreadyPresent(enabled: false))
+    #expect(
+      try await decorator.unblockDomain("example.com", duration: nil, ownershipID: UUID())
+        == .alreadyPresent(enabled: false))
   }
 
   @Test("Unicode domains resolve existing ASCII entries", arguments: [ServerVersion.v5, .v6])
@@ -89,7 +95,9 @@ struct DomainUnblockOutcomeTests {
         Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
       )
     }
-    #expect(try await service.unblockDomain("BÜCHER.de", duration: nil) == .alreadyPresent(enabled: false))
+    #expect(
+      try await service.unblockDomain("BÜCHER.de", duration: nil, ownershipID: UUID())
+        == .alreadyPresent(enabled: false))
     #expect(session.requests.count == 2)
   }
 
@@ -111,7 +119,9 @@ struct DomainUnblockOutcomeTests {
     }
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite)
-    #expect(try await decorator.unblockDomain("example.com", duration: 60) == .alreadyPresent(enabled: false))
+    #expect(
+      try await decorator.unblockDomain("example.com", duration: 60, ownershipID: UUID())
+        == .alreadyPresent(enabled: false))
     #expect(session.requests.count == 2)
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
   }
@@ -137,7 +147,9 @@ struct DomainUnblockOutcomeTests {
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in
       Issue.record("A duplicate must not start an expiry timer")
     }
-    #expect(try await decorator.unblockDomain("example.com", duration: 60) == .alreadyPresent(enabled: true))
+    #expect(
+      try await decorator.unblockDomain("example.com", duration: 60, ownershipID: UUID())
+        == .alreadyPresent(enabled: true))
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
     #expect(session.requests.count == 3)
   }
@@ -185,7 +197,9 @@ struct DomainUnblockOutcomeTests {
     ]
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite)
-    #expect(try await decorator.unblockDomain("Example.COM", duration: duration) == .alreadyPresent(enabled: false))
+    #expect(
+      try await decorator.unblockDomain("Example.COM", duration: duration, ownershipID: UUID())
+        == .alreadyPresent(enabled: false))
     #expect(session.requests.count == 2)
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
   }
@@ -215,7 +229,9 @@ struct DomainUnblockOutcomeTests {
         )
       }
     ]
-    #expect(try await service.unblockDomain("Example.COM", duration: nil) == .alreadyPresent(enabled: nil))
+    #expect(
+      try await service.unblockDomain("Example.COM", duration: nil, ownershipID: UUID())
+        == .alreadyPresent(enabled: nil))
     #expect(session.requests.count == 2)
   }
 }

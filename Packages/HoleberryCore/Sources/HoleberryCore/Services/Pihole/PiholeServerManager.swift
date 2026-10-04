@@ -16,6 +16,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let suite: UserDefaults
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
   private var services: [UUID: any PiholeServiceProviding] = [:]
+  private struct UnblockKey: Hashable {
+    let serverID: UUID
+    let domain: String
+  }
+  private var inProgressUnblocks: Set<UnblockKey> = []
 
   public init(
     keychain: any KeychainManaging,
@@ -329,11 +334,12 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Typed Operations
 
-  /// Unblock a domain on all servers, preserving per-server additions, no-ops, and errors.
+  /// Unblock a domain on all servers, preserving per-server changes, skips, and errors.
   private func unblockOnAllServers(
     _ domain: String, duration: TimeInterval?
   ) async -> [UUID: Result<DomainUnblockOutcome, any Error>] {
-    let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
+    let identity = PiholeDomain.identity(domain)
+    let stripped = identity.hasPrefix("www.") ? String(identity.dropFirst(4)) : identity
     let configs = servers
     let svcs = services
     return await withTaskGroup(of: (UUID, Result<DomainUnblockOutcome, any Error>).self) { group in
@@ -343,9 +349,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         group.addTask {
           do {
             guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
-            let outcome = try await withRetry(.destructive) {
-              try await svc.unblockDomain(stripped, duration: duration)
-            }
+            let outcome = try await self.unblockOnServer(stripped, duration: duration, serverID: id, service: svc)
             return (id, .success(outcome))
           } catch {
             return (id, .failure(error))
@@ -357,6 +361,23 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         results[id] = result
       }
       return results
+    }
+  }
+
+  private func unblockOnServer(
+    _ domain: String, duration: TimeInterval?, serverID: UUID, service: any PiholeServiceProviding
+  ) async throws -> DomainUnblockOutcome {
+    try Task.checkCancellation()
+    let key = UnblockKey(serverID: serverID, domain: domain)
+    // MainActor serializes this insertion, but calls can overlap across awaits.
+    // Hold the key through retries and timer persistence: duplicates skip silently
+    // (first request wins), while other server/domain keys can proceed.
+    guard inProgressUnblocks.insert(key).inserted else { return .inProgress }
+    defer { inProgressUnblocks.remove(key) }
+
+    let ownershipID = UUID()
+    return try await withRetry(.destructive) {
+      try await service.unblockDomain(domain, duration: duration, ownershipID: ownershipID)
     }
   }
 

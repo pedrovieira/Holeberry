@@ -701,7 +701,7 @@ final class PiholeV6ServiceTests {
         return (data, response)
       }
     ]
-    try await makeService().unblockDomain("example.com", duration: 300)
+    try await makeService().unblockDomain("example.com", duration: 300, ownershipID: UUID())
   }
 
   // MARK: - Error branches

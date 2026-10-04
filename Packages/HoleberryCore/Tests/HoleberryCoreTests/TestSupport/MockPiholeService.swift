@@ -33,6 +33,9 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   private(set) var updateGravityCallCount = 0
 
   var addDomainStub: Result<DomainAddOutcome, any Error> = .success(.added)
+  var addDomainStubQueue: [Result<DomainAddOutcome, any Error>] = []
+  private(set) var unblockDomainOwnershipIDs: [UUID] = []
+  var unblockDomainHandler: ((String, TimeInterval?) async throws -> DomainUnblockOutcome)?
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
@@ -52,6 +55,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var getDomainsLastList: DomainListType?
 
   var getDomainStub: Result<DomainEntry?, any Error> = .success(nil)
+  var getDomainHandler: ((String) throws -> DomainEntry?)?
   private(set) var getDomainCallCount = 0
   var getDomainLastDomain: String?
   var getDomainLastList: DomainListType?
@@ -97,11 +101,15 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     addDomainLastDomain = domain
     addDomainLastList = list
     addDomainLastComment = comment
+    if !addDomainStubQueue.isEmpty { return try addDomainStubQueue.removeFirst().get() }
     return try addDomainStub.get()
   }
 
   @discardableResult
-  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> DomainUnblockOutcome
+  {
+    unblockDomainOwnershipIDs.append(ownershipID)
+    if let unblockDomainHandler { return try await unblockDomainHandler(domain, duration) }
     let outcome = try await addDomain(domain, to: .allow, comment: nil)
     return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
@@ -122,6 +130,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     getDomainCallCount += 1
     getDomainLastDomain = domain
     getDomainLastList = list
+    if let getDomainHandler { return try getDomainHandler(domain) }
     return try getDomainStub.get()
   }
 
