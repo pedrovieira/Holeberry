@@ -35,6 +35,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var addDomainStub: Result<DomainAddOutcome, any Error> = .success(.added)
   var addDomainStubQueue: [Result<DomainAddOutcome, any Error>] = []
   private(set) var unblockDomainOwnershipIDs: [UUID] = []
+  var unblockDomainHandler: ((String, TimeInterval?) async throws -> DomainUnblockOutcome)?
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
@@ -108,6 +109,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> DomainUnblockOutcome
   {
     unblockDomainOwnershipIDs.append(ownershipID)
+    if let unblockDomainHandler { return try await unblockDomainHandler(domain, duration) }
     let outcome = try await addDomain(domain, to: .allow, comment: nil)
     return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
