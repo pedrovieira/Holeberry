@@ -61,7 +61,7 @@ struct PiholeV5DomainAddTests {
       Issue.record("An unconfirmed add must not start an expiry timer")
     }
     await #expect {
-      try await decorator.unblockDomain("example.com", duration: 60)
+      try await decorator.unblockDomain("example.com", duration: 60, ownershipID: UUID())
     } throws: { error in
       guard case PiholeError.decoding = error else { return false }
       return true

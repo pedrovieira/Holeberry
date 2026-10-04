@@ -55,7 +55,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let suite = TestDefaults.makeSuite()
     let decorator = makeParkingDecorator(service: mock, suite: suite)
 
-    try await decorator.unblockDomain("doubleclick.net", duration: 300)
+    try await decorator.unblockDomain("doubleclick.net", duration: 300, ownershipID: UUID())
 
     #expect(mock.addDomainCallCount == 1, "Should call addDomain on the wrapped service")
     #expect(mock.addDomainLastDomain == "doubleclick.net")
@@ -77,7 +77,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let suite = TestDefaults.makeSuite()
     let decorator = makeDecorator(service: mock, suite: suite)
 
-    try await decorator.unblockDomain("permanent.com", duration: nil)
+    try await decorator.unblockDomain("permanent.com", duration: nil, ownershipID: UUID())
 
     #expect(mock.addDomainCallCount == 1)
     #expect(mock.addDomainLastComment == "via holeberryapp.com", "Permanent unblock should have standard comment")
@@ -96,7 +96,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     mock.deleteDomainStub = .success(())
 
     let decorator = makeDecorator(service: mock)
-    try await decorator.unblockDomain("test.com", duration: 0.5)
+    try await decorator.unblockDomain("test.com", duration: 0.5, ownershipID: UUID())
 
     // Wait for expiry
     #expect(await eventually { mock.deleteDomainCallCount == 1 }, "Should delete domain after expiry")
@@ -121,7 +121,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       if duration < 10 { return }
       try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
     }
-    try await decorator.unblockDomain("test.com", duration: 0.5)
+    try await decorator.unblockDomain("test.com", duration: 0.5, ownershipID: UUID())
 
     #expect(await eventually { mock.deleteDomainCallCount == 1 }, "Expiry should attempt deletion once")
   }
@@ -155,7 +155,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
         try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000))
       }
     }
-    try await decorator.unblockDomain("test.com", duration: 0.5)
+    try await decorator.unblockDomain("test.com", duration: 0.5, ownershipID: UUID())
 
     // First expiry delete attempt fails…
     #expect(await eventually { mock.deleteDomainCallCount >= 1 })
@@ -189,7 +189,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       if duration < 10 || sleeps <= 3 { return }
       try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
     }
-    try await decorator.unblockDomain("test.com", duration: 0.5)
+    try await decorator.unblockDomain("test.com", duration: 0.5, ownershipID: UUID())
 
     // Expiry attempt + two retries (each failing) = 3 delete attempts
     #expect(await eventually { mock.deleteDomainCallCount == 3 })
@@ -218,7 +218,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
         try await Task.sleep(nanoseconds: UInt64(10 * 1_000_000))
       }
     }
-    try await decorator.unblockDomain("test.com", duration: 0.5)
+    try await decorator.unblockDomain("test.com", duration: 0.5, ownershipID: UUID())
 
     #expect(await eventually { mock.deleteDomainCallCount >= 1 })
     mock.deleteDomainStub = .failure(PiholeError.unknown("Domain not found"))
@@ -260,7 +260,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       defaultsSuite: TestDefaults.makeSuite(),
       notificationCenter: center
     ) { _ in }
-    try await decorator.unblockDomain("notify-expiry.com", duration: 0.5)
+    try await decorator.unblockDomain("notify-expiry.com", duration: 0.5, ownershipID: UUID())
 
     #expect(
       await eventually { posted.domains.contains("notify-expiry.com") },
@@ -294,7 +294,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       if duration < 10 { return }
       try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
     }
-    try await decorator.unblockDomain("manual-delete.com", duration: 3600)
+    try await decorator.unblockDomain("manual-delete.com", duration: 3600, ownershipID: UUID())
     try await decorator.deleteDomain("manual-delete.com", from: .allow)
 
     #expect(
@@ -590,7 +590,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let suite = TestDefaults.makeSuite()
     let decorator = makeParkingDecorator(service: mock, suite: suite)
 
-    try await decorator.unblockDomain("x.com", duration: 60)
+    try await decorator.unblockDomain("x.com", duration: 60, ownershipID: UUID())
 
     #expect(mock.addDomainCallCount == 1)
     #expect(mock.addDomainLastDomain == "x.com")
@@ -607,7 +607,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let suite = TestDefaults.makeSuite()
     let decorator = makeParkingDecorator(service: mock, suite: suite)
 
-    try await decorator.unblockDomain("x.com", duration: 60)
+    try await decorator.unblockDomain("x.com", duration: 60, ownershipID: UUID())
 
     #expect(mock.addDomainCallCount == 1)
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
@@ -621,7 +621,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let decorator = makeParkingDecorator(service: mock, suite: suite)
 
     await #expect(throws: PiholeError.network("down")) {
-      try await decorator.unblockDomain("x.com", duration: 60)
+      try await decorator.unblockDomain("x.com", duration: 60, ownershipID: UUID())
     }
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty)
   }

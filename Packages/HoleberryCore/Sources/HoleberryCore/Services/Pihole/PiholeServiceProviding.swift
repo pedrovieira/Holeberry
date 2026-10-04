@@ -69,11 +69,3 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
   func login() async throws
   func logout() async
 }
-
-
-extension PiholeServiceProviding {
-  @discardableResult
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
-    try await unblockDomain(domain, duration: duration, ownershipID: UUID())
-  }
-}
