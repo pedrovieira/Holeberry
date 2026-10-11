@@ -151,6 +151,16 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
     return .added
   }
 
+  /// Classifies an existing allow entry as request recovery, renewal, promotion, or an unrelated entry.
+  ///
+  /// A comment matching this request's token recovers its earlier insert and returns `.added`,
+  /// starting or resetting the temporary timer even if no local record was saved yet.
+  /// A later unblock has a new token: ownership is checked against the saved record's token instead.
+  /// On v6, the entry's comment must match that saved token; v5 relies on the local record alone.
+  /// A finite duration renews the saved record from now with the selected duration, retaining its token.
+  /// A nil duration promotes it by cancelling local cleanup. Neither operation changes the server comment.
+  /// Missing entries, missing ownership records, or changed v6 comments report `.alreadyPresent`,
+  /// unless the current request's token matched and allowed recovery above.
   private func classifyExisting(
     _ entry: DomainEntry?, key: String, duration: TimeInterval?, token: String
   ) -> DomainUnblockOutcome {
