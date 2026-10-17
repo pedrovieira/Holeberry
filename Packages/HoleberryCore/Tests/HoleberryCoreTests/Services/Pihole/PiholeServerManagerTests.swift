@@ -488,6 +488,17 @@ struct PiholeServerManagerDomainTests {
     #expect(mockService2.addDomainLastDomain == "example.com")
   }
 
+  @Test("Manager keeps each server's ownership ID stable across retries")
+  func stableOwnershipAcrossRetries() async throws {
+    mockService1.addDomainStubQueue = [.failure(PiholeError.network("response lost")), .success(.added)]
+    let outcomes = try await makeManagerWithTwoServers().unblock(domain: "example.com", duration: 60)
+    #expect(outcomes[mockService1.id] == .added)
+    #expect(mockService1.unblockDomainOwnershipIDs.count == 2)
+    #expect(Set(mockService1.unblockDomainOwnershipIDs).count == 1)
+    #expect(mockService2.unblockDomainOwnershipIDs.count == 1)
+    #expect(mockService1.unblockDomainOwnershipIDs.first != mockService2.unblockDomainOwnershipIDs.first)
+  }
+
   @Test("A run of only no-ops returns no additions")
   func allExistingEntries() async throws {
     for service in [mockService1, mockService2] {

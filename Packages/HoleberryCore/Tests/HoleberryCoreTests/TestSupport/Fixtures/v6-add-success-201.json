@@ -1,0 +1,1 @@
+{"domains":[{"domain":"example.com","unicode":"example.com","type":"allow","kind":"exact","comment":"via holeberryapp.com / probe","groups":[0],"enabled":true,"id":1,"date_added":1790290215,"date_modified":1790290215}],"processed":{"errors":[],"success":[{"item":"example.com"}]},"took":0.0013573169708251953}
