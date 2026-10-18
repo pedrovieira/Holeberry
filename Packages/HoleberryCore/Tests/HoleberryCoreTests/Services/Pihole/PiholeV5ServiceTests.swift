@@ -387,7 +387,7 @@ final class PiholeV5ServiceTests {
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in }
 
     await #expect(throws: PiholeError.server(200, "database is locked")) {
-      try await decorator.unblockDomain("example.com", duration: 60)
+      try await decorator.unblockDomain("example.com", duration: 60, ownershipID: UUID())
     }
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
     #expect(mockSession.requests.count == 3, "An add error triggers one ownership lookup")
@@ -399,7 +399,13 @@ final class PiholeV5ServiceTests {
       { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
       { _ in (Data(#"{"success":true,"message":"Added example.com"}"#.utf8), try #require(v5Response())) },
       { _ in
+        (Data(#"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1}]}"#.utf8), try #require(v5Response()))
+      },
+      { _ in
         (Data(#"{"success":false,"message":"database is locked"}"#.utf8), try #require(v5Response()))
+      },
+      { _ in
+        (Data(#"{"data":[{"id":1,"domain":"example.com","type":0,"enabled":1}]}"#.utf8), try #require(v5Response()))
       },
       { _ in (Data(#"{"success":true,"message":null}"#.utf8), try #require(v5Response())) }
     ]
@@ -410,17 +416,17 @@ final class PiholeV5ServiceTests {
       if duration < 10 { return }
       await waitUntil { releaseRetry }
     }
-    try await decorator.unblockDomain("example.com", duration: 1)
+    try await decorator.unblockDomain("example.com", duration: 1, ownershipID: UUID())
 
     let key = Defaults.Keys.tempUnblocks(for: service.id, suite: suite)
     await waitUntil { Defaults[key].first?.pendingRemoval == true }
     #expect(Defaults[key].count == 1)
     #expect(Defaults[key].first?.retryCount == 1)
-    #expect(mockSession.requests.count == 3)
+    #expect(mockSession.requests.count == 4)
 
     releaseRetry = true
     await waitUntil { Defaults[key].isEmpty }
-    #expect(mockSession.requests.count == 4)
+    #expect(mockSession.requests.count == 6)
   }
 
   @Test("getDomains(from:) reads the matching list")
@@ -523,7 +529,7 @@ final class PiholeV5ServiceTests {
         return (Data(#"{"success":true,"message":"Added example.com"}"#.utf8), response)
       }
     ]
-    try await makeService().unblockDomain("example.com", duration: 300)
+    try await makeService().unblockDomain("example.com", duration: 300, ownershipID: UUID())
   }
 
   // MARK: - Error branches

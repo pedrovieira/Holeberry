@@ -1,0 +1,1 @@
+{"domains":[{"domain":"example.com","unicode":"example.com","type":"allow","kind":"exact","comment":"via holeberryapp.com / probe","groups":[0],"enabled":true,"id":1,"date_added":1790290236,"date_modified":1790290236}],"processed":{"errors":[{"item":"example.com","error":"UNIQUE constraint failed: domainlist.domain, domainlist.type"}],"success":[]},"took":0.00014257431030273438}

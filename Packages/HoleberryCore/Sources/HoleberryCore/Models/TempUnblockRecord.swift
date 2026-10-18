@@ -1,7 +1,7 @@
 import Defaults
 import Foundation
 
-public struct TempUnblockRecord: Codable, Identifiable {
+public struct TempUnblockRecord: Codable, Equatable, Identifiable, Sendable {
   public let domain: String
   public let uuid: String
   public let startDateUTC: Date

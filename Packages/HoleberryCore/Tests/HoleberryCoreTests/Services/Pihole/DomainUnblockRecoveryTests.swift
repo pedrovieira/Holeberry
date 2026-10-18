@@ -57,7 +57,7 @@ struct DomainUnblockRecoveryTests {
       expiryDelay = remaining
       await withCheckedContinuation { expire = $0 }
     }
-    #expect(try await decorator.unblockDomain("example.com", duration: duration) == .added)
+    #expect(try await decorator.unblockDomain("example.com", duration: duration, ownershipID: UUID()) == .added)
     let record = try #require(Defaults[.tempUnblocks(for: service.id, suite: suite)].first)
     let confirmation = try #require(confirmedAt)
     #expect(record.startDateUTC >= confirmation)
@@ -107,9 +107,10 @@ struct DomainUnblockRecoveryTests {
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in
       while !expire { try await Task.sleep(for: .milliseconds(1)) }
     }
+    let ownershipID = UUID()
     let outcome = try await withRetry(
       .destructive, sleep: { _ in },
-      operation: { try await decorator.unblockDomain("Example.COM", duration: 300) }
+      operation: { try await decorator.unblockDomain("Example.COM", duration: 300, ownershipID: ownershipID) }
     )
     #expect(outcome == .added)
     #expect(adds == 1, "Recover the committed insert without sending another mutation")
@@ -139,7 +140,7 @@ struct DomainUnblockRecoveryTests {
       Issue.record("An unsuccessful recovery must not create an expiry timer")
     }
     await #expect(throws: PiholeError.network("response lost")) {
-      try await decorator.unblockDomain("example.com", duration: 300)
+      try await decorator.unblockDomain("example.com", duration: 300, ownershipID: UUID())
     }
     #expect(mock.getDomainCallCount == 1)
     #expect(mock.deleteDomainCallCount == 0)
@@ -153,7 +154,7 @@ struct DomainUnblockRecoveryTests {
     let decorator = TemporaryUnblockPiholeServiceDecorator(service: mock, defaultsSuite: suite) { _ in
       try await Task.sleep(for: .seconds(60))
     }
-    #expect(try await decorator.unblockDomain("example.com", duration: 300) == .added)
+    #expect(try await decorator.unblockDomain("example.com", duration: 300, ownershipID: UUID()) == .added)
     #expect(mock.getDomainCallCount == 0)
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
   }

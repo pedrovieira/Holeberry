@@ -240,7 +240,9 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
   }
 
   @discardableResult
-  public func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+  public func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws
+    -> DomainUnblockOutcome
+  {
     let outcome = try await addDomain(domain, to: .allow, comment: nil)
     return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }

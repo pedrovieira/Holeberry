@@ -33,17 +33,23 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   private(set) var updateGravityCallCount = 0
 
   var addDomainStub: Result<DomainAddOutcome, any Error> = .success(.added)
+  var addDomainHandler: ((String, DomainListType, String?) async throws -> DomainAddOutcome)?
+  var addDomainStubQueue: [Result<DomainAddOutcome, any Error>] = []
+  private(set) var unblockDomainOwnershipIDs: [UUID] = []
+  var unblockDomainHandler: ((String, TimeInterval?) async throws -> DomainUnblockOutcome)?
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
   var addDomainLastComment: String?
 
   var deleteDomainStub: Result<Void, any Error> = .success(())
+  var deleteDomainHandler: ((String, DomainListType) async throws -> Void)?
   private(set) var deleteDomainCallCount = 0
   var deleteDomainLastDomain: String?
   var deleteDomainLastList: DomainListType?
 
   var getDomainsStub: Result<[DomainEntry], any Error> = .success([])
+  var getDomainsHandler: ((DomainListType) async throws -> [DomainEntry])?
   /// Consumed before `getDomainsStub` when non-empty, so a test can answer
   /// successive reads differently.
   var getDomainsStubQueue: [Result<[DomainEntry], any Error>] = []
@@ -52,6 +58,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var getDomainsLastList: DomainListType?
 
   var getDomainStub: Result<DomainEntry?, any Error> = .success(nil)
+  var getDomainHandler: ((String) async throws -> DomainEntry?)?
   private(set) var getDomainCallCount = 0
   var getDomainLastDomain: String?
   var getDomainLastList: DomainListType?
@@ -97,11 +104,16 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     addDomainLastDomain = domain
     addDomainLastList = list
     addDomainLastComment = comment
+    if let addDomainHandler { return try await addDomainHandler(domain, list, comment) }
+    if !addDomainStubQueue.isEmpty { return try addDomainStubQueue.removeFirst().get() }
     return try addDomainStub.get()
   }
 
   @discardableResult
-  func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
+  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> DomainUnblockOutcome
+  {
+    unblockDomainOwnershipIDs.append(ownershipID)
+    if let unblockDomainHandler { return try await unblockDomainHandler(domain, duration) }
     let outcome = try await addDomain(domain, to: .allow, comment: nil)
     return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
@@ -110,11 +122,16 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     deleteDomainCallCount += 1
     deleteDomainLastDomain = domain
     deleteDomainLastList = list
+    if let deleteDomainHandler { return try await deleteDomainHandler(domain, list) }
     try deleteDomainStub.get()
   }
 
   func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     getDomainsLastList = list
+    if let getDomainsHandler {
+      getDomainsCallCount += 1
+      return try await getDomainsHandler(list)
+    }
     return try nextGetDomainsResult()
   }
 
@@ -122,6 +139,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     getDomainCallCount += 1
     getDomainLastDomain = domain
     getDomainLastList = list
+    if let getDomainHandler { return try await getDomainHandler(domain) }
     return try getDomainStub.get()
   }
 
