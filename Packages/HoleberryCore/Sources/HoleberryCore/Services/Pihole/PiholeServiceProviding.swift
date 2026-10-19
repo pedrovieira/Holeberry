@@ -12,30 +12,7 @@ public struct QuerySummary: Sendable {
   }
 }
 
-/// The result of an unblock request, including changes and skipped operations.
-public enum DomainUnblockOutcome: Equatable, Sendable {
-  case added
-  /// Another unblock for this server and domain is running; skip silently.
-  case inProgress
-  /// An existing temporary unblock owned by Holeberry was extended.
-  case renewed
-  /// An existing temporary unblock was made permanent.
-  case promoted
-  /// `enabled` is unknown when the existing row cannot be read.
-  case alreadyPresent(enabled: Bool?)
-
-  @MainActor
-  static func resolve(
-    for domain: String, addOutcome: DomainAddOutcome, service: any PiholeServiceProviding
-  ) async -> Self {
-    guard addOutcome == .alreadyPresent else { return .added }
-    let existing = try? await service.getDomain(domain, from: .allow)
-    return .alreadyPresent(enabled: existing?.enabled)
-  }
-}
-
-/// Public interface for Pi-hole API operations. Used by `PiholeServerManager`.
-/// No `comment` parameter — that's internal (see `PiholeServiceCommentAdding`).
+/// General Pi-hole API operations, including explicit domain adds with optional comments.
 @MainActor
 public protocol PiholeServiceProviding: AnyObject, Sendable {
   var id: UUID { get }
@@ -46,8 +23,7 @@ public protocol PiholeServiceProviding: AnyObject, Sendable {
 
   // MARK: - Domain operations
 
-  @discardableResult
-  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> DomainUnblockOutcome
+  func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome
   func deleteDomain(_ domain: String, from list: DomainListType) async throws
   func getDomains(from list: DomainListType) async throws -> [DomainEntry]
   func getDomain(_ domain: String, from list: DomainListType) async throws -> DomainEntry?

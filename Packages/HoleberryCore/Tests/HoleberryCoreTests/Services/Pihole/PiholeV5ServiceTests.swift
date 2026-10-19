@@ -384,10 +384,10 @@ final class PiholeV5ServiceTests {
     ]
     let service = makeService()
     let suite = TestDefaults.makeSuite()
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in }
+    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite, sleep: { _ in })
 
     await #expect(throws: PiholeError.server(200, "database is locked")) {
-      try await decorator.unblockDomain("example.com", duration: 60, ownershipID: UUID())
+      try await decorator.unblockDomain("example.com", duration: 60)
     }
     #expect(Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty)
     #expect(mockSession.requests.count == 3, "An add error triggers one ownership lookup")
@@ -412,11 +412,13 @@ final class PiholeV5ServiceTests {
     let service = makeService()
     let suite = TestDefaults.makeSuite()
     var releaseRetry = false
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { duration in
-      if duration < 10 { return }
-      await waitUntil { releaseRetry }
-    }
-    try await decorator.unblockDomain("example.com", duration: 1, ownershipID: UUID())
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, defaultsSuite: suite,
+      sleep: { duration in
+        if duration < 10 { return }
+        await waitUntil { releaseRetry }
+      })
+    try await decorator.unblockDomain("example.com", duration: 1)
 
     let key = Defaults.Keys.tempUnblocks(for: service.id, suite: suite)
     await waitUntil { Defaults[key].first?.pendingRemoval == true }
@@ -516,10 +518,10 @@ final class PiholeV5ServiceTests {
     #expect(mockSession.invalidateAndCancelCallCount == 1)
   }
 
-  // MARK: - unblockDomain
+  // MARK: - Allowlist routing
 
-  @Test("unblockDomain adds domain to allow list")
-  func unblockDomain() async throws {
+  @Test("addDomain routes to the allow list")
+  func addDomainAllowlistRouting() async throws {
     mockSession.handlers = [
       { _ in (Data(#"{"data":[]}"#.utf8), try #require(v5Response())) },
       { request in
@@ -529,7 +531,7 @@ final class PiholeV5ServiceTests {
         return (Data(#"{"success":true,"message":"Added example.com"}"#.utf8), response)
       }
     ]
-    try await makeService().unblockDomain("example.com", duration: 300, ownershipID: UUID())
+    #expect(try await makeService().addDomain("example.com", to: .allow, comment: nil) == .added)
   }
 
   // MARK: - Error branches

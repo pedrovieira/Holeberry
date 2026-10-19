@@ -72,24 +72,23 @@ struct TempUnblockConcurrencyTests {
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: suite, sleep: sleeps.sleep)
-    _ = try await decorator.unblockDomain("x.com", duration: 300, ownershipID: UUID())
+    _ = try await decorator.unblockDomain("x.com", duration: 300)
     await waitUntil { sleeps.waiting.count == 1 }
     sleeps.releaseFirst()
     await waitUntil { network != nil }
 
     var started = false
     var finished = false
-    let ownership = UUID()
     let unblock = Task {
       started = true
       defer { finished = true }
-      return try await decorator.unblockDomain("X.COM", duration: duration, ownershipID: ownership)
+      return try await decorator.unblockDomain("X.COM", duration: duration)
     }
     await waitUntil { started }
     await settle()
     #expect(!finished, "The new unblock must wait for the old network operation")
     // A different domain can still proceed while this cleanup is suspended.
-    #expect(try await decorator.unblockDomain("other.com", duration: nil, ownershipID: UUID()) == .added)
+    #expect(try await decorator.unblockDomain("other.com", duration: nil) == .added)
     network?.resume()
 
     #expect(try await unblock.value == .added)
@@ -100,7 +99,8 @@ struct TempUnblockConcurrencyTests {
       let record = try #require(records.first)
       #expect(record.durationSeconds == 3600)
       #expect(!record.pendingRemoval)
-      #expect(record.uuid == "via holeberryapp.com / \(ownership.uuidString)")
+      #expect(record.uuid == server.entries["x.com"]?.comment)
+      #expect(record.uuid == mock.addDomainLastComment)
     } else {
       #expect(records.isEmpty)
     }
@@ -126,7 +126,7 @@ struct TempUnblockConcurrencyTests {
     mock.deleteDomainHandler = { _, _ in throw PiholeError.server(500, "Offline") }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: suite, sleep: sleeps.sleep)
-    _ = try await decorator.unblockDomain("x.com", duration: 300, ownershipID: UUID())
+    _ = try await decorator.unblockDomain("x.com", duration: 300)
     await waitUntil { sleeps.waiting.count == 1 }
     sleeps.releaseFirst()
     if isRetry {
@@ -138,7 +138,7 @@ struct TempUnblockConcurrencyTests {
     var started = false
     let unblock = Task {
       started = true
-      return try await decorator.unblockDomain("x.com", duration: 3600, ownershipID: UUID())
+      return try await decorator.unblockDomain("x.com", duration: 3600)
     }
     await waitUntil { started }
     await settle()
@@ -166,7 +166,7 @@ struct TempUnblockConcurrencyTests {
     defer { sleeps.cancelAll() }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: suite, sleep: sleeps.sleep)
-    _ = try await decorator.unblockDomain("x.com", duration: 300, ownershipID: UUID())
+    _ = try await decorator.unblockDomain("x.com", duration: 300)
     await waitUntil { sleeps.waiting.count == 1 }
     if isRetry {
       mock.deleteDomainHandler = { _, _ in throw PiholeError.server(500, "Offline") }
@@ -175,7 +175,7 @@ struct TempUnblockConcurrencyTests {
       mock.deleteDomainHandler = { domain, _ in server.entries[domain] = nil }
     }
     let outcome = try await decorator.unblockDomain(
-      "x.com", duration: permanent ? nil : 3600, ownershipID: UUID())
+      "x.com", duration: permanent ? nil : 3600)
     #expect(outcome == (permanent ? .promoted : .renewed))
     let reads = mock.getDomainCallCount
     sleeps.releaseFirst()
@@ -204,7 +204,7 @@ struct TempUnblockConcurrencyTests {
     mock.deleteDomainHandler = { _, _ in entry = nil }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: suite, sleep: sleeps.sleep)
-    let unblock = Task { try await decorator.unblockDomain("x.com", duration: 300, ownershipID: UUID()) }
+    let unblock = Task { try await decorator.unblockDomain("x.com", duration: 300) }
     await waitUntil { network != nil }
     var started = false
     let deletion = Task {
@@ -239,17 +239,17 @@ struct TempUnblockConcurrencyTests {
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: TestDefaults.makeSuite(), sleep: sleeps.sleep)
-    let first = Task { try await decorator.unblockDomain("x.com", duration: 300, ownershipID: UUID()) }
+    let first = Task { try await decorator.unblockDomain("x.com", duration: 300) }
     await waitUntil { network != nil }
     var started = false
     let cancelled = Task {
       started = true
-      return try await decorator.unblockDomain("x.com", duration: 3600, ownershipID: UUID())
+      return try await decorator.unblockDomain("x.com", duration: 3600)
     }
     await waitUntil { started }
     await settle()
     cancelled.cancel()
-    let next = Task { try await decorator.unblockDomain("x.com", duration: nil, ownershipID: UUID()) }
+    let next = Task { try await decorator.unblockDomain("x.com", duration: nil) }
     await settle()
     network?.resume()
     _ = try await first.value
@@ -284,7 +284,7 @@ struct TempUnblockConcurrencyTests {
       service: mock, defaultsSuite: suite, sleep: sleeps.sleep)
     await waitUntil { network != nil }
     let outcome = try await decorator.unblockDomain(
-      "x.com", duration: permanent ? nil : 3600, ownershipID: UUID())
+      "x.com", duration: permanent ? nil : 3600)
     #expect(outcome == (permanent ? .promoted : .renewed))
     if fails {
       network?.resume(throwing: URLError(.timedOut))
@@ -326,7 +326,7 @@ struct TempUnblockConcurrencyTests {
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: suite, sleep: sleeps.sleep)
     await waitUntil { listing != nil }
-    let renewal = Task { try await decorator.unblockDomain("x.com", duration: 3600, ownershipID: UUID()) }
+    let renewal = Task { try await decorator.unblockDomain("x.com", duration: 3600) }
     await waitUntil { addition != nil }
     listing?.resume(returning: Array(server.entries.values))
     await settle()

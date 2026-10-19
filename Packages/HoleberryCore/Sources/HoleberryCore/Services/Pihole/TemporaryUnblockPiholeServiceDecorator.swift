@@ -3,8 +3,8 @@ import Foundation
 import OSLog
 
 @MainActor
-public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentAdding {
-  private let wrapped: any PiholeServiceCommentAdding
+public final class TemporaryUnblockPiholeServiceDecorator: PiholeUnblockingServiceProviding {
+  private let wrapped: any PiholeServiceProviding
 
   // Identity — delegates to wrapped
   public var id: UUID { wrapped.id }
@@ -33,20 +33,25 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
   private let backoffIntervals: [TimeInterval]
   private let defaultsSuite: UserDefaults
   private let notificationCenter: NotificationCenter
+  private let retrySleep: @Sendable (Duration) async throws -> Void
   private let sleep: (TimeInterval) async throws -> Void
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "temp-unblock")
 
   public init(
-    service: any PiholeServiceCommentAdding,
+    service: any PiholeServiceProviding,
     backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
     defaultsSuite: UserDefaults = .standard,
     notificationCenter: NotificationCenter = .default,
+    retrySleep: @escaping @Sendable (Duration) async throws -> Void = {
+      try await ContinuousClock().sleep(for: $0)
+    },
     sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) }
   ) {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals
     self.defaultsSuite = defaultsSuite
     self.notificationCenter = notificationCenter
+    self.retrySleep = retrySleep
     self.sleep = sleep
     self.activeRecords = restoreFromDefaults()
     saveRecords()
@@ -115,20 +120,29 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceCommentA
 
   @discardableResult
   public func unblockDomain(
-    _ domain: String, duration: TimeInterval?, ownershipID: UUID
+    _ domain: String, duration: TimeInterval?
   ) async throws -> DomainUnblockOutcome {
     let identity = try PiholeDomain.validatedIdentity(domain)
+    try Task.checkCancellation()
+    let token = "via holeberryapp.com / \(UUID().uuidString)"
+    return try await withRetry(.destructive, sleep: retrySleep) {
+      try await self.attemptUnblock(identity, duration: duration, token: token)
+    }
+  }
+
+  private func attemptUnblock(
+    _ identity: String, duration: TimeInterval?, token: String
+  ) async throws -> DomainUnblockOutcome {
     await acquireDomain(identity)
     defer { releaseDomain(identity) }
     try Task.checkCancellation()
-    let token = "via holeberryapp.com / \(ownershipID.uuidString)"
     let comment = duration == nil ? "via holeberryapp.com" : token
     let outcome: DomainAddOutcome
     do {
       outcome = try await wrapped.addDomain(identity, to: .allow, comment: comment)
     } catch {
-      // An insert may commit before its response is lost. The ownership ID
-      // stays stable across manager retries, so that attempt can be adopted.
+      // An insert may commit before its response is lost. This call's token
+      // stays stable across mutation retries, so that attempt can be adopted.
       guard let existing = try? await wrapped.getDomain(identity, from: .allow) else { throw error }
       if existing.comment == token, duration != nil {
         return classifyExisting(existing, key: identity, duration: duration, token: token)

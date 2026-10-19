@@ -53,11 +53,13 @@ struct DomainUnblockRecoveryTests {
       }
       return reply(listBody(version, marker: marker), request: request)
     }
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { remaining in
-      expiryDelay = remaining
-      await withCheckedContinuation { expire = $0 }
-    }
-    #expect(try await decorator.unblockDomain("example.com", duration: duration, ownershipID: UUID()) == .added)
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, defaultsSuite: suite, retrySleep: { _ in },
+      sleep: { remaining in
+        expiryDelay = remaining
+        await withCheckedContinuation { expire = $0 }
+      })
+    #expect(try await decorator.unblockDomain("example.com", duration: duration) == .added)
     let record = try #require(Defaults[.tempUnblocks(for: service.id, suite: suite)].first)
     let confirmation = try #require(confirmedAt)
     #expect(record.startDateUTC >= confirmation)
@@ -104,14 +106,12 @@ struct DomainUnblockRecoveryTests {
       if marker != nil { recoveryReads += 1 }
       return reply(listBody(version, marker: marker), request: request)
     }
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in
-      while !expire { try await Task.sleep(for: .milliseconds(1)) }
-    }
-    let ownershipID = UUID()
-    let outcome = try await withRetry(
-      .destructive, sleep: { _ in },
-      operation: { try await decorator.unblockDomain("Example.COM", duration: 300, ownershipID: ownershipID) }
-    )
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, defaultsSuite: suite, retrySleep: { _ in },
+      sleep: { _ in
+        while !expire { try await Task.sleep(for: .milliseconds(1)) }
+      })
+    let outcome = try await decorator.unblockDomain("Example.COM", duration: 300)
     #expect(outcome == .added)
     #expect(adds == 1, "Recover the committed insert without sending another mutation")
     let record = try #require(Defaults[.tempUnblocks(for: service.id, suite: suite)].first)
@@ -136,13 +136,18 @@ struct DomainUnblockRecoveryTests {
       mock.getDomainStub = .success(nil)
     }
     let suite = TestDefaults.makeSuite()
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: mock, defaultsSuite: suite) { _ in
-      Issue.record("An unsuccessful recovery must not create an expiry timer")
-    }
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock, defaultsSuite: suite, retrySleep: { _ in },
+      sleep: {
+        _ in
+        Issue.record("An unsuccessful recovery must not create an expiry timer")
+      })
     await #expect(throws: PiholeError.network("response lost")) {
-      try await decorator.unblockDomain("example.com", duration: 300, ownershipID: UUID())
+      try await decorator.unblockDomain("example.com", duration: 300)
     }
-    #expect(mock.getDomainCallCount == 1)
+    #expect(mock.addDomainCallCount == 3)
+    #expect(mock.getDomainCallCount == 3)
+    #expect(Set(mock.addDomainComments.compactMap { $0 }).count == 1)
     #expect(mock.deleteDomainCallCount == 0)
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].isEmpty)
   }
@@ -151,10 +156,13 @@ struct DomainUnblockRecoveryTests {
   func confirmedAdd() async throws {
     let mock = MockPiholeService()
     let suite = TestDefaults.makeSuite()
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: mock, defaultsSuite: suite) { _ in
-      try await Task.sleep(for: .seconds(60))
-    }
-    #expect(try await decorator.unblockDomain("example.com", duration: 300, ownershipID: UUID()) == .added)
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock, defaultsSuite: suite, retrySleep: { _ in },
+      sleep: {
+        _ in
+        try await Task.sleep(for: .seconds(60))
+      })
+    #expect(try await decorator.unblockDomain("example.com", duration: 300) == .added)
     #expect(mock.getDomainCallCount == 0)
     #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
   }
@@ -186,9 +194,11 @@ struct DomainUnblockRecoveryTests {
       TempUnblockRecord(
         domain: domain, uuid: "record", startDateUTC: Date().addingTimeInterval(-100), durationSeconds: 300)
     ]
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { remaining in
-      delay = remaining
-    }
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, defaultsSuite: suite, retrySleep: { _ in },
+      sleep: { remaining in
+        delay = remaining
+      })
     await waitUntil { deleted && Defaults[.tempUnblocks(for: service.id, suite: suite)].isEmpty }
     #expect(try #require(delay) > 190)
     #expect(try #require(delay) < 210, "Restart must not restart the full duration")
@@ -196,7 +206,7 @@ struct DomainUnblockRecoveryTests {
     withExtendedLifetime(decorator) {}
   }
 
-  private func makeService(_ version: ServerVersion, session: MockURLSession) -> any PiholeServiceCommentAdding {
+  private func makeService(_ version: ServerVersion, session: MockURLSession) -> any PiholeServiceProviding {
     let url = URL(string: "http://test.local")!
     if version == .v5 {
       return PiholeV5Service(

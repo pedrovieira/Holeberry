@@ -681,10 +681,10 @@ final class PiholeV6ServiceTests {
     #expect(mockSession.invalidateAndCancelCallCount == 1)
   }
 
-  // MARK: - unblockDomain
+  // MARK: - Allowlist routing
 
-  @Test("unblockDomain adds domain to allow list")
-  func unblockDomain() async throws {
+  @Test("addDomain routes to the allow list")
+  func addDomainAllowlistRouting() async throws {
     mockSession.handlers = [
       { request in
         #expect(request.url?.path == "/api/domains/allow/exact")
@@ -701,7 +701,7 @@ final class PiholeV6ServiceTests {
         return (data, response)
       }
     ]
-    try await makeService().unblockDomain("example.com", duration: 300, ownershipID: UUID())
+    #expect(try await makeService().addDomain("example.com", to: .allow, comment: nil) == .added)
   }
 
   // MARK: - Error branches

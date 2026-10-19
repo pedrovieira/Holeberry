@@ -46,6 +46,17 @@ struct MockPiholeServiceTests {
     }
   }
 
+  @Test func queuedAddResultsCaptureEveryComment() async throws {
+    let mock = MockPiholeService()
+    mock.addDomainStubQueue = [.failure(PiholeError.network("lost")), .success(.alreadyPresent)]
+    await #expect(throws: PiholeError.network("lost")) {
+      try await mock.addDomain("test.com", to: .allow, comment: "first-token")
+    }
+    #expect(try await mock.addDomain("test.com", to: .allow, comment: nil) == .alreadyPresent)
+    #expect(mock.addDomainComments == ["first-token", nil])
+    #expect(mock.addDomainCallCount == 2)
+  }
+
   @Test func deleteDomain() async throws {
     let mock = MockPiholeService()
     try await mock.deleteDomain("test.com", from: .deny)

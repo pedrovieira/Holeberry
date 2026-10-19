@@ -119,7 +119,7 @@ struct PiholeServerManagerCRUDTests {
   @Test("addServer stores no credential when the server reports password-less")
   func addServerStoresNoCredentialWhenServerReportsPasswordless() async throws {
     let manager = makeManager(suite: TestDefaults.makeSuite())
-    let service = MockPiholeService(url: "http://test.com", version: .v6)
+    let service = MockPiholeUnblockingService(url: "http://test.com", version: .v6)
     service.isPasswordless = true
     mockServiceFactory.buildServiceStub = service
     defer { mockServiceFactory.buildServiceStub = nil }
@@ -164,7 +164,7 @@ struct PiholeServerManagerCRUDTests {
     let config = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     Defaults[.servers(suite: suite)] = [config]
 
-    let failingService = MockPiholeService(id: config.id, url: config.url, version: .v6)
+    let failingService = MockPiholeUnblockingService(id: config.id, url: config.url, version: .v6)
     failingService.checkStatusStub = .failure(PiholeError.invalidCredentials)
     mockServiceFactory.buildServiceStub = failingService
     defer { mockServiceFactory.buildServiceStub = nil }
@@ -182,7 +182,7 @@ struct PiholeServerManagerCRUDTests {
     Defaults[.servers(suite: suite)] = [config]
     try? mockKeychain.saveCredential("old-password", for: config.id)
 
-    let failingService = MockPiholeService(id: config.id, url: config.url, version: .v6)
+    let failingService = MockPiholeUnblockingService(id: config.id, url: config.url, version: .v6)
     failingService.checkStatusStub = .failure(PiholeError.invalidCredentials)
     mockServiceFactory.buildServiceStub = failingService
     defer { mockServiceFactory.buildServiceStub = nil }
@@ -259,7 +259,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
     mockServiceFactory.buildServiceStub = probe
 
     let result = try await manager.verifyCredential(id: id, credential: "fresh-password")
@@ -276,7 +276,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
     probe.isPasswordless = true
     mockServiceFactory.buildServiceStub = probe
 
@@ -294,7 +294,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
     probe.loginStub = .failure(PiholeError.invalidCredentials)
     mockServiceFactory.buildServiceStub = probe
 
@@ -312,7 +312,7 @@ struct PiholeServerManagerCRUDTests {
     }
     // Login succeeds (session established server-side), then the status probe
     // fails — the probe session must still be logged out.
-    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
     probe.checkStatusStub = .failure(PiholeError.network("blip"))
     mockServiceFactory.buildServiceStub = probe
 
@@ -326,8 +326,8 @@ struct PiholeServerManagerCRUDTests {
   @Test("updateGravity asks all servers and skips the unsupported ones")
   func updateGravitySkipsUnsupported() async throws {
     let manager = makeManager(suite: TestDefaults.makeSuite())
-    let v5Service = MockPiholeService(version: .v5)
-    let v6Service = MockPiholeService(version: .v6)
+    let v5Service = MockPiholeUnblockingService(version: .v5)
+    let v6Service = MockPiholeUnblockingService(version: .v6)
     mockServiceFactory.buildServiceHandler = { config in
       config.version == .v5 ? v5Service : v6Service
     }
@@ -357,7 +357,7 @@ struct PiholeServerManagerCRUDTests {
   @Test("updateGravity aggregates failures")
   func updateGravityAggregatesFailures() async throws {
     let manager = makeManager(suite: TestDefaults.makeSuite())
-    let service = MockPiholeService()
+    let service = MockPiholeUnblockingService()
     mockServiceFactory.buildServiceStub = service
 
     try await manager.addServer(label: "New", url: "http://v6.local", credential: "b")
@@ -378,8 +378,10 @@ struct PiholeServerManagerCRUDTests {
 @MainActor
 @Suite("PiholeServerManager - Domain Operations")
 struct PiholeServerManagerDomainTests {
-  private let mockService1 = MockPiholeService(id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
-  private let mockService2 = MockPiholeService(id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
+  private let mockService1 = MockPiholeUnblockingService(
+    id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
+  private let mockService2 = MockPiholeUnblockingService(
+    id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
   private let mockServiceFactory = MockPiholeServiceFactory()
 
   private func makeManager(suite: UserDefaults) -> PiholeServerManager {
@@ -407,7 +409,6 @@ struct PiholeServerManagerDomainTests {
 
   @Test("getRecentBlocked deduplicates by domain")
   func getRecentBlockedDeduplicates() async throws {
-    let suite = TestDefaults.makeSuite()
     let date = Date()
     mockService1.getRecentBlockedStub = .success([
       BlockedDomain(domain: "ads.com", timestamp: date, fromClientIp: "1.1.1.1"),
@@ -418,63 +419,34 @@ struct PiholeServerManagerDomainTests {
       BlockedDomain(domain: "malware.net", timestamp: date, fromClientIp: "2.2.2.2")
     ])
 
-    let manager = makeManager(suite: suite)
-    // Inject services directly into the manager's services dict
-    manager.servers = [
-      ServerConfig(id: mockService1.id, label: "A", url: "http://a.local", version: .v6),
-      ServerConfig(id: mockService2.id, label: "B", url: "http://b.local", version: .v6)
-    ]
-
-    // We can't directly inject into the private services dict, so test the
-    // decorator/service interaction via the mock. The PiholeServerManager's
-    // getRecentBlocked uses the services dict which is populated by loadServers().
-    // For now, verify the dedup logic directly:
-
-    let interval = DateInterval(start: Date().addingTimeInterval(-3600), end: Date())
-    let blocked1 = try await mockService1.getRecentBlocked(forClientIp: nil, interval: interval)
-    let blocked2 = try await mockService2.getRecentBlocked(forClientIp: nil, interval: interval)
-    let allBlocked: [BlockedDomain] = blocked1 + blocked2
-
-    let deduped = Dictionary(grouping: allBlocked, by: \.domain)
-      .mapValues { entries in
-        let mostRecent = entries.max { $0.timestamp < $1.timestamp } ?? entries[0]
-        return BlockedDomain(
-          domain: mostRecent.domain,
-          timestamp: mostRecent.timestamp,
-          count: entries.count,
-          fromClientIp: mostRecent.fromClientIp
-        )
-      }
-      .values
-      .sorted { $0.timestamp > $1.timestamp }
+    let manager = makeManagerWithTwoServers()
+    let interval = DateInterval(start: date.addingTimeInterval(-3600), end: date)
+    let deduped = try await manager.getRecentBlocked(forClientIp: nil, interval: interval)
 
     #expect(deduped.count == 3)
     #expect(deduped.contains { $0.domain == "ads.com" })
     #expect(deduped.contains { $0.domain == "tracker.net" })
     #expect(deduped.contains { $0.domain == "malware.net" })
+    let ads = try #require(deduped.first { $0.domain == "ads.com" })
+    #expect(ads.count == 2)
+    #expect(ads.timestamp == date)
+    #expect(ads.fromClientIp == "1.1.1.1")
   }
 
-  @Test("unblockDomain strips www prefix")
-  func unblockDomainStripsWWW() async {
-    // Test the stripping logic directly
-    let domain = "www.example.com"
-    let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
-    #expect(stripped == "example.com")
-  }
-
-  @Test("unblockDomain passes through non-www domains")
-  func unblockDomainNonWWW() async {
-    let domain = "example.com"
-    let stripped = domain.hasPrefix("www.") ? String(domain.dropFirst(4)) : domain
-    #expect(stripped == "example.com")
+  @Test("unblock normalizes domains before the managed call", arguments: ["www.example.com", "example.com"])
+  func unblockDomainNormalization(domain: String) async throws {
+    let manager = makeManagerWithTwoServers()
+    _ = try await manager.unblock(domain: domain, duration: 60)
+    #expect(mockService1.unblockDomainLastDomain == "example.com")
+    #expect(mockService2.unblockDomainLastDomain == "example.com")
+    #expect(mockService1.unblockDomainLastDuration == 60)
+    #expect(mockService1.unblockDomainCallCount == 1)
+    #expect(mockService2.unblockDomainCallCount == 1)
   }
 
   @Test("Multi-server workflows preserve additions and no-ops", arguments: [true, false])
   func mixedDomainOutcomes(permanent: Bool) async throws {
-    mockService2.addDomainStub = .success(.alreadyPresent)
-    mockService2.getDomainStub = .success(
-      DomainEntry(id: 1, domain: "example.com", type: 0, comment: "manual", enabled: false)
-    )
+    mockService2.unblockDomainStub = .success(.alreadyPresent(enabled: false))
     let manager = makeManagerWithTwoServers()
     let outcomes: [UUID: DomainUnblockOutcome]
     if permanent {
@@ -484,28 +456,38 @@ struct PiholeServerManagerDomainTests {
     }
     #expect(outcomes[mockService1.id] == .added)
     #expect(outcomes[mockService2.id] == .alreadyPresent(enabled: false))
-    #expect(mockService1.addDomainLastDomain == "example.com")
-    #expect(mockService2.addDomainLastDomain == "example.com")
-  }
-
-  @Test("Manager keeps each server's ownership ID stable across retries")
-  func stableOwnershipAcrossRetries() async throws {
-    mockService1.addDomainStubQueue = [.failure(PiholeError.network("response lost")), .success(.added)]
-    let outcomes = try await makeManagerWithTwoServers().unblock(domain: "example.com", duration: 60)
-    #expect(outcomes[mockService1.id] == .added)
-    #expect(mockService1.unblockDomainOwnershipIDs.count == 2)
-    #expect(Set(mockService1.unblockDomainOwnershipIDs).count == 1)
-    #expect(mockService2.unblockDomainOwnershipIDs.count == 1)
-    #expect(mockService1.unblockDomainOwnershipIDs.first != mockService2.unblockDomainOwnershipIDs.first)
+    #expect(mockService1.unblockDomainLastDomain == "example.com")
+    #expect(mockService2.unblockDomainLastDomain == "example.com")
+    #expect(mockService1.unblockDomainLastDuration == (permanent ? nil : 60))
+    #expect(mockService1.unblockDomainCallCount == 1)
+    #expect(mockService2.unblockDomainCallCount == 1)
+    #expect(mockService1.addDomainCallCount == 0)
   }
 
   @Test("A run of only no-ops returns no additions")
   func allExistingEntries() async throws {
     for service in [mockService1, mockService2] {
-      service.addDomainStub = .success(.alreadyPresent)
+      service.unblockDomainStub = .success(.alreadyPresent(enabled: nil))
     }
     let outcomes = try await makeManagerWithTwoServers().unblock(domain: "example.com", duration: 60)
     #expect(outcomes.count == 2)
     #expect(outcomes.values.allSatisfy { $0 == .alreadyPresent(enabled: nil) })
+  }
+
+  @Test("Managed failures preserve other server outcomes without manager retries", arguments: [true, false])
+  func partialManagedFailure(permanent: Bool) async throws {
+    mockService1.unblockDomainStub = .success(permanent ? .promoted : .renewed)
+    mockService2.unblockDomainStub = .failure(PiholeError.network("offline"))
+    let manager = makeManagerWithTwoServers()
+    let outcomes: [UUID: DomainUnblockOutcome]
+    if permanent {
+      outcomes = await manager.addToAllowlist(domain: "example.com")
+    } else {
+      outcomes = try await manager.unblock(domain: "example.com", duration: 60)
+    }
+    #expect(outcomes.count == 1)
+    #expect(outcomes[mockService1.id] == (permanent ? .promoted : .renewed))
+    #expect(mockService1.unblockDomainCallCount == 1)
+    #expect(mockService2.unblockDomainCallCount == 1)
   }
 }

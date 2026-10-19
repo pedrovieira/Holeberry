@@ -2,9 +2,9 @@ import Foundation
 
 @testable import HoleberryCore
 
-/// Configurable mock implementing `PiholeServiceCommentAdding` with stub injection, call-count tracking, and failure injection.
+/// Configurable mock implementing `PiholeServiceProviding` with stub injection, call-count tracking, and failure injection.
 @MainActor
-final class MockPiholeService: PiholeServiceCommentAdding {
+class MockPiholeService: PiholeServiceProviding {
   let id: UUID
   var label: String?
   var url: String
@@ -35,8 +35,7 @@ final class MockPiholeService: PiholeServiceCommentAdding {
   var addDomainStub: Result<DomainAddOutcome, any Error> = .success(.added)
   var addDomainHandler: ((String, DomainListType, String?) async throws -> DomainAddOutcome)?
   var addDomainStubQueue: [Result<DomainAddOutcome, any Error>] = []
-  private(set) var unblockDomainOwnershipIDs: [UUID] = []
-  var unblockDomainHandler: ((String, TimeInterval?) async throws -> DomainUnblockOutcome)?
+  private(set) var addDomainComments: [String?] = []
   private(set) var addDomainCallCount = 0
   var addDomainLastDomain: String?
   var addDomainLastList: DomainListType?
@@ -104,18 +103,10 @@ final class MockPiholeService: PiholeServiceCommentAdding {
     addDomainLastDomain = domain
     addDomainLastList = list
     addDomainLastComment = comment
+    addDomainComments.append(comment)
     if let addDomainHandler { return try await addDomainHandler(domain, list, comment) }
     if !addDomainStubQueue.isEmpty { return try addDomainStubQueue.removeFirst().get() }
     return try addDomainStub.get()
-  }
-
-  @discardableResult
-  func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws -> DomainUnblockOutcome
-  {
-    unblockDomainOwnershipIDs.append(ownershipID)
-    if let unblockDomainHandler { return try await unblockDomainHandler(domain, duration) }
-    let outcome = try await addDomain(domain, to: .allow, comment: nil)
-    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
 
   func deleteDomain(_ domain: String, from list: DomainListType) async throws {
