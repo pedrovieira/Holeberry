@@ -36,7 +36,7 @@ struct TempUnblockConcurrencyTests {
   private final class Server {
     var entries: [String: DomainEntry] = [:]
 
-    func configure(_ mock: MockPiholeService) {
+    func configure(_ mock: MockPiholeAPI) {
       mock.addDomainHandler = { domain, _, comment in
         guard self.entries[domain] == nil else { return .alreadyPresent }
         self.entries[domain] = DomainEntry(id: 1, domain: domain, type: 0, comment: comment, enabled: true)
@@ -51,7 +51,7 @@ struct TempUnblockConcurrencyTests {
     "An in-flight cleanup finishes before a fresh temporary or permanent unblock",
     arguments: CleanupPhase.allCases, [TimeInterval?.none, .some(3600)])
   func cleanupBeforeUnblock(phase: CleanupPhase, duration: TimeInterval?) async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let server = Server()
     server.configure(mock)
     let suite = TestDefaults.makeSuite()
@@ -108,7 +108,7 @@ struct TempUnblockConcurrencyTests {
 
   @Test("A failed expiry or retry cannot mark a renewed record for deletion", arguments: [false, true])
   func failedCleanupBeforeRenewal(isRetry: Bool) async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let server = Server()
     server.configure(mock)
     let suite = TestDefaults.makeSuite()
@@ -158,7 +158,7 @@ struct TempUnblockConcurrencyTests {
     "Late expiry and retry wakeups cannot delete renewed or promoted entries",
     arguments: [false, true], [false, true])
   func staleWakeup(isRetry: Bool, permanent: Bool) async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let server = Server()
     server.configure(mock)
     let suite = TestDefaults.makeSuite()
@@ -190,7 +190,7 @@ struct TempUnblockConcurrencyTests {
 
   @Test("Explicit allow deletion waits for an in-flight unblock to finish")
   func deleteDuringUnblock() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     let sleeps = Sleeps()
     defer { sleeps.cancelAll() }
@@ -223,7 +223,7 @@ struct TempUnblockConcurrencyTests {
 
   @Test("A cancelled queued unblock does not mutate the entry or strand the next request")
   func cancelledWaiter() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let server = Server()
     server.configure(mock)
     let sleeps = Sleeps()
@@ -263,7 +263,7 @@ struct TempUnblockConcurrencyTests {
     "Delayed startup reconciliation cannot overwrite a renewal or promotion",
     arguments: [false, true], [false, true])
   func staleReconciliation(fails: Bool, permanent: Bool) async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let server = Server()
     server.configure(mock)
     let suite = TestDefaults.makeSuite()
@@ -303,7 +303,7 @@ struct TempUnblockConcurrencyTests {
 
   @Test("A busy restored domain does not delay restoring other domains' timers")
   func independentReconciliation() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let server = Server()
     server.configure(mock)
     let suite = TestDefaults.makeSuite()

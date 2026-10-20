@@ -11,7 +11,7 @@ import Testing
 struct TempUnblockOwnershipTests {
 
   private func makeDecorator(
-    service: any PiholeServiceProviding,
+    service: any PiholeAPIProviding,
     suite: UserDefaults = TestDefaults.makeSuite()
   ) -> TemporaryUnblockPiholeServiceDecorator {
     TemporaryUnblockPiholeServiceDecorator(
@@ -21,7 +21,7 @@ struct TempUnblockOwnershipTests {
   /// Like `makeDecorator`, but real-world durations (≥10s) park for the whole
   /// test so scheduled records can be observed before any expiry side effect.
   private func makeParkingDecorator(
-    service: any PiholeServiceProviding,
+    service: any PiholeAPIProviding,
     suite: UserDefaults = TestDefaults.makeSuite()
   ) -> TemporaryUnblockPiholeServiceDecorator {
     TemporaryUnblockPiholeServiceDecorator(
@@ -56,7 +56,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("v6 duplicate with a foreign entry reports an existing enabled entry and schedules nothing")
   func v6DuplicateForeign() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.alreadyPresent)
     mock.getDomainStub = .success(DomainEntry(id: 9, domain: "x.com", type: 0, comment: "user", enabled: true))
     let decorator = makeDecorator(service: mock)
@@ -68,7 +68,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("v6 duplicate with a disabled entry reports an existing disabled entry")
   func v6DuplicateDisabled() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.alreadyPresent)
     mock.getDomainStub = .success(DomainEntry(id: 9, domain: "x.com", type: 0, comment: "user", enabled: false))
     let decorator = makeDecorator(service: mock)
@@ -80,7 +80,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("v6 duplicate carrying our token records the orphan and reports added")
   func v6OrphanToken() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.alreadyPresent)
     mock.getDomainHandler = { [weak mock] domain in
       DomainEntry(id: 9, domain: domain, type: 0, comment: mock?.addDomainLastComment, enabled: true)
@@ -99,7 +99,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("v6 re-unblock of our own record renews the timer")
   func v6Renew() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.added)
     let suite = TestDefaults.makeSuite()
     let decorator = makeParkingDecorator(service: mock, suite: suite)
@@ -123,7 +123,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("v6 indefinite on our own record promotes it")
   func v6Promote() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.added)
     let suite = TestDefaults.makeSuite()
     let decorator = makeParkingDecorator(service: mock, suite: suite)
@@ -145,7 +145,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("v6 400 triggers exactly one read-back and classifies")
   func v6FallbackReadBack() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .failure(PiholeError.server(400, #"{"error":{"key":"database_error"}}"#))
     mock.getDomainStub = .success(DomainEntry(id: 3, domain: "x.com", type: 0, comment: "user", enabled: true))
     let decorator = makeDecorator(service: mock)
@@ -157,7 +157,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("v6 400 with an empty read-back rethrows the original error")
   func v6FallbackRethrows() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .failure(PiholeError.server(400, "database_error"))
     mock.getDomainStub = .success(nil)
     let decorator = makeDecorator(service: mock)
@@ -170,7 +170,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("expiry: a foreign comment skips the delete and sends no notification")
   func expiryForeignCommentSkipsDelete() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.added)
     mock.getDomainStub = .success(DomainEntry(id: 9, domain: "x.com", type: 0, comment: "user", enabled: true))
 
@@ -200,7 +200,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("expiry: our comment deletes and notifies")
   func expiryOurCommentDeletes() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.added)
     mock.getDomainHandler = { [weak mock] domain in
       DomainEntry(id: 42, domain: domain, type: 0, comment: mock?.addDomainLastComment, enabled: true)
@@ -229,7 +229,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("expiry: entry already absent finalizes without delete")
   func expiryAbsentFinalizes() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.added)
     mock.getDomainStub = .success(nil)
 
@@ -246,7 +246,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("expiry: delete 404 finalizes")
   func expiry404Finalizes() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.added)
     mock.getDomainHandler = { [weak mock] domain in
       DomainEntry(id: 42, domain: domain, type: 0, comment: mock?.addDomainLastComment, enabled: true)
@@ -278,7 +278,7 @@ struct TempUnblockOwnershipTests {
 
   @Test("expiry: v5 ignores ownership")
   func expiryV5DeletesWithoutComment() async throws {
-    let mock = MockPiholeService(version: .v5)
+    let mock = MockPiholeAPI(version: .v5)
     mock.getDomainsStub = .success([DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil)])
     mock.getDomainStub = .success(DomainEntry(id: 1, domain: "x.com", type: 0, comment: nil, enabled: true))
     mock.deleteDomainStub = .success(())

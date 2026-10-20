@@ -12,7 +12,7 @@ struct DomainUnblockOutcomeTests {
     arguments: [ServerVersion.v5, .v6], [Bool?.some(true), .some(false), nil]
   )
   func existingEntry(version: ServerVersion, enabled: Bool?) async throws {
-    let service = MockPiholeService(version: version)
+    let service = MockPiholeAPI(version: version)
     service.addDomainStub = .success(.alreadyPresent)
     service.getDomainStub = .success(
       DomainEntry(id: 1, domain: "example.com", type: 0, comment: "manual", enabled: enabled)
@@ -35,7 +35,7 @@ struct DomainUnblockOutcomeTests {
 
   @Test("Unreadable existing entries report a no-op with unknown state")
   func unknownExistingState() async throws {
-    let service = MockPiholeService()
+    let service = MockPiholeAPI()
     service.addDomainStub = .success(.alreadyPresent)
     service.getDomainStub = .failure(PiholeError.network("offline"))
     let suite = TestDefaults.makeSuite()
@@ -52,7 +52,7 @@ struct DomainUnblockOutcomeTests {
 
   @Test("Permanent additions also expose no-ops")
   func permanentExistingEntry() async throws {
-    let service = MockPiholeService()
+    let service = MockPiholeAPI()
     service.addDomainStub = .success(.alreadyPresent)
     service.getDomainStub = .success(
       DomainEntry(id: 1, domain: "example.com", type: 0, comment: "manual", enabled: false)
@@ -67,7 +67,7 @@ struct DomainUnblockOutcomeTests {
   func internationalExistingEntry(version: ServerVersion) async throws {
     let session = MockURLSession()
     let baseURL = URL(string: "http://test.local")!
-    let service: any PiholeServiceProviding
+    let service: any PiholeAPIProviding
     if version == .v5 {
       service = PiholeV5Service(
         id: UUID(), label: nil, url: baseURL.absoluteString, version: .v5,

@@ -1,4 +1,4 @@
-/// Outcome of `PiholeServiceProviding.addDomain(_:to:comment:)`.
+/// Outcome of `PiholeAPIProviding.addDomain(_:to:comment:)`.
 public enum DomainAddOutcome: Sendable, Equatable {
   /// The entry was not there and is now.
   case added

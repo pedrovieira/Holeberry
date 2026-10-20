@@ -125,7 +125,7 @@ struct DomainUnblockRecoveryTests {
 
   @Test("An unsuccessful recovery preserves the original error", arguments: ["absent", "manual", "offline"])
   func failedRecovery(result: String) async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     mock.addDomainStub = .failure(PiholeError.network("response lost"))
     switch result {
     case "manual":
@@ -154,7 +154,7 @@ struct DomainUnblockRecoveryTests {
 
   @Test("A confirmed add does not need a recovery lookup")
   func confirmedAdd() async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: suite, retrySleep: { _ in },
@@ -206,7 +206,7 @@ struct DomainUnblockRecoveryTests {
     withExtendedLifetime(decorator) {}
   }
 
-  private func makeService(_ version: ServerVersion, session: MockURLSession) -> any PiholeServiceProviding {
+  private func makeService(_ version: ServerVersion, session: MockURLSession) -> any PiholeAPIProviding {
     let url = URL(string: "http://test.local")!
     if version == .v5 {
       return PiholeV5Service(

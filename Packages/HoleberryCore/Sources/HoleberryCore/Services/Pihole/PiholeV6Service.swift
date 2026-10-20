@@ -4,7 +4,7 @@ import OSLog
 // swiftlint:disable file_length
 
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
-public final class PiholeV6Service: PiholeServiceProviding {
+public final class PiholeV6Service: PiholeAPIProviding {
   private static let blockedStatus = "GRAVITY"
   /// Safety cap on the number of rows the server returns. The real filter is the time
   /// range (`from`/`until`), but a large limit prevents unbounded responses.

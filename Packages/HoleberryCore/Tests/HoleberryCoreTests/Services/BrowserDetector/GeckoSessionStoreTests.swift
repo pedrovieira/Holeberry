@@ -3,7 +3,6 @@ import Testing
 
 @testable import HoleberryCore
 
-
 // MARK: - GeckoSessionStoreUrlFetchingStrategy - profiles.ini parsing
 
 @Suite("GeckoSessionStore URL fetching")

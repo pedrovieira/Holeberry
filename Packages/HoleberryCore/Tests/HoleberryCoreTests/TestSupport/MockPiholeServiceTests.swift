@@ -3,76 +3,38 @@ import Testing
 
 @testable import HoleberryCore
 
-/// Meta-tests verifying that `MockPiholeService` — the test double used across the
-/// test suite — correctly stubs return values, tracks call counts, captures
-/// parameters, and propagates injected failures. If these pass, a failure in
-/// another test that uses the mock is a real bug, not a broken mock.
-@Suite("MockPiholeService")
 @MainActor
+@Suite("MockPiholeService")
 struct MockPiholeServiceTests {
-  @Test func checkStatus() async throws {
+  @Test(arguments: [DomainUnblockOutcome.added, .renewed, .promoted, .alreadyPresent(enabled: false)])
+  func explicitOutcome(outcome: DomainUnblockOutcome) async throws {
     let mock = MockPiholeService()
-    mock.checkStatusStub = .success(.disabled(remainingSeconds: 30))
-    let status = try await mock.checkStatus()
-    #expect(status == .disabled(remainingSeconds: 30))
-    #expect(mock.checkStatusCallCount == 1)
+    mock.unblockDomainStub = .success(outcome)
+    #expect(try await mock.unblockDomain("test.com", duration: 60) == outcome)
+    #expect(mock.unblockDomainCallCount == 1)
+    #expect(mock.unblockDomainLastDomain == "test.com")
+    #expect(mock.unblockDomainLastDuration == 60)
+    #expect(mock.addDomainCallCount == 0)
+    #expect(mock.getDomainCallCount == 0)
   }
 
-  @Test func setBlocking() async throws {
+  @Test func handlerPrecedesStubAndTracksArguments() async throws {
     let mock = MockPiholeService()
-    try await mock.setBlocking(enabled: false, duration: 300)
-    #expect(mock.setBlockingCallCount == 1)
-    #expect(mock.setBlockingLastEnabled == false)
-    #expect(mock.setBlockingLastDuration == 300)
+    mock.unblockDomainStub = .failure(PiholeError.unauthorized)
+    mock.unblockDomainHandler = { _, duration in duration == nil ? .promoted : .renewed }
+    #expect(try await mock.unblockDomain("temporary.com", duration: 300) == .renewed)
+    #expect(try await mock.unblockDomain("permanent.com", duration: nil) == .promoted)
+    #expect(mock.unblockDomainArgs.map(\.domain) == ["temporary.com", "permanent.com"])
+    #expect(mock.unblockDomainArgs.map(\.duration) == [300, nil])
+    #expect(mock.unblockDomainLastDuration == nil)
   }
 
-  @Test(arguments: [DomainAddOutcome.added, .alreadyPresent])
-  func addDomain(expected: DomainAddOutcome) async throws {
+  @Test func failuresAreNotRetried() async {
     let mock = MockPiholeService()
-    mock.addDomainStub = .success(expected)
-    let result = try await mock.addDomain("test.com", to: .allow, comment: "test-uuid")
-    #expect(result == expected)
-    #expect(mock.addDomainCallCount == 1)
-    #expect(mock.addDomainLastDomain == "test.com")
-    #expect(mock.addDomainLastList == .allow)
-    #expect(mock.addDomainLastComment == "test-uuid")
-  }
-
-  @Test func failureInjection() async {
-    let mock = MockPiholeService()
-    mock.checkStatusStub = .failure(PiholeError.unauthorized)
-    await #expect(throws: PiholeError.unauthorized) {
-      try await mock.checkStatus()
+    mock.unblockDomainStub = .failure(PiholeError.network("offline"))
+    await #expect(throws: PiholeError.network("offline")) {
+      try await mock.unblockDomain("test.com", duration: nil)
     }
-  }
-
-  @Test func queuedAddResultsCaptureEveryComment() async throws {
-    let mock = MockPiholeService()
-    mock.addDomainStubQueue = [.failure(PiholeError.network("lost")), .success(.alreadyPresent)]
-    await #expect(throws: PiholeError.network("lost")) {
-      try await mock.addDomain("test.com", to: .allow, comment: "first-token")
-    }
-    #expect(try await mock.addDomain("test.com", to: .allow, comment: nil) == .alreadyPresent)
-    #expect(mock.addDomainComments == ["first-token", nil])
-    #expect(mock.addDomainCallCount == 2)
-  }
-
-  @Test func deleteDomain() async throws {
-    let mock = MockPiholeService()
-    try await mock.deleteDomain("test.com", from: .deny)
-    #expect(mock.deleteDomainCallCount == 1)
-    #expect(mock.deleteDomainLastDomain == "test.com")
-    #expect(mock.deleteDomainLastList == .deny)
-  }
-
-  @Test func updateGravity() async throws {
-    let mock = MockPiholeService()
-    try await mock.updateGravity()
-    #expect(mock.updateGravityCallCount == 1)
-
-    mock.updateGravityStub = .failure(PiholeError.network("down"))
-    await #expect(throws: PiholeError.network("down")) {
-      try await mock.updateGravity()
-    }
+    #expect(mock.unblockDomainCallCount == 1)
   }
 }

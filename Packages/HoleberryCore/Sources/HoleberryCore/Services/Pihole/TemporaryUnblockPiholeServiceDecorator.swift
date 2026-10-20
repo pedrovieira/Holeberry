@@ -3,8 +3,8 @@ import Foundation
 import OSLog
 
 @MainActor
-public final class TemporaryUnblockPiholeServiceDecorator: PiholeUnblockingServiceProviding {
-  private let wrapped: any PiholeServiceProviding
+public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProviding {
+  private let wrapped: any PiholeAPIProviding
 
   // Identity — delegates to wrapped
   public var id: UUID { wrapped.id }
@@ -38,7 +38,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeUnblockingServi
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "temp-unblock")
 
   public init(
-    service: any PiholeServiceProviding,
+    service: any PiholeAPIProviding,
     backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
     defaultsSuite: UserDefaults = .standard,
     notificationCenter: NotificationCenter = .default,

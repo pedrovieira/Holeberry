@@ -513,7 +513,7 @@ final class PiholeV6ServiceTests {
         return (Data(body.utf8), try #require(v6Response()))
       }
     ]
-    let service: any PiholeServiceProviding = TemporaryUnblockPiholeServiceDecorator(
+    let service: any PiholeAPIProviding = TemporaryUnblockPiholeServiceDecorator(
       service: makeService(), defaultsSuite: TestDefaults.makeSuite()
     )
     let entry = try #require(try await service.getDomain("example.com", from: list))

@@ -15,7 +15,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let versionDetector: any PiholeVersionDetecting
   private let suite: UserDefaults
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
-  private var services: [UUID: any PiholeUnblockingServiceProviding] = [:]
+  private var services: [UUID: any PiholeServiceProviding] = [:]
   private struct UnblockKey: Hashable {
     let serverID: UUID
     let domain: String
@@ -365,7 +365,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   private func unblockOnServer(
-    _ domain: String, duration: TimeInterval?, serverID: UUID, service: any PiholeUnblockingServiceProviding
+    _ domain: String, duration: TimeInterval?, serverID: UUID, service: any PiholeServiceProviding
   ) async throws -> DomainUnblockOutcome {
     try Task.checkCancellation()
     let key = UnblockKey(serverID: serverID, domain: domain)

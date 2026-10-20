@@ -57,7 +57,7 @@ struct PiholeServiceFactoryTests {
         HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
       )
     }
-    let service: any PiholeUnblockingServiceProviding = try factory.buildService(
+    let service: any PiholeServiceProviding = try factory.buildService(
       config: config, credential: "api-token", session: session, suite: suite
     )
     #expect(service.id == config.id)

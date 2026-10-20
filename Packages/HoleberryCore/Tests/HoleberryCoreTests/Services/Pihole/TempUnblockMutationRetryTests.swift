@@ -44,7 +44,7 @@ struct TempUnblockMutationRetryTests {
 
   @Test("One direct call exhausts three attempts and propagates the mutation error")
   func exhaustion() async throws {
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     let failure = PiholeError.network("mutation response lost")
     raw.addDomainStub = .failure(failure)
     raw.getDomainStub = .failure(PiholeError.network("recovery read failed"))
@@ -70,7 +70,7 @@ struct TempUnblockMutationRetryTests {
 
   @Test("A later attempt recovers a committed insert using the original request token")
   func committedInsertRecovery() async throws {
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     var committed: DomainEntry?
     raw.addDomainHandler = { domain, _, comment in
@@ -107,7 +107,7 @@ struct TempUnblockMutationRetryTests {
 
   @Test("Nonretryable mutation errors propagate after one attempt")
   func nonretryable() async throws {
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     let failure = PiholeError.server(403, "forbidden")
     raw.addDomainStub = .failure(failure)
     let suite = TestDefaults.makeSuite()
@@ -124,7 +124,7 @@ struct TempUnblockMutationRetryTests {
 
   @Test("Cancellation during mutation backoff prevents any later attempt")
   func cancellationInBackoff() async throws {
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     raw.addDomainStub = .failure(PiholeError.network("offline"))
     let suite = TestDefaults.makeSuite()
     let backoff = Backoff()
@@ -147,7 +147,7 @@ struct TempUnblockMutationRetryTests {
 
   @Test("A cancelled call cannot mutate even if its backoff ignores cancellation")
   func cancellationBeforeNextAttempt() async throws {
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     raw.addDomainStub = .failure(PiholeError.network("offline"))
     let backoff = Backoff()
     let service = TemporaryUnblockPiholeServiceDecorator(
@@ -164,7 +164,7 @@ struct TempUnblockMutationRetryTests {
 
   @Test("The decorator releases its domain gate during mutation backoff")
   func releasesGateBetweenAttempts() async throws {
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     raw.addDomainStubQueue = [.failure(PiholeError.network("offline")), .success(.added)]
     let backoff = Backoff()
     let service = TemporaryUnblockPiholeServiceDecorator(
@@ -188,7 +188,7 @@ struct TempUnblockMutationRetryTests {
 
   @Test("General add remains outside managed retry policy")
   func generalAddDoesNotRetry() async throws {
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     let failure = PiholeError.network("offline")
     raw.addDomainStub = .failure(failure)
     let service = TemporaryUnblockPiholeServiceDecorator(

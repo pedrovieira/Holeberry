@@ -11,7 +11,7 @@ struct TempUnblockDisabledEntryTests {
     "Disabled owned entries neither renew nor promote",
     arguments: [TimeInterval?.none, .some(3600)], [ServerVersion.v5, .v6])
   func disabledOwnedEntry(duration: TimeInterval?, version: ServerVersion) async throws {
-    let mock = MockPiholeService(version: version)
+    let mock = MockPiholeAPI(version: version)
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock, defaultsSuite: suite, retrySleep: { _ in },
@@ -37,7 +37,7 @@ struct TempUnblockDisabledEntryTests {
 
   @Test("Disabled matching-token entries are not recovered as successes", arguments: [false, true])
   func disabledRecovery(addThrows: Bool) async throws {
-    let mock = MockPiholeService()
+    let mock = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     mock.addDomainStub = addThrows ? .failure(URLError(.timedOut)) : .success(.alreadyPresent)
     mock.getDomainHandler = { [weak mock] domain in

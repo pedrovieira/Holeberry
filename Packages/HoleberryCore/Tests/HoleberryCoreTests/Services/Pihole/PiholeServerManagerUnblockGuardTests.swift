@@ -8,7 +8,7 @@ import Testing
 @Suite("PiholeServerManager in-progress unblocks")
 struct PiholeServerManagerUnblockGuardTests {
   private func makeManager(
-    services: [any PiholeUnblockingServiceProviding], suite: UserDefaults = TestDefaults.makeSuite()
+    services: [any PiholeServiceProviding], suite: UserDefaults = TestDefaults.makeSuite()
   ) -> PiholeServerManager {
     Defaults[.servers(suite: suite)] = services.map {
       ServerConfig(id: $0.id, url: $0.url, version: $0.version)
@@ -27,7 +27,7 @@ struct PiholeServerManagerUnblockGuardTests {
 
   @Test("Overlapping temporary and permanent requests skip a normalized domain", arguments: [ServerVersion.v5, .v6])
   func overlappingRequests(version: ServerVersion) async throws {
-    let service = MockPiholeUnblockingService(version: version)
+    let service = MockPiholeService(version: version)
     let manager = makeManager(services: [service])
     var pending: CheckedContinuation<Void, Never>?
     service.unblockDomainHandler = { _, _ in
@@ -56,7 +56,7 @@ struct PiholeServerManagerUnblockGuardTests {
 
   @Test("A different domain can unblock while one is running")
   func independentDomains() async throws {
-    let service = MockPiholeUnblockingService()
+    let service = MockPiholeService()
     let manager = makeManager(services: [service])
     var pending: CheckedContinuation<Void, Never>?
     service.unblockDomainHandler = { domain, _ in
@@ -77,8 +77,8 @@ struct PiholeServerManagerUnblockGuardTests {
 
   @Test("A busy server does not suppress an unblock on another server")
   func independentServers() async throws {
-    let busy = MockPiholeUnblockingService()
-    let available = MockPiholeUnblockingService()
+    let busy = MockPiholeService()
+    let available = MockPiholeService()
     let manager = makeManager(services: [busy, available])
     let configs = manager.servers
     manager.servers = configs.filter { $0.id == busy.id }
@@ -106,7 +106,7 @@ struct PiholeServerManagerUnblockGuardTests {
 
   @Test("Failed and cancelled operations allow a subsequent unblock", arguments: [false, true])
   func releaseAfterFailure(cancel: Bool) async throws {
-    let service = MockPiholeUnblockingService()
+    let service = MockPiholeService()
     let manager = makeManager(services: [service])
     var pending: CheckedContinuation<Void, Never>?
     service.unblockDomainHandler = { _, _ in
@@ -165,7 +165,7 @@ struct PiholeServerManagerUnblockGuardTests {
   @Test("The manager guard spans managed retry and persistence, then releases", arguments: Completion.allCases)
   func guardDuringManagedRetry(completion: Completion) async throws {
     let suite = TestDefaults.makeSuite()
-    let raw = MockPiholeService()
+    let raw = MockPiholeAPI()
     let backoff = Gate()
     let expiry = Gate()
     let persisted = Gate()
@@ -182,7 +182,7 @@ struct PiholeServerManagerUnblockGuardTests {
       service: raw, defaultsSuite: suite,
       retrySleep: { _ in try await backoff.wait() },
       sleep: { _ in try await expiry.wait() })
-    let managed = MockPiholeUnblockingService(id: raw.id)
+    let managed = MockPiholeService(id: raw.id)
     managed.unblockDomainHandler = { domain, duration in
       let outcome = try await decorator.unblockDomain(domain, duration: duration)
       if managed.unblockDomainCallCount == 1 {
@@ -232,7 +232,7 @@ struct PiholeServerManagerUnblockGuardTests {
   @Test("Managed unblocks on two servers generate independent ownership tokens")
   func independentServerTokens() async throws {
     let suite = TestDefaults.makeSuite()
-    let rawServices = [MockPiholeService(), MockPiholeService()]
+    let rawServices = [MockPiholeAPI(), MockPiholeAPI()]
     let expiry = Gate()
     defer { expiry.cancel() }
     let decorators = rawServices.map { raw in
@@ -240,7 +240,7 @@ struct PiholeServerManagerUnblockGuardTests {
         service: raw, defaultsSuite: suite, retrySleep: { _ in }, sleep: { _ in try await expiry.wait() })
     }
     let managed = zip(rawServices, decorators).map { raw, decorator in
-      let service = MockPiholeUnblockingService(id: raw.id)
+      let service = MockPiholeService(id: raw.id)
       service.unblockDomainHandler = { domain, duration in
         try await decorator.unblockDomain(domain, duration: duration)
       }

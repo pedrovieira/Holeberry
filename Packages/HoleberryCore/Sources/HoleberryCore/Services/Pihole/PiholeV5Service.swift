@@ -15,7 +15,7 @@ private enum V5QueryStatus: String, CaseIterable {
 }
 
 /// Pi-hole v5 API implementation using static token auth and query-string endpoints.
-public final class PiholeV5Service: PiholeServiceProviding {
+public final class PiholeV5Service: PiholeAPIProviding {
   // MARK: - Identity & Config
   public let id: UUID
   public var label: String?

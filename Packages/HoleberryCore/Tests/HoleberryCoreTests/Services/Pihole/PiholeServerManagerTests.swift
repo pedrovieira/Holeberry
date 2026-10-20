@@ -119,7 +119,7 @@ struct PiholeServerManagerCRUDTests {
   @Test("addServer stores no credential when the server reports password-less")
   func addServerStoresNoCredentialWhenServerReportsPasswordless() async throws {
     let manager = makeManager(suite: TestDefaults.makeSuite())
-    let service = MockPiholeUnblockingService(url: "http://test.com", version: .v6)
+    let service = MockPiholeService(url: "http://test.com", version: .v6)
     service.isPasswordless = true
     mockServiceFactory.buildServiceStub = service
     defer { mockServiceFactory.buildServiceStub = nil }
@@ -164,7 +164,7 @@ struct PiholeServerManagerCRUDTests {
     let config = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
     Defaults[.servers(suite: suite)] = [config]
 
-    let failingService = MockPiholeUnblockingService(id: config.id, url: config.url, version: .v6)
+    let failingService = MockPiholeService(id: config.id, url: config.url, version: .v6)
     failingService.checkStatusStub = .failure(PiholeError.invalidCredentials)
     mockServiceFactory.buildServiceStub = failingService
     defer { mockServiceFactory.buildServiceStub = nil }
@@ -182,7 +182,7 @@ struct PiholeServerManagerCRUDTests {
     Defaults[.servers(suite: suite)] = [config]
     try? mockKeychain.saveCredential("old-password", for: config.id)
 
-    let failingService = MockPiholeUnblockingService(id: config.id, url: config.url, version: .v6)
+    let failingService = MockPiholeService(id: config.id, url: config.url, version: .v6)
     failingService.checkStatusStub = .failure(PiholeError.invalidCredentials)
     mockServiceFactory.buildServiceStub = failingService
     defer { mockServiceFactory.buildServiceStub = nil }
@@ -259,7 +259,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     mockServiceFactory.buildServiceStub = probe
 
     let result = try await manager.verifyCredential(id: id, credential: "fresh-password")
@@ -276,7 +276,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     probe.isPasswordless = true
     mockServiceFactory.buildServiceStub = probe
 
@@ -294,7 +294,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     probe.loginStub = .failure(PiholeError.invalidCredentials)
     mockServiceFactory.buildServiceStub = probe
 
@@ -312,7 +312,7 @@ struct PiholeServerManagerCRUDTests {
     }
     // Login succeeds (session established server-side), then the status probe
     // fails — the probe session must still be logged out.
-    let probe = MockPiholeUnblockingService(id: id, url: "http://test.com", version: .v6)
+    let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     probe.checkStatusStub = .failure(PiholeError.network("blip"))
     mockServiceFactory.buildServiceStub = probe
 
@@ -326,8 +326,8 @@ struct PiholeServerManagerCRUDTests {
   @Test("updateGravity asks all servers and skips the unsupported ones")
   func updateGravitySkipsUnsupported() async throws {
     let manager = makeManager(suite: TestDefaults.makeSuite())
-    let v5Service = MockPiholeUnblockingService(version: .v5)
-    let v6Service = MockPiholeUnblockingService(version: .v6)
+    let v5Service = MockPiholeService(version: .v5)
+    let v6Service = MockPiholeService(version: .v6)
     mockServiceFactory.buildServiceHandler = { config in
       config.version == .v5 ? v5Service : v6Service
     }
@@ -357,7 +357,7 @@ struct PiholeServerManagerCRUDTests {
   @Test("updateGravity aggregates failures")
   func updateGravityAggregatesFailures() async throws {
     let manager = makeManager(suite: TestDefaults.makeSuite())
-    let service = MockPiholeUnblockingService()
+    let service = MockPiholeService()
     mockServiceFactory.buildServiceStub = service
 
     try await manager.addServer(label: "New", url: "http://v6.local", credential: "b")
@@ -378,9 +378,9 @@ struct PiholeServerManagerCRUDTests {
 @MainActor
 @Suite("PiholeServerManager - Domain Operations")
 struct PiholeServerManagerDomainTests {
-  private let mockService1 = MockPiholeUnblockingService(
+  private let mockService1 = MockPiholeService(
     id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
-  private let mockService2 = MockPiholeUnblockingService(
+  private let mockService2 = MockPiholeService(
     id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
   private let mockServiceFactory = MockPiholeServiceFactory()
 
