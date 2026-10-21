@@ -15,7 +15,7 @@ private enum V5QueryStatus: String, CaseIterable {
 }
 
 /// Pi-hole v5 API implementation using static token auth and query-string endpoints.
-public final class PiholeV5Service: PiholeServiceCommentAdding {
+public final class PiholeV5Service: PiholeAPIProviding {
   // MARK: - Identity & Config
   public let id: UUID
   public var label: String?
@@ -208,6 +208,7 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
     return blocked
   }
 
+  /// Adds an exact entry, reading the list first to skip existing entries and classifying the add response message.
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
     let identity = try PiholeDomain.validatedIdentity(domain)
     await acquireDomainMutation()
@@ -228,14 +229,6 @@ public final class PiholeV5Service: PiholeServiceCommentAdding {
 
     let response = try validateDomainMutationResponse(data, httpResponse)
     return try response.addOutcome(for: identity)
-  }
-
-  @discardableResult
-  public func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws
-    -> DomainUnblockOutcome
-  {
-    let outcome = try await addDomain(domain, to: .allow, comment: nil)
-    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
 
   private func acquireDomainMutation() async {

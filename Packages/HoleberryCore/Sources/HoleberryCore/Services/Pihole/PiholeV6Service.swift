@@ -4,7 +4,7 @@ import OSLog
 // swiftlint:disable file_length
 
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
-public final class PiholeV6Service: PiholeServiceCommentAdding {
+public final class PiholeV6Service: PiholeAPIProviding {
   private static let blockedStatus = "GRAVITY"
   /// Safety cap on the number of rows the server returns. The real filter is the time
   /// range (`from`/`until`), but a large limit prevents unbounded responses.
@@ -194,6 +194,7 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
     }
   }
 
+  /// Adds an exact entry, classifying insert outcomes from the HTTP status and JSON response.
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
     let body = AddDomainBody(domain: try PiholeDomain.validatedIdentity(domain), comment: comment)
     let path = "/api/domains/\(listTypeName(for: list))/exact"
@@ -237,14 +238,6 @@ public final class PiholeV6Service: PiholeServiceCommentAdding {
       throw PiholeError.decoding("Domain add did not confirm a created entry")
     }
     return .added
-  }
-
-  @discardableResult
-  public func unblockDomain(_ domain: String, duration: TimeInterval?, ownershipID: UUID) async throws
-    -> DomainUnblockOutcome
-  {
-    let outcome = try await addDomain(domain, to: .allow, comment: nil)
-    return await DomainUnblockOutcome.resolve(for: domain, addOutcome: outcome, service: self)
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async throws {

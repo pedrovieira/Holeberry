@@ -76,7 +76,7 @@ struct PiholeDomainSafetyTests {
     #expect(try await service.addDomain("example.com", to: .allow, comment: comment) == .added)
   }
 
-  private func makeService(_ version: ServerVersion, session: MockURLSession) -> any PiholeServiceCommentAdding {
+  private func makeService(_ version: ServerVersion, session: MockURLSession) -> any PiholeAPIProviding {
     let url = URL(string: "http://test.local")!
     if version == .v5 {
       return PiholeV5Service(

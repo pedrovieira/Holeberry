@@ -375,10 +375,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     guard inProgressUnblocks.insert(key).inserted else { return .inProgress }
     defer { inProgressUnblocks.remove(key) }
 
-    let ownershipID = UUID()
-    return try await withRetry(.destructive) {
-      try await service.unblockDomain(domain, duration: duration, ownershipID: ownershipID)
-    }
+    return try await service.unblockDomain(domain, duration: duration)
   }
 
   public func deleteDomain(_ domain: String, from list: DomainListType) async {

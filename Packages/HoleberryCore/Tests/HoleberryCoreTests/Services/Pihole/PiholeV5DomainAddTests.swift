@@ -57,11 +57,13 @@ struct PiholeV5DomainAddTests {
     session.handlers = [{ _ in reply(#"{"data":[]}"#) }, { _ in reply(body) }]
     let service = makeService()
     let suite = TestDefaults.makeSuite()
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite) { _ in
-      Issue.record("An unconfirmed add must not start an expiry timer")
-    }
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, defaultsSuite: suite,
+      sleep: { _ in
+        Issue.record("An unconfirmed add must not start an expiry timer")
+      })
     await #expect {
-      try await decorator.unblockDomain("example.com", duration: 60, ownershipID: UUID())
+      try await decorator.unblockDomain("example.com", duration: 60)
     } throws: { error in
       guard case PiholeError.decoding = error else { return false }
       return true
