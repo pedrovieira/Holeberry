@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: me.pedrovieira
   deploymentTarget:
     macOS: "14.0"
-  xcodeVersion: "16.0"
+  xcodeVersion: "27.0"
 
 settings:
   base:

@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
       - name: Select Xcode
@@ -19,7 +19,7 @@ jobs:
         run: cd Packages/HoleberryCore && swift test
 
   lint:
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
       - name: Select Xcode
@@ -30,7 +30,7 @@ jobs:
         run: swiftlint --strict Sources/ Packages/HoleberryCore/Sources/
 
   swift-format:
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
       - name: Select Xcode
