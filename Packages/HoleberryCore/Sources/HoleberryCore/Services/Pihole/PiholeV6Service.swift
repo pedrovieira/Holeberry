@@ -1,8 +1,6 @@
 import Foundation
 import OSLog
 
-// swiftlint:disable file_length
-
 /// Pi-hole v6 API implementation using session-based auth (X-FTL-SID) and JSON REST endpoints.
 public final class PiholeV6Service: PiholeAPIProviding {
   private static let blockedStatus = "GRAVITY"
@@ -26,23 +24,6 @@ public final class PiholeV6Service: PiholeAPIProviding {
   private static let decoder = JSONDecoder()
   private static let encoder = JSONEncoder()
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "v6-service")
-
-  // MARK: - API response types
-
-  private struct QueriesResponse: Decodable {
-    let queries: [QueryEntry]
-  }
-
-  private struct QueryEntry: Decodable {
-    let domain: String
-    let time: Double
-    let client: ClientInfo
-  }
-
-  private struct ClientInfo: Decodable {
-    // swiftlint:disable:next identifier_name
-    let ip: String
-  }
 
   public init(
     id: UUID,
@@ -78,14 +59,9 @@ public final class PiholeV6Service: PiholeAPIProviding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    struct BlockingResponse: Decodable {
-      let blocking: String?
-      let timer: TimeInterval?
-    }
-
-    let status: BlockingResponse
+    let status: V6BlockingResponse
     do {
-      status = try Self.decoder.decode(BlockingResponse.self, from: data)
+      status = try Self.decoder.decode(V6BlockingResponse.self, from: data)
     } catch {
       let body = String(data: data, encoding: .utf8) ?? ""
       self.logger.error(
@@ -101,7 +77,7 @@ public final class PiholeV6Service: PiholeAPIProviding {
   }
 
   public func setBlocking(enabled: Bool, duration: TimeInterval?) async throws {
-    let body = SetBlockingBody(blocking: enabled, timer: enabled ? nil : duration)
+    let body = V6SetBlockingBody(blocking: enabled, timer: enabled ? nil : duration)
     let (data, httpResponse) = try await authenticatedRequest(
       path: "/api/dns/blocking", method: .post, body: body
     )
@@ -136,9 +112,9 @@ public final class PiholeV6Service: PiholeAPIProviding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    let result: QueriesResponse
+    let result: V6QueriesResponse
     do {
-      result = try Self.decoder.decode(QueriesResponse.self, from: data)
+      result = try Self.decoder.decode(V6QueriesResponse.self, from: data)
     } catch {
       let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
       self.logger.error("V6 getRecentBlocked decode failed. URL: \(url.absoluteString, privacy: .public)")
@@ -165,9 +141,9 @@ public final class PiholeV6Service: PiholeAPIProviding {
       throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
     }
 
-    let response: SummaryResponse
+    let response: V6SummaryResponse
     do {
-      response = try Self.decoder.decode(SummaryResponse.self, from: data)
+      response = try Self.decoder.decode(V6SummaryResponse.self, from: data)
     } catch {
       let body = String(data: data, encoding: .utf8) ?? ""
       logger.error("Query summary decode failed. Body: \(body, privacy: .public)")
@@ -196,7 +172,7 @@ public final class PiholeV6Service: PiholeAPIProviding {
 
   /// Adds an exact entry, classifying insert outcomes from the HTTP status and JSON response.
   public func addDomain(_ domain: String, to list: DomainListType, comment: String?) async throws -> DomainAddOutcome {
-    let body = AddDomainBody(domain: try PiholeDomain.validatedIdentity(domain), comment: comment)
+    let body = V6AddDomainBody(domain: try PiholeDomain.validatedIdentity(domain), comment: comment)
     let path = "/api/domains/\(listTypeName(for: list))/exact"
     let (data, httpResponse) = try await authenticatedRequest(
       path: path, method: .post, body: body
@@ -352,67 +328,4 @@ public final class PiholeV6Service: PiholeAPIProviding {
       return ((data, httpResponse), httpResponse)
     }
   }
-}
-
-private struct AddDomainBody: Encodable {
-  let domain: String
-  let comment: String?
-}
-
-private struct SetBlockingBody: Encodable {
-  let blocking: Bool
-  let timer: TimeInterval?
-}
-
-public struct DomainsResponse: Decodable {
-  let domains: [DomainEntry]
-}
-
-/// `/api/stats/summary` response. `gravity` is optional because some FTL
-/// builds omit it; `last_update` is 0 before the first gravity run.
-private struct SummaryResponse: Decodable {
-  let queries: SummaryQueries
-  let gravity: SummaryGravity?
-}
-
-private struct SummaryGravity: Decodable {
-  let lastUpdate: Double?
-
-  enum CodingKeys: String, CodingKey {
-    case lastUpdate = "last_update"
-  }
-}
-
-private struct SummaryQueries: Decodable {
-  let total: Int
-  let blocked: Int
-}
-
-/// Domain POST replies include per-item results even when the HTTP status is 201.
-private struct V6DomainAddResponse: Decodable {
-  let processed: V6DomainAddProcessed
-
-  static func isDuplicateError(_ message: String?) -> Bool {
-    message == "UNIQUE constraint failed: domainlist.domain, domainlist.type"
-  }
-}
-
-private struct V6DomainAddProcessed: Decodable {
-  let success: [V6DomainAddItem]
-  let errors: [V6DomainAddItem]
-}
-
-private struct V6DomainAddItem: Decodable {
-  let item: String
-  let error: String?
-}
-
-/// Newer FTL versions report failed inserts through the top-level error object.
-private struct V6DomainAddErrorResponse: Decodable {
-  let error: V6DomainAddErrorDetails
-}
-
-private struct V6DomainAddErrorDetails: Decodable {
-  let key: String
-  let hint: String?
 }
