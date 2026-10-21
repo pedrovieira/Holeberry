@@ -378,29 +378,6 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     return try await service.unblockDomain(domain, duration: duration)
   }
 
-  public func deleteDomain(_ domain: String, from list: DomainListType) async {
-    let serverList = servers
-    let svcs = services
-    let log = logger
-    await withTaskGroup(of: Void.self) { group in
-      for config in serverList {
-        guard let service = svcs[config.id] else { continue }
-        let label = config.label ?? config.url
-        group.addTask {
-          do {
-            try await withRetry(.destructive) {
-              try await service.deleteDomain(domain, from: list)
-            }
-          } catch {
-            log.warning(
-              "deleteDomain failed on \(label): \(error.localizedDescription, privacy: .public)"
-            )
-          }
-        }
-      }
-    }
-  }
-
   public func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
     let serverList = servers
     let svcs = services
