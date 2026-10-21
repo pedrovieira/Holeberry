@@ -396,7 +396,7 @@ jobs:
       # fine; the DMG itself stays only in the draft (workflow artifacts on a
       # public repo are downloadable by any signed-in user).
       - name: Upload appcast artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: appcast
           path: Updates/appcast.xml
@@ -435,7 +435,7 @@ jobs:
           git checkout -B main origin/main
 
       - name: Download appcast artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: appcast
           path: Updates
@@ -491,7 +491,7 @@ jobs:
   # problems are re-tagged freely; published problems mean a version bump).
   verify:
     needs: [build, publish]
-    runs-on: macos-latest
+    runs-on: xcode-27
     permissions:
       contents: read
 
@@ -503,7 +503,7 @@ jobs:
           persist-credentials: false
 
       - name: Download appcast artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: appcast
           path: Updates
