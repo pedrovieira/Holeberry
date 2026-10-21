@@ -373,6 +373,57 @@ struct PiholeServerManagerCRUDTests {
     #expect(error == .network("down"))
     #expect(service.updateGravityCallCount == 1)
   }
+
+  // MARK: - Display Labels
+
+  @Test("Uses the requested server's saved label", arguments: ["Kitchen", " Kitchen ", "https://Kitchen"])
+  func savedLabel(label: String) {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    let server = ServerConfig(label: label, url: "http://192.168.1.20", version: .v6)
+    manager.servers = [ServerConfig(label: "Other", url: "http://other.local", version: .v5), server]
+
+    #expect(manager.displayLabel(for: server.id) == label)
+  }
+
+  @Test("Uses the hostname when the label is missing or blank", arguments: [nil, "", " \t\n"] as [String?])
+  func missingLabel(label: String?) {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    let server = ServerConfig(label: label, url: "http://192.168.1.20", version: .v6)
+    manager.servers = [server]
+
+    #expect(manager.displayLabel(for: server.id) == "192.168.1.20")
+  }
+
+  @Test(
+    "URL display names use only the hostname",
+    arguments: [
+      ("http://192.168.1.20", "192.168.1.20"),
+      ("https://pi.hole:8443/admin/", "pi.hole"),
+      ("HTTP://pi.hole", "pi.hole"),
+      ("HTTPS://pi.hole", "pi.hole"),
+      ("pi.hole:8080", "pi.hole:8080"),
+      ("http://[::1]:8080/admin/", "[::1]"),
+      ("https://pi.hole/a%20b?next=http://other#part", "pi.hole"),
+      ("http://[invalid", "http://[invalid"),
+      ("http:///admin/", "http:///admin/")
+    ]
+  )
+  func urlDisplayName(url: String, expected: String) {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    let server = ServerConfig(url: url, version: .v6)
+    manager.servers = [server]
+
+    #expect(manager.displayLabel(for: server.id) == expected)
+    #expect(manager.servers[0].url == url)
+  }
+
+  @Test("Returns nil for an unknown server")
+  func unknownServer() {
+    let manager = makeManager(suite: TestDefaults.makeSuite())
+    manager.servers = [ServerConfig(label: "Kitchen", url: "http://192.168.1.20", version: .v6)]
+
+    #expect(manager.displayLabel(for: UUID()) == nil)
+  }
 }
 
 @MainActor
