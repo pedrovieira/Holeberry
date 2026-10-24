@@ -43,8 +43,9 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
         category: "waterfox-sessionstore"
       )
 
-    // Chromium-based browsers — all fall through to Chrome
-    case .edge, .edgeBeta, .edgeDev, .edgeCanary,
+    // Chromium-based browsers share the active-tab AppleScript command.
+    case .chromium,
+      .edge, .edgeBeta, .edgeDev, .edgeCanary,
       .brave, .braveBeta, .braveNightly,
       .arc, .dia,
       .opera, .operaNext, .operaDeveloper, .operaGX, .operaNeon, .operaAir,

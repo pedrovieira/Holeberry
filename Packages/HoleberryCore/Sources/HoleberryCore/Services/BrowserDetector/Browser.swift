@@ -6,6 +6,8 @@ public enum Browser: String, CaseIterable, Sendable {
   case safariTechnologyPreview = "com.apple.SafariTechnologyPreview"
   case orion = "com.kagi.kagimacOS"
   case orionRC = "com.kagi.kagimacOS.RC"
+  // Chromium and Ungoogled Chromium share a bundle ID and application name.
+  case chromium = "org.chromium.Chromium"
   // Chrome
   case chrome = "com.google.Chrome"
   case chromeBeta = "com.google.Chrome.beta"
@@ -58,6 +60,7 @@ public enum Browser: String, CaseIterable, Sendable {
     case .safariTechnologyPreview: return "Safari Technology Preview"
     case .orion: return "Orion"
     case .orionRC: return "Orion RC"
+    case .chromium: return "Chromium"
     case .chrome: return "Google Chrome"
     case .chromeBeta: return "Google Chrome Beta"
     case .chromeDev: return "Google Chrome Dev"
