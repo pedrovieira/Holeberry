@@ -33,5 +33,15 @@ let package = Package(
                 .enableUpcomingFeature("ExistentialAny"),
             ]
         ),
+        .testTarget(
+            name: "HoleberryCoreIntegrationTests",
+            dependencies: [
+                "HoleberryCore",
+                .product(name: "Defaults", package: "Defaults"),
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny"),
+            ]
+        ),
     ]
 )

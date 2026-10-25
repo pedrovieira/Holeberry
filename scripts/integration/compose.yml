@@ -1,0 +1,89 @@
+name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}
+
+x-harness-labels: &harness-labels
+  com.holeberry.integration.project: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}
+  com.holeberry.integration.run-id: ${HARNESS_RUN_ID:?HARNESS_RUN_ID is required}
+  com.holeberry.integration.worktree: ${HARNESS_WORKTREE:?HARNESS_WORKTREE is required}
+  com.holeberry.integration.owner: ${HARNESS_OWNER:?HARNESS_OWNER is required}
+
+services:
+  pihole-v5:
+    image: pihole/pihole:2024.07.0
+    environment:
+      TZ: UTC
+      WEBPASSWORD: ${HARNESS_V5_PASSWORD:?HARNESS_V5_PASSWORD is required}
+      DNSMASQ_LISTENING: all
+      # The harness rebuilds gravity from its local fixture adlist after startup.
+      SKIPGRAVITYONBOOT: "1"
+    ports:
+      - "127.0.0.1:${HARNESS_V5_PORT:?HARNESS_V5_PORT is required}:80"
+    volumes:
+      - pihole-v5-data:/etc/pihole
+    networks:
+      - integration
+    depends_on:
+      fixture:
+        condition: service_healthy
+    labels: *harness-labels
+    restart: "no"
+
+  pihole-v6:
+    image: pihole/pihole:2026.10.0
+    environment:
+      TZ: UTC
+      FTLCONF_webserver_api_password: ${HARNESS_V6_PASSWORD:?HARNESS_V6_PASSWORD is required}
+      FTLCONF_dns_listeningMode: all
+    ports:
+      - "127.0.0.1:${HARNESS_V6_PORT:?HARNESS_V6_PORT is required}:80"
+    volumes:
+      - pihole-v6-data:/etc/pihole
+      # First boot imports this local list instead of downloading a public one.
+      - ./fixtures/adlists.list:/etc/pihole/adlists.list:ro
+    networks:
+      - integration
+    depends_on:
+      fixture:
+        condition: service_healthy
+    labels: *harness-labels
+    restart: "no"
+
+  fixture:
+    image: python:3.13-alpine
+    command:
+      - python
+      - -m
+      - http.server
+      - "8080"
+      - --bind
+      - 0.0.0.0
+      - --directory
+      - /fixtures
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/hosts', timeout=2).read()
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+    volumes:
+      - ./fixtures:/fixtures:ro
+    networks:
+      - integration
+    labels: *harness-labels
+    restart: "no"
+
+networks:
+  integration:
+    name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}_network
+    labels: *harness-labels
+
+volumes:
+  pihole-v5-data:
+    name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}_pihole-v5-data
+    labels: *harness-labels
+  pihole-v6-data:
+    name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}_pihole-v6-data
+    labels: *harness-labels
