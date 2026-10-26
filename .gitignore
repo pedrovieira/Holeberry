@@ -59,6 +59,3 @@ docs/superpowers/
 
 # Python
 __pycache__/
-
-# Local Pi-hole integration harness runtime data
-.integration/

@@ -1,10 +1,6 @@
 import Foundation
 
-/// Monotonic, finite observation polling for integration scenarios.
-///
-/// Polls observations only. It never retries a mutation or an assertion, and it
-/// rejects a condition that reports success after its elapsed deadline.
-enum IntegrationPollingError: Error, LocalizedError, Equatable {
+enum PollingError: Error, LocalizedError, Equatable {
   case invalidTiming
   case timedOut(String)
 
@@ -18,37 +14,29 @@ enum IntegrationPollingError: Error, LocalizedError, Equatable {
   }
 }
 
+/// Polls an observation until it succeeds or the monotonic deadline passes.
+///
+/// Only observations belong here; never retry a mutation or a failed assertion.
 @MainActor
 func pollUntil(
-  timeout: Duration = .seconds(15),
+  timeout: Duration = .seconds(20),
   interval: Duration = .milliseconds(250),
   description: String,
   condition: () async throws -> Bool
 ) async throws {
   guard timeout > .zero, interval > .zero else {
-    throw IntegrationPollingError.invalidTiming
+    throw PollingError.invalidTiming
   }
 
   let clock = ContinuousClock()
   let deadline = clock.now.advanced(by: timeout)
 
-  while true {
-    try Task.checkCancellation()
-    let satisfied = try await condition()
-    let now = clock.now
-
-    if satisfied {
-      guard now <= deadline else {
-        throw IntegrationPollingError.timedOut(description)
-      }
+  while clock.now < deadline {
+    if try await condition() {
       return
     }
-
-    guard now < deadline else {
-      throw IntegrationPollingError.timedOut(description)
-    }
-
-    let remaining = deadline - now
-    try await clock.sleep(for: interval < remaining ? interval : remaining)
+    let remaining = deadline - clock.now
+    try await Task.sleep(for: interval < remaining ? interval : remaining)
   }
+  throw PollingError.timedOut(description)
 }

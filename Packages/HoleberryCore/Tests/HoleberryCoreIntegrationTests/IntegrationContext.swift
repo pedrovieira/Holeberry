@@ -2,179 +2,172 @@ import Foundation
 
 @testable import HoleberryCore
 
-/// A failure raised while constructing an integration context.
 enum IntegrationContextError: Error, LocalizedError, Equatable {
-  case invalidLaneURL
   case defaultsSuiteUnavailable
-  case closed
+  case cleanupFailed([String])
 
   var errorDescription: String? {
     switch self {
-    case .invalidLaneURL:
-      return "The validated integration lane URL could not be constructed."
     case .defaultsSuiteUnavailable:
-      return "An isolated integration defaults suite could not be created."
-    case .closed:
-      return "The integration context is already closed."
+      return "Could not create an isolated defaults suite for the integration test."
+    case .cleanupFailed(let failures):
+      return "Integration cleanup failed: \(failures.joined(separator: "; "))"
     }
   }
 }
 
-/// Sanitized cleanup failures collected after every cleanup step was attempted.
-struct IntegrationCleanupFailure: Error, LocalizedError, CustomStringConvertible, CustomDebugStringConvertible {
-  let failures: [String]
+/// Preserves the test failure when cleanup also fails.
+struct IntegrationOperationFailure: Error, LocalizedError {
+  let operation: any Error
+  let cleanup: any Error
 
   var errorDescription: String? {
-    "Integration context cleanup failed: \(failures.joined(separator: "; "))"
-  }
-
-  var description: String {
-    errorDescription ?? "Integration context cleanup failed."
-  }
-
-  var debugDescription: String {
-    description
+    "Integration operation failed: \(operation.localizedDescription); "
+      + "cleanup also failed: \(cleanup.localizedDescription)"
   }
 }
 
-/// Preserves an operation failure while reporting a secondary cleanup failure.
-struct IntegrationOperationFailure: Error, LocalizedError, CustomStringConvertible, CustomDebugStringConvertible {
-  let operationError: any Error
-  let operationDescription: String
-  let cleanupDescription: String
-
-  var errorDescription: String? {
-    "Integration operation failed: \(operationDescription); "
-      + "cleanup also failed: \(cleanupDescription)"
-  }
-
-  var description: String {
-    errorDescription ?? "Integration operation failed."
-  }
-
-  var debugDescription: String {
-    description
-  }
-}
-
-/// One isolated production-stack context for a single integration lane.
+/// One production-stack context for a single integration lane.
 ///
-/// Owns a unique server identity, an isolated preferences suite, an ephemeral
-/// transport and the factory-built service (already wrapped by the temporary
-/// unblock decorator). Cleanup is explicit and best effort across every step.
+/// Owns an isolated defaults suite, a real ephemeral URL session and the
+/// factory-built service (already wrapped by the temporary-unblock decorator).
 @MainActor
 final class IntegrationContext {
-  let lane: IntegrationLane
+  let target: IntegrationTarget
   let config: ServerConfig
   let service: any PiholeServiceProviding
-  let transport: IntegrationHTTPClient
   let defaults: UserDefaults
+  let session: URLSession
+  let cli: ContainerCLI
 
   private let defaultsSuiteName: String
-  private let redactor: IntegrationRedactor
   private var blockingRestoration: Bool?
-  private var ownedDomains: [OwnedDomain] = []
+  private var ownedDomains: [(domain: String, list: DomainListType)] = []
   private var isClosed = false
 
-  private struct OwnedDomain {
-    let domain: String
-    let list: DomainListType
-    let identity: String
+  var version: ServerVersion {
+    target.version
+  }
+
+  var container: ContainerService {
+    target.container
+  }
+
+  var baseURL: URL {
+    URL(string: config.url)!
   }
 
   private init(
-    lane: IntegrationLane,
+    target: IntegrationTarget,
     config: ServerConfig,
     service: any PiholeServiceProviding,
-    transport: IntegrationHTTPClient,
     defaults: UserDefaults,
+    session: URLSession,
     defaultsSuiteName: String,
-    redactor: IntegrationRedactor
+    cli: ContainerCLI
   ) {
-    self.lane = lane
+    self.target = target
     self.config = config
     self.service = service
-    self.transport = transport
     self.defaults = defaults
+    self.session = session
     self.defaultsSuiteName = defaultsSuiteName
-    self.redactor = redactor
+    self.cli = cli
   }
 
-  static func make(lane: IntegrationLane) async throws -> IntegrationContext {
-    guard let url = URL(string: lane.url) else {
-      throw IntegrationContextError.invalidLaneURL
-    }
-
+  static func make(
+    target: IntegrationTarget,
+    cli: ContainerCLI = ContainerCLI()
+  ) async throws -> IntegrationContext {
     let suiteName = "com.holeberry.integration.\(UUID().uuidString)"
     guard let defaults = UserDefaults(suiteName: suiteName) else {
       throw IntegrationContextError.defaultsSuiteUnavailable
     }
     defaults.removePersistentDomain(forName: suiteName)
 
-    let redactor = IntegrationRedactor(secrets: [lane.credential])
-    let transport = IntegrationHTTPClient(lane: lane, redactor: redactor)
-    let config = ServerConfig(id: UUID(), url: url.absoluteString, version: lane.version)
+    let credential: String
+    switch target {
+    case .v5:
+      credential = try await cli.v5Token()
+    case .v6:
+      credential = IntegrationEnvironment.v6Password
+    case .v6Open:
+      credential = ""
+    }
+
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.timeoutIntervalForRequest = 30
+    configuration.timeoutIntervalForResource = 960
+    configuration.httpCookieAcceptPolicy = .never
+    configuration.httpShouldSetCookies = false
+    configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+    let session = URLSession(configuration: configuration)
+
+    let config = ServerConfig(
+      url: IntegrationEnvironment.baseURL(for: target).absoluteString,
+      version: target.version
+    )
 
     do {
-      let factory = ConcretePiholeServiceFactory(
+      let service = try ConcretePiholeServiceFactory(
         authSessionFactory: ConcreteAuthSessionFactory()
-      )
-      let service = try factory.buildService(
+      ).buildService(
         config: config,
-        credential: lane.credential,
-        session: transport,
+        credential: credential,
+        session: session,
         suite: defaults
       )
       return IntegrationContext(
-        lane: lane,
+        target: target,
         config: config,
         service: service,
-        transport: transport,
         defaults: defaults,
+        session: session,
         defaultsSuiteName: suiteName,
-        redactor: redactor
+        cli: cli
       )
     } catch {
-      transport.invalidateAndCancel()
+      session.invalidateAndCancel()
       defaults.removePersistentDomain(forName: suiteName)
       throw error
     }
   }
 
-  /// Registers the blocking state to restore during close.
-  ///
-  /// Call this before the first future blocking mutation so cleanup never has to
-  /// guess whether the fixture was originally blocking.
-  func registerBlockingRestoration(enabled: Bool) throws {
-    guard !isClosed else {
-      throw IntegrationContextError.closed
-    }
+  /// Call before the first blocking mutation so cleanup can restore it.
+  func registerBlockingRestoration(enabled: Bool) {
     blockingRestoration = enabled
   }
 
-  /// Registers an entry created by this scenario so close removes only it.
-  func registerOwnedDomain(_ domain: String, in list: DomainListType) throws {
-    guard !isClosed else {
-      throw IntegrationContextError.closed
-    }
+  /// Registers an entry this test creates so cleanup removes only that entry.
+  func registerOwnedDomain(_ domain: String, in list: DomainListType) {
     let identity = PiholeDomain.identity(domain)
-    guard !ownedDomains.contains(where: { $0.identity == identity && $0.list == list }) else {
+    guard !ownedDomains.contains(where: { $0.domain == identity && $0.list == list }) else {
       return
     }
-    ownedDomains.append(OwnedDomain(domain: domain, list: list, identity: identity))
+    ownedDomains.append((identity, list))
   }
 
-  /// Forgets an entry the scenario already removed itself.
-  func releaseOwnedDomain(_ domain: String, in list: DomainListType) {
-    let identity = PiholeDomain.identity(domain)
-    ownedDomains.removeAll { $0.identity == identity && $0.list == list }
+  /// Resolves a domain through the container's DNS server, independent of the app client.
+  func dig(_ domain: String) async throws -> String {
+    try await cli.run(container, "dig", "+short", "@127.0.0.1", domain, "A")
   }
 
-  /// Restores owned state, removes owned mutations, logs out, invalidates the
-  /// transport and removes the isolated defaults domain.
-  ///
-  /// Every step runs even after an earlier failure. Failures are sanitized before
-  /// being reported, and the context is considered closed either way.
+  /// Reads an exact list through the Pi-hole CLI, independent of the app client.
+  func cliList(_ list: DomainListType) async throws -> String {
+    switch (version, list) {
+    case (.v5, .allow):
+      return try await cli.run(container, "pihole", "-w", "-l")
+    case (.v5, .deny):
+      return try await cli.run(container, "pihole", "-b", "-l")
+    case (.v6, .allow):
+      return try await cli.run(container, "pihole", "allow", "-l")
+    case (.v6, .deny):
+      return try await cli.run(container, "pihole", "deny", "-l")
+    }
+  }
+
+  /// Restores blocking, removes owned entries, closes the session and deletes
+  /// the isolated defaults domain. Every step runs even after a failure.
   func close() async throws {
     guard !isClosed else {
       return
@@ -187,7 +180,7 @@ final class IntegrationContext {
       do {
         try await service.setBlocking(enabled: restoration, duration: nil)
       } catch {
-        failures.append("restore blocking: \(sanitizedDescription(of: error))")
+        failures.append("restore blocking: \(error.localizedDescription)")
       }
     }
 
@@ -195,56 +188,35 @@ final class IntegrationContext {
       do {
         try await service.deleteDomain(entry.domain, from: entry.list)
       } catch {
-        failures.append(
-          "remove \(String(describing: entry.list)) entry: \(sanitizedDescription(of: error))"
-        )
+        failures.append("remove \(entry.domain): \(error.localizedDescription)")
       }
     }
 
     await service.logout()
-    transport.invalidateAndCancel()
+    session.invalidateAndCancel()
     defaults.removePersistentDomain(forName: defaultsSuiteName)
 
     if !failures.isEmpty {
-      throw IntegrationCleanupFailure(failures: failures)
+      throw IntegrationContextError.cleanupFailed(failures)
     }
-  }
-
-  /// Renders a production error safely for a test-framework failure message.
-  func sanitizedDescription(of error: any Error) -> String {
-    let raw: String
-    if let localized = error as? any LocalizedError, let description = localized.errorDescription {
-      raw = description
-    } else {
-      raw = String(describing: error)
-    }
-    return String(redactor.sanitize(raw).prefix(400))
   }
 }
 
-/// Runs one scenario against a freshly built context and always closes it.
-///
-/// The operation failure is preserved. If cleanup also fails, the operation
-/// error stays attached to the secondary failure.
+/// Runs one scenario against a fresh context and always closes it.
 @MainActor
-func withIntegrationContext(
-  lane: IntegrationLane,
-  operation: (IntegrationContext) async throws -> Void
+func withContext(
+  _ target: IntegrationTarget,
+  _ operation: (IntegrationContext) async throws -> Void
 ) async throws {
-  let context = try await IntegrationContext.make(lane: lane)
+  let context = try await IntegrationContext.make(target: target)
   do {
     try await operation(context)
   } catch {
     let operationError = error
-    let operationDescription = context.sanitizedDescription(of: operationError)
     do {
       try await context.close()
     } catch {
-      throw IntegrationOperationFailure(
-        operationError: operationError,
-        operationDescription: operationDescription,
-        cleanupDescription: context.sanitizedDescription(of: error)
-      )
+      throw IntegrationOperationFailure(operation: operationError, cleanup: error)
     }
     throw operationError
   }

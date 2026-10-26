@@ -1,52 +1,55 @@
-name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}
-
-x-harness-labels: &harness-labels
-  com.holeberry.integration.project: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}
-  com.holeberry.integration.run-id: ${HARNESS_RUN_ID:?HARNESS_RUN_ID is required}
-  com.holeberry.integration.worktree: ${HARNESS_WORKTREE:?HARNESS_WORKTREE is required}
-  com.holeberry.integration.owner: ${HARNESS_OWNER:?HARNESS_OWNER is required}
+name: holeberry-integration
 
 services:
   pihole-v5:
     image: pihole/pihole:2024.07.0
     environment:
       TZ: UTC
-      WEBPASSWORD: ${HARNESS_V5_PASSWORD:?HARNESS_V5_PASSWORD is required}
+      WEBPASSWORD: holeberry-integration
       DNSMASQ_LISTENING: all
-      # The harness rebuilds gravity from its local fixture adlist after startup.
+      # Gravity is built explicitly by `up` from the local fixture adlist.
       SKIPGRAVITYONBOOT: "1"
     ports:
-      - "127.0.0.1:${HARNESS_V5_PORT:?HARNESS_V5_PORT is required}:80"
+      - "127.0.0.1:18085:80"
     volumes:
       - pihole-v5-data:/etc/pihole
-    networks:
-      - integration
     depends_on:
       fixture:
         condition: service_healthy
-    labels: *harness-labels
     restart: "no"
 
   pihole-v6:
     image: pihole/pihole:2026.10.0
     environment:
       TZ: UTC
-      FTLCONF_webserver_api_password: ${HARNESS_V6_PASSWORD:?HARNESS_V6_PASSWORD is required}
+      FTLCONF_webserver_api_password: holeberry-integration
       FTLCONF_dns_listeningMode: all
     ports:
-      - "127.0.0.1:${HARNESS_V6_PORT:?HARNESS_V6_PORT is required}:80"
+      - "127.0.0.1:18086:80"
     volumes:
       - pihole-v6-data:/etc/pihole
-      # First boot imports this local list instead of downloading a public one.
-      - ./fixtures/adlists.list:/etc/pihole/adlists.list:ro
-    networks:
-      - integration
     depends_on:
       fixture:
         condition: service_healthy
-    labels: *harness-labels
     restart: "no"
 
+  pihole-v6-open:
+    image: pihole/pihole:2026.10.0
+    environment:
+      TZ: UTC
+      # An empty string (not an omitted key) makes v6 password-less.
+      FTLCONF_webserver_api_password: ""
+      FTLCONF_dns_listeningMode: all
+    ports:
+      - "127.0.0.1:18087:80"
+    volumes:
+      - pihole-v6-open-data:/etc/pihole
+    depends_on:
+      fixture:
+        condition: service_healthy
+    restart: "no"
+
+  # Serves the local adlist that makes `gravity.holeberry.test` gravity-blocked.
   fixture:
     image: python:3.13-alpine
     command:
@@ -70,20 +73,9 @@ services:
       start_period: 2s
     volumes:
       - ./fixtures:/fixtures:ro
-    networks:
-      - integration
-    labels: *harness-labels
     restart: "no"
-
-networks:
-  integration:
-    name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}_network
-    labels: *harness-labels
 
 volumes:
   pihole-v5-data:
-    name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}_pihole-v5-data
-    labels: *harness-labels
   pihole-v6-data:
-    name: ${HARNESS_PROJECT:?HARNESS_PROJECT is required}_pihole-v6-data
-    labels: *harness-labels
+  pihole-v6-open-data:

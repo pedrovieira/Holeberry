@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-set -eu
+# Run the opt-in integration suite against already-started containers.
+set -euo pipefail
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-# shellcheck source=common.sh
-. "$SCRIPT_DIR/common.sh"
+cd "$(dirname "$0")/../.."
 
-harness_exec test "$@"
+TZ=UTC HOLEBERRY_INTEGRATION=1 swift test \
+  --package-path Packages/HoleberryCore \
+  --filter HoleberryCoreIntegrationTests

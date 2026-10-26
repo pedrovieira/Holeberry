@@ -425,6 +425,21 @@ final class PiholeV6ServiceTests {
     #expect(outcome == .alreadyPresent)
   }
 
+  @Test("addDomain recognizes the newer 400 duplicate hint")
+  func addDomainDuplicate400Hint() async throws {
+    mockSession.handlers = [
+      { _ in
+        let body = #"""
+          {"error":{"key":"database_error","message":"Could not add to gravity database",
+           "hint":"The item is already present"}}
+          """#
+        return (Data(body.utf8), try #require(v6Response(statusCode: 400)))
+      }
+    ]
+    let outcome = try await makeService().addDomain("dupe.com", to: .allow, comment: "uuid")
+    #expect(outcome == .alreadyPresent)
+  }
+
   @Test("addDomain propagates other per-item insert failures")
   func addDomainInsertFailure() async throws {
     mockSession.handlers = [

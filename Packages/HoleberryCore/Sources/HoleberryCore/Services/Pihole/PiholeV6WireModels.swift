@@ -59,7 +59,9 @@ struct V6DomainAddResponse: Decodable {
   let processed: V6DomainAddProcessed
 
   static func isDuplicateError(_ message: String?) -> Bool {
-    message == "UNIQUE constraint failed: domainlist.domain, domainlist.type"
+    guard let message else { return false }
+    return message == "UNIQUE constraint failed: domainlist.domain, domainlist.type"
+      || message.localizedCaseInsensitiveContains("already present")
   }
 }
 

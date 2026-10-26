@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-set -eu
+# Remove the integration containers, network and volumes created by `up`.
+set -euo pipefail
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-# shellcheck source=common.sh
-. "$SCRIPT_DIR/common.sh"
+cd "$(dirname "$0")"
 
-harness_exec down "$@"
+docker compose down --volumes --remove-orphans
