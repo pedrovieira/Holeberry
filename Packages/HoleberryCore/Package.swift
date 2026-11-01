@@ -41,6 +41,7 @@ let package = Package(
                 .product(name: "Defaults", package: "Defaults"),
                 .product(name: "Subprocess", package: "swift-subprocess"),
             ],
+            exclude: ["Containers", "README.md", "test"],
             swiftSettings: [
                 .enableUpcomingFeature("ExistentialAny"),
             ]

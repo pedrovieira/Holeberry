@@ -62,6 +62,29 @@ struct PiholeIntegrationTests {
     }
   }
 
+  @Test("logout", arguments: [IntegrationTarget.v6, .v6Open])
+  func logout(_ target: IntegrationTarget) async throws {
+    try await withContext(target) { context in
+      let before = try await context.cli.activeAPISessionIDs(context.container)
+
+      try await context.service.login()
+      let afterLogin = try await context.cli.activeAPISessionIDs(context.container)
+      let created = afterLogin.subtracting(before)
+
+      if target.isPasswordless {
+        #expect(afterLogin == before, "password-less login must not create an API session")
+      } else {
+        try #require(created.count == 1, "login must create one observable API session")
+      }
+
+      await context.service.logout()
+
+      let afterLogout = try await context.cli.activeAPISessionIDs(context.container)
+      #expect(created.isDisjoint(with: afterLogout), "logout must revoke the app's API session")
+      #expect(afterLogout == before, "logout must preserve pre-existing sessions")
+    }
+  }
+
   // MARK: - Domain lists
 
   @Test("domains", arguments: IntegrationTarget.allCases)
@@ -250,7 +273,7 @@ struct PiholeIntegrationTests {
       let blockedAnswer = try await context.dig("gravity.holeberry.test")
       #expect(
         blockedAnswer.contains("0.0.0.0"),
-        "the fixture adlist must be active; start the containers with scripts/integration/up"
+        "the fixture adlist must be active; run Containers/up from the integration test directory"
       )
 
       // Prerequisite: a non-gravity query, so the summary has both counts.
@@ -278,8 +301,19 @@ struct PiholeIntegrationTests {
       }
 
       // v5's API ignores the client filter and the production service does not
-      // post-filter, so this exclusion check is only meaningful on v6.
+      // post-filter, so matching and excluded client checks only run on v6.
       if target.version == .v6 {
+        // dig queries the container's loopback DNS server, so its client is 127.0.0.1.
+        try await pollUntil(description: "gravity domain for the matching client") {
+          let matching = try await context.service.getRecentBlocked(
+            forClientIp: "127.0.0.1", interval: interval
+          )
+          return matching.contains {
+            $0.domain.caseInsensitiveCompare("gravity.holeberry.test") == .orderedSame
+              && $0.fromClientIp == "127.0.0.1"
+          }
+        }
+
         let excluded = try await context.service.getRecentBlocked(
           forClientIp: "192.0.2.254", interval: interval
         )

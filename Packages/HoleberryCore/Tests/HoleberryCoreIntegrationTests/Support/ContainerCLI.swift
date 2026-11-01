@@ -23,11 +23,26 @@ struct ContainerCommandError: Error, LocalizedError, CustomStringConvertible, Cu
   }
 }
 
-/// The three disposable Pi-hole services from `scripts/integration/compose.yml`.
+/// The three disposable Pi-hole services from `Containers/compose.yml`.
 enum ContainerService: String, Sendable {
   case v5 = "pihole-v5"
   case v6 = "pihole-v6"
   case v6Open = "pihole-v6-open"
+}
+
+private struct APISessionsResponse: Decodable {
+  let sessions: [Session]
+
+  struct Session: Decodable {
+    let id: Int
+    let valid: Bool
+    let currentSession: Bool
+
+    enum CodingKeys: String, CodingKey {
+      case id, valid
+      case currentSession = "current_session"
+    }
+  }
 }
 
 /// Runs Pi-hole CLI commands inside the integration containers.
@@ -146,6 +161,14 @@ struct ContainerCLI {
         throw error
       }
     }
+  }
+
+  /// Reads live v6 API sessions through Pi-hole's own CLI. The CLI creates and
+  /// removes its own observer session; exclude it from the returned IDs.
+  func activeAPISessionIDs(_ service: ContainerService) async throws -> Set<Int> {
+    let output = try await run(service, "pihole", "api", "auth/sessions")
+    let response = try JSONDecoder().decode(APISessionsResponse.self, from: Data(output.utf8))
+    return Set(response.sessions.filter { $0.valid && !$0.currentSession }.map(\.id))
   }
 
   /// Reads the initialized v5 web password, which is also the legacy API token.

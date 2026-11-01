@@ -63,14 +63,11 @@ enum IntegrationEnvironment {
     return url
   }
 
-  /// `scripts/integration/compose.yml`, resolved from this file's location.
+  /// `Containers/compose.yml`, resolved from this support file's location.
   static var composeFile: URL {
     URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()  // Support
       .deletingLastPathComponent()  // HoleberryCoreIntegrationTests
-      .deletingLastPathComponent()  // Tests
-      .deletingLastPathComponent()  // HoleberryCore
-      .deletingLastPathComponent()  // Packages
-      .deletingLastPathComponent()  // repository root
-      .appendingPathComponent("scripts/integration/compose.yml")
+      .appendingPathComponent("Containers/compose.yml")
   }
 }

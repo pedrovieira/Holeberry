@@ -2,8 +2,8 @@
 # Run the opt-in integration suite against already-started containers.
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")"
 
 TZ=UTC HOLEBERRY_INTEGRATION=1 swift test \
-  --package-path Packages/HoleberryCore \
+  --package-path ../.. \
   --filter HoleberryCoreIntegrationTests

@@ -15,7 +15,7 @@ docker compose up -d
 wait_for_http() {
   local base="$1"
   for _ in $(seq 1 180); do
-    if curl -s -o /dev/null "$base/admin/api.php?version"; then
+    if curl -s --connect-timeout 2 --max-time 5 -o /dev/null "$base/admin/api.php?version"; then
       return 0
     fi
     sleep 1
@@ -58,7 +58,7 @@ Pi-hole integration containers are ready.
   v6:      http://127.0.0.1:18086 (password: holeberry-integration)
   v6-open: http://127.0.0.1:18087 (password: none)
 Run the suite:
-  TZ=UTC HOLEBERRY_INTEGRATION=1 swift test --package-path Packages/HoleberryCore --filter HoleberryCoreIntegrationTests
+  From the integration test directory, run ./test
 Stop and remove the containers and volumes:
-  scripts/integration/down
+  From the integration test directory, run ./Containers/down
 EOF

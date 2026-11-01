@@ -136,6 +136,7 @@ open Holeberry.xcodeproj
 - このプロジェクトは [XcodeGen](https://github.com/yonaskolb/XcodeGen) を使用しています——`project.yml` を変更したら `xcodegen generate` で再生成してください。
 - アプリターゲットには [SwiftLint](https://github.com/realm/SwiftLint) と `swift-format` を strict モードで実行するプリビルドスクリプトがあります。インストールしていないとビルドが警告を出します。
 - コアロジックは `HoleberryCore` Swift パッケージにあり、独自のテストスイートがあります——`cd Packages/HoleberryCore && swift test`。
+- 実際の Pi-hole を使うテストは[統合テストガイド](Packages/HoleberryCore/Tests/HoleberryCoreIntegrationTests/README.md)を参照してください（英語、Docker または Colima が必要）。
 
 ## コントリビュート
 

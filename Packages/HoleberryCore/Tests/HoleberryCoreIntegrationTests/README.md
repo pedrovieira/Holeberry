@@ -18,21 +18,24 @@ reuse their volumes for a real Pi-hole.
 ## Commands
 
 ```bash
-# Start all three Pi-holes, wait for HTTP, build gravity from the local fixture
-scripts/integration/up
+# From the repository root
+cd Packages/HoleberryCore/Tests/HoleberryCoreIntegrationTests
 
-# Run the 15 opt-in cases (TZ=UTC keeps v5 timestamps aligned with the containers)
-scripts/integration/test
+# Start all three Pi-holes, wait for HTTP, build gravity from the local fixture
+./Containers/up
+
+# Run the 17 opt-in cases (TZ=UTC keeps v5 timestamps aligned with the containers)
+./test
 
 # Remove the containers, network and volumes
-scripts/integration/down
+./Containers/down
 ```
 
-`scripts/integration/test` is equivalent to:
+The `test` script resolves paths relative to itself. From this directory, it is equivalent to:
 
 ```bash
 TZ=UTC HOLEBERRY_INTEGRATION=1 swift test \
-  --package-path Packages/HoleberryCore \
+  --package-path ../.. \
   --filter HoleberryCoreIntegrationTests
 ```
 
@@ -45,7 +48,7 @@ the Swift HTTP endpoints; they do not change Compose's published ports or
 `up`'s readiness checks. Use them only with manual forwarding to the same
 Compose containers, because CLI and DNS checks still run inside those containers.
 The v5 API token is read from the container's `setupVars.conf`; the v6 password
-is the fixture password in `compose.yml`; the password-less lane uses an empty
+is the fixture password in `Containers/compose.yml`; the password-less lane uses an empty
 credential.
 
 `ContainerCLI` resolves `docker` through `PATH` plus `/opt/homebrew/bin`,
@@ -54,16 +57,17 @@ a minimal environment can still find it.
 
 ## What the tests cover
 
-Each scenario is parameterized over the three targets, so the suite runs 15
-cases.
+The five shared scenarios run against all three targets. Logout runs against
+authenticated and password-less v6, for 17 cases in total.
 
 | Scenario | Prerequisites | Assertions |
 | --- | --- | --- |
 | `detection` | `dig example.com` for query-log data | Version detection, enabled blocking, positive summary count, wrong credential cannot add a domain; the password-less lane asserts `isPasswordless` instead |
+| `logout` (v6 only) | CLI: `pihole api auth/sessions` | Login creates one app session; logout removes it and preserves existing sessions. Password-less v6 creates no session. The CLI's own observer session is excluded. |
 | `domains` | CLI: allow, deny, IDN and regex entries | Exact lists contain the seeded entries; regex stays out of them; add with comment, duplicate add, delete twice; the CLI lists agree after add and delete |
 | `blocking` | CLI deny entries | DNS oracle: a denied domain resolves to `0.0.0.0` while blocking is enabled, stops doing so while disabled, and does so again after enable and after a 10-second timed disable |
 | `managed unblock` | None | A 10-second owned allowance has the `via holeberryapp.com / ` comment and a local record; the CLI list agrees (including the comment on v6); both disappear; a pre-existing allowance keeps its comment |
-| `query and gravity` | Fixture adlist from `up`; `dig gravity.holeberry.test` | Summary counts, gravity-blocked domain in the query log, v6 client filter, v5 reports `.unsupported`, v6 gravity update restores a removed fixture row and DNS blocking |
+| `query and gravity` | Fixture adlist from `up`; `dig gravity.holeberry.test` | Summary counts, gravity-blocked domain in the query log, v6 matching and excluded client filters, v5 reports `.unsupported`, v6 gravity update restores a removed fixture row and DNS blocking |
 
 The split is deliberate:
 
@@ -76,8 +80,8 @@ The split is deliberate:
 
 ## How the fixtures work
 
-`compose.yml` runs three Pi-holes plus a `python:3.13-alpine` server that serves
-`fixtures/hosts`, which contains `0.0.0.0 gravity.holeberry.test`. `up`
+`Containers/compose.yml` runs three Pi-holes plus a `python:3.13-alpine` server that serves
+`Containers/fixtures/hosts`, which contains `0.0.0.0 gravity.holeberry.test`. `up`
 registers that URL as the only enabled adlist and rebuilds gravity on every
 lane, so the gravity test does not depend on public blocklists. DNS queries are
 generated inside the containers; no DNS port is published.
@@ -98,10 +102,11 @@ All containers, the network and the three volumes use the fixed Compose project
 
 ## Limitations
 
+- v5 uses a static API token and has no server-side API session to revoke, so the logout scenario runs on v6 only.
 - The suite is serialized: blocking state, lists and gravity are shared server
   state.
 - v5's API ignores the `client` filter in `getRecentBlocked`, and the production
-  service does not post-filter. The client-exclusion assertion therefore runs on
+  service does not post-filter. The client-filter assertions therefore run on
   v6 only.
 - A deny entry is not enough for `getRecentBlocked` on v6: the service asks for
   `status=GRAVITY`, so the gravity fixture remains necessary for that assertion.
@@ -109,6 +114,6 @@ All containers, the network and the three volumes use the fixed Compose project
   Keychain, so it cannot build on a Linux runner with GitHub service
   containers.
 - `up` pulls new images only when the pinned tags are absent. Update the tags in
-  `compose.yml` deliberately.
+  `Containers/compose.yml` deliberately.
 
 This technical note is English-only; translations are pending.
