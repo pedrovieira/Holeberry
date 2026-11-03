@@ -11,6 +11,8 @@ services:
       SKIPGRAVITYONBOOT: "1"
     ports:
       - "127.0.0.1:18085:80"
+    extra_hosts:
+      - "unblock.holeberry.test:192.0.2.123"
     volumes:
       - pihole-v5-data:/etc/pihole
     depends_on:
@@ -26,6 +28,8 @@ services:
       FTLCONF_dns_listeningMode: all
     ports:
       - "127.0.0.1:18086:80"
+    extra_hosts:
+      - "unblock.holeberry.test:192.0.2.123"
     volumes:
       - pihole-v6-data:/etc/pihole
     depends_on:
@@ -42,6 +46,8 @@ services:
       FTLCONF_dns_listeningMode: all
     ports:
       - "127.0.0.1:18087:80"
+    extra_hosts:
+      - "unblock.holeberry.test:192.0.2.123"
     volumes:
       - pihole-v6-open-data:/etc/pihole
     depends_on:

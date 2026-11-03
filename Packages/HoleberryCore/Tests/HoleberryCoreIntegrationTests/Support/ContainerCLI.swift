@@ -171,6 +171,21 @@ struct ContainerCLI {
     return Set(response.sessions.filter { $0.valid && !$0.currentSession }.map(\.id))
   }
 
+  /// Revokes one app session using an independent CLI-authenticated session.
+  /// The CLI wrapper only supports GET, so use its auth helpers for this DELETE.
+  func revokeAPISession(_ id: Int, on service: ContainerService) async throws -> String {
+    let script = """
+      set -e
+      . /opt/pihole/api.sh
+      LoginAPI
+      trap 'LogoutAPI' EXIT
+      curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+        --request DELETE "${API_URL}auth/session/$1" --header "sid: ${SID}" \
+        --output /dev/null --write-out '%{http_code}'
+      """
+    return try await run(service, "sh", "-c", script, "holeberry-revoke-session", String(id))
+  }
+
   /// Reads the initialized v5 web password, which is also the legacy API token.
   func v5Token() async throws -> String {
     let output = try await run(

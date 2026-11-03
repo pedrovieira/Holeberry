@@ -74,7 +74,7 @@ integration-up:
       just integration-down
     EOF
 
-# Run the 17 opt-in cases against the running containers.
+# Run the 18 opt-in cases against the running containers.
 integration-test:
     TZ=UTC HOLEBERRY_INTEGRATION=1 swift test --package-path Packages/HoleberryCore --filter HoleberryCoreIntegrationTests
 

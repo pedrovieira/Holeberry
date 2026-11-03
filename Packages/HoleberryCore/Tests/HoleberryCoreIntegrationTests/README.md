@@ -28,7 +28,7 @@ just
 # Start all three Pi-holes, wait for HTTP, build gravity from the local fixture
 just integration-up
 
-# Run the 17 opt-in cases (TZ=UTC keeps v5 timestamps aligned with the containers)
+# Run the 18 opt-in cases (TZ=UTC keeps v5 timestamps aligned with the containers)
 just integration-test
 
 # Remove the containers, network and volumes
@@ -66,15 +66,17 @@ a minimal environment can still find it.
 ## What the tests cover
 
 The five shared scenarios run against all three targets. Logout runs against
-authenticated and password-less v6, for 17 cases in total.
+authenticated and password-less v6, and session recovery runs against authenticated
+v6, for 18 cases in total.
 
 | Scenario | Prerequisites | Assertions |
 | --- | --- | --- |
 | `detection` | `dig example.com` for query-log data | Version detection, enabled blocking, positive summary count, wrong credential cannot add a domain; the password-less lane asserts `isPasswordless` instead |
 | `logout` (v6 only) | CLI: `pihole api auth/sessions` | Login creates one app session; logout removes it and preserves existing sessions. Password-less v6 creates no session. The CLI's own observer session is excluded. |
+| `revoked v6 session recovers automatically` (authenticated v6 only) | Revoke the app session through an independent CLI-authenticated `DELETE /api/auth/session/{id}` | The same service recovers without an explicit login, creates one replacement session, preserves pre-existing sessions and reuses the replacement on the next request |
 | `domains` | CLI: allow, deny, IDN and regex entries | Exact lists contain the seeded entries; regex stays out of them; add with comment, duplicate add, delete twice; the CLI lists agree after add and delete |
 | `blocking` | CLI deny entries | DNS oracle: a denied domain resolves to `0.0.0.0` while blocking is enabled, stops doing so while disabled, and does so again after enable and after a 10-second timed disable |
-| `managed unblock` | None | A 10-second owned allowance has the `via holeberryapp.com / ` comment and a local record; the CLI list agrees (including the comment on v6); both disappear; a pre-existing allowance keeps its comment |
+| `managed unblock` | CLI deny for `unblock.holeberry.test`; Compose maps it to `192.0.2.123` locally | DNS changes from blocked to the exact local IP during a 20-second allowance, then back to blocked after expiry; the ownership comment and local record exist, then disappear with the allowance; a pre-existing allowance keeps its comment |
 | `query and gravity` | Fixture adlist from `just integration-up`; `dig gravity.holeberry.test` | Summary counts, gravity-blocked domain in the query log, v6 matching and excluded client filters, v5 reports `.unsupported`, v6 gravity update restores a removed fixture row and DNS blocking |
 
 The split is deliberate:
@@ -93,6 +95,18 @@ The split is deliberate:
 registers that URL as the only enabled adlist and rebuilds gravity on every
 lane, so the gravity test does not depend on public blocklists. DNS queries are
 generated inside the containers; no DNS port is published.
+
+Compose also adds `unblock.holeberry.test` to each container's `/etc/hosts` with
+the fixed answer `192.0.2.123`. The managed-unblock test denies that domain, then
+temporarily allows it. It requires that exact IP while allowed, so an empty DNS
+answer or an upstream failure cannot count as a successful unblock. Re-run
+`just integration-up` after changing Compose so existing containers get this entry.
+
+Session recovery uses Pi-hole's CLI authentication helpers to revoke only the
+session created by the test. The independent observer logs out even if the
+DELETE fails. FTL can reuse numeric session IDs, so the test verifies absence
+after revocation and one replacement after recovery rather than requiring a
+different numeric ID.
 
 To prove that the v6 API actually rebuilds gravity, the test removes only
 `gravity.holeberry.test` from the compiled `gravity` table and verifies its

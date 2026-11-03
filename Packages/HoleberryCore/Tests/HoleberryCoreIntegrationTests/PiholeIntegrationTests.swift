@@ -86,6 +86,38 @@ struct PiholeIntegrationTests {
     }
   }
 
+  @Test("revoked v6 session recovers automatically")
+  func revokedSessionRecovers() async throws {
+    try await withContext(.v6) { context in
+      let before = try await context.cli.activeAPISessionIDs(context.container)
+      try await context.service.login()
+      let afterLogin = try await context.cli.activeAPISessionIDs(context.container)
+      let created = afterLogin.subtracting(before)
+      try #require(created.count == 1, "login must create one observable API session")
+      let sessionID = try #require(created.first)
+
+      let revokeStatus = try await context.cli.revokeAPISession(sessionID, on: context.container)
+      try #require(revokeStatus == "204", "the independent DELETE must revoke the app session")
+      let afterRevocation = try await context.cli.activeAPISessionIDs(context.container)
+      try #require(afterRevocation == before, "only the app's session must be revoked")
+
+      // Keep using the same service: its cached SID is now invalid. No explicit
+      // login here, so this request must recover through the production 401 path.
+      let status = try await context.service.checkStatus()
+      #expect(status == .enabled)
+
+      let afterRecovery = try await context.cli.activeAPISessionIDs(context.container)
+      #expect(before.isSubset(of: afterRecovery), "recovery must preserve pre-existing sessions")
+      // FTL may reuse the revoked session's numeric slot, so a replacement does
+      // not have to have a different ID. Its absence above proves revocation.
+      #expect(afterRecovery.subtracting(before).count == 1, "recovery must create one replacement session")
+
+      _ = try await context.service.getQuerySummary()
+      let afterNextRequest = try await context.cli.activeAPISessionIDs(context.container)
+      #expect(afterNextRequest == afterRecovery, "subsequent requests must reuse the replacement session")
+    }
+  }
+
   // MARK: - Domain lists
 
   @Test("domains", arguments: IntegrationTarget.allCases)
@@ -205,11 +237,23 @@ struct PiholeIntegrationTests {
 
   private func assertManagedUnblock(_ target: IntegrationTarget) async throws {
     try await withContext(target) { context in
-      let domain = "temp-\(UUID().uuidString.lowercased().prefix(8)).holeberry.test"
+      // Compose gives this domain a local answer, so neither an empty answer
+      // nor an upstream DNS failure can masquerade as a successful unblock.
+      let domain = "unblock.holeberry.test"
+      let existingAllowance = try await context.service.getDomain(domain, from: .allow)
+      try #require(existingAllowance == nil, "the DNS fixture must not already be allowed")
       context.registerOwnedDomain(domain, in: .allow)
+      context.registerOwnedDomain(domain, in: .deny)
+      try await seedDeny([domain], context: context)
+      try await waitForBlocked(domain, context: context)
 
-      let outcome = try await context.service.unblockDomain(domain, duration: 10)
+      let outcome = try await context.service.unblockDomain(domain, duration: 20)
       #expect(outcome == .added)
+
+      try await pollUntil(timeout: .seconds(10), description: "temporary unblock returns the local DNS answer") {
+        let answer = try await context.dig(domain)
+        return answer.trimmingCharacters(in: .whitespacesAndNewlines) == "192.0.2.123"
+      }
 
       let entry = try await context.service.getDomain(domain, from: .allow)
       #expect(entry?.comment?.hasPrefix("via holeberryapp.com / ") == true)
@@ -238,6 +282,7 @@ struct PiholeIntegrationTests {
       try await pollUntil(timeout: .seconds(10), description: "temporary unblock record cleared") {
         tempUnblocks(context).isEmpty
       }
+      try await waitForBlocked(domain, context: context)
 
       // A pre-existing allowance is not owned by the app: it must survive and
       // keep its original comment.
