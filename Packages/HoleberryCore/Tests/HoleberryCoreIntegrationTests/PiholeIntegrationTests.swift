@@ -273,7 +273,7 @@ struct PiholeIntegrationTests {
       let blockedAnswer = try await context.dig("gravity.holeberry.test")
       #expect(
         blockedAnswer.contains("0.0.0.0"),
-        "the fixture adlist must be active; run Containers/up from the integration test directory"
+        "the fixture adlist must be active; run just integration-up from the repository root"
       )
 
       // Prerequisite: a non-gravity query, so the summary has both counts.

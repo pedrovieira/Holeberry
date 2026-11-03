@@ -7,8 +7,9 @@ compiles it and skips it without Docker.
 ## Prerequisites
 
 - macOS 14+ with a Swift 6 toolchain.
-- Docker Desktop or Colima. For Colima, point the CLI at its socket once:
-  `docker context use colima`.
+- Docker or a Docker-compatible container runtime, with the Docker CLI and
+  Docker Compose installed and configured to connect to it.
+- [just](https://just.systems/), installed with `brew install just`.
 - About 2.5 GB of disk for the pinned Pi-hole images.
 
 The containers are disposable. The v5 and v6 lanes use the public fixture
@@ -18,34 +19,39 @@ reuse their volumes for a real Pi-hole.
 ## Commands
 
 ```bash
-# From the repository root
-cd Packages/HoleberryCore/Tests/HoleberryCoreIntegrationTests
+# Run from the repository root
+# List the available commands
+just
 
 # Start all three Pi-holes, wait for HTTP, build gravity from the local fixture
-./Containers/up
+just integration-up
 
 # Run the 17 opt-in cases (TZ=UTC keeps v5 timestamps aligned with the containers)
-./test
+just integration-test
 
 # Remove the containers, network and volumes
-./Containers/down
+just integration-down
 ```
 
-The `test` script resolves paths relative to itself. From this directory, it is equivalent to:
+The single `justfile` lives at the repository root. Recipes always run from that
+directory, including when invoked from a subdirectory. `just test` runs only core
+unit tests and does not require Docker.
+
+`just integration-test` is equivalent to the following command from the repository root:
 
 ```bash
 TZ=UTC HOLEBERRY_INTEGRATION=1 swift test \
-  --package-path ../.. \
+  --package-path Packages/HoleberryCore \
   --filter HoleberryCoreIntegrationTests
 ```
 
 Compose publishes fixed URLs: `http://127.0.0.1:18085` (v5),
 `http://127.0.0.1:18086` (v6) and `http://127.0.0.1:18087` (password-less v6).
-These ports must be free before running `up`.
+These ports must be free before running `just integration-up`.
 
 `HOLEBERRY_V5_URL`, `HOLEBERRY_V6_URL` and `HOLEBERRY_V6_OPEN_URL` override only
 the Swift HTTP endpoints; they do not change Compose's published ports or
-`up`'s readiness checks. Use them only with manual forwarding to the same
+`just integration-up`'s readiness checks. Use them only with manual forwarding to the same
 Compose containers, because CLI and DNS checks still run inside those containers.
 The v5 API token is read from the container's `setupVars.conf`; the v6 password
 is the fixture password in `Containers/compose.yml`; the password-less lane uses an empty
@@ -67,7 +73,7 @@ authenticated and password-less v6, for 17 cases in total.
 | `domains` | CLI: allow, deny, IDN and regex entries | Exact lists contain the seeded entries; regex stays out of them; add with comment, duplicate add, delete twice; the CLI lists agree after add and delete |
 | `blocking` | CLI deny entries | DNS oracle: a denied domain resolves to `0.0.0.0` while blocking is enabled, stops doing so while disabled, and does so again after enable and after a 10-second timed disable |
 | `managed unblock` | None | A 10-second owned allowance has the `via holeberryapp.com / ` comment and a local record; the CLI list agrees (including the comment on v6); both disappear; a pre-existing allowance keeps its comment |
-| `query and gravity` | Fixture adlist from `up`; `dig gravity.holeberry.test` | Summary counts, gravity-blocked domain in the query log, v6 matching and excluded client filters, v5 reports `.unsupported`, v6 gravity update restores a removed fixture row and DNS blocking |
+| `query and gravity` | Fixture adlist from `just integration-up`; `dig gravity.holeberry.test` | Summary counts, gravity-blocked domain in the query log, v6 matching and excluded client filters, v5 reports `.unsupported`, v6 gravity update restores a removed fixture row and DNS blocking |
 
 The split is deliberate:
 
@@ -81,7 +87,7 @@ The split is deliberate:
 ## How the fixtures work
 
 `Containers/compose.yml` runs three Pi-holes plus a `python:3.13-alpine` server that serves
-`Containers/fixtures/hosts`, which contains `0.0.0.0 gravity.holeberry.test`. `up`
+`Containers/fixtures/hosts`, which contains `0.0.0.0 gravity.holeberry.test`. `just integration-up`
 registers that URL as the only enabled adlist and rebuilds gravity on every
 lane, so the gravity test does not depend on public blocklists. DNS queries are
 generated inside the containers; no DNS port is published.
@@ -98,7 +104,7 @@ string is a real empty password, while omitting the key means unset. Its
 `/api/auth` response reports `"message":"no password set"`.
 
 All containers, the network and the three volumes use the fixed Compose project
-`holeberry-integration`. `down` removes only that project.
+`holeberry-integration`. `just integration-down` removes only that project.
 
 ## Limitations
 
@@ -113,7 +119,7 @@ All containers, the network and the three volumes use the fixed Compose project
 - CI does not run this suite yet. The core package imports AppKit, Carbon and
   Keychain, so it cannot build on a Linux runner with GitHub service
   containers.
-- `up` pulls new images only when the pinned tags are absent. Update the tags in
+- `just integration-up` pulls new images only when the pinned tags are absent. Update the tags in
   `Containers/compose.yml` deliberately.
 
 This technical note is English-only; translations are pending.

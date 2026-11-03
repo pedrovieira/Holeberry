@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Remove the integration containers, network and volumes created by `up`.
-set -euo pipefail
-
-cd "$(dirname "$0")"
-
-docker compose down --volumes --remove-orphans

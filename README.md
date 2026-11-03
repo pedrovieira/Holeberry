@@ -139,7 +139,7 @@ Notes for contributors:
 - The project uses [XcodeGen](https://github.com/yonaskolb/XcodeGen) — if you change `project.yml`, regenerate with `xcodegen generate`.
 - The app target has pre-build scripts running [SwiftLint](https://github.com/realm/SwiftLint) and `swift-format` in strict mode; install them or the build will warn.
 - Core logic lives in the `HoleberryCore` Swift package with its own test suite — `cd Packages/HoleberryCore && swift test`.
-- Run real Pi-hole tests with the [integration test guide](Packages/HoleberryCore/Tests/HoleberryCoreIntegrationTests/README.md) (requires Docker or Colima).
+- Run `just` at the repository root to list test commands. Run real Pi-hole tests with the [integration test guide](Packages/HoleberryCore/Tests/HoleberryCoreIntegrationTests/README.md) (requires a Docker-compatible container runtime and `just`).
 
 ## Contributing
 
