@@ -1,8 +1,10 @@
 # Pi-hole integration tests
 
 End-to-end tests for the production service layer against disposable Pi-hole v5,
-v6 and password-less v6 containers. The suite is opt-in: a plain `swift test`
-compiles it and skips it without Docker.
+v6 and password-less v6 containers. The container suite runs only when
+`HOLEBERRY_INTEGRATION=1` is set, regardless of Docker availability. A plain
+`swift test` compiles it and skips the container scenarios; support-helper tests
+still run without Docker.
 
 ## Prerequisites
 

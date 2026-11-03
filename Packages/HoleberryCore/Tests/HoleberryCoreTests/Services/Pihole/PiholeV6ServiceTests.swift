@@ -440,6 +440,24 @@ final class PiholeV6ServiceTests {
     #expect(outcome == .alreadyPresent)
   }
 
+  @Test("addDomain rejects unrelated errors containing the duplicate phrase", arguments: [201, 400])
+  func addDomainUnrelatedDuplicatePhrase(statusCode: Int) async throws {
+    let message = "Cannot insert because another database is already present"
+    let body: String
+    if statusCode == 400 {
+      body = #"{"error":{"key":"database_error","message":"Could not add to gravity database","hint":"\#(message)"}}"#
+    } else {
+      body = #"{"domains":[],"processed":{"success":[],"errors":[{"item":"example.com","error":"\#(message)"}]}}"#
+    }
+    mockSession.handlers = [
+      { _ in (Data(body.utf8), try #require(v6Response(statusCode: statusCode))) }
+    ]
+    let expectedMessage = statusCode == 400 ? body : message
+    await #expect(throws: PiholeError.server(statusCode, expectedMessage)) {
+      try await makeService().addDomain("example.com", to: .allow, comment: "uuid")
+    }
+  }
+
   @Test("addDomain propagates other per-item insert failures")
   func addDomainInsertFailure() async throws {
     mockSession.handlers = [

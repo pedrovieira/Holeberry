@@ -28,6 +28,17 @@ enum IntegrationTarget: String, CaseIterable, Sendable {
   }
 }
 
+enum IntegrationEnvironmentError: Error, LocalizedError, Equatable {
+  case invalidURLOverride(key: String, value: String)
+
+  var errorDescription: String? {
+    switch self {
+    case .invalidURLOverride(let key, let value):
+      return "\(key) must be an absolute HTTP or HTTPS URL with a host; got '\(value)'."
+    }
+  }
+}
+
 /// Local container settings shared by the integration suite.
 ///
 /// The suite is opt-in: a plain `swift test` compiles this target and skips it.
@@ -42,7 +53,10 @@ enum IntegrationEnvironment {
     ProcessInfo.processInfo.environment[optInKey] == "1"
   }
 
-  static func baseURL(for target: IntegrationTarget) -> URL {
+  static func baseURL(
+    for target: IntegrationTarget,
+    environment: [String: String] = ProcessInfo.processInfo.environment
+  ) throws -> URL {
     let key: String
     let fallback: URL
     switch target {
@@ -57,8 +71,15 @@ enum IntegrationEnvironment {
       fallback = v6OpenBaseURL
     }
 
-    guard let raw = ProcessInfo.processInfo.environment[key], let url = URL(string: raw) else {
+    guard let raw = environment[key] else {
       return fallback
+    }
+    guard let url = URL(string: raw),
+      let scheme = url.scheme?.lowercased(),
+      ["http", "https"].contains(scheme),
+      let host = url.host, !host.isEmpty
+    else {
+      throw IntegrationEnvironmentError.invalidURLOverride(key: key, value: raw)
     }
     return url
   }

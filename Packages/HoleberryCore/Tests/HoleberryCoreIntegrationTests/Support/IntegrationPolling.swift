@@ -31,11 +31,14 @@ func pollUntil(
   let clock = ContinuousClock()
   let deadline = clock.now.advanced(by: timeout)
 
-  while clock.now < deadline {
+  while true {
     if try await condition() {
       return
     }
     let remaining = deadline - clock.now
+    if remaining <= .zero {
+      break
+    }
     try await Task.sleep(for: interval < remaining ? interval : remaining)
   }
   throw PollingError.timedOut(description)

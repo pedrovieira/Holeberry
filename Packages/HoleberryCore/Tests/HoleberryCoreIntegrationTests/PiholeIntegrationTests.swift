@@ -48,12 +48,13 @@ struct PiholeIntegrationTests {
         // A wrong credential must fail an authenticated mutation, and it must
         // not leave an entry behind.
         let domain = "wrong-credential-\(UUID().uuidString.lowercased().prefix(8)).holeberry.test"
-        let wrongService = try makeWrongCredentialService(for: context)
-        do {
-          _ = try await wrongService.addDomain(domain, to: .deny, comment: nil)
-          Issue.record("a wrong credential must not mutate the deny list")
-        } catch {
-          // Expected on both versions, with different error types.
+        try await withWrongCredentialService(for: context) { wrongService in
+          do {
+            _ = try await wrongService.addDomain(domain, to: .deny, comment: nil)
+            Issue.record("a wrong credential must not mutate the deny list")
+          } catch {
+            // Expected on both versions, with different error types.
+          }
         }
 
         let created = try await context.service.getDomain(domain, from: .deny)
@@ -94,6 +95,9 @@ struct PiholeIntegrationTests {
 
   private func assertDomains(_ target: IntegrationTarget) async throws {
     try await withContext(target) { context in
+      // Simulate a prior run that seeded only the first allow entry.
+      try await seedAllow(["allowed.holeberry.test"], context: context)
+      try await context.service.deleteDomain("xn--bcher-kva.holeberry.test", from: .allow)
       try await seedDomainFixtures(context)
 
       let allow = try await context.service.getDomains(from: .allow)
@@ -383,9 +387,10 @@ struct PiholeIntegrationTests {
   /// Seeds the shared exact and regex entries through the Pi-hole CLI.
   private func seedDomainFixtures(_ context: IntegrationContext) async throws {
     let allow = ["allowed.holeberry.test", "xn--bcher-kva.holeberry.test"]
-    let allowExists = try await context.service.getDomain(allow[0], from: .allow) != nil
-    if !allowExists {
-      try await seedAllow(allow, context: context)
+    for domain in allow {
+      if try await context.service.getDomain(domain, from: .allow) == nil {
+        try await seedAllow([domain], context: context)
+      }
     }
 
     let deny = ["denied.holeberry.test"]
@@ -474,9 +479,10 @@ struct PiholeIntegrationTests {
     Defaults[.tempUnblocks(for: context.config.id, suite: context.defaults)]
   }
 
-  private func makeWrongCredentialService(
-    for context: IntegrationContext
-  ) throws -> any PiholeServiceProviding {
+  private func withWrongCredentialService(
+    for context: IntegrationContext,
+    operation: (any PiholeServiceProviding) async throws -> Void
+  ) async throws {
     let suiteName = "com.holeberry.integration.wrong.\(UUID().uuidString)"
     guard let defaults = UserDefaults(suiteName: suiteName) else {
       throw IntegrationContextError.defaultsSuiteUnavailable
@@ -486,9 +492,13 @@ struct PiholeIntegrationTests {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.timeoutIntervalForRequest = 30
     let session = URLSession(configuration: configuration)
+    defer {
+      session.invalidateAndCancel()
+      defaults.removePersistentDomain(forName: suiteName)
+    }
     let config = ServerConfig(url: context.config.url, version: context.version)
 
-    return try ConcretePiholeServiceFactory(
+    let service = try ConcretePiholeServiceFactory(
       authSessionFactory: ConcreteAuthSessionFactory()
     ).buildService(
       config: config,
@@ -496,5 +506,6 @@ struct PiholeIntegrationTests {
       session: session,
       suite: defaults
     )
+    try await operation(service)
   }
 }

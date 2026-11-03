@@ -79,6 +79,7 @@ final class IntegrationContext {
     target: IntegrationTarget,
     cli: ContainerCLI = ContainerCLI()
   ) async throws -> IntegrationContext {
+    let baseURL = try IntegrationEnvironment.baseURL(for: target)
     let suiteName = "com.holeberry.integration.\(UUID().uuidString)"
     guard let defaults = UserDefaults(suiteName: suiteName) else {
       throw IntegrationContextError.defaultsSuiteUnavailable
@@ -104,7 +105,7 @@ final class IntegrationContext {
     let session = URLSession(configuration: configuration)
 
     let config = ServerConfig(
-      url: IntegrationEnvironment.baseURL(for: target).absoluteString,
+      url: baseURL.absoluteString,
       version: target.version
     )
 
