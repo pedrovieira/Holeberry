@@ -75,9 +75,85 @@ enum V5QueryCell: Decodable {
   var stringValue: String {
     switch self {
     case .string(let value): return value
-    case .number(let value): return Double(Int(value)) == value ? String(Int(value)) : String(value)
+    case .number(let value):
+      return Int(exactly: value).map(String.init) ?? String(value)
     case .bool(let value): return value ? "true" : "false"
     case .null: return ""
+    }
+  }
+}
+
+/// Separate from the display decoder: decision evidence never substitutes the current date.
+struct V5DomainQueryHistoryResponse: Decodable {
+  let data: [V5DomainQueryRow]
+}
+
+struct V5ClientNamesResponse: Decodable {
+  let clients: [V5ClientName]
+}
+
+struct V5ClientName: Decodable {
+  let name: String
+  // swiftlint:disable:next identifier_name
+  let ip: String
+}
+
+struct V5DomainQueryRow: Decodable {
+  let timestamp: Date
+  let queryType: String
+  let domain: String
+  let client: String
+  let status: String
+  let reply: String?
+
+  init(from decoder: any Decoder) throws {
+    var row = try decoder.unkeyedContainer()
+    let time = try row.decode(V5QueryCell.self).stringValue
+    guard let seconds = Double(time), seconds.isFinite else {
+      throw PiholeError.decoding("Domain query history has an invalid Unix timestamp")
+    }
+    timestamp = Date(timeIntervalSince1970: seconds)
+    queryType = try row.decode(String.self).uppercased()
+    let hostname = try row.decode(String.self)
+    // Query logs also contain the DNS root and names unsuitable as browser hosts.
+    // Preserve them for local filtering; validate only the requested mutation target.
+    let name = hostname != "." && hostname.hasSuffix(".") ? String(hostname.dropLast()) : hostname
+    domain = PiholeDomain.identity(name)
+    client = try row.decode(String.self)
+    status = try row.decode(V5QueryCell.self).stringValue
+    guard !domain.isEmpty, !queryType.isEmpty, !client.isEmpty, !status.isEmpty else {
+      throw PiholeError.decoding("Domain query history has an empty required field")
+    }
+    if !row.isAtEnd { _ = try row.decode(V5QueryCell.self) }  // DNSSEC status
+    reply = row.isAtEnd ? nil : try row.decode(V5QueryCell.self).stringValue
+  }
+
+  func matches(domain identity: String, interval: DateInterval) -> Bool {
+    domain == identity && timestamp >= interval.start && timestamp < interval.end
+  }
+
+  func entry(clientIP: String) -> DomainQueryEntry {
+    DomainQueryEntry(
+      domain: domain,
+      timestamp: timestamp,
+      queryType: queryType,
+      clientIP: clientIP,
+      handling: handling,
+      status: status,
+      reply: reply)
+  }
+
+  private var handling: DomainQueryHandling {
+    switch status {
+    case "1", "4", "5", "9", "10", "11": return .ruleBlocked
+    case "6", "7", "8", "18": return .upstreamBlocked
+    case "2", "3", "12", "13", "17":
+      // Unknown/no reply and resolver failures cannot establish permitted processing.
+      guard let reply, ["1", "2", "3", "4", "5", "6", "10", "13"].contains(reply) else {
+        return .inconclusive
+      }
+      return .permitted
+    default: return .inconclusive
     }
   }
 }

@@ -12,6 +12,22 @@ final class MockPiholeService: MockPiholeAPI, PiholeServiceProviding {
   private(set) var unblockDomainLastDuration: TimeInterval?
   private(set) var unblockDomainArgs: [(domain: String, duration: TimeInterval?)] = []
 
+  var unblockExistingDomainStub: Result<DomainUnblockOutcome?, any Error> = .success(nil)
+  var unblockExistingDomainHandler: ((String, TimeInterval?) async throws -> DomainUnblockOutcome?)?
+  private(set) var unblockExistingDomainCallCount = 0
+  private(set) var unblockExistingDomainLastDomain: String?
+  private(set) var unblockExistingDomainLastDuration: TimeInterval?
+  private(set) var unblockExistingDomainArgs: [(domain: String, duration: TimeInterval?)] = []
+
+  func unblockExistingDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome? {
+    unblockExistingDomainCallCount += 1
+    unblockExistingDomainLastDomain = domain
+    unblockExistingDomainLastDuration = duration
+    unblockExistingDomainArgs.append((domain, duration))
+    if let unblockExistingDomainHandler { return try await unblockExistingDomainHandler(domain, duration) }
+    return try unblockExistingDomainStub.get()
+  }
+
   @discardableResult
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome {
     unblockDomainCallCount += 1

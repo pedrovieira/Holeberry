@@ -41,7 +41,7 @@ struct PiholeServerManagerUnblockGuardTests {
     await waitUntil { pending != nil }
     defer { pending?.resume() }
 
-    let duplicate = try await manager.unblock(domain: "EXAMPLE.COM", duration: 300)
+    let duplicate = try await manager.unblock(domain: "WWW.EXAMPLE.COM", duration: 300)
     let permanent = await manager.addToAllowlist(domain: "WWW.EXAMPLE.COM")
     #expect(service.unblockDomainCallCount == 1, "Duplicates must not reach Pi-hole")
     #expect(duplicate[service.id] == .inProgress, "A duplicate must not trigger a no-op notification")
@@ -52,6 +52,81 @@ struct PiholeServerManagerUnblockGuardTests {
     #expect(try await first.value[service.id] == .added)
     service.unblockDomainHandler = nil
     #expect(try await manager.unblock(domain: "example.com", duration: 300)[service.id] == .added)
+  }
+
+  @Test("Apex and www mutations have separate identities")
+  func independentWWWIdentity() async throws {
+    let service = MockPiholeService()
+    let manager = makeManager(services: [service])
+    var pending: CheckedContinuation<Void, Never>?
+    service.unblockDomainHandler = { domain, _ in
+      if domain == "example.com" { await withCheckedContinuation { pending = $0 } }
+      return .added
+    }
+    let first = Task { try await manager.unblock(domain: "example.com", duration: 60) }
+    await waitUntil { pending != nil }
+    #expect(try await manager.unblock(domain: "WWW.EXAMPLE.COM", duration: 60)[service.id] == .added)
+    #expect(service.unblockDomainArgs.map(\.domain) == ["example.com", "www.example.com"])
+    pending?.resume()
+    pending = nil
+    _ = try await first.value
+  }
+
+  @Test("Case and IDNs share a guard for each exact identity", arguments: [false, true])
+  func idnGuard(www: Bool) async throws {
+    let service = MockPiholeService()
+    let manager = makeManager(services: [service])
+    let prefix = www ? "www." : ""
+    var pending: CheckedContinuation<Void, Never>?
+    service.unblockDomainHandler = { _, _ in
+      await withCheckedContinuation { pending = $0 }
+      return .added
+    }
+    let first = Task { try await manager.unblock(domain: prefix + "BÜCHER.de", duration: 60) }
+    await waitUntil { pending != nil }
+    let second = try await manager.unblock(domain: prefix.uppercased() + "XN--BCHER-KVA.DE", duration: 60)
+    #expect(second[service.id] == .inProgress)
+    #expect(service.unblockDomainCallCount == 1)
+    pending?.resume()
+    pending = nil
+    _ = try await first.value
+  }
+
+  @Test("Existing-only shares the mutation guard and releases it after cancellation", arguments: [false, true])
+  func existingOnlyGuard(cancel: Bool) async throws {
+    let service = MockPiholeService()
+    let manager = makeManager(services: [service])
+    var pending: CheckedContinuation<Void, Never>?
+    service.unblockExistingDomainHandler = { _, _ in
+      await withCheckedContinuation { pending = $0 }
+      try Task.checkCancellation()
+      return .renewed
+    }
+    let first = Task {
+      await manager.applyDomainUnblock(
+        domain: "example.com", duration: 60, mode: .existingOnly)
+    }
+    await waitUntil { pending != nil }
+    let duplicate = await manager.applyDomainUnblock(
+      domain: "EXAMPLE.COM", duration: nil, mode: .allowCreation)
+    #expect(try duplicate[service.id]?.get() == .inProgress)
+    #expect(service.unblockDomainCallCount == 0)
+    if cancel { first.cancel() }
+    pending?.resume()
+    pending = nil
+    let result = await first.value
+    if cancel {
+      guard case .failure = result[service.id] else {
+        Issue.record("Cancellation must remain a failure")
+        return
+      }
+    } else {
+      #expect(try result[service.id]?.get() == .renewed)
+    }
+    let next = await manager.applyDomainUnblock(
+      domain: "example.com", duration: nil, mode: .allowCreation)
+    #expect(try next[service.id]?.get() == .added)
+    #expect(service.unblockDomainCallCount == 1)
   }
 
   @Test("A different domain can unblock while one is running")
@@ -195,7 +270,7 @@ struct PiholeServerManagerUnblockGuardTests {
     let first = Task { try await manager.unblock(domain: "example.com", duration: 60) }
     await waitUntil { backoff.waitingCount == 1 }
 
-    #expect(try await manager.unblock(domain: "www.example.com", duration: 300)[raw.id] == .inProgress)
+    #expect(try await manager.unblock(domain: "EXAMPLE.COM", duration: 300)[raw.id] == .inProgress)
     #expect(await manager.addToAllowlist(domain: "EXAMPLE.COM")[raw.id] == .inProgress)
     #expect(managed.unblockDomainCallCount == 1)
     #expect(raw.addDomainCallCount == 1)

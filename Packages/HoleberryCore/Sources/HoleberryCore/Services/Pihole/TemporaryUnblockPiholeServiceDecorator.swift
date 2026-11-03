@@ -2,6 +2,8 @@ import Defaults
 import Foundation
 import OSLog
 
+// swiftlint:disable file_length
+
 @MainActor
 public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProviding {
   private let wrapped: any PiholeAPIProviding
@@ -100,6 +102,12 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
     try await wrapped.getRecentBlocked(forClientIp: forClientIp, interval: interval)
   }
 
+  public func getDomainQueryHistory(
+    domain: String, forClientIP: String, interval: DateInterval
+  ) async throws -> DomainQueryHistory {
+    try await wrapped.getDomainQueryHistory(domain: domain, forClientIP: forClientIP, interval: interval)
+  }
+
   public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     try await wrapped.getDomains(from: list)
   }
@@ -128,6 +136,31 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
     return try await withRetry(.destructive, sleep: retrySleep) {
       try await self.attemptUnblock(identity, duration: duration, token: token)
     }
+  }
+
+  /// This read-only path may update local timers, but never inserts or recovers a new server entry.
+  public func unblockExistingDomain(
+    _ domain: String, duration: TimeInterval?
+  ) async throws -> DomainUnblockOutcome? {
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    try Task.checkCancellation()
+    await acquireDomain(identity)
+    defer { releaseDomain(identity) }
+    try Task.checkCancellation()
+    guard let entry = try await wrapped.getDomain(identity, from: .allow) else { return nil }
+    try Task.checkCancellation()
+    guard entry.enabled != false else { return .alreadyPresent(enabled: false) }
+    guard let record = activeRecords.first(where: { $0.domain == identity }),
+      !record.pendingRemoval,
+      record.startDateUTC.addingTimeInterval(record.durationSeconds) > Date(),
+      wrapped.version == .v5 || entry.comment == record.uuid
+    else { return .alreadyPresent(enabled: entry.enabled) }
+    if let duration {
+      renewRecord(record, duration: duration)
+      return .renewed
+    }
+    cancelRecords(for: identity)
+    return .promoted
   }
 
   private func attemptUnblock(

@@ -18,7 +18,7 @@ public final class PiholeV6Service: PiholeAPIProviding {
   }
 
   // MARK: - API
-  private var baseURL: URL
+  private(set) var baseURL: URL
   private var urlSession: any HTTPRequestable
   private let authSession: any AuthSessionProviding
   private static let decoder = JSONDecoder()
@@ -292,7 +292,7 @@ public final class PiholeV6Service: PiholeAPIProviding {
     return try await authenticatedRequest(url: url, method: method, body: body, timeoutInterval: timeoutInterval)
   }
 
-  private func authenticatedRequest(
+  func authenticatedRequest(
     url: URL,
     method: HTTPMethod = .get,
     body: (any Encodable)? = nil,
@@ -318,6 +318,9 @@ public final class PiholeV6Service: PiholeAPIProviding {
       do {
         (data, response) = try await urlSession.data(for: request)
       } catch {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled {
+          throw CancellationError()
+        }
         throw PiholeError.network(error.localizedDescription)
       }
 

@@ -5,7 +5,7 @@ private enum V5QueryStatus: String, CaseIterable {
   case gravity = "1"
   case wildcard = "4"
   case exactBlocklist = "5"
-  case regexBlocklist = "6"
+  case upstreamBlockedIP = "6"
 
   /// Status codes that indicate a query was blocked.
   static let blocked: Set<String> = Set(V5QueryStatus.allCases.map(\.rawValue))
@@ -329,7 +329,7 @@ public final class PiholeV5Service: PiholeAPIProviding {
     return String(ascii)
   }
 
-  private func getRequest(
+  func getRequest(
     path: String, params: [String: String?], method: HTTPMethod = .get, comment: String? = nil
   ) async throws -> (
     Data, HTTPURLResponse
@@ -368,6 +368,9 @@ public final class PiholeV5Service: PiholeAPIProviding {
     do {
       (data, response) = try await session.data(for: request)
     } catch {
+      if error is CancellationError || (error as? URLError)?.code == .cancelled {
+        throw CancellationError()
+      }
       throw PiholeError.network(error.localizedDescription)
     }
 

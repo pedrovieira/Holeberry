@@ -77,6 +77,10 @@ Holeberry detects the current tab in **WebKit (Safari, Orion), Chrome/Chromium, 
 
 Unblocking a single domain beats a global disable: the page loads while the rest of your network stays protected. (Your smart TV would disagree — it sends so much traffic out into the world it would love a global unblock. Don't listen to it.) You can also add the domain to your allowlist.
 
+Browser-tab actions first check the last **15 minutes** of queries for **this Mac’s detected IPv4 address**, including both `example.com` and `www.example.com`. A confirmed Pi-hole rule block permits a new allowlist entry for the recorded hostname. If no block is found or verification fails, Holeberry explains why it skipped the change; check your browser’s ad blocker or connection. Existing temporary unblocks owned by Holeberry can still be extended or made permanent. Recently Blocked actions keep their direct behavior.
+
+**Pi-hole v5 requirement:** the query-log preference `API_QUERY_LOG_SHOW` must be `all` (allowed and blocked queries), with domain/client history visible. Holeberry uses the latest visible result and cannot detect hidden newer queries or change this preference. On v5, Holeberry fetches the last 15 minutes for all clients and filters locally. Named clients need a fully visible client list (`API_EXCLUDE_CLIENTS` empty) and an unambiguous mapping to the detected IPv4 address; otherwise verification fails. IPv6 queries and queries forwarded through a router may not appear under this Mac’s IPv4 address.
+
 <p align="center">
   <img width="668" height="251" src="Assets/browser-unblock.png"/>
 </p>

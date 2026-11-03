@@ -488,8 +488,8 @@ struct PiholeServerManagerDomainTests {
   func unblockDomainNormalization(domain: String) async throws {
     let manager = makeManagerWithTwoServers()
     _ = try await manager.unblock(domain: domain, duration: 60)
-    #expect(mockService1.unblockDomainLastDomain == "example.com")
-    #expect(mockService2.unblockDomainLastDomain == "example.com")
+    #expect(mockService1.unblockDomainLastDomain == domain)
+    #expect(mockService2.unblockDomainLastDomain == domain)
     #expect(mockService1.unblockDomainLastDuration == 60)
     #expect(mockService1.unblockDomainCallCount == 1)
     #expect(mockService2.unblockDomainCallCount == 1)
@@ -507,8 +507,8 @@ struct PiholeServerManagerDomainTests {
     }
     #expect(outcomes[mockService1.id] == .added)
     #expect(outcomes[mockService2.id] == .alreadyPresent(enabled: false))
-    #expect(mockService1.unblockDomainLastDomain == "example.com")
-    #expect(mockService2.unblockDomainLastDomain == "example.com")
+    #expect(mockService1.unblockDomainLastDomain == "www.example.com")
+    #expect(mockService2.unblockDomainLastDomain == "www.example.com")
     #expect(mockService1.unblockDomainLastDuration == (permanent ? nil : 60))
     #expect(mockService1.unblockDomainCallCount == 1)
     #expect(mockService2.unblockDomainCallCount == 1)
