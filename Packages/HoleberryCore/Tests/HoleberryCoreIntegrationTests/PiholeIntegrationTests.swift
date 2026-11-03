@@ -96,7 +96,9 @@ struct PiholeIntegrationTests {
   private func assertDomains(_ target: IntegrationTarget) async throws {
     try await withContext(target) { context in
       // Simulate a prior run that seeded only the first allow entry.
-      try await seedAllow(["allowed.holeberry.test"], context: context)
+      if try await context.service.getDomain("allowed.holeberry.test", from: .allow) == nil {
+        try await seedAllow(["allowed.holeberry.test"], context: context)
+      }
       try await context.service.deleteDomain("xn--bcher-kva.holeberry.test", from: .allow)
       try await seedDomainFixtures(context)
 
