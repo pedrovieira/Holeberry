@@ -1,0 +1,87 @@
+name: holeberry-integration
+
+services:
+  pihole-v5:
+    image: pihole/pihole:2024.07.0
+    environment:
+      TZ: UTC
+      WEBPASSWORD: holeberry-integration
+      DNSMASQ_LISTENING: all
+      # Gravity is built explicitly by `up` from the local fixture adlist.
+      SKIPGRAVITYONBOOT: "1"
+    ports:
+      - "127.0.0.1:18085:80"
+    extra_hosts:
+      - "unblock.holeberry.test:192.0.2.123"
+    volumes:
+      - pihole-v5-data:/etc/pihole
+    depends_on:
+      fixture:
+        condition: service_healthy
+    restart: "no"
+
+  pihole-v6:
+    image: pihole/pihole:2026.10.0
+    environment:
+      TZ: UTC
+      FTLCONF_webserver_api_password: holeberry-integration
+      FTLCONF_dns_listeningMode: all
+    ports:
+      - "127.0.0.1:18086:80"
+    extra_hosts:
+      - "unblock.holeberry.test:192.0.2.123"
+    volumes:
+      - pihole-v6-data:/etc/pihole
+    depends_on:
+      fixture:
+        condition: service_healthy
+    restart: "no"
+
+  pihole-v6-open:
+    image: pihole/pihole:2026.10.0
+    environment:
+      TZ: UTC
+      # An empty string (not an omitted key) makes v6 password-less.
+      FTLCONF_webserver_api_password: ""
+      FTLCONF_dns_listeningMode: all
+    ports:
+      - "127.0.0.1:18087:80"
+    extra_hosts:
+      - "unblock.holeberry.test:192.0.2.123"
+    volumes:
+      - pihole-v6-open-data:/etc/pihole
+    depends_on:
+      fixture:
+        condition: service_healthy
+    restart: "no"
+
+  # Serves the local adlist that makes `gravity.holeberry.test` gravity-blocked.
+  fixture:
+    image: python:3.13-alpine
+    command:
+      - python
+      - -m
+      - http.server
+      - "8080"
+      - --bind
+      - 0.0.0.0
+      - --directory
+      - /fixtures
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/hosts', timeout=2).read()
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+    volumes:
+      - ./fixtures:/fixtures:ro
+    restart: "no"
+
+volumes:
+  pihole-v5-data:
+  pihole-v6-data:
+  pihole-v6-open-data:
