@@ -139,6 +139,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   /// This read-only path may update local timers, but never inserts or recovers a new server entry.
+  @discardableResult
   public func unblockExistingDomain(
     _ domain: String, duration: TimeInterval?
   ) async throws -> DomainUnblockOutcome? {

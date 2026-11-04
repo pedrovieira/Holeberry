@@ -484,8 +484,8 @@ struct PiholeServerManagerDomainTests {
     #expect(ads.fromClientIp == "1.1.1.1")
   }
 
-  @Test("unblock normalizes domains before the managed call", arguments: ["www.example.com", "example.com"])
-  func unblockDomainNormalization(domain: String) async throws {
+  @Test("unblock forwards each exact hostname to the managed call", arguments: ["www.example.com", "example.com"])
+  func unblockForwardsExactHostname(domain: String) async throws {
     let manager = makeManagerWithTwoServers()
     _ = try await manager.unblock(domain: domain, duration: 60)
     #expect(mockService1.unblockDomainLastDomain == domain)

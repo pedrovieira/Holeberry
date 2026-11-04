@@ -6,6 +6,17 @@ import Testing
 @MainActor
 @Suite("MockPiholeServerManager contracts")
 struct MockPiholeServerManagerContractTests {
+  @Test(
+    "Missing or blank labels fall back to the hostname",
+    arguments: [nil, "", " \t\n"] as [String?]
+  )
+  func blankDisplayLabel(label: String?) {
+    let manager = MockPiholeServerManager()
+    let config = ServerConfig(label: label, url: "http://home.local:8080/admin", version: .v6)
+    manager.servers = [config]
+    #expect(manager.displayLabel(for: config.id) == "home.local")
+  }
+
   @Test func historyAndMutationArgumentsArePreserved() async throws {
     let manager = MockPiholeServerManager()
     let config = ServerConfig(label: "Home", url: "http://home.local", version: .v6)

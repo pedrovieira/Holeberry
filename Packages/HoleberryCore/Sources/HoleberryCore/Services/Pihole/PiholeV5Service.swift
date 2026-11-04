@@ -183,9 +183,6 @@ public final class PiholeV5Service: PiholeAPIProviding {
     }
     let rows = response.data
 
-    let dateFormatter = DateFormatter()
-    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-
     let fromTime = interval.start.timeIntervalSince1970
     let untilTime = interval.end.timeIntervalSince1970
 
@@ -195,11 +192,10 @@ public final class PiholeV5Service: PiholeAPIProviding {
       guard V5QueryStatus.blocked.contains(status) else { return nil }
       let domain = row[2].stringValue
       let client = row[3].stringValue
-      let timestampStr = row[0].stringValue
-      let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
-      // Client-side time range filter as fallback for FTL < v5.2
-      let timestampSecs = timestamp.timeIntervalSince1970
+      // The v5 web API returns Unix seconds. Invalid dates must not become current queries.
+      guard let timestampSecs = Double(row[0].stringValue), timestampSecs.isFinite else { return nil }
       guard timestampSecs >= fromTime && timestampSecs <= untilTime else { return nil }
+      let timestamp = Date(timeIntervalSince1970: timestampSecs)
       return BlockedDomain(domain: domain, timestamp: timestamp, fromClientIp: client)
     }
     return blocked

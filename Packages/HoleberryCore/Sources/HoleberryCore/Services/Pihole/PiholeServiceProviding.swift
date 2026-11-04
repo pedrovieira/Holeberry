@@ -7,5 +7,6 @@ public protocol PiholeServiceProviding: PiholeAPIProviding {
   func unblockDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome
 
   /// Renews or promotes an existing owned entry, without ever inserting a new allowlist entry.
+  @discardableResult
   func unblockExistingDomain(_ domain: String, duration: TimeInterval?) async throws -> DomainUnblockOutcome?
 }

@@ -59,7 +59,11 @@ final class MockPiholeServerManager: PiholeServerManaging {
     displayLabelArgs.append(id)
     if let stub = displayLabelStub[id] { return stub }
     guard let server = servers.first(where: { $0.id == id }) else { return nil }
-    return server.label ?? URL(string: server.url)?.host ?? server.url
+    if let label = server.label, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      return label
+    }
+    guard let host = URLComponents(string: server.url)?.host, !host.isEmpty else { return server.url }
+    return host
   }
 
   func getDomainQueryHistory(

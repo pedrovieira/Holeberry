@@ -24,6 +24,16 @@ struct PiholeV5DomainQueryHistoryTests {
     return session
   }
 
+  @Test func sharedV5QueryLogUsesUnixTimestamps() async throws {
+    let interval = DateInterval(start: Date(timeIntervalSince1970: 1_700_000_000), duration: 3600)
+    let history = try await service(session(V5QueryLogFixture.response)).getDomainQueryHistory(
+      domain: "allowed.com", forClientIP: "192.168.1.5", interval: interval)
+    #expect(history.isComplete)
+    #expect(history.entries.count == 1)
+    #expect(history.entries.first?.timestamp == Date(timeIntervalSince1970: 1_700_002_700))
+    #expect(history.entries.first?.handling == .permitted)
+  }
+
   @Test func timeWindowRequestAndLocalScope() async throws {
     let session = session(
       """
