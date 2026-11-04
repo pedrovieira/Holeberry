@@ -1,9 +1,12 @@
 import Foundation
+import Network
 
 /// Pure hostname expansion and query-evidence decisions for browser actions.
 enum BrowserDomainUnblockPolicy {
   static func candidates(for domain: String) throws -> [String] {
     let identity = try canonicalHostname(domain)
+    // An IPv4 literal has no www sibling. IPv6 literals are rejected by hostname validation above.
+    if IPv4Address(identity) != nil { return [identity] }
     let variant =
       identity.hasPrefix("www.") ? String(identity.dropFirst(4)) : "www.\(identity)"
     // Validate the variant too: removing www. must not produce an empty hostname.
@@ -45,11 +48,7 @@ enum BrowserDomainUnblockPolicy {
     guard let newest = entries.max(by: { $0.timestamp < $1.timestamp }) else { return .inconclusive }
     let tied = entries.filter { $0.timestamp == newest.timestamp }
     // Wire order is not part of the evidence contract, so conflicting ties cannot choose a winner.
-    guard
-      tied.allSatisfy({
-        $0.handling == newest.handling && $0.status == newest.status && $0.reply == newest.reply
-      })
-    else { return .inconclusive }
+    guard tied.allSatisfy({ $0.handling == newest.handling }) else { return .inconclusive }
     return newest.handling
   }
 }

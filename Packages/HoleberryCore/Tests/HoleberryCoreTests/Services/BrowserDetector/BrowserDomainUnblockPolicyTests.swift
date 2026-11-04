@@ -29,11 +29,20 @@ struct BrowserDomainUnblockPolicyTests {
   }
 
   @Test(
+    "IPv4 candidates have no www sibling",
+    arguments: [("192.168.1.2", "192.168.1.2"), ("127.0.0.1", "127.0.0.1"), ("192.168.1.2.", "192.168.1.2")]
+  )
+  func ipv4Candidates(domain: String, expected: String) throws {
+    #expect(try BrowserDomainUnblockPolicy.candidates(for: domain) == [expected])
+  }
+
+  @Test(
     "Candidates reject malformed hostnames",
     arguments: [
       "", ".", "..", ".example.com", "example..com", "example.com..", "www..example.com",
       "example.com/path", "example.com\\path", "user@example.com", "example.com:80",
-      "https://example.com", "example.com?x=1", "example.com#fragment", "example.com%2e", " example.com"
+      "https://example.com", "example.com?x=1", "example.com#fragment", "example.com%2e", " example.com",
+      "::1", "2001:db8::1", "[::1]", "[2001:db8::1]"
     ]
   )
   func invalidCandidates(domain: String) {
@@ -93,6 +102,21 @@ struct BrowserDomainUnblockPolicyTests {
     #expect(decision(rows.reversed()) == .unavailable)
     #expect(decision([entry(.ruleBlocked), entry(.ruleBlocked)]) == .blocked)
     #expect(decision(rows + [entry(.ruleBlocked, type: "AAAA")]) == .blocked)
+  }
+
+  @Test("Permitted ties ignore differences in status or reply", arguments: [true, false])
+  func permittedTimestampTie(statusDiffers: Bool) {
+    let rows = [
+      DomainQueryEntry(
+        domain: "example.com", timestamp: end.addingTimeInterval(-10), queryType: "A",
+        clientIP: clientIP, handling: .permitted, status: "2", reply: "4"),
+      DomainQueryEntry(
+        domain: "example.com", timestamp: end.addingTimeInterval(-10), queryType: "A",
+        clientIP: clientIP, handling: .permitted, status: statusDiffers ? "3" : "2",
+        reply: statusDiffers ? "4" : "1")
+    ]
+    #expect(decision(rows) == .notBlocked)
+    #expect(decision(rows.reversed()) == .notBlocked)
   }
 
   @Test func unfinishedLatestDoesNotUseOlderBlock() {

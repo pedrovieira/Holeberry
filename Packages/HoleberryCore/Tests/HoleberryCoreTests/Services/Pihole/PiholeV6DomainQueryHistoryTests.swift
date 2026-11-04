@@ -235,4 +235,27 @@ struct PiholeV6DomainQueryHistoryTests {
         domain: "example.com", forClientIP: "192.168.1.50", interval: interval)
     }
   }
+
+  @Test("Cancellation wins over a successful final page", arguments: [0, 1, 50])
+  func cancellationAfterSuccessfulResponse(rowCount: Int) async throws {
+    let session = MockURLSession()
+    let data = try JSONSerialization.data(withJSONObject: [
+      "queries": Array(repeating: row(), count: rowCount), "cursor": 1000, "recordsFiltered": rowCount
+    ])
+    session.handlers = [
+      { request in
+        withUnsafeCurrentTask { $0?.cancel() }
+        return (
+          data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
+      }
+    ]
+    let service = service(session)
+    let interval = interval
+    let task = Task {
+      try await service.getDomainQueryHistory(
+        domain: "example.com", forClientIP: "192.168.1.50", interval: interval)
+    }
+    await #expect(throws: CancellationError.self) { try await task.value }
+  }
 }

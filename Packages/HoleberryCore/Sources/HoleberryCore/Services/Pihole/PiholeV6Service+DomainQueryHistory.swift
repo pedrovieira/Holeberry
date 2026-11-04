@@ -11,6 +11,7 @@ extension PiholeV6Service {
       try Task.checkCancellation()
       let response = try await queryHistoryPage(
         domain: identity, clientIP: forClientIP, interval: interval, start: page * 50, cursor: cursor)
+      try Task.checkCancellation()
       entries += response.queries.compactMap { row in
         guard row.domain == identity, row.client.ip == forClientIP,
           row.time >= interval.start.timeIntervalSince1970, row.time < interval.end.timeIntervalSince1970

@@ -23,10 +23,12 @@ extension NotificationCoordinator {
     default:
       break
     }
+    // Guidance, entries already present, and per-server failures that the user needs to see.
     let notices = browserUnblockAllowedNotices(for: result) + browserUnblockMutationNotices(for: result)
+    // Completed allowlist changes: entries added, temporary unblocks renewed, or entries made permanent.
     let changes = browserUnblockChanges(for: result)
     if result.outcome == .processed || result.outcome == .notBlocked {
-      guard !notices.isEmpty else { return nil }
+      guard !changes.isEmpty || !notices.isEmpty else { return nil }
       return .browserDomainUnblockFeedback(body: (changes + notices).joined(separator: "\n"))
     }
     let message: String
