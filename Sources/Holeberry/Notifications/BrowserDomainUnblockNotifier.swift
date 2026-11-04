@@ -23,62 +23,40 @@ extension NotificationCoordinator {
     default:
       break
     }
-    let notices = browserUnblockNotices(for: result)
-    if result.outcome == .processed {
+    let notices = browserUnblockAllowedNotices(for: result) + browserUnblockMutationNotices(for: result)
+    let changes = browserUnblockChanges(for: result)
+    if result.outcome == .processed || result.outcome == .notBlocked {
       guard !notices.isEmpty else { return nil }
-      let changes = browserUnblockChanges(for: result)
       return .browserDomainUnblockFeedback(body: (changes + notices).joined(separator: "\n"))
     }
-    let domains = (result.candidateDomains.isEmpty ? [result.requestedDomain] : result.candidateDomains)
-      .joined(separator: " or ")
-    let scope = "from this Mac's detected IPv4 address (\(result.clientIP ?? "unavailable"))"
     let message: String
-    switch result.outcome {
-    case .noHistory:
-      message = """
-        No query for \(domains) \(scope) was found in the last 15 minutes. \
-        Check your browser's ad blocker or connection. No new unblock was applied.
-        """
-    case .notBlocked:
-      message = """
-        No Pi-hole rule block was found for \(domains) \(scope) in the last 15 minutes. \
-        Check your browser's ad blocker or connection. No new unblock was applied.
-        """
-    case .upstreamBlocked:
-      message = """
-        Recent queries for \(domains) \(scope) were blocked by upstream DNS. \
-        A Pi-hole allowlist entry may not help. No new unblock was applied.
-        """
-    case .missingClientIP:
-      message = """
-        Could not detect this Mac's IPv4 address to check recent queries for \(domains). \
-        No new unblock was applied.
-        """
-    case .failed(let error):
-      message = "Could not unblock \(domains): \(error.localizedDescription) No new unblock was applied."
-    default:
-      message = """
-        Could not complete the recent-query check for \(domains) \(scope). No new unblock was applied.
-        """
+    if case .failed(let error) = result.outcome {
+      message = "Could not unblock \(result.requestedDomain): \(error.localizedDescription)"
+    } else {
+      message = "Could not complete the unblock for \(result.requestedDomain)."
     }
-    return .browserDomainUnblockFeedback(body: ([message] + notices).joined(separator: "\n"))
+    return .browserDomainUnblockFeedback(body: ([message] + changes + notices).joined(separator: "\n"))
   }
 
-  private func browserUnblockNotices(for result: BrowserDomainUnblockResult) -> [String] {
-    var notices: [String] = []
-    for domain in result.checks.keys.sorted() {
-      for id in (result.checks[domain] ?? [:]).keys.sorted(by: { $0.uuidString < $1.uuidString }) {
-        let server = result.serverLabels[id] ?? "Pi-hole"
-        switch result.checks[domain]?[id] {
-        case .failure(let error):
-          notices.append("Could not check recent queries for \(domain) on \(server): \(error.localizedDescription)")
-        case .success(.unavailable):
-          notices.append("Recent query results for \(domain) on \(server) were incomplete or inconclusive.")
-        default:
-          break
-        }
-      }
+  private func browserUnblockAllowedNotices(for result: BrowserDomainUnblockResult) -> [String] {
+    result.allowedDomains.sorted().compactMap { domain in
+      let changed =
+        result.mutations[domain]?.values.contains { outcome in
+          switch outcome {
+          case .success(.renewed), .success(.promoted): return true
+          default: return false
+          }
+        } == true
+      guard !changed else { return nil }
+      return """
+        Pi-hole allowed recent queries for \(domain). No new allowlist entry was added for this hostname. \
+        Check your browser settings or ad blocker. Other page resources may still be blocked; check Recently Blocked.
+        """
     }
+  }
+
+  private func browserUnblockMutationNotices(for result: BrowserDomainUnblockResult) -> [String] {
+    var notices: [String] = []
     for domain in result.mutations.keys.sorted() {
       for id in (result.mutations[domain] ?? [:]).keys.sorted(by: { $0.uuidString < $1.uuidString }) {
         let server = result.serverLabels[id] ?? "Pi-hole"

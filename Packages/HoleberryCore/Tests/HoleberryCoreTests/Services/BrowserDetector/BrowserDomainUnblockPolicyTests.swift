@@ -42,6 +42,28 @@ struct BrowserDomainUnblockPolicyTests {
     }
   }
 
+  @Test("ALLOW for the domain inside the requested timeframe", arguments: [900.0, 450.0, 1.0])
+  func allowedDomainInRequestedTimeframe(age: TimeInterval) {
+    #expect(decision([entry(.permitted, age: age)]) == .notBlocked)
+  }
+
+  @Test("DENY for the domain inside the requested timeframe", arguments: [900.0, 450.0, 1.0])
+  func deniedDomainInRequestedTimeframe(age: TimeInterval) {
+    #expect(decision([entry(.ruleBlocked, age: age)]) == .blocked)
+  }
+
+  @Test("Domain absent from the requested timeframe", arguments: [DomainQueryHandling.permitted, .ruleBlocked])
+  func domainAbsentFromRequestedTimeframe(handling: DomainQueryHandling) {
+    #expect(decision([]) == .noHistory)
+    #expect(
+      decision([
+        entry(handling, age: 900.001),
+        entry(handling, age: 0),
+        entry(handling, age: -1),
+        entry(handling, age: 450, domain: "other.example.com")
+      ]) == .noHistory)
+  }
+
   @Test func latestAllowedSupersedesBlock() {
     #expect(decision([entry(.ruleBlocked, age: 20), entry(.permitted, age: 10)]) == .notBlocked)
     #expect(decision([entry(.permitted, age: 20), entry(.ruleBlocked, age: 10)]) == .blocked)

@@ -6,15 +6,12 @@ public protocol BrowserDomainUnblocking: AnyObject {
   func unblock(domain: String, duration: TimeInterval?) async -> BrowserDomainUnblockResult
 }
 
-/// Aggregate outcome of the history check and managed browser-domain unblock.
+/// Aggregate outcome of the managed browser-domain unblock; history failures do not prevent a normal attempt.
 public enum BrowserDomainUnblockOutcome: Equatable, Sendable {
   case processed
-  case noHistory
   case notBlocked
-  case upstreamBlocked
   case unavailable
   case noServers
-  case missingClientIP
   case inProgress
   case cancelled
   case failed(PiholeError)
@@ -25,6 +22,9 @@ public struct BrowserDomainUnblockResult: Sendable {
   public let outcome: BrowserDomainUnblockOutcome
   public let requestedDomain: String
   public let candidateDomains: [String]
+  /// Hostnames whose complete ALLOW evidence on at least one server prevented creation of a new entry.
+  /// Existing owned entries may still have been renewed or promoted.
+  public let allowedDomains: [String]
   public let clientIP: String?
   public let serverLabels: [UUID: String]
   public let checks: [String: [UUID: Result<DomainQueryDecision, PiholeError>]]
@@ -37,8 +37,10 @@ public struct BrowserDomainUnblockResult: Sendable {
     clientIP: String? = nil,
     serverLabels: [UUID: String] = [:],
     checks: [String: [UUID: Result<DomainQueryDecision, PiholeError>]] = [:],
-    mutations: [String: [UUID: Result<DomainUnblockOutcome?, PiholeError>]] = [:]
+    mutations: [String: [UUID: Result<DomainUnblockOutcome?, PiholeError>]] = [:],
+    allowedDomains: [String] = []
   ) {
+    self.allowedDomains = allowedDomains
     self.outcome = outcome
     self.requestedDomain = requestedDomain
     self.candidateDomains = candidateDomains

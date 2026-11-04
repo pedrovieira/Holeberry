@@ -1,6 +1,6 @@
 import Foundation
 
-/// Checks recent client-scoped evidence before allowing new browser-triggered entries.
+/// Skips new entries only when recent client-scoped evidence confirms allowed queries.
 @MainActor
 public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
   private typealias Checks = [String: [UUID: Result<DomainQueryDecision, PiholeError>]]
@@ -46,27 +46,29 @@ public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
       serverLabels: labels,
       interval: DateInterval(start: end.addingTimeInterval(-900), end: end))
     guard !request.serverIDs.isEmpty else { return request.result(.noServers) }
-    guard let clientIP = request.clientIP else { return request.result(.missingClientIP) }
     guard !Task.isCancelled else { return request.result(.cancelled) }
 
-    return await perform(request, clientIP: clientIP, duration: duration)
+    return await perform(request, duration: duration)
   }
 
-  private func perform(_ initialRequest: Request, clientIP: String, duration: TimeInterval?) async
+  private func perform(_ initialRequest: Request, duration: TimeInterval?) async
     -> BrowserDomainUnblockResult
   {
     var request = initialRequest
-    let histories = await manager.getDomainQueryHistory(
-      domains: request.candidates, forClientIP: clientIP, interval: request.interval)
-    let checks = evaluate(histories, request: request, clientIP: clientIP)
+    var checks: Checks = [:]
+    if let clientIP = request.clientIP {
+      let histories = await manager.getDomainQueryHistory(
+        domains: request.candidates, forClientIP: clientIP, interval: request.interval)
+      checks = evaluate(histories, request: request, clientIP: clientIP)
+    }
     var mutations: Mutations = [:]
+    var allowedDomains: [String] = []
     for domain in request.candidates {
       guard !Task.isCancelled else { break }
-      let blocked =
-        checks[domain]?.values.contains { result in
-          if case .success(.blocked) = result { return true }
-          return false
-        } == true
+      let results = checks[domain] ?? [:]
+      // One server's ALLOW for this client is sufficient; other servers need not have handled the query.
+      let allowed = results.values.contains { (try? $0.get()) == .notBlocked }
+      if allowed { allowedDomains.append(domain) }
       // Each manager call targets its current servers. Keep labels for any that joined since the read.
       for server in manager.servers where request.serverLabels[server.id] == nil {
         request.serverLabels[server.id] = manager.displayLabel(for: server.id) ?? server.label ?? server.url
@@ -74,9 +76,13 @@ public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
       mutations[domain] = await manager.applyDomainUnblock(
         domain: domain,
         duration: duration,
-        mode: blocked ? .allowCreation : .existingOnly)
+        mode: allowed ? .existingOnly : .allowCreation)
     }
-    return request.result(outcome(checks: checks, mutations: mutations), checks: checks, mutations: mutations)
+    return request.result(
+      outcome(allowedDomains: allowedDomains, mutations: mutations),
+      checks: checks,
+      mutations: mutations,
+      allowedDomains: allowedDomains)
   }
 
   private func evaluate(
@@ -99,45 +105,32 @@ public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
     return checks
   }
 
-  private func outcome(checks: Checks, mutations: Mutations) -> BrowserDomainUnblockOutcome {
+  private func outcome(allowedDomains: [String], mutations: Mutations) -> BrowserDomainUnblockOutcome {
     let writes = mutations.values.flatMap(\.values)
-    if writes.contains(where: { result in
-      if case .success(let outcome?) = result { return outcome != .inProgress }
+    let outcomes = writes.compactMap { try? $0.get() }
+    if outcomes.contains(where: { [.added, .renewed, .promoted].contains($0) }) {
+      return .processed
+    }
+    // Completed changes stay visible when cancellation stops the remaining candidates.
+    if Task.isCancelled { return .cancelled }
+    if writes.contains(where: {
+      if case .failure = $0 { return true }
+      return false
+    }) {
+      return .unavailable
+    }
+    // Existing or busy sibling entries must not hide the ALLOW diagnostic.
+    if !allowedDomains.isEmpty { return .notBlocked }
+    if outcomes.contains(.inProgress) {
+      return .inProgress
+    }
+    if outcomes.contains(where: {
+      if case .alreadyPresent = $0 { return true }
       return false
     }) {
       return .processed
     }
-    // Completed writes stay visible when cancellation stops the remaining candidates.
-    if Task.isCancelled { return .cancelled }
-    let reads = checks.values.flatMap(\.values)
-    let decisions = reads.compactMap { try? $0.get() }
-    if reads.contains(where: {
-      if case .failure = $0 { return true }
-      return false
-    })
-      || writes.contains(where: {
-        if case .failure = $0 { return true }
-        return false
-      })
-      || decisions.contains(.unavailable)
-    {
-      return .unavailable
-    }
-    if writes.contains(where: {
-      if case .success(.inProgress) = $0 { return true }
-      return false
-    }) {
-      return .inProgress
-    }
-    return negativeOutcome(decisions)
-  }
-
-  private func negativeOutcome(_ decisions: [DomainQueryDecision]) -> BrowserDomainUnblockOutcome {
-    // A confirmed block should have produced a row outcome or an explicit failure.
-    if decisions.contains(.blocked) { return .unavailable }
-    if decisions.contains(.upstreamBlocked) { return .upstreamBlocked }
-    if decisions.contains(.notBlocked) { return .notBlocked }
-    return .noHistory
+    return .unavailable
   }
 
   private struct Request {
@@ -150,7 +143,10 @@ public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
     var serverIDs: Set<UUID> { Set(serverLabels.keys) }
 
     func result(
-      _ outcome: BrowserDomainUnblockOutcome, checks: Checks = [:], mutations: Mutations = [:]
+      _ outcome: BrowserDomainUnblockOutcome,
+      checks: Checks = [:],
+      mutations: Mutations = [:],
+      allowedDomains: [String] = []
     ) -> BrowserDomainUnblockResult {
       BrowserDomainUnblockResult(
         outcome: outcome,
@@ -159,7 +155,8 @@ public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
         clientIP: clientIP,
         serverLabels: serverLabels,
         checks: checks,
-        mutations: mutations)
+        mutations: mutations,
+        allowedDomains: allowedDomains)
     }
   }
 }

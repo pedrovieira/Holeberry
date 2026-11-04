@@ -9,14 +9,16 @@ struct BrowserDomainUnblockerTests {
   private let now = Date(timeIntervalSince1970: 1_700_000_000)
   private let clientIP = "192.168.1.50"
 
-  @Test func capturesScopeAndOnlyCreatesConfirmedHostname() async throws {
+  @Test func capturesScopeAndSkipsOnlyAllowedHostname() async throws {
     let (manager, _, workflow) = makeWorkflow()
     let ids = Set(manager.servers.map(\.id))
     let first = try #require(manager.servers.first?.id)
     manager.displayLabelStub[first] = "Kitchen"
     manager.getDomainQueryHistoryStub["example.com"]?[first] = .success(history(.ruleBlocked))
-    manager.getDomainQueryHistoryStub["www.example.com"]?[first] = .success(
-      history(.permitted, domain: "www.example.com"))
+    for id in ids {
+      manager.getDomainQueryHistoryStub["www.example.com"]?[id] = .success(
+        history(.permitted, domain: "www.example.com"))
+    }
     manager.applyDomainUnblockHandler = { domain, _, serverIDs, _ in
       Dictionary(uniqueKeysWithValues: serverIDs.map { ($0, .success(domain == "example.com" ? .added : nil)) })
     }
@@ -26,6 +28,7 @@ struct BrowserDomainUnblockerTests {
     #expect(result.outcome == .processed)
     #expect(result.requestedDomain == "www.example.com")
     #expect(result.candidateDomains == ["example.com", "www.example.com"])
+    #expect(result.allowedDomains == ["www.example.com"])
     #expect(result.clientIP == clientIP)
     #expect(result.serverLabels[first] == "Kitchen")
     #expect(Set(result.serverLabels.keys) == ids)
@@ -57,45 +60,148 @@ struct BrowserDomainUnblockerTests {
     #expect(result.mutations.count == 2)
   }
 
-  @Test(arguments: [DomainQueryHandling.permitted, .upstreamBlocked, .inconclusive])
-  func noRuleBlockUsesExistingOnly(handling: DomainQueryHandling) async throws {
+  @Test(arguments: [DomainQueryHandling.ruleBlocked, .upstreamBlocked, .inconclusive])
+  func nonAllowEvidenceUnblocksNormally(handling: DomainQueryHandling) async throws {
     let (manager, _, workflow) = makeWorkflow()
-    let id = try #require(manager.servers.first?.id)
-    manager.getDomainQueryHistoryStub["example.com"]?[id] = .success(history(handling))
-
+    for id in manager.servers.map(\.id) {
+      manager.getDomainQueryHistoryStub["example.com"]?[id] = .success(history(handling))
+    }
     let result = await workflow.unblock(domain: "example.com", duration: 300)
-
-    let expected: BrowserDomainUnblockOutcome =
-      handling == .permitted ? .notBlocked : handling == .upstreamBlocked ? .upstreamBlocked : .unavailable
-    #expect(result.outcome == expected)
-    #expect(manager.applyDomainUnblockArgs.map(\.mode) == [.existingOnly, .existingOnly])
-    #expect(result.mutations.count == 2)
+    #expect(result.outcome == .processed)
+    #expect(manager.applyDomainUnblockArgs.map(\.mode) == [.allowCreation, .allowCreation])
   }
 
-  @Test func noHistoryRemainsMissingEvidence() async {
+  @Test func noHistoryUnblocksNormally() async {
     let (manager, _, workflow) = makeWorkflow()
     let result = await workflow.unblock(domain: "example.com", duration: 60)
-    #expect(result.outcome == .noHistory)
-    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .existingOnly })
+    #expect(result.outcome == .processed)
+    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .allowCreation })
     #expect(result.checks.count == 2)
+    #expect(result.allowedDomains.isEmpty)
+  }
+
+  @Test func allowedQueriesDoNotHideRenewalOrPromotion() async {
+    for outcome in [DomainUnblockOutcome.renewed, .promoted] {
+      let (manager, _, workflow) = makeWorkflow()
+      for domain in ["example.com", "www.example.com"] {
+        for id in manager.servers.map(\.id) {
+          manager.getDomainQueryHistoryStub[domain]?[id] = .success(history(.permitted, domain: domain))
+          manager.applyDomainUnblockStub[id] = .success(outcome)
+        }
+      }
+      let result = await workflow.unblock(domain: "example.com", duration: outcome == .promoted ? nil : 1800)
+      #expect(result.outcome == .processed)
+      #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .existingOnly })
+      #expect(result.mutations.values.allSatisfy { $0.values.allSatisfy { (try? $0.get()) == outcome } })
+    }
+  }
+
+  @Test func existingSiblingCannotHideAllowedDiagnostic() async {
+    let (manager, _, workflow) = makeWorkflow()
+    for domain in ["example.com", "www.example.com"] {
+      for id in manager.servers.map(\.id) {
+        manager.getDomainQueryHistoryStub[domain]?[id] = .success(history(.permitted, domain: domain))
+      }
+    }
+    manager.applyDomainUnblockHandler = { domain, _, ids, _ in
+      Dictionary(
+        uniqueKeysWithValues: ids.map {
+          ($0, .success(domain == "www.example.com" ? .alreadyPresent(enabled: true) : nil))
+        })
+    }
+    let result = await workflow.unblock(domain: "example.com", duration: 60)
+    #expect(result.outcome == .notBlocked)
+    #expect(result.allowedDomains == ["example.com", "www.example.com"])
+  }
+
+  @Test func busySiblingCannotHideAllowedDiagnostic() async {
+    let (manager, _, workflow) = makeWorkflow()
+    for id in manager.servers.map(\.id) {
+      manager.getDomainQueryHistoryStub["example.com"]?[id] = .success(history(.permitted))
+    }
+    manager.applyDomainUnblockHandler = { domain, _, ids, _ in
+      Dictionary(
+        uniqueKeysWithValues: ids.map {
+          ($0, .success(domain == "www.example.com" ? .inProgress : nil))
+        })
+    }
+    let result = await workflow.unblock(domain: "example.com", duration: 60)
+    #expect(result.outcome == .notBlocked)
+    #expect(result.allowedDomains == ["example.com"])
+  }
+
+  enum OtherServerEvidence: CaseIterable {
+    case noHistory, deny, failed, incomplete, missing
+  }
+
+  @Test("One server's ALLOW for this client is sufficient", arguments: OtherServerEvidence.allCases)
+  func allowOnOneServerIsEnough(otherEvidence: OtherServerEvidence) async throws {
+    let (manager, _, workflow) = makeWorkflow()
+    let first = try #require(manager.servers.first?.id)
+    let second = try #require(manager.servers.last?.id)
+    manager.getDomainQueryHistoryStub["example.com"]?[first] = .success(history(.permitted))
+    switch otherEvidence {
+    case .noHistory:
+      break
+    case .deny:
+      manager.getDomainQueryHistoryStub["example.com"]?[second] = .success(history(.ruleBlocked))
+    case .failed:
+      manager.getDomainQueryHistoryStub["example.com"]?[second] = .failure(.network("offline"))
+    case .incomplete:
+      manager.getDomainQueryHistoryStub["example.com"]?[second] = .success(
+        DomainQueryHistory(entries: [], isComplete: false))
+    case .missing:
+      manager.getDomainQueryHistoryStub["example.com"]?[second] = nil
+    }
+    manager.applyDomainUnblockHandler = { _, _, ids, mode in
+      Dictionary(uniqueKeysWithValues: ids.map { ($0, .success(mode == .existingOnly ? nil : .added)) })
+    }
+
+    let result = await workflow.unblock(domain: "example.com", duration: 60)
+
+    #expect(result.allowedDomains == ["example.com"])
+    #expect(manager.applyDomainUnblockArgs.map(\.mode) == [.existingOnly, .allowCreation])
+    #expect(try result.mutations["example.com"]?[first]?.get() == nil)
+    #expect(try result.mutations["example.com"]?[second]?.get() == nil)
+    #expect(try result.mutations["www.example.com"]?[first]?.get() == .added)
+  }
+
+  @Test func anotherClientsAllowDoesNotSkipUnblocking() async throws {
+    let (manager, _, workflow) = makeWorkflow()
+    let first = try #require(manager.servers.first?.id)
+    let otherClientEntry = DomainQueryEntry(
+      domain: "example.com", timestamp: now.addingTimeInterval(-10), queryType: "A",
+      clientIP: "192.168.1.99", handling: .permitted, status: "CACHE", reply: "IP")
+    manager.getDomainQueryHistoryStub["example.com"]?[first] = .success(
+      DomainQueryHistory(entries: [otherClientEntry], isComplete: true))
+
+    let result = await workflow.unblock(domain: "example.com", duration: 60)
+
+    #expect(result.allowedDomains.isEmpty)
+    #expect(result.outcome == .processed)
+    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .allowCreation })
   }
 
   @Test func latestPermittedEntrySupersedesOlderBlock() async throws {
     let (manager, _, workflow) = makeWorkflow()
-    let id = try #require(manager.servers.first?.id)
-    let older = history(.ruleBlocked).entries
-    let latest = DomainQueryEntry(
-      domain: "example.com", timestamp: now.addingTimeInterval(-1), queryType: "A", clientIP: clientIP,
-      handling: .permitted, status: "FORWARDED", reply: nil)
-    manager.getDomainQueryHistoryStub["example.com"]?[id] = .success(
-      DomainQueryHistory(entries: older + [latest], isComplete: true))
+    for domain in ["example.com", "www.example.com"] {
+      let older = history(.ruleBlocked, domain: domain).entries
+      let latest = DomainQueryEntry(
+        domain: domain, timestamp: now.addingTimeInterval(-1), queryType: "A", clientIP: clientIP,
+        handling: .permitted, status: "FORWARDED", reply: nil)
+      for id in manager.servers.map(\.id) {
+        manager.getDomainQueryHistoryStub[domain]?[id] = .success(
+          DomainQueryHistory(entries: older + [latest], isComplete: true))
+        manager.applyDomainUnblockStub[id] = .success(nil)
+      }
+    }
 
     let result = await workflow.unblock(domain: "example.com", duration: 60)
     #expect(result.outcome == .notBlocked)
     #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .existingOnly })
   }
 
-  @Test func failedSiblingCannotSuppressConfirmedBlockOrPermitSiblingCreation() async throws {
+  @Test func failedHistoryDoesNotPreventNormalUnblocking() async throws {
     let (manager, _, workflow) = makeWorkflow()
     let id = try #require(manager.servers.first?.id)
     manager.getDomainQueryHistoryStub["example.com"]?[id] = .success(history(.ruleBlocked))
@@ -106,7 +212,7 @@ struct BrowserDomainUnblockerTests {
 
     let result = await workflow.unblock(domain: "www.example.com", duration: 60)
     #expect(result.outcome == .processed)
-    #expect(manager.applyDomainUnblockArgs.map(\.mode) == [.allowCreation, .existingOnly])
+    #expect(manager.applyDomainUnblockArgs.map(\.mode) == [.allowCreation, .allowCreation])
     #expect(result.checks["www.example.com"]?[id] == .failure(.unauthorized))
   }
 
@@ -135,21 +241,21 @@ struct BrowserDomainUnblockerTests {
 
     let result = await workflow.unblock(domain: "example.com", duration: outcome == .promoted ? nil : 60)
     #expect(result.outcome == .processed)
-    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .existingOnly })
+    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .allowCreation })
     #expect(try result.mutations["example.com"]?[id]?.get() == outcome)
   }
 
-  @Test func errorsAndIncompleteEvidencePrecedeOtherNegativeDecisions() async throws {
+  @Test func errorsAndIncompleteEvidenceStillUnblockNormally() async throws {
     let (manager, _, workflow) = makeWorkflow()
     let id = try #require(manager.servers.first?.id)
     manager.getDomainQueryHistoryStub["example.com"]?[id] = .success(history(.upstreamBlocked))
     manager.getDomainQueryHistoryStub["www.example.com"]?[id] = .success(
       DomainQueryHistory(entries: [], isComplete: false))
-    #expect(await workflow.unblock(domain: "example.com", duration: 60).outcome == .unavailable)
+    #expect(await workflow.unblock(domain: "example.com", duration: 60).outcome == .processed)
 
     manager.getDomainQueryHistoryStub["www.example.com"]?[id] = .failure(.unauthorized)
     let failed = await workflow.unblock(domain: "example.com", duration: 60)
-    #expect(failed.outcome == .unavailable)
+    #expect(failed.outcome == .processed)
     #expect(failed.checks["www.example.com"]?[id] == .failure(.unauthorized))
   }
 
@@ -157,26 +263,30 @@ struct BrowserDomainUnblockerTests {
     let (manager, _, workflow) = makeWorkflow()
     let id = try #require(manager.servers.first?.id)
     manager.getDomainQueryHistoryStub["example.com"]?[id] = .success(history(.ruleBlocked))
-    manager.applyDomainUnblockStub[id] = .failure(.network("write failed"))
+    for server in manager.servers {
+      manager.applyDomainUnblockStub[server.id] = .failure(.network("write failed"))
+    }
     let result = await workflow.unblock(domain: "example.com", duration: 60)
     #expect(result.outcome == .unavailable)
     #expect(result.mutations["example.com"]?[id] == .failure(.network("write failed")))
   }
 
-  @Test func missingManagerReadResultsCannotBecomeNoHistory() async {
+  @Test func missingManagerReadResultsUnblockNormally() async {
     let (manager, _, workflow) = makeWorkflow()
     manager.getDomainQueryHistoryStub = [:]
-    #expect(await workflow.unblock(domain: "example.com", duration: 60).outcome == .unavailable)
+    #expect(await workflow.unblock(domain: "example.com", duration: 60).outcome == .processed)
+    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .allowCreation })
   }
 
-  @Test func missingClientIPMakesNoReadOrMutation() async {
+  @Test func missingClientIPSkipsReadAndUnblocksNormally() async {
     let (manager, resolver, workflow) = makeWorkflow()
     resolver.stubbedIP = nil
     let result = await workflow.unblock(domain: "example.com", duration: 60)
-    #expect(result.outcome == .missingClientIP)
+    #expect(result.outcome == .processed)
     #expect(manager.getDomainQueryHistoryCallCount == 0)
-    #expect(manager.applyDomainUnblockCallCount == 0)
-    #expect(result.checks.isEmpty && result.mutations.isEmpty)
+    #expect(manager.applyDomainUnblockCallCount == 2)
+    #expect(result.checks.isEmpty)
+    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.mode == .allowCreation })
   }
 
   @Test func invalidHostnameAndNoServersMakeNoRequests() async {
@@ -193,6 +303,11 @@ struct BrowserDomainUnblockerTests {
   @Test func clientScopeStaysCapturedAndEachMutationUsesCurrentServers() async throws {
     let (manager, resolver, workflow) = makeWorkflow()
     let originalIDs = Set(manager.servers.map(\.id))
+    for domain in ["example.com", "www.example.com"] {
+      for id in originalIDs {
+        manager.getDomainQueryHistoryStub[domain]?[id] = .success(history(.permitted, domain: domain))
+      }
+    }
     let removed = try #require(manager.servers.first?.id)
     manager.displayLabelStub[removed] = "Captured server"
     var resume: CheckedContinuation<Void, Never>?
@@ -214,7 +329,8 @@ struct BrowserDomainUnblockerTests {
     #expect(manager.getDomainQueryHistoryLastClientIP == clientIP)
     #expect(manager.getDomainQueryHistoryLastServerIDs == originalIDs)
     let currentIDs = Set(manager.servers.map(\.id))
-    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.serverIDs == currentIDs })
+    #expect(manager.applyDomainUnblockArgs.allSatisfy { $0.serverIDs == currentIDs && $0.mode == .existingOnly })
+    #expect(result.allowedDomains == ["example.com", "www.example.com"])
     #expect(result.mutations["example.com"]?[removed] == nil)
     #expect(result.mutations["example.com"]?[added.id] == .failure(.network("New server offline")))
   }
@@ -239,10 +355,10 @@ struct BrowserDomainUnblockerTests {
     #expect(await workflow.unblock(domain: "example.com", duration: nil).outcome == .inProgress)
     #expect(manager.applyDomainUnblockCallCount == 1)
     writeResume?.resume()
-    #expect(await first.value.outcome == .noHistory)
+    #expect(await first.value.outcome == .unavailable)
 
     manager.applyDomainUnblockHandler = nil
-    #expect(await workflow.unblock(domain: "example.com", duration: 60).outcome == .noHistory)
+    #expect(await workflow.unblock(domain: "example.com", duration: 60).outcome == .processed)
     #expect(manager.getDomainQueryHistoryCallCount == 2)
   }
 
@@ -293,8 +409,9 @@ struct BrowserDomainUnblockerTests {
 
   @Test func managerInProgressDoesNotCountAsRealRowOutcome() async throws {
     let (manager, _, workflow) = makeWorkflow()
-    let id = try #require(manager.servers.first?.id)
-    manager.applyDomainUnblockStub[id] = .success(.inProgress)
+    for server in manager.servers {
+      manager.applyDomainUnblockStub[server.id] = .success(.inProgress)
+    }
     #expect(await workflow.unblock(domain: "example.com", duration: 60).outcome != .processed)
   }
 
@@ -310,7 +427,7 @@ struct BrowserDomainUnblockerTests {
           ($0.id, .success(DomainQueryHistory(entries: [], isComplete: true)))
         })
     }
-    manager.applyDomainUnblockStub = Dictionary(uniqueKeysWithValues: manager.servers.map { ($0.id, .success(nil)) })
+    manager.applyDomainUnblockStub = Dictionary(uniqueKeysWithValues: manager.servers.map { ($0.id, .success(.added)) })
     let resolver = MockLocalIPAddressResolver()
     resolver.stubbedIP = clientIP
     let workflow = LiveBrowserDomainUnblocker(manager: manager, networkInterface: resolver, now: { now })

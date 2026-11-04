@@ -76,10 +76,6 @@ Holeberry 能检测 **WebKit（Safari、Orion）、Chrome/Chromium、Gecko（Fir
 
 解除单个域名的屏蔽胜过全局禁用：页面能正常加载，网络的其他部分仍然受到保护。（你的智能电视可不会同意——它向外界发送的流量实在太多，恨不得来个全局解除。别听它的。）你也可以顺手把该域名加入白名单。
 
-浏览器标签页操作会先检查过去 **15 分钟**内来自**本 Mac 检测到的 IPv4 地址**的查询，同时检查 `example.com` 和 `www.example.com`。只有确认被 Pi-hole 规则屏蔽的主机名才会新增白名单条目。如果未发现屏蔽记录或无法完成检查，Holeberry 会说明未执行更改的原因；请检查浏览器的广告拦截器或网络连接。Holeberry 管理的现有临时解除屏蔽仍可延长或改为永久。「最近被屏蔽」中的操作仍会直接执行。
-
-**Pi-hole v5 要求：**查询日志选项 `API_QUERY_LOG_SHOW` 必须设为 `all`（显示允许和屏蔽的查询），并且域名和客户端历史记录必须可见。Holeberry 使用最新的可见结果，无法检测被隐藏的较新查询，也不会更改此选项。对于 v5，Holeberry 获取所有客户端过去 15 分钟的查询，再在本地筛选。使用客户端名称时，客户端列表必须完整可见（`API_EXCLUDE_CLIENTS` 为空），并且名称必须唯一对应检测到的 IPv4 地址；否则无法完成检查。IPv6 查询和经路由器转发的查询可能不会显示在本 Mac 的 IPv4 地址下。
-
 <p align="center">
   <img width="668" height="251" alt="desktop-app-banner" src="Assets/browser-unblock.png"/>
 </p>

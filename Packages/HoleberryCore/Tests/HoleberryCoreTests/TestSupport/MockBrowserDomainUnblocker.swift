@@ -4,7 +4,7 @@ import Foundation
 
 @MainActor
 final class MockBrowserDomainUnblocker: BrowserDomainUnblocking {
-  var unblockStub = BrowserDomainUnblockResult(outcome: .noHistory, requestedDomain: "example.com")
+  var unblockStub = BrowserDomainUnblockResult(outcome: .processed, requestedDomain: "example.com")
   var unblockHandler: ((String, TimeInterval?) async -> BrowserDomainUnblockResult)?
   private(set) var unblockCallCount = 0
   private(set) var unblockLastDomain: String?

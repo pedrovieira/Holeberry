@@ -6,8 +6,8 @@ import Testing
 @Suite("Mock browser domain unblocker")
 struct MockBrowserDomainUnblockerTests {
   @Test(arguments: [
-    BrowserDomainUnblockOutcome.processed, .noHistory, .notBlocked, .upstreamBlocked, .unavailable,
-    .noServers, .missingClientIP, .inProgress, .cancelled, .failed(.unauthorized)
+    BrowserDomainUnblockOutcome.processed, .notBlocked, .unavailable,
+    .noServers, .inProgress, .cancelled, .failed(.unauthorized)
   ])
   func returnsEachOutcome(outcome: BrowserDomainUnblockOutcome) async {
     let mock = MockBrowserDomainUnblocker()
