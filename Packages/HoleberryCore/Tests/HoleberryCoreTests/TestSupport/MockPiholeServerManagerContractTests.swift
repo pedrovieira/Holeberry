@@ -35,17 +35,15 @@ struct MockPiholeServerManagerContractTests {
     #expect(manager.displayLabel(for: config.id) == "Home")
     let added = ServerConfig(url: "http://new.local", version: .v6)
     manager.servers.append(added)
-    manager.applyDomainUnblockHandler = { domain, duration, ids, mode in
+    manager.applyDomainUnblockHandler = { domain, duration, ids in
       #expect(domain == "example.com")
       #expect(duration == nil)
       #expect(ids == [config.id, added.id])
-      #expect(mode == .existingOnly)
       return [config.id: .success(.promoted)]
     }
     let mutation = await manager.applyDomainUnblock(
-      domain: "example.com", duration: nil, mode: .existingOnly)
+      domain: "example.com", duration: nil)
     #expect(try mutation[config.id]?.get() == .promoted)
     #expect(manager.applyDomainUnblockCallCount == 1)
-    #expect(manager.applyDomainUnblockArgs.first?.mode == .existingOnly)
   }
 }

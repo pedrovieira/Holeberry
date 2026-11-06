@@ -387,29 +387,29 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   /// Fans out one managed mutation to the currently configured servers.
   public func applyDomainUnblock(
-    domain: String, duration: TimeInterval?, mode: DomainUnblockMode
-  ) async -> [UUID: Result<DomainUnblockOutcome?, PiholeError>] {
+    domain: String, duration: TimeInterval?
+  ) async -> [UUID: Result<DomainUnblockOutcome, PiholeError>] {
     let serverIDs = Set(servers.map(\.id))
-    return await withTaskGroup(of: (UUID, Result<DomainUnblockOutcome?, PiholeError>).self) { group in
+    return await withTaskGroup(of: (UUID, Result<DomainUnblockOutcome, PiholeError>).self) { group in
       for id in serverIDs {
         group.addTask {
           do {
-            let outcome = try await self.unblockOnServer(domain, duration: duration, serverID: id, mode: mode)
+            let outcome = try await self.unblockOnServer(domain, duration: duration, serverID: id)
             return (id, .success(outcome))
           } catch {
             return (id, .failure(error as? PiholeError ?? .unknown(error.localizedDescription)))
           }
         }
       }
-      var results: [UUID: Result<DomainUnblockOutcome?, PiholeError>] = [:]
+      var results: [UUID: Result<DomainUnblockOutcome, PiholeError>] = [:]
       for await (id, result) in group { results[id] = result }
       return results
     }
   }
 
   private func unblockOnServer(
-    _ domain: String, duration: TimeInterval?, serverID: UUID, mode: DomainUnblockMode
-  ) async throws -> DomainUnblockOutcome? {
+    _ domain: String, duration: TimeInterval?, serverID: UUID
+  ) async throws -> DomainUnblockOutcome {
     try Task.checkCancellation()
     let identity = try PiholeDomain.validatedIdentity(domain)
     guard servers.contains(where: { $0.id == serverID }), let service = services[serverID] else {
@@ -419,12 +419,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     // Hold the exact hostname across awaits. Its www variant has independent ownership and timers.
     guard inProgressUnblocks.insert(key).inserted else { return .inProgress }
     defer { inProgressUnblocks.remove(key) }
-    switch mode {
-    case .allowCreation:
-      return try await service.unblockDomain(identity, duration: duration)
-    case .existingOnly:
-      return try await service.unblockExistingDomain(identity, duration: duration)
-    }
+    return try await service.unblockDomain(identity, duration: duration)
   }
 
   public func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
@@ -531,7 +526,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     guard !servers.isEmpty else { throw PiholeError.unknown("No configured Pi-hole instance") }
 
     let results = await applyDomainUnblock(
-      domain: domain, duration: duration, mode: .allowCreation)
+      domain: domain, duration: duration)
     try Task.checkCancellation()
     let outcomes = results.compactMapValues { try? $0.get() }
     guard !outcomes.isEmpty else {
@@ -546,7 +541,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   public func addToAllowlist(domain: String) async -> [UUID: DomainUnblockOutcome] {
     let results = await applyDomainUnblock(
-      domain: domain, duration: nil, mode: .allowCreation)
+      domain: domain, duration: nil)
     for (configId, result) in results {
       if case .failure(let error) = result {
         let label = servers.first { $0.id == configId }?.label ?? configId.uuidString

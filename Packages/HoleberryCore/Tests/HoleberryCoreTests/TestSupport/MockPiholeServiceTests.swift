@@ -50,18 +50,4 @@ struct MockPiholeServiceTests {
     #expect(mock.unblockDomainCallCount == 0)
   }
 
-  @Test func existingOnlyHasIndependentStubAndArguments() async throws {
-    let mock = MockPiholeService()
-    mock.unblockExistingDomainStub = .success(.renewed)
-    #expect(try await mock.unblockExistingDomain("example.com", duration: 300) == .renewed)
-    #expect(mock.unblockExistingDomainCallCount == 1)
-    #expect(mock.unblockExistingDomainLastDomain == "example.com")
-    #expect(mock.unblockExistingDomainLastDuration == 300)
-    #expect(mock.unblockDomainCallCount == 0)
-    #expect(mock.addDomainCallCount == 0)
-    mock.unblockExistingDomainHandler = { _, duration in duration == nil ? .promoted : nil }
-    #expect(try await mock.unblockExistingDomain("www.example.com", duration: nil) == .promoted)
-    #expect(mock.unblockExistingDomainArgs.map(\.domain) == ["example.com", "www.example.com"])
-  }
-
 }

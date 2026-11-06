@@ -64,7 +64,7 @@ struct PiholeDomainHistoryFanoutTests {
     #expect(removed.getDomainQueryHistoryCallCount == 1)
 
     let writes = await manager.applyDomainUnblock(
-      domain: "www.example.com", duration: 60, mode: .allowCreation)
+      domain: "www.example.com", duration: 60)
     #expect(try writes[retained.id]?.get() == .added)
     #expect(writes[removed.id] == nil)
     #expect(writes[newConfig.id] == .failure(.unknown("Server not found")))
@@ -72,17 +72,17 @@ struct PiholeDomainHistoryFanoutTests {
     #expect(removed.unblockDomainCallCount == 0)
   }
 
-  @Test func mutationModesAndPartialErrorsRemainDistinct() async throws {
+  @Test func mutationsPreservePartialErrors() async throws {
     let good = MockPiholeService()
     let bad = MockPiholeService()
     let manager = manager([good, bad])
-    bad.unblockExistingDomainStub = .failure(PiholeError.network("offline"))
+    bad.unblockDomainStub = .failure(PiholeError.network("offline"))
     let result = await manager.applyDomainUnblock(
-      domain: "WWW.EXAMPLE.COM", duration: nil, mode: .existingOnly)
-    #expect(try result[good.id]?.get() == nil)
+      domain: "WWW.EXAMPLE.COM", duration: nil)
+    #expect(try result[good.id]?.get() == .added)
     #expect(result[bad.id] == .failure(.network("offline")))
-    #expect(good.unblockDomainCallCount == 0)
-    #expect(good.unblockExistingDomainLastDomain == "www.example.com")
-    #expect(good.unblockExistingDomainLastDuration == nil)
+    #expect(good.unblockDomainCallCount == 1)
+    #expect(good.unblockDomainLastDomain == "www.example.com")
+    #expect(good.unblockDomainLastDuration == nil)
   }
 }

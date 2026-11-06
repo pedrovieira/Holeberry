@@ -22,13 +22,12 @@ public struct BrowserDomainUnblockResult: Sendable {
   public let outcome: BrowserDomainUnblockOutcome
   public let requestedDomain: String
   public let candidateDomains: [String]
-  /// Hostnames whose complete ALLOW evidence on at least one server prevented creation of a new entry.
-  /// Existing owned entries may still have been renewed or promoted.
+  /// Hostnames with confirmed ALLOW and no confirmed DENY; all mutations, including timer changes, were skipped.
   public let allowedDomains: [String]
   public let clientIP: String?
   public let serverLabels: [UUID: String]
   public let checks: [String: [UUID: Result<DomainQueryDecision, PiholeError>]]
-  public let mutations: [String: [UUID: Result<DomainUnblockOutcome?, PiholeError>]]
+  public let mutations: [String: [UUID: Result<DomainUnblockOutcome, PiholeError>]]
 
   public init(
     outcome: BrowserDomainUnblockOutcome,
@@ -37,7 +36,7 @@ public struct BrowserDomainUnblockResult: Sendable {
     clientIP: String? = nil,
     serverLabels: [UUID: String] = [:],
     checks: [String: [UUID: Result<DomainQueryDecision, PiholeError>]] = [:],
-    mutations: [String: [UUID: Result<DomainUnblockOutcome?, PiholeError>]] = [:],
+    mutations: [String: [UUID: Result<DomainUnblockOutcome, PiholeError>]] = [:],
     allowedDomains: [String] = []
   ) {
     self.allowedDomains = allowedDomains

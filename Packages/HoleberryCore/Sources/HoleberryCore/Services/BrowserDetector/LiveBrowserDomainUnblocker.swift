@@ -1,10 +1,10 @@
 import Foundation
 
-/// Skips new entries only when recent client-scoped evidence confirms allowed queries.
+/// Skips browser unblocks when recent client-scoped evidence confirms ALLOW without a conflicting DENY.
 @MainActor
 public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
   private typealias Checks = [String: [UUID: Result<DomainQueryDecision, PiholeError>]]
-  private typealias Mutations = [String: [UUID: Result<DomainUnblockOutcome?, PiholeError>]]
+  private typealias Mutations = [String: [UUID: Result<DomainUnblockOutcome, PiholeError>]]
 
   private let manager: any PiholeServerManaging
   private let networkInterface: any LocalIPAddressProviding
@@ -65,18 +65,21 @@ public final class LiveBrowserDomainUnblocker: BrowserDomainUnblocking {
     var allowedDomains: [String] = []
     for domain in request.candidates {
       guard !Task.isCancelled else { break }
-      let results = checks[domain] ?? [:]
-      // One server's ALLOW for this client is sufficient; other servers need not have handled the query.
-      let allowed = results.values.contains { (try? $0.get()) == .notBlocked }
-      if allowed { allowedDomains.append(domain) }
+      let decisions = (checks[domain] ?? [:]).values.compactMap { try? $0.get() }
+      let allowed = decisions.contains(.notBlocked)
+      let denied = decisions.contains(.blocked) || decisions.contains(.upstreamBlocked)
+      // ALLOW skips all writes unless another server confirms DENY. Unknown reads do not veto ALLOW.
+      if allowed && !denied {
+        allowedDomains.append(domain)
+        continue
+      }
       // Each manager call targets its current servers. Keep labels for any that joined since the read.
       for server in manager.servers where request.serverLabels[server.id] == nil {
         request.serverLabels[server.id] = manager.displayLabel(for: server.id) ?? server.label ?? server.url
       }
       mutations[domain] = await manager.applyDomainUnblock(
         domain: domain,
-        duration: duration,
-        mode: allowed ? .existingOnly : .allowCreation)
+        duration: duration)
     }
     return request.result(
       outcome(allowedDomains: allowedDomains, mutations: mutations),

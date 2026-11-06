@@ -41,19 +41,11 @@ extension NotificationCoordinator {
   }
 
   private func browserUnblockAllowedNotices(for result: BrowserDomainUnblockResult) -> [String] {
-    result.allowedDomains.sorted().compactMap { domain in
-      let changed =
-        result.mutations[domain]?.values.contains { outcome in
-          switch outcome {
-          case .success(.renewed), .success(.promoted): return true
-          default: return false
-          }
-        } == true
-      guard !changed else { return nil }
-      return """
-        Pi-hole allowed recent queries for \(domain). No new allowlist entry was added for this hostname. \
-        Check your browser settings or ad blocker. Other page resources may still be blocked; check Recently Blocked.
-        """
+    result.allowedDomains.sorted().map { domain in
+      """
+      Pi-hole allowed recent queries for \(domain). No new allowlist entry was added for this hostname. \
+      Check your browser settings or ad blocker. Other page resources may still be blocked; check Recently Blocked.
+      """
     }
   }
 

@@ -92,25 +92,25 @@ struct PiholeServerManagerUnblockGuardTests {
     _ = try await first.value
   }
 
-  @Test("Existing-only shares the mutation guard and releases it after cancellation", arguments: [false, true])
-  func existingOnlyGuard(cancel: Bool) async throws {
+  @Test("Managed mutations share the guard and release it after cancellation", arguments: [false, true])
+  func managedMutationGuard(cancel: Bool) async throws {
     let service = MockPiholeService()
     let manager = makeManager(services: [service])
     var pending: CheckedContinuation<Void, Never>?
-    service.unblockExistingDomainHandler = { _, _ in
+    service.unblockDomainHandler = { _, _ in
       await withCheckedContinuation { pending = $0 }
       try Task.checkCancellation()
       return .renewed
     }
     let first = Task {
       await manager.applyDomainUnblock(
-        domain: "example.com", duration: 60, mode: .existingOnly)
+        domain: "example.com", duration: 60)
     }
     await waitUntil { pending != nil }
     let duplicate = await manager.applyDomainUnblock(
-      domain: "EXAMPLE.COM", duration: nil, mode: .allowCreation)
+      domain: "EXAMPLE.COM", duration: nil)
     #expect(try duplicate[service.id]?.get() == .inProgress)
-    #expect(service.unblockDomainCallCount == 0)
+    #expect(service.unblockDomainCallCount == 1)
     if cancel { first.cancel() }
     pending?.resume()
     pending = nil
@@ -123,10 +123,11 @@ struct PiholeServerManagerUnblockGuardTests {
     } else {
       #expect(try result[service.id]?.get() == .renewed)
     }
+    service.unblockDomainHandler = nil
     let next = await manager.applyDomainUnblock(
-      domain: "example.com", duration: nil, mode: .allowCreation)
+      domain: "example.com", duration: nil)
     #expect(try next[service.id]?.get() == .added)
-    #expect(service.unblockDomainCallCount == 1)
+    #expect(service.unblockDomainCallCount == 2)
   }
 
   @Test("A different domain can unblock while one is running")

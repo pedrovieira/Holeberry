@@ -28,6 +28,6 @@ public protocol PiholeServerManaging: AnyObject, Sendable {
 
   /// Applies a managed mutation to all currently configured servers.
   func applyDomainUnblock(
-    domain: String, duration: TimeInterval?, mode: DomainUnblockMode
-  ) async -> [UUID: Result<DomainUnblockOutcome?, PiholeError>]
+    domain: String, duration: TimeInterval?
+  ) async -> [UUID: Result<DomainUnblockOutcome, PiholeError>]
 }

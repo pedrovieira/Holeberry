@@ -22,8 +22,11 @@ struct BrowserDomainUnblockIntegrationTests {
       ServerQueryScenario(first: .ruleBlocked, second: nil, skipsCreation: false),
       ServerQueryScenario(first: nil, second: .ruleBlocked, skipsCreation: false),
       ServerQueryScenario(first: .ruleBlocked, second: .ruleBlocked, skipsCreation: false),
-      ServerQueryScenario(first: .permitted, second: .ruleBlocked, skipsCreation: true),
-      ServerQueryScenario(first: .ruleBlocked, second: .permitted, skipsCreation: true)
+      ServerQueryScenario(first: .permitted, second: .ruleBlocked, skipsCreation: false),
+      ServerQueryScenario(first: .ruleBlocked, second: .permitted, skipsCreation: false),
+      ServerQueryScenario(first: .permitted, second: .upstreamBlocked, skipsCreation: false),
+      ServerQueryScenario(first: .upstreamBlocked, second: .permitted, skipsCreation: false),
+      ServerQueryScenario(first: nil, second: nil, skipsCreation: false)
     ]
   )
   func queryStatusOnEitherOrBothServers(scenario: ServerQueryScenario) async throws {
@@ -73,7 +76,7 @@ struct BrowserDomainUnblockIntegrationTests {
   }
 
   @Test(arguments: [false, true])
-  func allowedHistoryPreservesTimerRenewalAndPromotion(permanent: Bool) async throws {
+  func allowedHistoryLeavesExistingTimersUnchanged(permanent: Bool) async throws {
     let raw = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     let service = TemporaryUnblockPiholeServiceDecorator(
@@ -103,20 +106,13 @@ struct BrowserDomainUnblockIntegrationTests {
 
     let result = await workflow.unblock(domain: "example.com", duration: permanent ? nil : 1800)
 
-    #expect(result.outcome == .processed)
+    #expect(result.outcome == .notBlocked)
     #expect(result.allowedDomains == ["example.com", "www.example.com"])
     #expect(raw.addDomainCallCount == 2, "ALLOW must not create additional entries")
     #expect(otherService.unblockDomainCallCount == 0, "The other server needs no matching history")
     let records = Defaults[.tempUnblocks(for: raw.id, suite: suite)]
-    if permanent {
-      #expect(records.isEmpty)
-      #expect(try result.mutations["example.com"]?[raw.id]?.get() == .promoted)
-    } else {
-      #expect(records.count == 2)
-      #expect(records.allSatisfy { $0.durationSeconds == 1800 })
-      #expect(Set(records.map(\.uuid)) == Set(initial.map(\.uuid)))
-      #expect(try result.mutations["example.com"]?[raw.id]?.get() == .renewed)
-    }
+    #expect(records == initial)
+    #expect(result.mutations.isEmpty)
     try await service.deleteDomain("example.com", from: .allow)
     try await service.deleteDomain("www.example.com", from: .allow)
   }

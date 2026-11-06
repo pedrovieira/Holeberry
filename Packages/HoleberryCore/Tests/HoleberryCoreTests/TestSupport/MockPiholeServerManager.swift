@@ -48,12 +48,11 @@ final class MockPiholeServerManager: PiholeServerManaging {
   private(set) var getDomainQueryHistoryLastInterval: DateInterval?
   private(set) var getDomainQueryHistoryLastServerIDs: Set<UUID>?
 
-  var applyDomainUnblockStub: [UUID: Result<DomainUnblockOutcome?, PiholeError>] = [:]
+  var applyDomainUnblockStub: [UUID: Result<DomainUnblockOutcome, PiholeError>] = [:]
   var applyDomainUnblockHandler:
-    ((String, TimeInterval?, Set<UUID>, DomainUnblockMode) async -> [UUID: Result<DomainUnblockOutcome?, PiholeError>])?
+    ((String, TimeInterval?, Set<UUID>) async -> [UUID: Result<DomainUnblockOutcome, PiholeError>])?
   private(set) var applyDomainUnblockCallCount = 0
-  private(set) var applyDomainUnblockArgs:
-    [(domain: String, duration: TimeInterval?, serverIDs: Set<UUID>, mode: DomainUnblockMode)] = []
+  private(set) var applyDomainUnblockArgs: [(domain: String, duration: TimeInterval?, serverIDs: Set<UUID>)] = []
 
   func displayLabel(for id: UUID) -> String? {
     displayLabelArgs.append(id)
@@ -86,13 +85,13 @@ final class MockPiholeServerManager: PiholeServerManaging {
   }
 
   func applyDomainUnblock(
-    domain: String, duration: TimeInterval?, mode: DomainUnblockMode
-  ) async -> [UUID: Result<DomainUnblockOutcome?, PiholeError>] {
+    domain: String, duration: TimeInterval?
+  ) async -> [UUID: Result<DomainUnblockOutcome, PiholeError>] {
     let serverIDs = Set(servers.map(\.id))
     applyDomainUnblockCallCount += 1
-    applyDomainUnblockArgs.append((domain, duration, serverIDs, mode))
+    applyDomainUnblockArgs.append((domain, duration, serverIDs))
     if let applyDomainUnblockHandler {
-      return await applyDomainUnblockHandler(domain, duration, serverIDs, mode)
+      return await applyDomainUnblockHandler(domain, duration, serverIDs)
     }
     return applyDomainUnblockStub.filter { serverIDs.contains($0.key) }
   }
