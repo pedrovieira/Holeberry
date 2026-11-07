@@ -41,7 +41,7 @@ final class MockPiholeServerManager: PiholeServerManaging {
       getBlockingStatusGate = nil
       await gate()
     }
-    return getBlockingStatusStub
+    return scoped(getBlockingStatusStub, to: scope)
   }
 
   var checkServerStub: [UUID: Result<BlockingStatus, PiholeError>] = [:]
@@ -77,9 +77,23 @@ final class MockPiholeServerManager: PiholeServerManaging {
           await gate()
         }
       }
-      return result
+      return scoped(result, to: scope)
     }
-    return getQuerySummaryStub
+    return scoped(getQuerySummaryStub, to: scope)
+  }
+
+  private func scoped<Value>(
+    _ results: [UUID: Result<Value, PiholeError>], to scope: ServerScope
+  ) -> [UUID: Result<Value, PiholeError>] {
+    switch scope {
+    case .all:
+      return results
+    case .server(let id):
+      guard servers.contains(where: { $0.id == id }) else {
+        return [id: .failure(.unknown("Server not found"))]
+      }
+      return [id: results[id] ?? .failure(.unknown("Server not found"))]
+    }
   }
 
   func updateGravity() async -> [UUID: Result<Void, PiholeError>] {

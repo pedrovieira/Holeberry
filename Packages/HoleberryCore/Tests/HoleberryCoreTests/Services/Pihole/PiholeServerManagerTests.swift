@@ -444,6 +444,7 @@ struct PiholeServerManagerCRUDTests {
     #expect(factory.buildServiceExecutionModes == [.onDemand, .onDemand])
     let status = await manager.getBlockingStatus(scope: .server(service.id))
     #expect(try status[service.id]?.get() == .enabled)
+    #expect(service.checkStatusCallCount == 1)
     await manager.logoutAll()
     #expect(service.logoutCallCount == 1)
   }
@@ -642,5 +643,54 @@ struct PiholeServerManagerOperationsTests {
     #expect(await manager.getQuerySummary(scope: .all).isEmpty)
   }
 
+
+  @Test("Real and mock readers honor the same scope contract", arguments: [false, true])
+  func scopedReaderContract(queuedSummaries: Bool) async throws {
+    mockService1.getQuerySummaryStub = .success(QuerySummary(totalQueries: 100, totalBlocked: 20))
+    mockService2.checkStatusStub = .failure(PiholeError.tlsUntrusted)
+    mockService2.getQuerySummaryStub = .failure(PiholeError.decoding("bad summary"))
+    let real = makeManagerWithTwoServers()
+    let mock = MockPiholeServerManager()
+    mock.servers = real.servers
+    mock.getBlockingStatusStub = [mockService1.id: .success(.enabled), mockService2.id: .failure(.tlsUntrusted)]
+    let summaries: [UUID: Result<QuerySummary, PiholeError>] = [
+      mockService1.id: .success(QuerySummary(totalQueries: 100, totalBlocked: 20)),
+      mockService2.id: .failure(.decoding("bad summary"))
+    ]
+    if queuedSummaries {
+      mock.getQuerySummaryResponses = [summaries, summaries, summaries]
+    } else {
+      mock.getQuerySummaryStub = summaries
+    }
+    let missing = UUID()
+    for reader: any PiholeServerManaging in [real, mock] {
+      let selectedStatus = await reader.getBlockingStatus(scope: .server(mockService1.id))
+      let selectedSummary = await reader.getQuerySummary(scope: .server(mockService1.id))
+      #expect(Set(selectedStatus.keys) == [mockService1.id])
+      #expect(Set(selectedSummary.keys) == [mockService1.id])
+      #expect(try selectedStatus[mockService1.id]?.get() == .enabled)
+      #expect(try selectedSummary[mockService1.id]?.get().totalQueries == 100)
+
+      let unknownStatus = await reader.getBlockingStatus(scope: .server(missing))
+      let unknownSummary = await reader.getQuerySummary(scope: .server(missing))
+      #expect(Set(unknownStatus.keys) == [missing])
+      #expect(Set(unknownSummary.keys) == [missing])
+      #expect(unknownStatus[missing] == .failure(.unknown("Server not found")))
+      if case .failure(.unknown("Server not found")) = unknownSummary[missing] {
+      } else {
+        Issue.record("Unknown summary target must fail")
+      }
+
+      let allStatus = await reader.getBlockingStatus(scope: .all)
+      let allSummary = await reader.getQuerySummary(scope: .all)
+      #expect(Set(allStatus.keys) == [mockService1.id, mockService2.id])
+      #expect(Set(allSummary.keys) == [mockService1.id, mockService2.id])
+      #expect(allStatus[mockService2.id] == .failure(.tlsUntrusted))
+      if case .failure(.decoding("bad summary")) = allSummary[mockService2.id] {
+      } else {
+        Issue.record("Summary failure must be preserved")
+      }
+    }
+  }
 
 }
