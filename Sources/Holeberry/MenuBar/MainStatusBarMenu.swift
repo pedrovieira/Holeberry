@@ -63,28 +63,27 @@ final class MenuActionTarget: NSObject {
   // MARK: - Per-domain duration submenu actions
 
   @objc func disableURLDurationAction(_ sender: NSMenuItem) {
-    guard let dict = sender.representedObject as? NSDictionary,
-      let domain = dict["domain"] as? String,
-      let duration = dict["duration"] as? TimeInterval
+    guard let action = sender.representedObject as? DomainMenuAction,
+      let duration = action.duration
     else { return }
-    actions.disableURL(domain, duration)
+    actions.disableURL(action.domain, duration, action.source)
   }
 
   @objc func disableURLWithCustomTime(_ sender: NSMenuItem) {
-    guard let domain = sender.representedObject as? String else { return }
+    guard let action = sender.representedObject as? DomainMenuAction else { return }
     guard
       let seconds = promptDuration(
         "Custom Unblock Duration",
-        "Choose how long to unblock \"\(domain)\".",
+        "Choose how long to unblock \"\(action.domain)\".",
         "Unblock"
       )
     else { return }
-    actions.disableURL(domain, seconds)
+    actions.disableURL(action.domain, seconds, action.source)
   }
 
   @objc func addToAllowlistAction(_ sender: NSMenuItem) {
-    guard let domain = sender.representedObject as? String else { return }
-    actions.addToAllowlist(domain)
+    guard let action = sender.representedObject as? DomainMenuAction else { return }
+    actions.addToAllowlist(action.domain, action.source)
   }
 
   // MARK: - Browser tab

@@ -1,11 +1,14 @@
+import Darwin
 import Foundation
 import OSLog
+
+// swiftlint:disable file_length
 
 private enum V5QueryStatus: String, CaseIterable {
   case gravity = "1"
   case wildcard = "4"
   case exactBlocklist = "5"
-  case regexBlocklist = "6"
+  case upstreamBlockedIP = "6"
 
   /// Status codes that indicate a query was blocked.
   static let blocked: Set<String> = Set(V5QueryStatus.allCases.map(\.rawValue))
@@ -166,9 +169,6 @@ public final class PiholeV5Service: PiholeAPIProviding {
     }
     let rows = response.data
 
-    let dateFormatter = DateFormatter()
-    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-
     let fromTime = interval.start.timeIntervalSince1970
     let untilTime = interval.end.timeIntervalSince1970
 
@@ -178,14 +178,79 @@ public final class PiholeV5Service: PiholeAPIProviding {
       guard V5QueryStatus.blocked.contains(status) else { return nil }
       let domain = row[2].stringValue
       let client = row[3].stringValue
-      let timestampStr = row[0].stringValue
-      let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
-      // Client-side time range filter as fallback for FTL < v5.2
-      let timestampSecs = timestamp.timeIntervalSince1970
+      // The v5 web API returns Unix seconds. Invalid dates must not become current queries.
+      guard let timestampSecs = Double(row[0].stringValue), timestampSecs.isFinite else { return nil }
       guard timestampSecs >= fromTime && timestampSecs <= untilTime else { return nil }
+      let timestamp = Date(timeIntervalSince1970: timestampSecs)
       return BlockedDomain(domain: domain, timestamp: timestamp, fromClientIp: client)
     }
     return blocked
+  }
+
+  public func getDomainQueryHistory(
+    domain: String, forClientIP: String, interval: DateInterval
+  ) async throws -> DomainQueryHistory {
+    try Task.checkCancellation()
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    // v5 selects either time, domain or client filtering. Use integer bounds
+    // covering the captured interval, then enforce its precise limits locally.
+    guard let from = Int(exactly: interval.start.timeIntervalSince1970.rounded(.down)),
+      let until = Int(exactly: interval.end.timeIntervalSince1970.rounded(.up))
+    else {
+      throw PiholeError.unknown("Invalid domain query history interval")
+    }
+    let response: V5DomainQueryHistoryResponse = try await send(
+      params: ["getAllQueries": nil, "from": String(from), "until": String(until)],
+      context: "Domain query history",
+      decodingErrorPrefix: "Domain query history")
+    try Task.checkCancellation()
+    let rows = response.data.filter { $0.matches(domain: identity, interval: interval) }
+    var matches = rows.filter { $0.client == forClientIP }
+    // FTL formats a client's visible rows consistently from its current name/IP record.
+    // Only look up the captured IP's name when no relevant rows match the IP directly.
+    if matches.isEmpty {
+      let clientNames = try await verifiedClientNames(in: rows, forClientIP: forClientIP)
+      matches = rows.filter {
+        !Self.isIPAddress($0.client) && clientNames.contains(Self.clientNameIdentity($0.client))
+      }
+    }
+    try Task.checkCancellation()
+    let entries = matches.map { $0.entry(clientIP: forClientIP) }
+    return DomainQueryHistory(entries: entries, isComplete: true)
+  }
+
+  private func verifiedClientNames(in rows: [V5DomainQueryRow], forClientIP: String) async throws -> Set<String> {
+    let names = Set(rows.filter { !Self.isIPAddress($0.client) }.map { Self.clientNameIdentity($0.client) })
+    guard !names.isEmpty else { return [] }
+    let response: V5ClientNamesResponse = try await send(
+      params: ["getClientNames": nil],
+      context: "Client names",
+      decodingErrorPrefix: "Domain query history")
+    try Task.checkCancellation()
+    let clientNames = Set(
+      response.clients.filter { $0.ip == forClientIP }.map { Self.clientNameIdentity($0.name) })
+    guard !clientNames.isEmpty, clientNames.allSatisfy({ !$0.isEmpty && $0 != "hidden" }) else {
+      throw PiholeError.decoding("Could not resolve the captured IP address to a client name")
+    }
+    let matches = names.intersection(clientNames)
+    guard
+      !response.clients.contains(where: {
+        matches.contains(Self.clientNameIdentity($0.name)) && $0.ip != forClientIP
+      })
+    else {
+      throw PiholeError.decoding("Query history client name matches multiple IP addresses")
+    }
+    return matches
+  }
+
+  private static func clientNameIdentity(_ value: String) -> String {
+    (value.hasSuffix(".") ? String(value.dropLast()) : value).lowercased()
+  }
+
+  private static func isIPAddress(_ value: String) -> Bool {
+    var ipv4 = in_addr()
+    var ipv6 = in6_addr()
+    return value.withCString { inet_pton(AF_INET, $0, &ipv4) == 1 || inet_pton(AF_INET6, $0, &ipv6) == 1 }
   }
 
   /// Adds an exact entry, reading the list first to skip existing entries and classifying the add response message.
@@ -375,6 +440,9 @@ public final class PiholeV5Service: PiholeAPIProviding {
     do {
       (data, response) = try await session.data(for: request)
     } catch {
+      if error is CancellationError || (error as? URLError)?.code == .cancelled {
+        throw CancellationError()
+      }
       throw PiholeError.network(error.localizedDescription)
     }
 

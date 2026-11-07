@@ -35,6 +35,67 @@ final class MockPiholeServerManager: PiholeServerManaging {
   private(set) var getRecentBlockedCallCount = 0
   private(set) var getRecentBlockedLastClientIp: String?
 
+  var displayLabelStub: [UUID: String] = [:]
+  private(set) var displayLabelArgs: [UUID] = []
+
+  var getDomainQueryHistoryStub: [String: [UUID: Result<DomainQueryHistory, PiholeError>]] = [:]
+  var getDomainQueryHistoryHandler:
+    (([String], String, DateInterval, Set<UUID>) async -> [String: [UUID: Result<DomainQueryHistory, PiholeError>]])?
+  var getDomainQueryHistoryGate: (@MainActor () async -> Void)?
+  private(set) var getDomainQueryHistoryCallCount = 0
+  private(set) var getDomainQueryHistoryLastDomains: [String]?
+  private(set) var getDomainQueryHistoryLastClientIP: String?
+  private(set) var getDomainQueryHistoryLastInterval: DateInterval?
+  private(set) var getDomainQueryHistoryLastServerIDs: Set<UUID>?
+
+  var applyDomainUnblockStub: [UUID: Result<DomainUnblockOutcome, PiholeError>] = [:]
+  var applyDomainUnblockHandler:
+    ((String, TimeInterval?, Set<UUID>) async -> [UUID: Result<DomainUnblockOutcome, PiholeError>])?
+  private(set) var applyDomainUnblockCallCount = 0
+  private(set) var applyDomainUnblockArgs: [(domain: String, duration: TimeInterval?, serverIDs: Set<UUID>)] = []
+
+  func displayLabel(for id: UUID) -> String? {
+    displayLabelArgs.append(id)
+    if let stub = displayLabelStub[id] { return stub }
+    guard let server = servers.first(where: { $0.id == id }) else { return nil }
+    if let label = server.label, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      return label
+    }
+    guard let host = URLComponents(string: server.url)?.host, !host.isEmpty else { return server.url }
+    return host
+  }
+
+  func getDomainQueryHistory(
+    domains: [String], forClientIP: String, interval: DateInterval
+  ) async -> [String: [UUID: Result<DomainQueryHistory, PiholeError>]] {
+    let serverIDs = Set(servers.map(\.id))
+    getDomainQueryHistoryCallCount += 1
+    getDomainQueryHistoryLastDomains = domains
+    getDomainQueryHistoryLastClientIP = forClientIP
+    getDomainQueryHistoryLastInterval = interval
+    getDomainQueryHistoryLastServerIDs = serverIDs
+    if let gate = getDomainQueryHistoryGate {
+      getDomainQueryHistoryGate = nil
+      await gate()
+    }
+    if let getDomainQueryHistoryHandler {
+      return await getDomainQueryHistoryHandler(domains, forClientIP, interval, serverIDs)
+    }
+    return getDomainQueryHistoryStub.mapValues { $0.filter { serverIDs.contains($0.key) } }
+  }
+
+  func applyDomainUnblock(
+    domain: String, duration: TimeInterval?
+  ) async -> [UUID: Result<DomainUnblockOutcome, PiholeError>] {
+    let serverIDs = Set(servers.map(\.id))
+    applyDomainUnblockCallCount += 1
+    applyDomainUnblockArgs.append((domain, duration, serverIDs))
+    if let applyDomainUnblockHandler {
+      return await applyDomainUnblockHandler(domain, duration, serverIDs)
+    }
+    return applyDomainUnblockStub.filter { serverIDs.contains($0.key) }
+  }
+
   func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
     getBlockingStatusCallCount += 1
     if let gate = getBlockingStatusGate {

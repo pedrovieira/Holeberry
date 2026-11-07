@@ -412,6 +412,22 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(mock.setBlockingLastDuration == 300)
   }
 
+  @Test("domain query history preserves client, interval and coverage")
+  func domainQueryHistoryPassesThrough() async throws {
+    let mock = MockPiholeAPI()
+    let interval = DateInterval(start: Date(timeIntervalSince1970: 1000), duration: 900)
+    let expected = DomainQueryHistory(entries: [], isComplete: false)
+    mock.getDomainQueryHistoryStub = .success(expected)
+    let decorator = makeDecorator(service: mock)
+    let result = try await decorator.getDomainQueryHistory(
+      domain: "www.example.com", forClientIP: "192.168.1.50", interval: interval)
+    #expect(result == expected)
+    #expect(mock.getDomainQueryHistoryCallCount == 1)
+    #expect(mock.getDomainQueryHistoryLastDomain == "www.example.com")
+    #expect(mock.getDomainQueryHistoryLastClientIP == "192.168.1.50")
+    #expect(mock.getDomainQueryHistoryLastInterval == interval)
+  }
+
   @Test("getRecentBlocked passes through")
   func getRecentBlockedPassesThrough() async throws {
     let mock = MockPiholeAPI()

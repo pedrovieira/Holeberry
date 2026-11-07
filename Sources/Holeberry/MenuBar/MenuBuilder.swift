@@ -508,7 +508,7 @@ struct MenuBuilder {
       userIP: userIP,
       showAllClients: showAllClients
     ) { [self, target, durations] domain in
-      self.buildDurationSubmenu(for: domain, durations: durations, target: target)
+      self.buildDurationSubmenu(for: domain, source: .recentlyBlocked, durations: durations, target: target)
     }
 
     let item = NSMenuItem(title: "Recently Blocked...", action: nil, keyEquivalent: "")
@@ -522,6 +522,7 @@ struct MenuBuilder {
 
   private func buildDurationSubmenu(
     for domain: String,
+    source: DomainActionSource,
     durations: [UnblockDurationEntry],
     target: MenuActionTarget
   ) -> NSMenu {
@@ -531,8 +532,7 @@ struct MenuBuilder {
     for entry in durations {
       addDurationItem(
         to: submenu,
-        domain: domain,
-        duration: entry.seconds,
+        action: DomainMenuAction(domain: domain, duration: entry.seconds, source: source),
         title: UnblockDurationFormatter.string(from: entry.seconds),
         target: target
       )
@@ -546,7 +546,7 @@ struct MenuBuilder {
       keyEquivalent: ""
     )
     allowlistItem.target = target
-    allowlistItem.representedObject = domain
+    allowlistItem.representedObject = DomainMenuAction(domain: domain, duration: nil, source: source)
     submenu.addItem(allowlistItem)
 
     let customItem = NSMenuItem(
@@ -555,7 +555,7 @@ struct MenuBuilder {
       keyEquivalent: ""
     )
     customItem.target = target
-    customItem.representedObject = domain
+    customItem.representedObject = DomainMenuAction(domain: domain, duration: nil, source: source)
     submenu.addItem(customItem)
 
     return submenu
@@ -563,8 +563,7 @@ struct MenuBuilder {
 
   private func addDurationItem(
     to menu: NSMenu,
-    domain: String,
-    duration: TimeInterval,
+    action: DomainMenuAction,
     title: String,
     target: MenuActionTarget
   ) {
@@ -574,7 +573,7 @@ struct MenuBuilder {
       keyEquivalent: ""
     )
     item.target = target
-    item.representedObject = ["domain": domain, "duration": duration] as NSDictionary
+    item.representedObject = action
     menu.addItem(item)
   }
 
@@ -637,7 +636,7 @@ struct MenuBuilder {
       )
       item.isEnabled = hasHealthyInstance
       item.visibleImage = browserIcon
-      item.submenu = buildDurationSubmenu(for: domain, durations: durations, target: target)
+      item.submenu = buildDurationSubmenu(for: domain, source: .browserTab, durations: durations, target: target)
       menu.addItem(item)
     }
   }
