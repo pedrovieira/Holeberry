@@ -658,7 +658,7 @@ struct PiholeServerManagerOperationsTests {
       mockService2.id: .failure(.decoding("bad summary"))
     ]
     if queuedSummaries {
-      mock.getQuerySummaryResponses = [summaries, summaries, summaries]
+      mock.getQuerySummaryResponses = [summaries, summaries, summaries, summaries, summaries]
     } else {
       mock.getQuerySummaryStub = summaries
     }
@@ -690,6 +690,23 @@ struct PiholeServerManagerOperationsTests {
       } else {
         Issue.record("Summary failure must be preserved")
       }
+    }
+
+    // Keep the old responses to expose stale stub entries after configuration changes.
+    real.deleteServer(id: mockService2.id)
+    mock.servers = real.servers
+    for reader: any PiholeServerManaging in [real, mock] {
+      let status = await reader.getBlockingStatus(scope: .all)
+      let summary = await reader.getQuerySummary(scope: .all)
+      #expect(Set(status.keys) == [mockService1.id])
+      #expect(Set(summary.keys) == [mockService1.id])
+    }
+
+    real.deleteServer(id: mockService1.id)
+    mock.servers = []
+    for reader: any PiholeServerManaging in [real, mock] {
+      #expect(await reader.getBlockingStatus(scope: .all).isEmpty)
+      #expect(await reader.getQuerySummary(scope: .all).isEmpty)
     }
   }
 

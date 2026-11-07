@@ -87,7 +87,8 @@ final class MockPiholeServerManager: PiholeServerManaging {
   ) -> [UUID: Result<Value, PiholeError>] {
     switch scope {
     case .all:
-      return results
+      let configuredIDs = Set(servers.map(\.id))
+      return results.filter { configuredIDs.contains($0.key) }
     case .server(let id):
       guard servers.contains(where: { $0.id == id }) else {
         return [id: .failure(.unknown("Server not found"))]
