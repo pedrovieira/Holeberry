@@ -497,11 +497,11 @@ final class PiholeV5ServiceTests {
     await #expect {
       try await makeService().getDomains(from: .deny)
     } throws: { error in
-      guard case PiholeError.decoding = error else {
+      guard case PiholeError.decoding(let message) = error else {
         Issue.record("Expected decoding error, got \(error)")
         return false
       }
-      return true
+      return message.hasPrefix("Domain list black: ")
     }
   }
 

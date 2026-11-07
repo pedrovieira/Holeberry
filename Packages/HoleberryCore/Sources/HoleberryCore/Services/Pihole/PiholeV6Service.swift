@@ -53,22 +53,8 @@ public final class PiholeV6Service: PiholeAPIProviding {
   }
 
   public func checkStatus() async throws -> BlockingStatus {
-    let (data, httpResponse) = try await authenticatedRequest(path: "/api/dns/blocking")
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    let status: V6BlockingResponse
-    do {
-      status = try Self.decoder.decode(V6BlockingResponse.self, from: data)
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? ""
-      self.logger.error(
-        "Blocking status decode failed. Status \(httpResponse.statusCode). Body: \(body, privacy: .public)"
-      )
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    let status: V6BlockingResponse = try await send(
+      url: baseURL.appendingPathComponent("/api/dns/blocking"), context: "Blocking status")
 
     if status.blocking == "enabled" {
       return .enabled
@@ -106,22 +92,8 @@ public final class PiholeV6Service: PiholeAPIProviding {
       throw PiholeError.unknown("Invalid URL for /api/queries")
     }
 
-    let (data, httpResponse) = try await authenticatedRequest(url: url)
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    let result: V6QueriesResponse
-    do {
-      result = try Self.decoder.decode(V6QueriesResponse.self, from: data)
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-      self.logger.error("V6 getRecentBlocked decode failed. URL: \(url.absoluteString, privacy: .public)")
-      self.logger.error("Response body (truncated): \(body.prefix(500), privacy: .public)")
-      self.logger.error("Decode error: \(error.localizedDescription, privacy: .public)")
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    let result: V6QueriesResponse = try await send(
+      url: url, context: "Recent blocked queries")
 
     return result.queries.map { entry in
       BlockedDomain(
@@ -135,20 +107,10 @@ public final class PiholeV6Service: PiholeAPIProviding {
   // MARK: - Summary
 
   public func getQuerySummary() async throws -> QuerySummary {
-    let (data, httpResponse) = try await authenticatedRequest(path: "/api/stats/summary")
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    let response: V6SummaryResponse
-    do {
-      response = try Self.decoder.decode(V6SummaryResponse.self, from: data)
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? ""
-      logger.error("Query summary decode failed. Body: \(body, privacy: .public)")
-      throw PiholeError.decoding("Unexpected summary format: \(error.localizedDescription)")
-    }
+    let response: V6SummaryResponse = try await send(
+      url: baseURL.appendingPathComponent("/api/stats/summary"),
+      context: "Query summary",
+      decodingErrorPrefix: "Unexpected summary format")
 
     return QuerySummary(
       totalQueries: response.queries.total,
@@ -255,31 +217,42 @@ public final class PiholeV6Service: PiholeAPIProviding {
   }
 
   private func getDomains(url: URL) async throws -> [DomainEntry] {
-    let (data, httpResponse) = try await authenticatedRequest(url: url)
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    do {
-      // V6 wraps domains in {"domains":[...]} — decode through the wrapper.
-      let response = try Self.decoder.decode(DomainsResponse.self, from: data)
-      return response.domains
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-      logger.error(
-        """
-        GET \(url.path, privacy: .public) decode failed. Status \(httpResponse.statusCode). \
-        Error: \(String(describing: error)). Body: \(body, privacy: .public)
-        """
-      )
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    // V6 wraps domains in {"domains":[...]} — decode through the wrapper.
+    let response: DomainsResponse = try await send(
+      url: url, context: "Domain list")
+    return response.domains
   }
 
   /// v6 names the lists allow/deny in its REST API.
   private func listTypeName(for list: DomainListType) -> String {
     list == .allow ? "allow" : "deny"
+  }
+
+  private func send<Response: Decodable>(
+    url: URL,
+    method: HTTPMethod = .get,
+    body: (any Encodable)? = nil,
+    timeoutInterval: TimeInterval = 15,
+    context: String,
+    decodingErrorPrefix: String? = nil
+  ) async throws -> Response {
+    let (data, response) = try await authenticatedRequest(
+      url: url, method: method, body: body, timeoutInterval: timeoutInterval)
+    guard response.isSuccess else {
+      throw PiholeError.server(response.statusCode, String(data: data, encoding: .utf8))
+    }
+    do {
+      return try Self.decoder.decode(Response.self, from: data)
+    } catch {
+      logger.error(
+        """
+        \(context, privacy: .public) decode failed. Status \(response.statusCode). \
+        Error: \(String(describing: error), privacy: .private)
+        """
+      )
+      let prefix = decodingErrorPrefix.map { "\($0): " } ?? ""
+      throw PiholeError.decoding("\(prefix)\(error.localizedDescription)")
+    }
   }
 
   private func authenticatedRequest(
