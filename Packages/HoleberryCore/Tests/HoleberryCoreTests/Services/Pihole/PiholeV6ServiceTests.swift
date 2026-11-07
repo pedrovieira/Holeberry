@@ -245,11 +245,11 @@ final class PiholeV6ServiceTests {
     await #expect {
       try await makeService().getQuerySummary()
     } throws: { error in
-      guard case PiholeError.decoding = error else {
+      guard case PiholeError.decoding(let message) = error else {
         Issue.record("Expected decoding error, got \(error)")
         return false
       }
-      return true
+      return message.hasPrefix("Unexpected summary format: ")
     }
   }
 
