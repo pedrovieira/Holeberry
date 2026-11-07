@@ -20,9 +20,9 @@ final class MockPiholeServerManager: PiholeServerManaging {
   var setBlockingLastEnabled: Bool?
   var setBlockingLastDuration: TimeInterval?
 
-  var getQuerySummaryStub: [UUID: QuerySummary?] = [:]
+  var getQuerySummaryStub: [UUID: Result<QuerySummary, PiholeError>] = [:]
   private(set) var getQuerySummaryCallCount = 0
-  var getQuerySummaryResponses: [[UUID: QuerySummary?]] = []
+  var getQuerySummaryResponses: [[UUID: Result<QuerySummary, PiholeError>]] = []
   /// One-shot: runs inside `getQuerySummary()` after the last queued response.
   var getQuerySummaryGate: (@MainActor () async -> Void)?
 
@@ -35,13 +35,13 @@ final class MockPiholeServerManager: PiholeServerManaging {
   private(set) var getRecentBlockedCallCount = 0
   private(set) var getRecentBlockedLastClientIp: String?
 
-  func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
+  func getBlockingStatus(scope: ServerScope) async -> [UUID: Result<BlockingStatus, PiholeError>] {
     getBlockingStatusCallCount += 1
     if let gate = getBlockingStatusGate {
       getBlockingStatusGate = nil
       await gate()
     }
-    return getBlockingStatusStub
+    return scoped(getBlockingStatusStub, to: scope)
   }
 
   var checkServerStub: [UUID: Result<BlockingStatus, PiholeError>] = [:]
@@ -67,7 +67,7 @@ final class MockPiholeServerManager: PiholeServerManaging {
     return setBlockingStub
   }
 
-  func getQuerySummary() async -> [UUID: QuerySummary?] {
+  func getQuerySummary(scope: ServerScope) async -> [UUID: Result<QuerySummary, PiholeError>] {
     getQuerySummaryCallCount += 1
     if !getQuerySummaryResponses.isEmpty {
       let result = getQuerySummaryResponses.removeFirst()
@@ -77,9 +77,24 @@ final class MockPiholeServerManager: PiholeServerManaging {
           await gate()
         }
       }
-      return result
+      return scoped(result, to: scope)
     }
-    return getQuerySummaryStub
+    return scoped(getQuerySummaryStub, to: scope)
+  }
+
+  private func scoped<Value>(
+    _ results: [UUID: Result<Value, PiholeError>], to scope: ServerScope
+  ) -> [UUID: Result<Value, PiholeError>] {
+    switch scope {
+    case .all:
+      let configuredIDs = Set(servers.map(\.id))
+      return results.filter { configuredIDs.contains($0.key) }
+    case .server(let id):
+      guard servers.contains(where: { $0.id == id }) else {
+        return [id: .failure(.unknown("Server not found"))]
+      }
+      return [id: results[id] ?? .failure(.unknown("Server not found"))]
+    }
   }
 
   func updateGravity() async -> [UUID: Result<Void, PiholeError>] {

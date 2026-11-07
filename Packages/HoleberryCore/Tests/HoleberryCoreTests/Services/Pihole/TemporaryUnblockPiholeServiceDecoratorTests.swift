@@ -654,4 +654,25 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(mock.getDomainsCallCount == 1, "Reconciliation reads the list once")
     #expect(mock.getDomainCallCount == 1, "Expiry checks whether the entry still exists")
   }
+
+  @Test("On-demand construction leaves saved domain records untouched and starts no reconciliation")
+  func recordsUntouched() async throws {
+    let suite = TestDefaults.makeSuite()
+    let raw = MockPiholeService()
+    let key = Defaults.Keys.tempUnblocks(for: raw.id, suite: suite)
+    let record = TempUnblockRecord(
+      domain: "EXAMPLE.COM", uuid: "existing-record", startDateUTC: .distantPast, durationSeconds: 1
+    )
+    Defaults[key] = [record]
+    let service = TemporaryUnblockPiholeServiceDecorator(
+      service: raw, defaultsSuite: suite, executionMode: .onDemand
+    )
+    await settle()
+    #expect(Defaults[key] == [record])
+    #expect(raw.getDomainsCallCount == 0)
+    #expect(raw.deleteDomainCallCount == 0)
+    #expect(try await service.checkStatus() == .enabled)
+    #expect(Defaults[key] == [record])
+  }
+
 }

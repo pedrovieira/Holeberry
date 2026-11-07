@@ -551,7 +551,8 @@ struct PiholeIntegrationTests {
       config: config,
       credential: "wrong-credential",
       session: session,
-      suite: defaults
+      suite: defaults,
+      executionMode: .application
     )
     try await operation(service)
   }

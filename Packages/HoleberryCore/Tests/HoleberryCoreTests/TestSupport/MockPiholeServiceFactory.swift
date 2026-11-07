@@ -11,6 +11,7 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
   /// Optional per-config handler; takes precedence over `buildServiceStub`.
   var buildServiceHandler: ((ServerConfig) -> (any PiholeServiceProviding))?
   var buildServiceError: (any Error)?
+  private(set) var buildServiceExecutionModes: [ServiceExecutionMode] = []
   private(set) var buildServiceCallCount = 0
   private(set) var buildServiceLastConfig: ServerConfig?
 
@@ -18,9 +19,11 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
-    suite: UserDefaults
+    suite: UserDefaults,
+    executionMode: ServiceExecutionMode
   ) throws -> any PiholeServiceProviding {
     buildServiceCallCount += 1
+    buildServiceExecutionModes.append(executionMode)
     buildServiceLastConfig = config
     if let buildServiceError {
       throw buildServiceError
