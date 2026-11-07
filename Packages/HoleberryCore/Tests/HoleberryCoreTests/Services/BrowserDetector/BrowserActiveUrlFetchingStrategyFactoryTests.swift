@@ -19,10 +19,12 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
     }
   }
 
-  @Test("Chrome uses ChromiumUrlFetchingStrategy")
+  @Test("Chrome, Chromium, and Ungoogled Chromium use ChromiumUrlFetchingStrategy")
   func chromeStrategy() {
-    let strategy = factory.strategy(for: .chrome)
-    #expect(strategy is ChromiumUrlFetchingStrategy)
+    for browser in [Browser.chrome, .chromium] {
+      let strategy = factory.strategy(for: browser)
+      #expect(strategy is ChromiumUrlFetchingStrategy)
+    }
   }
 
   @Test("Firefox uses GeckoSessionStoreUrlFetchingStrategy")

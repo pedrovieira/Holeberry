@@ -149,12 +149,17 @@ final class ShortcutController {
       return
     }
 
+    // Preserve the action's server names if a server is renamed or removed while awaiting the result.
+    let serverLabels = Dictionary(
+      uniqueKeysWithValues: servers.map { ($0.id, serverManager.displayLabel(for: $0.id) ?? "Pi-hole") }
+    )
+
     // Route through the same funnel as the menu so the menu-bar dot and
     // countdown pill reflect the change immediately instead of at the next
     // poll (up to 30s later). Timer management is the poller's job.
     let results = await statusMonitor.applyBlockingChange(enabled: enabled, duration: duration)
     if let firstFailure = results.first(where: { !$0.value }) {
-      let label = servers.first { $0.id == firstFailure.key }?.label ?? firstFailure.key.uuidString
+      let label = serverLabels[firstFailure.key] ?? "Pi-hole"
       logger.warning("Shortcut setBlocking failed for \(label)")
       postErrorNotification(action: enabled ? "enable" : "disable", error: "Failed for \(label)")
     }
@@ -169,9 +174,9 @@ final class ShortcutController {
     if let duration {
       do {
         let outcomes = try await serverManager.unblock(domain: domain, duration: duration)
-        notificationCoordinator.scheduleDomainUnblockNoOps(outcomes, domain: domain) { id in
-          serverManager.servers.first { $0.id == id }.map { $0.label ?? $0.url }
-        }
+        notificationCoordinator.scheduleDomainUnblockNoOps(
+          outcomes, domain: domain, labelFor: serverManager.displayLabel(for:)
+        )
       } catch {
         logger.warning(
           """
@@ -185,9 +190,9 @@ final class ShortcutController {
       // Indefinite: the same non-expiring unblock the menu's "Add to
       // allowlist" action performs (allowlist add, no record, no expiry task).
       let outcomes = await serverManager.addToAllowlist(domain: domain)
-      notificationCoordinator.scheduleDomainUnblockNoOps(outcomes, domain: domain) { id in
-        serverManager.servers.first { $0.id == id }.map { $0.label ?? $0.url }
-      }
+      notificationCoordinator.scheduleDomainUnblockNoOps(
+        outcomes, domain: domain, labelFor: serverManager.displayLabel(for:)
+      )
     }
   }
 
@@ -243,9 +248,7 @@ final class ShortcutController {
     guard hasConnectedV6, !statusMonitor.isGravityUpdating else { return }
 
     let outcomes = await statusMonitor.applyGravityUpdate()
-    notificationCoordinator.scheduleGravityOutcomeNotifications(outcomes) { [serverManager] id in
-      serverManager.servers.first { $0.id == id }?.label
-    }
+    notificationCoordinator.scheduleGravityOutcomeNotifications(outcomes, labelFor: serverManager.displayLabel(for:))
   }
 
   // MARK: - Error Notification

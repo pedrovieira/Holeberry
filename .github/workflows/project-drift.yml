@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   drift:
-    runs-on: macos-latest
+    runs-on: xcode-27
 
     # xcodegen resolves these env vars into project.pbxproj at generation
     # time; the committed project is generated with the local development

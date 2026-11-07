@@ -58,7 +58,7 @@ final class UnblockEndedNotifier {
       serverManager.servers.count > 1
       ? serverManager.servers
         .filter { serverIDs.contains($0.id) }
-        .map { $0.label ?? URL(string: $0.url)?.host ?? $0.url }
+        .compactMap { serverManager.displayLabel(for: $0.id) }
       : []
     notificationCoordinator.schedule(.unblockEnded(serverNames: names))
   }

@@ -15,6 +15,7 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 
 | Browser | Bundle ID |
 | --- | --- |
+| Chromium / Ungoogled Chromium | `org.chromium.Chromium` |
 | Google Chrome | `com.google.Chrome` |
 | Google Chrome Beta | `com.google.Chrome.beta` |
 | Google Chrome Dev | `com.google.Chrome.dev` |
@@ -40,6 +41,8 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 | Vivaldi | `com.vivaldi.Vivaldi` |
 | Vivaldi Snapshot | `com.vivaldi.Vivaldi.snapshot` |
 | Helium | `net.imput.helium` |
+
+Chromium and Ungoogled Chromium both use the application name `Chromium` and the same bundle ID. Holeberry detects both through one browser entry and uses the same AppleScript strategy.
 
 ## Gecko (Firefox family)
 

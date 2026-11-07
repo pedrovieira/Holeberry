@@ -13,7 +13,7 @@ struct GravityOutcomeNotifier {
     serverManager: PiholeServerManager
   ) {
     self.notificationCoordinator = notificationCoordinator
-    self.serverLabel = { id in serverManager.servers.first { $0.id == id }?.label }
+    self.serverLabel = serverManager.displayLabel(for:)
   }
 
   func notify(_ outcomes: [UUID: GravityUpdateOutcome]) {

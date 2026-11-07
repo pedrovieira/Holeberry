@@ -1,9 +1,6 @@
 import Foundation
 import OSLog
 
-// Keep the v5 wire models alongside the service.
-// swiftlint:disable file_length
-
 private enum V5QueryStatus: String, CaseIterable {
   case gravity = "1"
   case wildcard = "4"
@@ -65,21 +62,11 @@ public final class PiholeV5Service: PiholeAPIProviding {
   }
 
   public func checkStatus() async throws -> BlockingStatus {
-    let (data, httpResponse) = try await getRequest(path: "/admin/api.php", params: ["status": nil])
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
     struct StatusResponse: Decodable {
       let status: String?
     }
-    let status: StatusResponse
-    do {
-      status = try Self.decoder.decode(StatusResponse.self, from: data)
-    } catch {
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    let status: StatusResponse = try await send(
+      params: ["status": nil], context: "Blocking status")
 
     guard let rawStatus = status.status else {
       // Unauthenticated v5 returns 200 `{}` (gated on $auth, not HTTP status).
@@ -98,15 +85,12 @@ public final class PiholeV5Service: PiholeAPIProviding {
       path: "/admin/api.php", params: ["summaryRaw": nil]
     )
 
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    // v5 serves the FTL stats as float values with snake_case keys
+    // v5 serves the FTL stats as float values with snake_case keys.
     let response: V5SummaryResponse
     do {
-      response = try Self.decoder.decode(V5SummaryResponse.self, from: data)
-    } catch {
+      response = try decodeResponse(
+        data: data, response: httpResponse, context: "Query summary")
+    } catch PiholeError.decoding {
       let body = String(data: data, encoding: .utf8) ?? ""
       throw PiholeError.decoding("Unexpected summary format: \(body)")
     }
@@ -173,15 +157,11 @@ public final class PiholeV5Service: PiholeAPIProviding {
       params["client"] = forClientIp
     }
 
-    let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: params
-    )
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    guard let response = try? Self.decoder.decode(V5RecentQueriesResponse.self, from: data) else {
+    let response: V5RecentQueriesResponse
+    do {
+      response = try await send(
+        params: params, context: "Recent blocked queries")
+    } catch PiholeError.decoding {
       return []
     }
     let rows = response.data
@@ -297,28 +277,19 @@ public final class PiholeV5Service: PiholeAPIProviding {
   }
 
   private func fetchDomainList(listType: String) async throws -> [DomainEntry] {
-    let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listType]
-    )
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    do {
-      // v5 returns {"data":[…]} as JSON; it has never returned HTML (verified v5.5–v5.21).
-      let entries = try Self.decoder.decode(V5DomainsResponse.self, from: data).data
-      return entries.map { entry in
-        DomainEntry(
-          id: entry.id,
-          domain: Self.domainIdentity(from: entry.domain),
-          type: entry.type,
-          comment: entry.comment,
-          enabled: entry.enabled
-        )
-      }
-    } catch {
-      throw PiholeError.decoding("Domain list \(listType): \(error.localizedDescription)")
+    // v5 returns {"data":[…]} as JSON; it has never returned HTML (verified v5.5–v5.21).
+    let response: V5DomainsResponse = try await send(
+      params: ["list": listType],
+      context: "Domain list",
+      decodingErrorPrefix: "Domain list \(listType)")
+    return response.data.map { entry in
+      DomainEntry(
+        id: entry.id,
+        domain: Self.domainIdentity(from: entry.domain),
+        type: entry.type,
+        comment: entry.comment,
+        enabled: entry.enabled
+      )
     }
   }
 
@@ -330,6 +301,39 @@ public final class PiholeV5Service: PiholeAPIProviding {
     let labels = ascii.split(separator: ".")
     guard labels.contains(where: { $0.hasPrefix("xn--") }), !ascii.contains(" ") else { return value }
     return String(ascii)
+  }
+
+  private func send<Response: Decodable>(
+    params: [String: String?],
+    method: HTTPMethod = .get,
+    comment: String? = nil,
+    context: String,
+    decodingErrorPrefix: String? = nil
+  ) async throws -> Response {
+    let (data, response) = try await getRequest(
+      path: "/admin/api.php", params: params, method: method, comment: comment)
+    return try decodeResponse(
+      data: data, response: response, context: context, decodingErrorPrefix: decodingErrorPrefix)
+  }
+
+  private func decodeResponse<Response: Decodable>(
+    data: Data, response: HTTPURLResponse, context: String, decodingErrorPrefix: String? = nil
+  ) throws -> Response {
+    guard response.isSuccess else {
+      throw PiholeError.server(response.statusCode, String(data: data, encoding: .utf8))
+    }
+    do {
+      return try Self.decoder.decode(Response.self, from: data)
+    } catch {
+      logger.error(
+        """
+        \(context, privacy: .public) decode failed. Status \(response.statusCode). \
+        Error: \(String(describing: error), privacy: .private)
+        """
+      )
+      let prefix = decodingErrorPrefix.map { "\($0): " } ?? ""
+      throw PiholeError.decoding("\(prefix)\(error.localizedDescription)")
+    }
   }
 
   private func getRequest(
@@ -378,87 +382,5 @@ public final class PiholeV5Service: PiholeAPIProviding {
       throw PiholeError.unknown("Invalid response for \(path)")
     }
     return (data, httpResponse)
-  }
-}
-
-/// `/admin/api.php?list=…` response — v5 wraps the domain rows in a `data` array.
-private struct V5DomainsResponse: Decodable {
-  let data: [DomainEntry]
-}
-
-/// v5 add/delete replies use a success flag and an optional message.
-private struct V5DomainMutationResponse: Decodable {
-  let success: Bool
-  let message: String?
-
-  func addOutcome(for domain: String) throws -> DomainAddOutcome {
-    if message == "Added \(domain)" {
-      return .added
-    }
-    if message == "Not adding \(domain) as it is already on the list" {
-      return .alreadyPresent
-    }
-    throw PiholeError.decoding("Domain add did not confirm whether the entry was created")
-  }
-}
-
-/// `/admin/api.php?summaryRaw` response. v5 serves the FTL stats with
-/// float values and snake_case keys.
-private struct V5SummaryResponse: Decodable {
-  let dnsQueriesToday: Double
-  let adsBlockedToday: Double
-  let gravityLastUpdated: V5GravityLastUpdated?
-
-  enum CodingKeys: String, CodingKey {
-    case dnsQueriesToday = "dns_queries_today"
-    case adsBlockedToday = "ads_blocked_today"
-    case gravityLastUpdated = "gravity_last_updated"
-  }
-}
-
-private struct V5GravityLastUpdated: Decodable {
-  let fileExists: Bool
-  let absolute: Double?
-
-  enum CodingKeys: String, CodingKey {
-    case fileExists = "file_exists"
-    case absolute
-  }
-}
-
-/// `/admin/api.php?getAllQueries` response. The web layer wraps the rows
-/// (heterogeneous arrays of strings/numbers) in a `data` object.
-private struct V5RecentQueriesResponse: Decodable {
-  let data: [[V5QueryCell]]
-}
-
-/// A single cell of v5's `getAllQueries` rows, which mix strings and numbers.
-private enum V5QueryCell: Decodable {
-  case string(String)
-  case number(Double)
-  case bool(Bool)
-  case null
-
-  init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    if let value = try? container.decode(String.self) {
-      self = .string(value)
-    } else if let value = try? container.decode(Double.self) {
-      self = .number(value)
-    } else if let value = try? container.decode(Bool.self) {
-      self = .bool(value)
-    } else {
-      self = .null
-    }
-  }
-
-  /// String form, mirroring `"\(cell)"` on the serialized value.
-  var stringValue: String {
-    switch self {
-    case .string(let value): return value
-    case .number(let value): return Double(Int(value)) == value ? String(Int(value)) : String(value)
-    case .bool(let value): return value ? "true" : "false"
-    case .null: return ""
-    }
   }
 }

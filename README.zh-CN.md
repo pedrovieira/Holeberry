@@ -136,6 +136,7 @@ open Holeberry.xcodeproj
 - 项目使用 [XcodeGen](https://github.com/yonaskolb/XcodeGen) —— 如果修改了 `project.yml`，请用 `xcodegen generate` 重新生成。
 - 应用 target 带有预构建脚本，以严格模式运行 [SwiftLint](https://github.com/realm/SwiftLint) 和 `swift-format`；请先安装它们，否则构建会发出警告。
 - 核心逻辑位于 `HoleberryCore` Swift 包中，自带测试套件 —— `cd Packages/HoleberryCore && swift test`。
+- 在仓库根目录运行 `just` 可列出测试命令。真实 Pi-hole 测试请参阅[集成测试指南](Packages/HoleberryCore/Tests/HoleberryCoreIntegrationTests/README.md)（英文，需要兼容 Docker 的容器运行时及 `just`）。
 
 ## 参与贡献
 

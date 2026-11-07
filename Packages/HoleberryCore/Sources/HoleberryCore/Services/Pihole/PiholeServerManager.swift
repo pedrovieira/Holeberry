@@ -36,6 +36,19 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     loadServers()
   }
 
+  // MARK: - Server Lookup
+
+  /// Returns the saved label or hostname for a known server, or nil for an unknown ID.
+  /// Empty and whitespace-only labels fall back to the hostname, or the URL if no nonempty host is available.
+  public func displayLabel(for id: UUID) -> String? {
+    guard let server = servers.first(where: { $0.id == id }) else { return nil }
+    if let label = server.label, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      return label
+    }
+    guard let host = URLComponents(string: server.url)?.host, !host.isEmpty else { return server.url }
+    return host
+  }
+
   // MARK: - Server CRUD
 
   public func addServer(label: String?, icon: String? = nil, url: String, credential: String) async throws {
