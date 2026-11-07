@@ -424,11 +424,51 @@ struct PiholeServerManagerCRUDTests {
 
     #expect(manager.displayLabel(for: UUID()) == nil)
   }
+
+  // MARK: - On-demand reads
+
+  @Test("Manager construction and reload do not log in; requested reads still work")
+  func noWarmup() async throws {
+    let suite = TestDefaults.makeSuite()
+    let service = MockPiholeService()
+    Defaults[.servers(suite: suite)] = [ServerConfig(id: service.id, url: service.url, version: service.version)]
+    let factory = MockPiholeServiceFactory()
+    factory.buildServiceStub = service
+    let manager = PiholeServerManager(
+      keychain: MockKeychainManager(), serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector(), suite: suite, executionMode: .onDemand
+    )
+    manager.reloadServers()
+    await settle()
+    #expect(service.loginCallCount == 0)
+    #expect(factory.buildServiceExecutionModes == [.onDemand, .onDemand])
+    let status = await manager.getBlockingStatus(scope: .server(service.id))
+    #expect(try status[service.id]?.get() == .enabled)
+    await manager.logoutAll()
+    #expect(service.logoutCallCount == 1)
+  }
+
+  @Test("The existing application default still warms sessions")
+  func applicationDefault() async {
+    let suite = TestDefaults.makeSuite()
+    let service = MockPiholeService()
+    Defaults[.servers(suite: suite)] = [ServerConfig(id: service.id, url: service.url, version: service.version)]
+    let factory = MockPiholeServiceFactory()
+    factory.buildServiceStub = service
+    let manager = PiholeServerManager(
+      keychain: MockKeychainManager(), serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector(), suite: suite
+    )
+    await waitUntil { service.loginCallCount == 1 }
+    #expect(factory.buildServiceExecutionModes == [.application])
+    await manager.logoutAll()
+  }
+
 }
 
 @MainActor
-@Suite("PiholeServerManager - Domain Operations")
-struct PiholeServerManagerDomainTests {
+@Suite("PiholeServerManager - Server Operations")
+struct PiholeServerManagerOperationsTests {
   private let mockService1 = MockPiholeService(
     id: UUID(), label: "Server A", url: "http://a.local", version: .v6)
   private let mockService2 = MockPiholeService(
@@ -541,4 +581,66 @@ struct PiholeServerManagerDomainTests {
     #expect(mockService1.unblockDomainCallCount == 1)
     #expect(mockService2.unblockDomainCallCount == 1)
   }
+  @Test("Selected reads never contact the other server")
+  func selectedServer() async throws {
+    mockService1.getQuerySummaryStub = .success(QuerySummary(totalQueries: 100, totalBlocked: 20))
+    let manager = makeManagerWithTwoServers()
+    let statuses = await manager.getBlockingStatus(scope: .server(mockService1.id))
+    let summaries = await manager.getQuerySummary(scope: .server(mockService1.id))
+
+    #expect(Set(statuses.keys) == [mockService1.id])
+    #expect(try statuses[mockService1.id]?.get() == .enabled)
+    #expect(try summaries[mockService1.id]?.get().totalQueries == 100)
+    #expect(try summaries[mockService1.id]?.get().totalBlocked == 20)
+    #expect(mockService2.checkStatusCallCount == 0)
+    #expect(mockService2.getQuerySummaryCallCount == 0)
+  }
+
+  @Test("Missing selected UUID fails each operation without falling back")
+  func missingServer() async {
+    let manager = makeManagerWithTwoServers()
+    let missing = UUID()
+    let statuses = await manager.getBlockingStatus(scope: .server(missing))
+    let summaries = await manager.getQuerySummary(scope: .server(missing))
+
+    #expect(statuses[missing] == .failure(.unknown("Server not found")))
+    if case .failure(.unknown("Server not found")) = summaries[missing] {
+    } else {
+      Issue.record("Missing summary target must fail")
+    }
+    #expect(statuses.count == 1)
+    #expect(summaries.count == 1)
+    #expect(mockService1.checkStatusCallCount + mockService2.checkStatusCallCount == 0)
+    #expect(mockService1.getQuerySummaryCallCount + mockService2.getQuerySummaryCallCount == 0)
+  }
+
+  @Test("All-server reads retain independent results and exact errors")
+  func mixedResults() async throws {
+    mockService2.checkStatusStub = .failure(PiholeError.tlsUntrusted)
+    mockService2.getQuerySummaryStub = .failure(PiholeError.decoding("bad summary"))
+    let manager: any PiholeServerManaging = makeManagerWithTwoServers()
+
+    let statuses = await manager.getBlockingStatus(scope: .all)
+    let summaries = await manager.getQuerySummary(scope: .all)
+
+    #expect(try statuses[mockService1.id]?.get() == .enabled)
+    #expect(statuses[mockService2.id] == .failure(.tlsUntrusted))
+    #expect(try summaries[mockService1.id]?.get().totalQueries == 0)
+    if case .failure(.decoding("bad summary")) = summaries[mockService2.id] {
+    } else {
+      Issue.record("Summary error was lost")
+    }
+  }
+
+  @Test("Empty all-server requests return no results")
+  func emptyServers() async {
+    let manager = PiholeServerManager(
+      keychain: MockKeychainManager(), serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector(), suite: TestDefaults.makeSuite()
+    )
+    #expect(await manager.getBlockingStatus(scope: .all).isEmpty)
+    #expect(await manager.getQuerySummary(scope: .all).isEmpty)
+  }
+
+
 }

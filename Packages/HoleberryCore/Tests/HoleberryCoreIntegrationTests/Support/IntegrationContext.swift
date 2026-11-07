@@ -116,7 +116,8 @@ final class IntegrationContext {
         config: config,
         credential: credential,
         session: session,
-        suite: defaults
+        suite: defaults,
+        executionMode: .application
       )
       return IntegrationContext(
         target: target,

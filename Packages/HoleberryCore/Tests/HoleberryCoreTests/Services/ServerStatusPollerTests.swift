@@ -368,7 +368,7 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getBlockingStatusStub = [id: .success(.enabled)]
-    mockManager.getQuerySummaryStub = [id: QuerySummary(totalQueries: 10, totalBlocked: 2)]
+    mockManager.getQuerySummaryStub = [id: .success(QuerySummary(totalQueries: 10, totalBlocked: 2))]
     mockManager.getRecentBlockedStub = .success(
       [BlockedDomain(domain: "ads.com", timestamp: Date(), fromClientIp: "1.1.1.1")]
     )
@@ -454,7 +454,7 @@ struct ServerStatusPollerTests {
   func getQuerySummaryPopulatesQuerySummaries() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getQuerySummaryStub = [id: QuerySummary(totalQueries: 100, totalBlocked: 5)]
+    mockManager.getQuerySummaryStub = [id: .success(QuerySummary(totalQueries: 100, totalBlocked: 5))]
     let poller = makePoller()
     poller.startPolling()
 
@@ -468,7 +468,7 @@ struct ServerStatusPollerTests {
   func nilQuerySummaryRemovesEntry() async {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
-    mockManager.getQuerySummaryStub = [id: nil]
+    mockManager.getQuerySummaryStub = [id: .failure(.network("offline"))]
     let poller = makePoller()
     poller.startPolling()
 
@@ -726,8 +726,8 @@ struct ServerStatusPollerTests {
     ]
     mockManager.getBlockingStatusStub = [idA: .success(.enabled), idB: .success(.enabled)]
     mockManager.getQuerySummaryStub = [
-      idA: QuerySummary(totalQueries: 1, totalBlocked: 0),
-      idB: QuerySummary(totalQueries: 2, totalBlocked: 1)
+      idA: .success(QuerySummary(totalQueries: 1, totalBlocked: 0)),
+      idB: .success(QuerySummary(totalQueries: 2, totalBlocked: 1))
     ]
     let poller = makePoller()
     poller.startPolling()
@@ -737,7 +737,7 @@ struct ServerStatusPollerTests {
     // Remove server B. Update the stubs FIRST so the sink-triggered poll cannot
     // re-populate B's entries; then remove the server.
     mockManager.getBlockingStatusStub = [idA: .success(.enabled)]
-    mockManager.getQuerySummaryStub = [idA: QuerySummary(totalQueries: 1, totalBlocked: 0)]
+    mockManager.getQuerySummaryStub = [idA: .success(QuerySummary(totalQueries: 1, totalBlocked: 0))]
     mockManager.servers = [ServerConfig(id: idA, url: "http://a.local", version: .v6)]
 
     await waitUntil { mockManager.getBlockingStatusCallCount >= 2 }
@@ -1056,8 +1056,14 @@ struct ServerStatusPollerTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getQuerySummaryResponses = [
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 1_000))],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 2_000))]
+      [
+        id: .success(
+          QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 1_000)))
+      ],
+      [
+        id: .success(
+          QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 2_000)))
+      ]
     ]
     mockManager.updateGravityStub = [id: .success(())]
     let poller = makePoller(gravityUpdater: LiveGravityUpdater(manager: mockManager))

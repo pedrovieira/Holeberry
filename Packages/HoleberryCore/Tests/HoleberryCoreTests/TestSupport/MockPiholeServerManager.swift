@@ -20,9 +20,9 @@ final class MockPiholeServerManager: PiholeServerManaging {
   var setBlockingLastEnabled: Bool?
   var setBlockingLastDuration: TimeInterval?
 
-  var getQuerySummaryStub: [UUID: QuerySummary?] = [:]
+  var getQuerySummaryStub: [UUID: Result<QuerySummary, PiholeError>] = [:]
   private(set) var getQuerySummaryCallCount = 0
-  var getQuerySummaryResponses: [[UUID: QuerySummary?]] = []
+  var getQuerySummaryResponses: [[UUID: Result<QuerySummary, PiholeError>]] = []
   /// One-shot: runs inside `getQuerySummary()` after the last queued response.
   var getQuerySummaryGate: (@MainActor () async -> Void)?
 
@@ -35,7 +35,7 @@ final class MockPiholeServerManager: PiholeServerManaging {
   private(set) var getRecentBlockedCallCount = 0
   private(set) var getRecentBlockedLastClientIp: String?
 
-  func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
+  func getBlockingStatus(scope: ServerScope) async -> [UUID: Result<BlockingStatus, PiholeError>] {
     getBlockingStatusCallCount += 1
     if let gate = getBlockingStatusGate {
       getBlockingStatusGate = nil
@@ -67,7 +67,7 @@ final class MockPiholeServerManager: PiholeServerManaging {
     return setBlockingStub
   }
 
-  func getQuerySummary() async -> [UUID: QuerySummary?] {
+  func getQuerySummary(scope: ServerScope) async -> [UUID: Result<QuerySummary, PiholeError>] {
     getQuerySummaryCallCount += 1
     if !getQuerySummaryResponses.isEmpty {
       let result = getQuerySummaryResponses.removeFirst()
