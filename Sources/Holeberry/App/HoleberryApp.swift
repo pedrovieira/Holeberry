@@ -52,6 +52,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     versionDetector: versionDetector
   )
   private lazy var localIPResolver = LocalIPAddressResolver()
+  private lazy var browserDomainUnblocker = LiveBrowserDomainUnblocker(
+    manager: serverManager,
+    networkInterface: localIPResolver
+  )
   private lazy var dnsServerResolver = EffectiveDNSServerResolver()
   private lazy var pollScheduler = TaskPollScheduler()
   private lazy var gravityUpdater = LiveGravityUpdater(manager: serverManager)
@@ -95,6 +99,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       openUpdateAlert: { [weak self] in self?.updaterController?.checkForUpdates(nil) }
     )
     self.notificationCoordinator = notificationCoordinator
+    let browserDomainUnblockNotifier = BrowserDomainUnblockNotifier(
+      notificationCoordinator: notificationCoordinator
+    )
     let gravityOutcomeNotifier = GravityOutcomeNotifier(
       notificationCoordinator: notificationCoordinator,
       serverManager: serverManager
@@ -173,13 +180,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       updater: updaterController.updater,
       notificationCoordinator: notificationCoordinator,
       gravityOutcomeNotifier: gravityOutcomeNotifier,
+      browserDomainUnblocker: browserDomainUnblocker,
+      browserDomainUnblockNotifier: browserDomainUnblockNotifier,
       settingsWindowController: settingsWindowController
     )
     shortcutController = ShortcutController(
       serverManager: serverManager,
       browserTabCoordinator: browserTabCoordinator,
       statusMonitor: statusPoller,
-      notificationCoordinator: notificationCoordinator
+      notificationCoordinator: notificationCoordinator,
+      browserDomainUnblocker: browserDomainUnblocker,
+      browserDomainUnblockNotifier: browserDomainUnblockNotifier
     )
     unblockEndedNotifier = UnblockEndedNotifier(
       statusMonitor: statusPoller,

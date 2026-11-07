@@ -32,6 +32,9 @@ enum UserNotificationKind {
   /// An unblock request found an existing allow entry instead of creating one.
   case domainAlreadyAllowlisted(domain: String, serverName: String, enabled: Bool?)
 
+  /// One aggregate outcome of a browser domain history check and managed unblock.
+  case browserDomainUnblockFeedback(body: String)
+
   /// A scheduled update check found a new Holeberry version while the app
   /// ran in the background (Sparkle gentle reminder).
   case updateAvailable(version: String)

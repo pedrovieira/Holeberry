@@ -53,22 +53,8 @@ public final class PiholeV6Service: PiholeAPIProviding {
   }
 
   public func checkStatus() async throws -> BlockingStatus {
-    let (data, httpResponse) = try await authenticatedRequest(path: "/api/dns/blocking")
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    let status: V6BlockingResponse
-    do {
-      status = try Self.decoder.decode(V6BlockingResponse.self, from: data)
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? ""
-      self.logger.error(
-        "Blocking status decode failed. Status \(httpResponse.statusCode). Body: \(body, privacy: .public)"
-      )
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    let status: V6BlockingResponse = try await send(
+      url: baseURL.appendingPathComponent("/api/dns/blocking"), context: "Blocking status")
 
     if status.blocking == "enabled" {
       return .enabled
@@ -106,22 +92,8 @@ public final class PiholeV6Service: PiholeAPIProviding {
       throw PiholeError.unknown("Invalid URL for /api/queries")
     }
 
-    let (data, httpResponse) = try await authenticatedRequest(url: url)
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    let result: V6QueriesResponse
-    do {
-      result = try Self.decoder.decode(V6QueriesResponse.self, from: data)
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-      self.logger.error("V6 getRecentBlocked decode failed. URL: \(url.absoluteString, privacy: .public)")
-      self.logger.error("Response body (truncated): \(body.prefix(500), privacy: .public)")
-      self.logger.error("Decode error: \(error.localizedDescription, privacy: .public)")
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    let result: V6QueriesResponse = try await send(
+      url: url, context: "Recent blocked queries")
 
     return result.queries.map { entry in
       BlockedDomain(
@@ -132,23 +104,65 @@ public final class PiholeV6Service: PiholeAPIProviding {
     }
   }
 
+  public func getDomainQueryHistory(
+    domain: String, forClientIP: String, interval: DateInterval
+  ) async throws -> DomainQueryHistory {
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    var entries: [DomainQueryEntry] = []
+    var cursor: Int?
+    for page in 0..<3 {
+      try Task.checkCancellation()
+      let response = try await queryHistoryPage(
+        domain: identity, clientIP: forClientIP, interval: interval, start: page * 50, cursor: cursor)
+      try Task.checkCancellation()
+      entries += response.queries.compactMap { row in
+        guard row.domain == identity, row.client.ip == forClientIP,
+          row.time >= interval.start.timeIntervalSince1970, row.time < interval.end.timeIntervalSince1970
+        else { return nil }
+        return row.entry
+      }
+      // A null cursor is the explicit privacy-hidden response, not an empty log.
+      if response.cursorWasNull { return DomainQueryHistory(entries: entries, isComplete: false) }
+      if response.queries.count < 50 || response.recordsFiltered.map({ $0 <= (page + 1) * 50 }) == true {
+        return DomainQueryHistory(entries: entries, isComplete: true)
+      }
+      if page == 0 { cursor = response.cursor }
+      // An older response without a cursor cannot support stable pagination.
+      if cursor == nil { break }
+    }
+    return DomainQueryHistory(entries: entries, isComplete: false)
+  }
+
+  private func queryHistoryPage(
+    domain: String, clientIP: String, interval: DateInterval, start: Int, cursor: Int?
+  ) async throws -> V6DomainQueryHistoryResponse {
+    guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+      throw PiholeError.unknown("Invalid base URL")
+    }
+    components.path = "/api/queries"
+    components.queryItems = [
+      URLQueryItem(name: "domain", value: domain),
+      URLQueryItem(name: "client_ip", value: clientIP),
+      URLQueryItem(name: "from", value: String(interval.start.timeIntervalSince1970)),
+      URLQueryItem(name: "until", value: String(interval.end.timeIntervalSince1970)),
+      URLQueryItem(name: "length", value: "50"),
+      URLQueryItem(name: "start", value: String(start))
+    ]
+    if let cursor { components.queryItems?.append(URLQueryItem(name: "cursor", value: String(cursor))) }
+    guard let requestURL = components.url else { throw PiholeError.unknown("Invalid domain history URL") }
+    return try await send(
+      url: requestURL,
+      context: "Domain query history",
+      decodingErrorPrefix: "Domain query history")
+  }
+
   // MARK: - Summary
 
   public func getQuerySummary() async throws -> QuerySummary {
-    let (data, httpResponse) = try await authenticatedRequest(path: "/api/stats/summary")
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    let response: V6SummaryResponse
-    do {
-      response = try Self.decoder.decode(V6SummaryResponse.self, from: data)
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? ""
-      logger.error("Query summary decode failed. Body: \(body, privacy: .public)")
-      throw PiholeError.decoding("Unexpected summary format: \(error.localizedDescription)")
-    }
+    let response: V6SummaryResponse = try await send(
+      url: baseURL.appendingPathComponent("/api/stats/summary"),
+      context: "Query summary",
+      decodingErrorPrefix: "Unexpected summary format")
 
     return QuerySummary(
       totalQueries: response.queries.total,
@@ -255,31 +269,42 @@ public final class PiholeV6Service: PiholeAPIProviding {
   }
 
   private func getDomains(url: URL) async throws -> [DomainEntry] {
-    let (data, httpResponse) = try await authenticatedRequest(url: url)
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    do {
-      // V6 wraps domains in {"domains":[...]} — decode through the wrapper.
-      let response = try Self.decoder.decode(DomainsResponse.self, from: data)
-      return response.domains
-    } catch {
-      let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-      logger.error(
-        """
-        GET \(url.path, privacy: .public) decode failed. Status \(httpResponse.statusCode). \
-        Error: \(String(describing: error)). Body: \(body, privacy: .public)
-        """
-      )
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    // V6 wraps domains in {"domains":[...]} — decode through the wrapper.
+    let response: DomainsResponse = try await send(
+      url: url, context: "Domain list")
+    return response.domains
   }
 
   /// v6 names the lists allow/deny in its REST API.
   private func listTypeName(for list: DomainListType) -> String {
     list == .allow ? "allow" : "deny"
+  }
+
+  private func send<Response: Decodable>(
+    url: URL,
+    method: HTTPMethod = .get,
+    body: (any Encodable)? = nil,
+    timeoutInterval: TimeInterval = 15,
+    context: String,
+    decodingErrorPrefix: String? = nil
+  ) async throws -> Response {
+    let (data, response) = try await authenticatedRequest(
+      url: url, method: method, body: body, timeoutInterval: timeoutInterval)
+    guard response.isSuccess else {
+      throw PiholeError.server(response.statusCode, String(data: data, encoding: .utf8))
+    }
+    do {
+      return try Self.decoder.decode(Response.self, from: data)
+    } catch {
+      logger.error(
+        """
+        \(context, privacy: .public) decode failed. Status \(response.statusCode). \
+        Error: \(String(describing: error), privacy: .private)
+        """
+      )
+      let prefix = decodingErrorPrefix.map { "\($0): " } ?? ""
+      throw PiholeError.decoding("\(prefix)\(error.localizedDescription)")
+    }
   }
 
   private func authenticatedRequest(
@@ -318,6 +343,9 @@ public final class PiholeV6Service: PiholeAPIProviding {
       do {
         (data, response) = try await urlSession.data(for: request)
       } catch {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled {
+          throw CancellationError()
+        }
         throw PiholeError.network(error.localizedDescription)
       }
 

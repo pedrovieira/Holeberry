@@ -100,6 +100,12 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
     try await wrapped.getRecentBlocked(forClientIp: forClientIp, interval: interval)
   }
 
+  public func getDomainQueryHistory(
+    domain: String, forClientIP: String, interval: DateInterval
+  ) async throws -> DomainQueryHistory {
+    try await wrapped.getDomainQueryHistory(domain: domain, forClientIP: forClientIP, interval: interval)
+  }
+
   public func getDomains(from list: DomainListType) async throws -> [DomainEntry] {
     try await wrapped.getDomains(from: list)
   }

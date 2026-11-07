@@ -347,48 +347,79 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Typed Operations
 
-  /// Unblock a domain on all servers, preserving per-server changes, skips, and errors.
-  private func unblockOnAllServers(
-    _ domain: String, duration: TimeInterval?
-  ) async -> [UUID: Result<DomainUnblockOutcome, any Error>] {
-    let identity = PiholeDomain.identity(domain)
-    let stripped = identity.hasPrefix("www.") ? String(identity.dropFirst(4)) : identity
-    let configs = servers
-    let svcs = services
-    return await withTaskGroup(of: (UUID, Result<DomainUnblockOutcome, any Error>).self) { group in
-      for config in configs {
-        let svc = svcs[config.id]
-        let id = config.id
-        group.addTask {
-          do {
-            guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
-            let outcome = try await self.unblockOnServer(stripped, duration: duration, serverID: id, service: svc)
-            return (id, .success(outcome))
-          } catch {
-            return (id, .failure(error))
+  /// Fans out one history read to the currently configured servers for each candidate.
+  public func getDomainQueryHistory(
+    domains: [String], forClientIP: String, interval: DateInterval
+  ) async -> [String: [UUID: Result<DomainQueryHistory, PiholeError>]] {
+    let serverIDs = Set(servers.map(\.id))
+    return await withTaskGroup(of: (String, UUID, Result<DomainQueryHistory, PiholeError>).self) { group in
+      for domain in Set(domains) {
+        for id in serverIDs {
+          group.addTask {
+            do {
+              let history = try await self.readDomainQueryHistory(
+                domain: domain, clientIP: forClientIP, interval: interval, serverID: id)
+              return (domain, id, .success(history))
+            } catch {
+              return (domain, id, .failure(error as? PiholeError ?? .unknown(error.localizedDescription)))
+            }
           }
         }
       }
-      var results: [UUID: Result<DomainUnblockOutcome, any Error>] = [:]
-      for await (id, result) in group {
-        results[id] = result
+      var results: [String: [UUID: Result<DomainQueryHistory, PiholeError>]] = [:]
+      for domain in Set(domains) { results[domain] = [:] }
+      for await (domain, id, result) in group {
+        results[domain, default: [:]][id] = result
       }
       return results
     }
   }
 
+  private func readDomainQueryHistory(
+    domain: String, clientIP: String, interval: DateInterval, serverID: UUID
+  ) async throws -> DomainQueryHistory {
+    try Task.checkCancellation()
+    guard servers.contains(where: { $0.id == serverID }), let service = services[serverID] else {
+      throw PiholeError.unknown("Server not found")
+    }
+    return try await service.getDomainQueryHistory(domain: domain, forClientIP: clientIP, interval: interval)
+  }
+
+  /// Fans out one managed mutation to the currently configured servers.
+  public func applyDomainUnblock(
+    domain: String, duration: TimeInterval?
+  ) async -> [UUID: Result<DomainUnblockOutcome, PiholeError>] {
+    let serverIDs = Set(servers.map(\.id))
+    return await withTaskGroup(of: (UUID, Result<DomainUnblockOutcome, PiholeError>).self) { group in
+      for id in serverIDs {
+        group.addTask {
+          do {
+            let outcome = try await self.unblockOnServer(domain, duration: duration, serverID: id)
+            return (id, .success(outcome))
+          } catch {
+            return (id, .failure(error as? PiholeError ?? .unknown(error.localizedDescription)))
+          }
+        }
+      }
+      var results: [UUID: Result<DomainUnblockOutcome, PiholeError>] = [:]
+      for await (id, result) in group { results[id] = result }
+      return results
+    }
+  }
+
   private func unblockOnServer(
-    _ domain: String, duration: TimeInterval?, serverID: UUID, service: any PiholeServiceProviding
+    _ domain: String, duration: TimeInterval?, serverID: UUID
   ) async throws -> DomainUnblockOutcome {
     try Task.checkCancellation()
-    let key = UnblockKey(serverID: serverID, domain: domain)
-    // MainActor serializes this insertion, but calls can overlap across awaits.
-    // Hold the key through retries and timer persistence: duplicates skip silently
-    // (first request wins), while other server/domain keys can proceed.
+    let identity = try PiholeDomain.validatedIdentity(domain)
+    guard servers.contains(where: { $0.id == serverID }), let service = services[serverID] else {
+      throw PiholeError.unknown("Server not found")
+    }
+    let key = UnblockKey(serverID: serverID, domain: identity)
+    // Hold the exact hostname across awaits. Its www variant has independent ownership and timers.
     guard inProgressUnblocks.insert(key).inserted else { return .inProgress }
     defer { inProgressUnblocks.remove(key) }
-
-    return try await service.unblockDomain(domain, duration: duration)
+    return try await service.unblockDomain(identity, duration: duration)
   }
 
   public func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
@@ -494,7 +525,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   public func unblock(domain: String, duration: TimeInterval) async throws -> [UUID: DomainUnblockOutcome] {
     guard !servers.isEmpty else { throw PiholeError.unknown("No configured Pi-hole instance") }
 
-    let results = await unblockOnAllServers(domain, duration: duration)
+    let results = await applyDomainUnblock(
+      domain: domain, duration: duration)
+    try Task.checkCancellation()
     let outcomes = results.compactMapValues { try? $0.get() }
     guard !outcomes.isEmpty else {
       let lastError = results.values.compactMap {
@@ -507,7 +540,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func addToAllowlist(domain: String) async -> [UUID: DomainUnblockOutcome] {
-    let results = await unblockOnAllServers(domain, duration: nil)
+    let results = await applyDomainUnblock(
+      domain: domain, duration: nil)
     for (configId, result) in results {
       if case .failure(let error) = result {
         let label = servers.first { $0.id == configId }?.label ?? configId.uuidString

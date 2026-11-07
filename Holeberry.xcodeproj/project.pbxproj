@@ -32,6 +32,7 @@
 		626A1EFF1783B93A63EFF079 /* ConnectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */; };
 		676C9205968E70C0D0619C7C /* NSRunningApplication+Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70BAA1B61CD90763F03B992 /* NSRunningApplication+Icon.swift */; };
 		6B9DF7F3654C57449284F5AD /* NSMenuItem+ImageVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1E78AE878782CEF84BCDDC /* NSMenuItem+ImageVisibility.swift */; };
+		707D67AB2884079D007750FE /* BrowserDomainUnblockNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1CEF2E4D43ED2B94EF53C0 /* BrowserDomainUnblockNotifier.swift */; };
 		72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
 		8F1976F9A92FB5F96E9A0570 /* LimitedTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 708D635B240324C5A79BA870 /* LimitedTextField.swift */; };
@@ -86,6 +87,7 @@
 		8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
 		90575EF61BAE2C9987472387 /* AboutAppIconTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutAppIconTile.swift; sourceTree = "<group>"; };
 		93ACB69A774CC5CB1E5035F5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9F1CEF2E4D43ED2B94EF53C0 /* BrowserDomainUnblockNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDomainUnblockNotifier.swift; sourceTree = "<group>"; };
 		A448330B12ABCB4F06CFCB5C /* HoleberryCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HoleberryCore; path = Packages/HoleberryCore; sourceTree = SOURCE_ROOT; };
 		A95D78A3AB479976D7E8CF46 /* DurationField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationField.swift; sourceTree = "<group>"; };
 		ACD1B67CAEDFF82081470F46 /* DurationsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationsSettingsView.swift; sourceTree = "<group>"; };
@@ -251,6 +253,7 @@
 		977CD55D23B21DE364A2D23C /* Notifications */ = {
 			isa = PBXGroup;
 			children = (
+				9F1CEF2E4D43ED2B94EF53C0 /* BrowserDomainUnblockNotifier.swift */,
 				DEB0932AC37D03E558E68FC8 /* GravityOutcomeNotifier.swift */,
 				F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */,
 				34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */,
@@ -415,6 +418,7 @@
 			files = (
 				58FB67ADD81EED114FFA75A3 /* AboutAppIconTile.swift in Sources */,
 				32B3DB91B041007E362C5BF1 /* AuthFailureReason+Copy.swift in Sources */,
+				707D67AB2884079D007750FE /* BrowserDomainUnblockNotifier.swift in Sources */,
 				2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */,
 				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,
 				CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */,

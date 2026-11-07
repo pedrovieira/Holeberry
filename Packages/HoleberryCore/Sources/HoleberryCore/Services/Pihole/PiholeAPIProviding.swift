@@ -23,6 +23,11 @@ public protocol PiholeAPIProviding: AnyObject, Sendable {
   func setBlocking(enabled: Bool, duration: TimeInterval?) async throws
   func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain]
 
+  /// Reads exact-domain evidence for one client. Incomplete coverage cannot establish a negative result.
+  func getDomainQueryHistory(
+    domain: String, forClientIP: String, interval: DateInterval
+  ) async throws -> DomainQueryHistory
+
   // MARK: - Gravity
 
   /// Triggers a gravity (filter list) update
