@@ -99,6 +99,144 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
           echo "::notice::Signing certificate imported into $KEYCHAIN"
 
+      - name: Install Developer ID provisioning profiles
+        id: profiles
+        env:
+          HOLEBERRY_APP_PROFILE: ${{ secrets.HOLEBERRY_APP_PROFILE }}
+          HOLEBERRY_WIDGET_PROFILE: ${{ secrets.HOLEBERRY_WIDGET_PROFILE }}
+          HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${HOLEBERRY_APP_PROFILE:-}" ] || [ -z "${HOLEBERRY_WIDGET_PROFILE:-}" ]; then
+            echo "::error::HOLEBERRY_APP_PROFILE and HOLEBERRY_WIDGET_PROFILE secrets are not set — cannot sign the app and widget; refusing to release"
+            exit 1
+          fi
+          if [ -z "${HOLEBERRY_TEAM_ID:-}" ]; then
+            echo "::error::HOLEBERRY_TEAM_ID secret is not set — cannot select profiles; refusing to release"
+            exit 1
+          fi
+
+          INSTALL_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          MANIFEST="$RUNNER_TEMP/holeberry-installed-profiles.txt"
+          PROFILE_TEMP_DIR="$(mktemp -d "$RUNNER_TEMP/holeberry-profiles.XXXXXX")"
+          chmod 700 "$PROFILE_TEMP_DIR"
+          trap 'rm -rf "$PROFILE_TEMP_DIR"' EXIT
+          UUID_PATTERN='^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$'
+          PROFILE_UUID=""
+
+          mkdir -p "$INSTALL_DIR"
+          : > "$MANIFEST"
+
+          install_profile() {
+            local encoded="$1"
+            local label="$2"
+            local temp_profile="$PROFILE_TEMP_DIR/$label.provisionprofile"
+            local temp_plist="$PROFILE_TEMP_DIR/$label.plist"
+            local installed
+
+            printf '%s' "$encoded" | base64 --decode > "$temp_profile"
+            chmod 600 "$temp_profile"
+            security cms -D -i "$temp_profile" > "$temp_plist"
+            if ! PROFILE_UUID="$(python3 - "$temp_plist" "$label" "$HOLEBERRY_TEAM_ID" <<'PY'
+          import datetime
+          import plistlib
+          import sys
+
+          path, role, team = sys.argv[1:4]
+          bundle_ids = {
+              "app": "me.pedrovieira.holeberry",
+              "widget": "me.pedrovieira.holeberry.widgets",
+          }
+          app_group = "group.me.pedrovieira.holeberry"
+          keychain_group = f"{team}.me.pedrovieira.holeberry.shared"
+
+
+          def fail(message):
+              print(f"::error::{role} profile: {message}", file=sys.stderr)
+              raise SystemExit(1)
+
+
+          def authorized(value, patterns):
+              return isinstance(patterns, list) and any(
+                  isinstance(pattern, str)
+                  and (
+                      pattern == "*"
+                      or pattern == value
+                      or (pattern.endswith("*") and value.startswith(pattern[:-1]))
+                  )
+                  for pattern in patterns
+              )
+
+
+          try:
+              with open(path, "rb") as handle:
+                  profile = plistlib.load(handle)
+          except Exception:
+              fail("profile is not a decodable plist")
+
+          uuid = profile.get("UUID")
+          if not isinstance(uuid, str):
+              fail("profile UUID is missing")
+
+          entitlements = profile.get("Entitlements")
+          if not isinstance(entitlements, dict):
+              fail("profile Entitlements are missing")
+
+          bundle_id = bundle_ids.get(role)
+          if bundle_id is None:
+              fail("unknown target role")
+
+          if entitlements.get("com.apple.application-identifier") != f"{team}.{bundle_id}":
+              fail("application identifier does not match the target")
+          if not authorized(app_group, entitlements.get("com.apple.security.application-groups")):
+              fail("registered App Group is not authorized")
+          if not authorized(keychain_group, entitlements.get("keychain-access-groups")):
+              fail("shared Keychain group is not authorized")
+
+          expiration = profile.get("ExpirationDate")
+          if not isinstance(expiration, datetime.datetime):
+              fail("ExpirationDate is missing")
+          if expiration.tzinfo is None:
+              expiration = expiration.replace(tzinfo=datetime.timezone.utc)
+          if expiration <= datetime.datetime.now(datetime.timezone.utc):
+              fail("profile is expired")
+
+          print(uuid)
+          PY
+            )"; then
+              echo "::error::$label profile failed the authorization preflight checks"
+              return 1
+            fi
+            if [[ ! "$PROFILE_UUID" =~ $UUID_PATTERN ]]; then
+              echo "::error::$label profile has a missing or unsafe UUID"
+              return 1
+            fi
+
+            installed="$INSTALL_DIR/$PROFILE_UUID.provisionprofile"
+            if [ -e "$installed" ]; then
+              if ! cmp -s "$temp_profile" "$installed"; then
+                echo "::error::$label profile UUID $PROFILE_UUID already exists with different contents; refusing to overwrite"
+                return 1
+              fi
+              echo "::notice::$label profile $PROFILE_UUID is already installed with identical contents; reusing it"
+            else
+              cp "$temp_profile" "$installed"
+              printf '%s\n' "$installed" >> "$MANIFEST"
+              chmod 600 "$installed"
+              echo "::notice::Installed $label profile $PROFILE_UUID"
+            fi
+          }
+
+          install_profile "$HOLEBERRY_APP_PROFILE" "app"
+          APP_UUID="$PROFILE_UUID"
+          install_profile "$HOLEBERRY_WIDGET_PROFILE" "widget"
+          WIDGET_UUID="$PROFILE_UUID"
+
+          echo "app_uuid=$APP_UUID" >> "$GITHUB_OUTPUT"
+          echo "widget_uuid=$WIDGET_UUID" >> "$GITHUB_OUTPUT"
+          echo "::notice::Using app profile $APP_UUID and widget profile $WIDGET_UUID"
+
       - name: Prepare notarization credentials
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -117,13 +255,16 @@ jobs:
         env:
           HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
           HOLEBERRY_CODE_SIGN_IDENTITY: ${{ secrets.HOLEBERRY_CODE_SIGN_IDENTITY }}
+          HOLEBERRY_APP_PROVISIONING_PROFILE_SPECIFIER: ${{ steps.profiles.outputs.app_uuid }}
+          HOLEBERRY_WIDGET_PROVISIONING_PROFILE_SPECIFIER: ${{ steps.profiles.outputs.widget_uuid }}
         run: |
           set -euo pipefail
           xcodegen generate
-          APP_PATH="build/Build/Products/Release/Holeberry.app"
 
           # Developer ID signing with the certificate imported above — required
-          # for notarized distribution outside the Mac App Store.
+          # for notarized distribution outside the Mac App Store. Each target
+          # selects its own profile UUID; a single global profile would conflict
+          # with the embedded widget extension.
           #
           # CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO: Xcode 26 injects the
           # restricted com.apple.security.get-task-allow entitlement into
@@ -144,7 +285,9 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             DEVELOPMENT_TEAM="$HOLEBERRY_TEAM_ID" \
-            CODE_SIGN_IDENTITY="$HOLEBERRY_CODE_SIGN_IDENTITY"
+            CODE_SIGN_IDENTITY="$HOLEBERRY_CODE_SIGN_IDENTITY" \
+            HOLEBERRY_APP_PROVISIONING_PROFILE_SPECIFIER="$HOLEBERRY_APP_PROVISIONING_PROFILE_SPECIFIER" \
+            HOLEBERRY_WIDGET_PROVISIONING_PROFILE_SPECIFIER="$HOLEBERRY_WIDGET_PROVISIONING_PROFILE_SPECIFIER"
 
       - name: Re-sign nested Sparkle code
         env:
@@ -182,17 +325,179 @@ jobs:
           done
           echo "::notice::Nested Sparkle code re-signed and audited"
 
+      - name: Assert signed app/widget metadata and entitlements
+        env:
+          HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          python3 - "build/Build/Products/Release/Holeberry.app" "$HOLEBERRY_TEAM_ID" <<'PY'
+          import datetime
+          import plistlib
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          app_path = Path(sys.argv[1])
+          team = sys.argv[2]
+          widget_path = app_path / "Contents/PlugIns/HoleberryWidgets.appex"
+          app_group = "group.me.pedrovieira.holeberry"
+          keychain_group = f"{team}.me.pedrovieira.holeberry.shared"
+          roles = {
+              "app": (app_path, "me.pedrovieira.holeberry"),
+              "widget": (widget_path, "me.pedrovieira.holeberry.widgets"),
+          }
+
+
+          def fail(role, message):
+              print(f"::error::{role}: {message}", file=sys.stderr)
+              raise SystemExit(1)
+
+
+          def authorized(value, patterns):
+              return isinstance(patterns, list) and any(
+                  isinstance(pattern, str)
+                  and (
+                      pattern == "*"
+                      or pattern == value
+                      or (pattern.endswith("*") and value.startswith(pattern[:-1]))
+                  )
+                  for pattern in patterns
+              )
+
+
+          def load_plist_command(command, role, label):
+              result = subprocess.run(command, capture_output=True)
+              if result.returncode != 0:
+                  fail(role, f"cannot read {label}")
+              try:
+                  value = plistlib.loads(result.stdout)
+              except Exception:
+                  fail(role, f"{label} is not a valid plist")
+              if not isinstance(value, dict):
+                  fail(role, f"{label} is not a dictionary")
+              return value
+
+
+          versions = {}
+          for role, (bundle_path, bundle_id) in roles.items():
+              profile_path = bundle_path / "Contents/embedded.provisionprofile"
+              if not profile_path.is_file():
+                  fail(role, "embedded provisioning profile is missing")
+              profile = load_plist_command(
+                  ["security", "cms", "-D", "-i", str(profile_path)],
+                  role,
+                  "embedded profile",
+              )
+              profile_entitlements = profile.get("Entitlements")
+              if not isinstance(profile_entitlements, dict):
+                  fail(role, "profile Entitlements are missing")
+              expected_app_id = f"{team}.{bundle_id}"
+              profile_teams = profile.get("TeamIdentifier")
+              if not isinstance(profile_teams, list) or team not in profile_teams:
+                  fail(role, "profile team does not match")
+              if profile_entitlements.get("com.apple.application-identifier") != expected_app_id:
+                  fail(role, "profile application identifier does not match")
+              if not authorized(
+                  app_group,
+                  profile_entitlements.get("com.apple.security.application-groups"),
+              ):
+                  fail(role, "profile does not authorize the registered App Group")
+              if not authorized(
+                  keychain_group,
+                  profile_entitlements.get("keychain-access-groups"),
+              ):
+                  fail(role, "profile does not authorize the shared Keychain group")
+              expiration = profile.get("ExpirationDate")
+              if not isinstance(expiration, datetime.datetime):
+                  fail(role, "profile expiration date is missing")
+              if expiration.tzinfo is None:
+                  expiration = expiration.replace(tzinfo=datetime.timezone.utc)
+              if expiration <= datetime.datetime.now(datetime.timezone.utc):
+                  fail(role, "profile is expired")
+
+              actual = load_plist_command(
+                  [
+                      "codesign",
+                      "-d",
+                      "--entitlements",
+                      "-",
+                      "--xml",
+                      str(bundle_path),
+                  ],
+                  role,
+                  "signed entitlements",
+              )
+              if actual.get("com.apple.application-identifier") != expected_app_id:
+                  fail(role, "signed application identifier does not match")
+              if app_group not in actual.get("com.apple.security.application-groups", []):
+                  fail(role, "signed App Group is missing")
+              if keychain_group not in actual.get("keychain-access-groups", []):
+                  fail(role, "signed concrete Keychain group is missing")
+              for key in ("get-task-allow", "com.apple.security.get-task-allow"):
+                  if key in actual:
+                      fail(role, "signed entitlements contain a debug entitlement")
+              if role == "widget":
+                  if actual.get("com.apple.security.app-sandbox") is not True:
+                      fail(role, "widget sandbox entitlement is missing")
+                  if actual.get("com.apple.security.network.client") is not True:
+                      fail(role, "widget network entitlement is missing")
+
+              info_path = bundle_path / "Contents/Info.plist"
+              try:
+                  with open(info_path, "rb") as handle:
+                      info = plistlib.load(handle)
+              except Exception:
+                  fail(role, "built Info.plist is not readable")
+              if info.get("CFBundleIdentifier") != bundle_id:
+                  fail(role, "built bundle identifier does not match")
+              if info.get("HoleberryAppGroupIdentifier") != app_group:
+                  fail(role, "built App Group marker is incorrect")
+              if info.get("HoleberryKeychainAccessGroup") != keychain_group:
+                  fail(role, "built Keychain marker is not the expected concrete team-prefixed value")
+              marketing = info.get("CFBundleShortVersionString")
+              build = info.get("CFBundleVersion")
+              if (
+                  not isinstance(marketing, str)
+                  or not marketing
+                  or not isinstance(build, str)
+                  or not build
+              ):
+                  fail(role, "built version metadata is missing")
+              versions[role] = (marketing, build)
+
+          if versions["app"] != versions["widget"]:
+              print("::error::app and widget built versions do not match", file=sys.stderr)
+              raise SystemExit(1)
+          print(
+              f"::notice::Signed app/widget metadata valid "
+              f"(version {versions['app'][0]} build {versions['app'][1]})"
+          )
+          PY
+
       - name: Verify release tag matches app version
         run: |
           set -euo pipefail
-          APP_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
-            "build/Build/Products/Release/Holeberry.app/Contents/Info.plist")
+          APP_PATH="build/Build/Products/Release/Holeberry.app"
+          APP_INFO="$APP_PATH/Contents/Info.plist"
+          WIDGET_INFO="$APP_PATH/Contents/PlugIns/HoleberryWidgets.appex/Contents/Info.plist"
+          APP_MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_INFO")
+          APP_BUILD_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_INFO")
+          WIDGET_MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$WIDGET_INFO")
+          WIDGET_BUILD_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$WIDGET_INFO")
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$APP_VERSION" != "$TAG_VERSION" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match app version $APP_VERSION — bump CFBundleShortVersionString in project.yml before tagging"
+          if [ "$APP_MARKETING_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match app marketing version $APP_MARKETING_VERSION — bump MARKETING_VERSION in project.yml before tagging"
             exit 1
           fi
-          echo "::notice::Tag and app version match ($APP_VERSION)"
+          if [ "$WIDGET_MARKETING_VERSION" != "$APP_MARKETING_VERSION" ]; then
+            echo "::error::Widget marketing version $WIDGET_MARKETING_VERSION does not match app marketing version $APP_MARKETING_VERSION"
+            exit 1
+          fi
+          if [ "$WIDGET_BUILD_VERSION" != "$APP_BUILD_VERSION" ]; then
+            echo "::error::Widget build version $WIDGET_BUILD_VERSION does not match app build version $APP_BUILD_VERSION"
+            exit 1
+          fi
+          echo "::notice::Tag, app, and widget versions match (marketing $APP_MARKETING_VERSION, build $APP_BUILD_VERSION)"
 
       - name: Notarize app
         env:
@@ -407,8 +712,35 @@ jobs:
       - name: Clean up signing credentials
         if: always()
         run: |
-          rm -f /tmp/holeberry-cert.p12 /tmp/holeberry-apple-api-key.p8 /tmp/holeberry-app.zip
+          # Keep going even if an individual cleanup fails so the certificate,
+          # API key, keychain, and profile files are all attempted, then report
+          # the last captured failure status.
+          set -uo pipefail
+          STATUS=0
+          INSTALL_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          MANIFEST="$RUNNER_TEMP/holeberry-installed-profiles.txt"
+          if [ -f "$MANIFEST" ]; then
+            while IFS= read -r profile; do
+              [ -n "$profile" ] || continue
+              case "$profile" in
+                "$INSTALL_DIR"/*)
+                  rm -f "$profile" || STATUS=$?
+                  ;;
+                *)
+                  echo "::error::refusing to remove a profile outside the install directory: $profile"
+                  STATUS=1
+                  ;;
+              esac
+            done < "$MANIFEST"
+            rm -f "$MANIFEST" || STATUS=$?
+          fi
+          rm -rf "$RUNNER_TEMP"/holeberry-profiles.* || STATUS=$?
+          rm -f /tmp/holeberry-cert.p12 /tmp/holeberry-apple-api-key.p8 /tmp/holeberry-app.zip || STATUS=$?
           security delete-keychain build.keychain-db 2>/dev/null || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::error::Signing material cleanup failed (exit $STATUS) after attempting to remove the certificate, API key, and keychain"
+            exit "$STATUS"
+          fi
           echo "::notice::Signing material cleaned up"
 
   # ------------------------------------------------------------- publish ---

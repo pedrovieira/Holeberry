@@ -5,6 +5,8 @@ struct ConnectionListView: View {
   let serverManager: PiholeServerManager
   @ObservedObject var discoveryService: PiholeDiscoveryService
   @ObservedObject var statusPoller: ServerStatusPoller
+  let widgetSetupMessage: String?
+  let storageUnavailable: Bool
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: ServerConfig?
@@ -53,90 +55,104 @@ struct ConnectionListView: View {
   }
 
   var body: some View {
-    // --- Section 1: Existing connections ---
-    Section {
-      ForEach(statusPoller.servers) { server in
-        connectionRow(for: server)
-      }
-
-      if statusPoller.servers.count < 2 {
-        Button {
-          sheetMode = .add(prefillURL: nil)
-        } label: {
-          Label("New Connection", systemImage: "plus.circle")
-            .font(.system(size: 12))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+    Group {
+      if let widgetSetupMessage {
+        Section {
+          Label(widgetSetupMessage, systemImage: "rectangle.3.group")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.plain)
-        .foregroundColor(.accentColor)
-        .padding(.vertical, 4)
       }
 
-      if statusPoller.servers.count >= 2 {
-        HStack(spacing: 6) {
-          Image(systemName: "plus")
-          Text("Maximum connections reached")
+      // --- Section 1: Existing connections ---
+      Section {
+        ForEach(statusPoller.servers) { server in
+          connectionRow(for: server)
         }
-        .font(.system(size: 11))
-        .foregroundColor(.secondary)
-        .opacity(0.4)
-        .allowsHitTesting(false)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 4)
-      }
-    } header: {
-      VStack(alignment: .leading, spacing: 4) {
-        Text("Your Pi-hole connections")
-          .font(.headline)
-        Text("Add and manage Pi-hole instances. Max 2 connections.")
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-      }
-      .textCase(nil)
-      .padding(.bottom, 4)
-    }
 
-    // --- Section 2: Instances Found ---
-    Section {
-      if statusPoller.servers.count >= 2 {
-        Text("All connection slots filled")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-          .frame(height: 30)
-      } else if discoveryService.isScanning && filteredInstances.isEmpty {
-        Text("Scanning your network...")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-          .frame(height: 30)
-      } else if !discoveryService.isScanning && filteredInstances.isEmpty {
-        Text("No Pi-hole instances found")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-          .frame(height: 30)
-      } else {
-        ForEach(filteredInstances) { instance in
-          DiscoveredRow(instance: instance) {
-            sheetMode = .add(prefillURL: "http://\(instance.addr)")
+        if statusPoller.servers.count < 2 {
+          Button {
+            sheetMode = .add(prefillURL: nil)
+          } label: {
+            Label("New Connection", systemImage: "plus.circle")
+              .font(.system(size: 12))
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .contentShape(Rectangle())
           }
+          .buttonStyle(.plain)
+          .foregroundColor(.accentColor)
+          .padding(.vertical, 4)
+          .disabled(storageUnavailable)
         }
-      }
-    } header: {
-      HStack {
-        Text("Available Instances")
-          .font(.headline)
-        Spacer()
-        if discoveryService.isScanning {
-          ProgressView()
-            .controlSize(.small)
+
+        if statusPoller.servers.count >= 2 {
+          HStack(spacing: 6) {
+            Image(systemName: "plus")
+            Text("Maximum connections reached")
+          }
+          .font(.system(size: 11))
+          .foregroundColor(.secondary)
+          .opacity(0.4)
+          .allowsHitTesting(false)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.vertical, 4)
         }
-      }
-      .textCase(nil)
-    } footer: {
-      Text("Scans your local network and DNS servers when you visit this tab.")
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
+      } header: {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Your Pi-hole connections")
+            .font(.headline)
+          Text("Add and manage Pi-hole instances. Max 2 connections.")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
         .textCase(nil)
+        .padding(.bottom, 4)
+      }
+
+      // --- Section 2: Instances Found ---
+      if !storageUnavailable {
+        Section {
+          if statusPoller.servers.count >= 2 {
+            Text("All connection slots filled")
+              .font(.system(size: 11))
+              .foregroundColor(.secondary)
+              .frame(height: 30)
+          } else if discoveryService.isScanning && filteredInstances.isEmpty {
+            Text("Scanning your network...")
+              .font(.system(size: 11))
+              .foregroundColor(.secondary)
+              .frame(height: 30)
+          } else if !discoveryService.isScanning && filteredInstances.isEmpty {
+            Text("No Pi-hole instances found")
+              .font(.system(size: 11))
+              .foregroundColor(.secondary)
+              .frame(height: 30)
+          } else {
+            ForEach(filteredInstances) { instance in
+              DiscoveredRow(instance: instance) {
+                sheetMode = .add(prefillURL: "http://\(instance.addr)")
+              }
+            }
+          }
+        } header: {
+          HStack {
+            Text("Available Instances")
+              .font(.headline)
+            Spacer()
+            if discoveryService.isScanning {
+              ProgressView()
+                .controlSize(.small)
+            }
+          }
+          .textCase(nil)
+        } footer: {
+          Text("Scans your local network and DNS servers when you visit this tab.")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .textCase(nil)
+        }
+      }
     }
 
     // --- Modals ---
@@ -162,12 +178,12 @@ struct ConnectionListView: View {
     // --- Lifecycle ---
     .task {
       statusPoller.pollNow()
-      if statusPoller.servers.count < 2 {
+      if statusPoller.servers.count < 2 && !storageUnavailable {
         await discoveryService.scan()
       }
     }
     .onChange(of: statusPoller.servers.count) {
-      guard statusPoller.servers.count < 2 else { return }
+      guard statusPoller.servers.count < 2, !storageUnavailable else { return }
       Task { await discoveryService.scan() }
     }
     .onChange(of: sheetMode) { _, newMode in

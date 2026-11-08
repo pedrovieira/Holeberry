@@ -47,6 +47,8 @@ struct SettingsView: View {
   let discoveryService: PiholeDiscoveryService
   let statusPoller: ServerStatusPoller
   let notificationCoordinator: NotificationCoordinator
+  let widgetSetupMessage: String?
+  let storageUnavailable: Bool
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
@@ -59,13 +61,17 @@ struct SettingsView: View {
     defaultsSuite: UserDefaults = .standard,
     discoveryService: PiholeDiscoveryService,
     statusPoller: ServerStatusPoller,
-    notificationCoordinator: NotificationCoordinator
+    notificationCoordinator: NotificationCoordinator,
+    widgetSetupMessage: String? = nil,
+    storageUnavailable: Bool = false
   ) {
     self.serverManager = serverManager
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
     self.notificationCoordinator = notificationCoordinator
+    self.widgetSetupMessage = widgetSetupMessage
+    self.storageUnavailable = storageUnavailable
     self.defaultsSuite = defaultsSuite
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
     _browserTabUnblockEnabled = .init(.browserTabUnblockEnabled(suite: defaultsSuite))
@@ -101,7 +107,9 @@ struct SettingsView: View {
           ConnectionListView(
             serverManager: serverManager,
             discoveryService: discoveryService,
-            statusPoller: statusPoller
+            statusPoller: statusPoller,
+            widgetSetupMessage: widgetSetupMessage,
+            storageUnavailable: storageUnavailable
           )
         }
         .formStyle(.grouped)

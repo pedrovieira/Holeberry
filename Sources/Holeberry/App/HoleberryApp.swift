@@ -5,6 +5,7 @@ import HoleberryCore
 import OSLog
 import Sparkle
 import SwiftUI
+import WidgetKit
 
 @main
 struct HoleberryApp: App {
@@ -37,20 +38,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // Sparkle references its user-driver delegate weakly; keep it alive here.
   private var gentleUpdateReminderDelegate: GentleUpdateReminderDelegate?
   private var settingsWindowController: SettingsWindowController?
+  private var pendingOpenSettingsFromWidget = false
 
   // MARK: - Composition Root (lazy var dependency graph)
 
-  private lazy var keychain = KeychainManager()
+  private lazy var appStorage = makeAppStorageContext()
   private lazy var authFactory = ConcreteAuthSessionFactory()
   private lazy var serviceFactory = ConcretePiholeServiceFactory(
     authSessionFactory: authFactory
   )
   private lazy var versionDetector = PiholeVersionDetector()
   private lazy var serverManager = PiholeServerManager(
-    keychain: keychain,
+    keychain: appStorage.keychain,
     serviceFactory: serviceFactory,
-    versionDetector: versionDetector
-  )
+    versionDetector: versionDetector,
+    suite: appStorage.suite
+  ) {
+    WidgetCenter.shared.reloadAllTimelines()
+  }
   private lazy var localIPResolver = LocalIPAddressResolver()
   private lazy var dnsServerResolver = EffectiveDNSServerResolver()
   private lazy var pollScheduler = TaskPollScheduler()
@@ -88,6 +93,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // swiftlint:disable:next function_body_length
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
+
+    if appStorage.didMigrate {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
 
     let notificationCoordinator = NotificationCoordinator(
       defaultsSuite: .standard,
@@ -145,9 +154,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       updater: updaterController.updater,
       discoveryService: discoveryService,
       statusPoller: statusPoller,
-      notificationCoordinator: notificationCoordinator
+      notificationCoordinator: notificationCoordinator,
+      widgetSetupMessage: appStorage.widgetSetupMessage,
+      storageUnavailable: appStorage.storageUnavailable
     )
     self.settingsWindowController = settingsWindowController
+
+    if pendingOpenSettingsFromWidget {
+      pendingOpenSettingsFromWidget = false
+      settingsWindowController.showWindow()
+    }
 
     statusPoller.startPolling()
 
@@ -193,6 +209,96 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private func requestNotificationAuthorizationIfNeeded() {
     guard !serverManager.servers.isEmpty else { return }
     notificationCoordinator?.requestAuthorizationIfNeeded()
+  }
+
+  /// A deliberate widget click opens the settings window instead of the hidden
+  /// WindowGroup used to keep the SwiftUI app alive.
+  func application(_ application: NSApplication, open urls: [URL]) {
+    guard urls.contains(where: { $0.scheme == "holeberry" }) else { return }
+    if let settingsWindowController {
+      settingsWindowController.showWindow()
+    } else {
+      pendingOpenSettingsFromWidget = true
+    }
+  }
+
+  private func makeAppStorageContext() -> AppStorageContext {
+    let legacySuite: UserDefaults = .standard
+    let legacyKeychain = KeychainManager()
+    let selection = AppStorageStartup.select(
+      isActivated: Defaults[.sharedStorageActivated(suite: legacySuite)],
+      resolve: {
+        do {
+          return try SharedAppStorage(bundle: .main)
+        } catch {
+          logger.error("Shared storage resolution failed: \(error.localizedDescription, privacy: .public)")
+          throw error
+        }
+      },
+      migrate: { storage in
+        do {
+          try SharedStorageMigration(
+            legacySuite: legacySuite,
+            sharedSuite: storage.suite,
+            legacyKeychain: legacyKeychain,
+            sharedKeychain: makeSharedKeychain(for: storage)
+          ).migrate()
+        } catch {
+          logger.error("Shared storage migration failed: \(error.localizedDescription, privacy: .public)")
+          throw error
+        }
+      },
+      markActivated: {
+        Defaults[.sharedStorageActivated(suite: legacySuite)] = true
+      }
+    )
+
+    switch selection {
+    case .useShared(let storage, let didMigrate):
+      return AppStorageContext(
+        suite: storage.suite,
+        keychain: SharedCredentialKeychain(
+          shared: makeSharedKeychain(for: storage),
+          legacy: legacyKeychain
+        ),
+        widgetSetupMessage: nil,
+        didMigrate: didMigrate,
+        storageUnavailable: false
+      )
+    case .useLegacy:
+      return AppStorageContext(
+        suite: legacySuite,
+        keychain: legacyKeychain,
+        widgetSetupMessage:
+          "Widget setup unavailable. Your servers still work here; Holeberry will retry at the next launch.",
+        didMigrate: false,
+        storageUnavailable: false
+      )
+    case .unavailable:
+      return AppStorageContext(
+        suite: UnavailableDefaults.shared,
+        keychain: UnavailableKeychain(),
+        widgetSetupMessage:
+          "Saved storage unavailable. Your server settings were not changed. Quit and reopen Holeberry.",
+        didMigrate: false,
+        storageUnavailable: true
+      )
+    }
+  }
+
+  private func makeSharedKeychain(for storage: SharedAppStorage) -> KeychainManager {
+    KeychainManager.shared(
+      accessGroup: storage.configuration.keychainAccessGroup,
+      interactive: true
+    )
+  }
+
+  private struct AppStorageContext {
+    let suite: UserDefaults
+    let keychain: any KeychainManaging
+    let widgetSetupMessage: String?
+    let didMigrate: Bool
+    let storageUnavailable: Bool
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

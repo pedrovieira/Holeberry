@@ -16,6 +16,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let suite: UserDefaults
   private let executionMode: ServiceExecutionMode
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
+  /// Called after a persisted server or credential change.
+  private let persistentChangeHandler: () -> Void
   private var services: [UUID: any PiholeServiceProviding] = [:]
   private struct UnblockKey: Hashable {
     let serverID: UUID
@@ -28,13 +30,15 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
     suite: UserDefaults = .standard,
-    executionMode: ServiceExecutionMode = .application
+    executionMode: ServiceExecutionMode = .application,
+    persistentChangeHandler: @escaping () -> Void = {}
   ) {
     self.keychain = keychain
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
     self.suite = suite
     self.executionMode = executionMode
+    self.persistentChangeHandler = persistentChangeHandler
     self.servers = []
     loadServers()
   }
@@ -93,6 +97,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     saveServers()
 
     logger.info("Added server: \(config.label ?? config.url, privacy: .public)")
+    persistentChangeHandler()
   }
 
   public func updateServer(
@@ -142,6 +147,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     syncConfigs()
     saveServers()
     logger.info("Updated server: \(label ?? url, privacy: .public)")
+    persistentChangeHandler()
   }
 
   /// Validates a new credential against the server without persisting anything.
@@ -180,6 +186,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func deleteServer(id: UUID) {
+    let hadServer = servers.contains { $0.id == id }
     servers.removeAll { $0.id == id }
     saveServers()
     try? keychain.deleteCredential(for: id)
@@ -187,6 +194,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       Task { await service.logout() }
     }
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
+    if hadServer {
+      persistentChangeHandler()
+    }
   }
 
   // MARK: - Helpers
@@ -341,6 +351,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     services[id]?.version = version
     syncConfigs()
     saveServers()
+    persistentChangeHandler()
   }
 
   // MARK: - Session Management

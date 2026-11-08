@@ -82,4 +82,22 @@ struct DefaultsPersistenceTests {
     )
     #expect(manager.servers.isEmpty)
   }
+
+  @Test func sharedStorageMigrationVersionDefaultsToZero() {
+    let suite = TestDefaults.makeSuite()
+
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: suite)] == 0)
+
+    Defaults[.sharedStorageMigrationVersion(suite: suite)] = 1
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: suite)] == 1)
+  }
+
+  @Test func sharedStorageActivatedDefaultsToFalse() {
+    let suite = TestDefaults.makeSuite()
+
+    #expect(Defaults[.sharedStorageActivated(suite: suite)] == false)
+
+    Defaults[.sharedStorageActivated(suite: suite)] = true
+    #expect(Defaults[.sharedStorageActivated(suite: suite)] == true)
+  }
 }

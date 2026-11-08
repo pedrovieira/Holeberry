@@ -106,4 +106,58 @@ extension Defaults.Keys {
   ) -> Defaults.Key<Date?> {
     Defaults.Key<Date?>("gravityUpdateNextDue", default: nil, suite: suite)
   }
+
+  /// Version of the verified legacy-to-shared storage migration completed in
+  /// the App Group suite. Zero means migration has not completed.
+  public static func sharedStorageMigrationVersion(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageMigrationVersion", default: 0, suite: suite)
+  }
+
+  /// Local metadata marker remembering that this app successfully activated the
+  /// shared stores. Stored in the standard suite so it survives a later group
+  /// resolution failure; it never contains configuration.
+  public static func sharedStorageActivated(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Bool> {
+    Defaults.Key<Bool>("sharedStorageActivated", default: false, suite: suite)
+  }
+}
+
+enum DefaultsValueValidationError: Error, Equatable {
+  case malformedValue(String)
+}
+
+extension Defaults.Keys {
+  /// Decodes a stored array through the Defaults bridge without accepting
+  /// partial results. A present value that loses elements during decoding
+  /// throws instead of becoming an empty or partial array.
+  static func strictlyDecodedArray<Element: Defaults.Serializable>(
+    _ key: Defaults.Key<[Element]>
+  ) throws -> [Element] {
+    guard let rawValue = key.suite.object(forKey: key.name) else { return [] }
+    guard let serializedElements = rawValue as? [Element.Serializable] else {
+      throw DefaultsValueValidationError.malformedValue(key.name)
+    }
+    guard
+      let decoded = [Element].bridge.deserialize(serializedElements),
+      decoded.count == serializedElements.count
+    else {
+      throw DefaultsValueValidationError.malformedValue(key.name)
+    }
+    return decoded
+  }
+}
+
+/// Empty, no-write suite used only when previously activated shared storage
+/// cannot be reopened. It must never read, contain, or mutate data. Keeping the
+/// adapter here makes every raw `UserDefaults` override live in this file.
+public final class UnavailableDefaults: UserDefaults, @unchecked Sendable {
+  public static let shared = UnavailableDefaults()
+
+  public override func object(forKey defaultName: String) -> Any? { nil }
+  public override func set(_ value: Any?, forKey defaultName: String) {}
+  public override func removeObject(forKey defaultName: String) {}
+  public override func register(defaults registrationDictionary: [String: Any]) {}
 }

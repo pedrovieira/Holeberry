@@ -8,8 +8,16 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
+    HOLEBERRY_APP_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry
+    MARKETING_VERSION: "1.2.0"
+    CURRENT_PROJECT_VERSION: "1.2.0"
     DEVELOPMENT_TEAM: "${HOLEBERRY_TEAM_ID}"
     "CODE_SIGN_IDENTITY[sdk=macosx*]": "${HOLEBERRY_CODE_SIGN_IDENTITY}"
+    # Historical automatic DEVELOPMENT signing selected a wildcard profile that
+    # did not authorize the registered App Group. This flag makes registered-group
+    # provisioning explicit for local/automatic signing. It was not verified to
+    # change manual Developer ID profile selection.
+    REGISTER_APP_GROUPS: YES
 
 packages:
   HoleberryCore:
@@ -33,8 +41,8 @@ targets:
     info:
       path: Sources/Holeberry/Support/Info.plist
       properties:
-        CFBundleShortVersionString: "1.2.0"
-        CFBundleVersion: "1.2.0"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSUIElement: true
         CFBundleIconFile: AppIcon
         NSLocalNetworkUsageDescription: Holeberry needs local network access to connect to your Pi-hole instances.
@@ -49,19 +57,28 @@ targets:
         SUPublicEDKey: "xqSTVnKmoOX+TbqHndinP0cEITTAKsrSGjnOFZO0TlM="
         SUEnableAutomaticChecks: true
         SUShowReleaseNotes: false
+        HoleberryAppGroupIdentifier: group.me.pedrovieira.holeberry
+        HoleberryKeychainAccessGroup: "$(AppIdentifierPrefix)me.pedrovieira.holeberry.shared"
+        HoleberryContainingAppIdentifier: "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)"
+        CFBundleURLTypes:
+          - CFBundleURLName: me.pedrovieira.holeberry
+            CFBundleURLSchemes:
+              - holeberry
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: Sources/Holeberry/Support/Holeberry.entitlements
-        PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry
+        PRODUCT_BUNDLE_IDENTIFIER: "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)"
         CODE_SIGN_STYLE: Automatic
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+        PROVISIONING_PROFILE_SPECIFIER: "$(HOLEBERRY_APP_PROVISIONING_PROFILE_SPECIFIER)"
     dependencies:
       - package: HoleberryCore
       - package: KeyboardShortcuts
       - package: SymbolPicker
       - package: Sparkle
+      - target: HoleberryWidgets
     preBuildScripts:
       - name: Run SwiftLint
         basedOnDependencyAnalysis: false
@@ -83,5 +100,39 @@ targets:
           else
             echo "warning: swift-format not found in Xcode toolchain"
           fi
+
+  HoleberryWidgets:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Sources/HoleberryWidgets
+    info:
+      path: Sources/HoleberryWidgets/Support/Info.plist
+      properties:
+        CFBundleDisplayName: Holeberry
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Allow cleartext HTTP to user-entered hosts (e.g. Pi-hole over Tailscale or another VPN).
+        # Do NOT add NSAllowsLocalNetworking: on macOS 10.12+ it makes ATS ignore NSAllowsArbitraryLoads.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        HoleberryAppGroupIdentifier: group.me.pedrovieira.holeberry
+        HoleberryKeychainAccessGroup: "$(AppIdentifierPrefix)me.pedrovieira.holeberry.shared"
+        HoleberryContainingAppIdentifier: "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.pedrovieira.holeberry.widgets
+        CODE_SIGN_ENTITLEMENTS: Sources/HoleberryWidgets/Support/HoleberryWidgets.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        SWIFT_VERSION: "6.0"
+        SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+        PROVISIONING_PROFILE_SPECIFIER: "$(HOLEBERRY_WIDGET_PROVISIONING_PROFILE_SPECIFIER)"
+    dependencies:
+      - package: HoleberryCore
 
 
