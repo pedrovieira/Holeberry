@@ -10,7 +10,6 @@ final class SettingsWindowController: NSWindowController {
   private var updater: SPUUpdater?
   private let statusPoller: ServerStatusPoller
   private let notificationCoordinator: NotificationCoordinator
-  private let widgetSetupMessage: String?
   private let storageUnavailable: Bool
   private var hasSetContentView = false
 
@@ -20,7 +19,6 @@ final class SettingsWindowController: NSWindowController {
     discoveryService: PiholeDiscoveryService,
     statusPoller: ServerStatusPoller,
     notificationCoordinator: NotificationCoordinator,
-    widgetSetupMessage: String? = nil,
     storageUnavailable: Bool = false,
     defaultsSuite: UserDefaults = .standard
   ) {
@@ -36,7 +34,6 @@ final class SettingsWindowController: NSWindowController {
     self.updater = updater
     self.statusPoller = statusPoller
     self.notificationCoordinator = notificationCoordinator
-    self.widgetSetupMessage = widgetSetupMessage
     self.storageUnavailable = storageUnavailable
     super.init(window: window)
     setupWindow()
@@ -76,7 +73,6 @@ final class SettingsWindowController: NSWindowController {
           discoveryService: discoveryService,
           statusPoller: statusPoller,
           notificationCoordinator: notificationCoordinator,
-          widgetSetupMessage: widgetSetupMessage,
           storageUnavailable: storageUnavailable
         )
       )

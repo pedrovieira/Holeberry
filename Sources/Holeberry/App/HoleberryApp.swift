@@ -155,7 +155,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       discoveryService: discoveryService,
       statusPoller: statusPoller,
       notificationCoordinator: notificationCoordinator,
-      widgetSetupMessage: appStorage.widgetSetupMessage,
       storageUnavailable: appStorage.storageUnavailable
     )
     self.settingsWindowController = settingsWindowController
@@ -225,23 +224,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private func makeAppStorageContext() -> AppStorageContext {
     let legacySuite: UserDefaults = .standard
     let legacyKeychain = KeychainManager()
+
+    let appGroupIdentifier: String
+    let keychainAccessGroup: String
+    do {
+      appGroupIdentifier = try Bundle.main.sharedAppGroupIdentifier()
+      keychainAccessGroup = try Bundle.main.sharedKeychainAccessGroup()
+    } catch {
+      logger.error("Shared storage configuration failed: \(error.localizedDescription, privacy: .public)")
+      return unavailableStorageContext()
+    }
+
+    let sharedKeychain = KeychainManager.shared(
+      accessGroup: keychainAccessGroup,
+      interactive: true
+    )
     let selection = AppStorageStartup.select(
       isActivated: Defaults[.sharedStorageActivated(suite: legacySuite)],
       resolve: {
-        do {
-          return try SharedAppStorage(bundle: .main)
-        } catch {
-          logger.error("Shared storage resolution failed: \(error.localizedDescription, privacy: .public)")
-          throw error
-        }
+        try UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier)
       },
-      migrate: { storage in
+      migrate: { sharedSuite in
         do {
           try SharedStorageMigration(
             legacySuite: legacySuite,
-            sharedSuite: storage.suite,
+            sharedSuite: sharedSuite,
+            sharedSuiteName: appGroupIdentifier,
             legacyKeychain: legacyKeychain,
-            sharedKeychain: makeSharedKeychain(for: storage)
+            sharedKeychain: sharedKeychain
           ).migrate()
         } catch {
           logger.error("Shared storage migration failed: \(error.localizedDescription, privacy: .public)")
@@ -254,49 +264,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     switch selection {
-    case .useShared(let storage, let didMigrate):
+    case .useShared(let suite, let didMigrate):
       return AppStorageContext(
-        suite: storage.suite,
-        keychain: SharedCredentialKeychain(
-          shared: makeSharedKeychain(for: storage),
-          legacy: legacyKeychain
-        ),
-        widgetSetupMessage: nil,
+        suite: suite,
+        keychain: sharedKeychain,
         didMigrate: didMigrate,
         storageUnavailable: false
       )
-    case .useLegacy:
-      return AppStorageContext(
-        suite: legacySuite,
-        keychain: legacyKeychain,
-        widgetSetupMessage:
-          "Widget setup unavailable. Your servers still work here; Holeberry will retry at the next launch.",
-        didMigrate: false,
-        storageUnavailable: false
-      )
     case .unavailable:
-      return AppStorageContext(
-        suite: UnavailableDefaults.shared,
-        keychain: UnavailableKeychain(),
-        widgetSetupMessage:
-          "Saved storage unavailable. Your server settings were not changed. Quit and reopen Holeberry.",
-        didMigrate: false,
-        storageUnavailable: true
-      )
+      logger.error("Shared storage unavailable; server changes are disabled for this launch.")
+      return unavailableStorageContext()
     }
   }
 
-  private func makeSharedKeychain(for storage: SharedAppStorage) -> KeychainManager {
-    KeychainManager.shared(
-      accessGroup: storage.configuration.keychainAccessGroup,
-      interactive: true
+  private func unavailableStorageContext() -> AppStorageContext {
+    AppStorageContext(
+      suite: UnavailableDefaults.shared,
+      keychain: UnavailableKeychain(),
+      didMigrate: false,
+      storageUnavailable: true
     )
   }
 
   private struct AppStorageContext {
     let suite: UserDefaults
     let keychain: any KeychainManaging
-    let widgetSetupMessage: String?
     let didMigrate: Bool
     let storageUnavailable: Bool
   }

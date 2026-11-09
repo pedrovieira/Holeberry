@@ -94,54 +94,6 @@ public final class KeychainManager: KeychainManaging {
   }
 }
 
-// MARK: - Shared Store With Legacy Cleanup
-
-/// Routes normal credential access to the shared store. Explicit deletion also
-/// removes the retained legacy item, but reads never fall back to legacy.
-public final class SharedCredentialKeychain: KeychainManaging {
-  private let shared: any KeychainManaging
-  private let legacy: any KeychainManaging
-
-  public init(shared: any KeychainManaging, legacy: any KeychainManaging) {
-    self.shared = shared
-    self.legacy = legacy
-  }
-
-  public func saveCredential(_ credential: String, for serverID: UUID) throws {
-    try shared.saveCredential(credential, for: serverID)
-  }
-
-  public func readCredential(for serverID: UUID) throws -> String? {
-    try shared.readCredential(for: serverID)
-  }
-
-  public func deleteCredential(for serverID: UUID) throws {
-    var firstError: (any Error)?
-
-    do {
-      if try shared.readCredential(for: serverID) != nil {
-        try shared.deleteCredential(for: serverID)
-      }
-    } catch {
-      firstError = error
-    }
-
-    do {
-      if try legacy.readCredential(for: serverID) != nil {
-        try legacy.deleteCredential(for: serverID)
-      }
-    } catch {
-      if firstError == nil {
-        firstError = error
-      }
-    }
-
-    if let firstError {
-      throw firstError
-    }
-  }
-}
-
 // MARK: - Unavailable Store
 
 public enum UnavailableKeychainError: Error, Equatable {

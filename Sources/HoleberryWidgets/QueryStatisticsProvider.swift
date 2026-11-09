@@ -48,11 +48,32 @@ struct QueryStatisticsProvider: TimelineProvider {
 
   @MainActor
   private func loadEntry(now: Date) async -> QueryStatisticsEntry {
-    guard let storage = activeStorage() else {
+    guard
+      let appGroupIdentifier = try? Bundle.main.sharedAppGroupIdentifier(),
+      let keychainAccessGroup = try? Bundle.main.sharedKeychainAccessGroup(),
+      let suite = try? UserDefaults.sharedStorageSuite(
+        appGroupIdentifier: appGroupIdentifier
+      )
+    else {
+      return .setupRequired(now: now)
+    }
+    _ = suite.synchronize()
+    guard SharedStorageMigration.isComplete(in: suite) else {
       return .setupRequired(now: now)
     }
 
-    let manager = makeManager(for: storage)
+    let manager = PiholeServerManager(
+      keychain: KeychainManager.shared(
+        accessGroup: keychainAccessGroup,
+        interactive: false
+      ),
+      serviceFactory: ConcretePiholeServiceFactory(
+        authSessionFactory: ConcreteAuthSessionFactory()
+      ),
+      versionDetector: PiholeVersionDetector(),
+      suite: suite,
+      executionMode: .onDemand
+    )
     let snapshot = scopedIdentities(manager.servers)
     guard !snapshot.isEmpty else {
       return noMatchingServerEntry(now: now)
@@ -64,9 +85,9 @@ struct QueryStatisticsProvider: TimelineProvider {
     let observedAt = Date()
     logSummaryFailures(results)
     await manager.logoutAll()
-    _ = storage.suite.synchronize()
+    _ = suite.synchronize()
 
-    let current = scopedIdentities(Defaults[.servers(suite: storage.suite)])
+    let current = scopedIdentities(Defaults[.servers(suite: suite)])
     guard current == snapshot else {
       return changedConfigurationEntry(servers: current)
     }
@@ -123,35 +144,6 @@ struct QueryStatisticsProvider: TimelineProvider {
     case .invalidDomain, .unknown, .unsupported:
       return "other"
     }
-  }
-
-  @MainActor
-  private func activeStorage() -> SharedAppStorage? {
-    guard let storage = try? SharedAppStorage(bundle: .main) else {
-      return nil
-    }
-    _ = storage.suite.synchronize()
-    guard SharedStorageMigration.isComplete(in: storage.suite) else {
-      return nil
-    }
-    return storage
-  }
-
-  @MainActor
-  private func makeManager(for storage: SharedAppStorage) -> PiholeServerManager {
-    let sharedKeychain = KeychainManager.shared(
-      accessGroup: storage.configuration.keychainAccessGroup,
-      interactive: false
-    )
-    return PiholeServerManager(
-      keychain: sharedKeychain,
-      serviceFactory: ConcretePiholeServiceFactory(
-        authSessionFactory: ConcreteAuthSessionFactory()
-      ),
-      versionDetector: PiholeVersionDetector(),
-      suite: storage.suite,
-      executionMode: .onDemand
-    )
   }
 
   private func noMatchingServerEntry(now: Date) -> QueryStatisticsEntry {

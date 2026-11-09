@@ -6,111 +6,6 @@ import Testing
 
 private struct SharedStorageTestError: Error, Equatable {}
 
-@Suite("SharedAppStorage")
-@MainActor
-struct SharedAppStorageTests {
-  @Test func configurationReadsRequiredInfoValues() throws {
-    let configuration = try SharedAppStorageConfiguration(infoDictionary: [
-      SharedAppStorage.appGroupIdentifierInfoKey: "group.me.example.tests",
-      SharedAppStorage.keychainAccessGroupInfoKey: "TEAMID.me.example.tests.shared"
-    ])
-
-    #expect(configuration.appGroupIdentifier == "group.me.example.tests")
-    #expect(configuration.keychainAccessGroup == "TEAMID.me.example.tests.shared")
-  }
-
-  @Test func missingAppGroupValueThrows() {
-    #expect(
-      throws: SharedAppStorageError.missingInfoValue(SharedAppStorage.appGroupIdentifierInfoKey)
-    ) {
-      try SharedAppStorageConfiguration(infoDictionary: [
-        SharedAppStorage.keychainAccessGroupInfoKey: "TEAMID.me.example.tests.shared"
-      ])
-    }
-  }
-
-  @Test func missingKeychainGroupValueThrows() {
-    #expect(
-      throws: SharedAppStorageError.missingInfoValue(SharedAppStorage.keychainAccessGroupInfoKey)
-    ) {
-      try SharedAppStorageConfiguration(infoDictionary: [
-        SharedAppStorage.appGroupIdentifierInfoKey: "group.me.example.tests"
-      ])
-    }
-  }
-
-  @Test func unresolvedBuildSubstitutionThrows() {
-    #expect(
-      throws: SharedAppStorageError.invalidInfoValue(SharedAppStorage.keychainAccessGroupInfoKey)
-    ) {
-      try SharedAppStorageConfiguration(infoDictionary: [
-        SharedAppStorage.appGroupIdentifierInfoKey: "group.me.example.tests",
-        SharedAppStorage.keychainAccessGroupInfoKey: "$(AppIdentifierPrefix)me.example.tests.shared"
-      ])
-    }
-  }
-
-  @Test func nonGroupAppGroupIdentifierThrows() {
-    #expect(
-      throws: SharedAppStorageError.invalidInfoValue(SharedAppStorage.appGroupIdentifierInfoKey)
-    ) {
-      try SharedAppStorageConfiguration(infoDictionary: [
-        SharedAppStorage.appGroupIdentifierInfoKey: "me.example.tests",
-        SharedAppStorage.keychainAccessGroupInfoKey: "TEAMID.me.example.tests.shared"
-      ])
-    }
-  }
-
-  @Test func publicResolverThrowsWhenGroupContainerIsUnavailable() throws {
-    let group = "group.me.example.\(UUID().uuidString)"
-    let bundle = try makeBundle(info: [
-      SharedAppStorage.appGroupIdentifierInfoKey: group,
-      SharedAppStorage.keychainAccessGroupInfoKey: "TEAMID.me.example.tests.shared"
-    ])
-
-    #expect(throws: SharedAppStorageError.unavailableAppGroupContainer(group)) {
-      _ = try SharedAppStorage(bundle: bundle)
-    }
-  }
-
-  @Test func injectedGroupStorageExposesSuiteAndContainer() throws {
-    let suite = TestDefaults.makeSuite()
-    let containerURL = FileManager.default.temporaryDirectory
-      .appendingPathComponent("HoleberrySharedStorageTests-\(UUID().uuidString)", isDirectory: true)
-    let configuration = SharedAppStorageConfiguration(
-      appGroupIdentifier: "group.me.example.tests",
-      keychainAccessGroup: "TEAMID.me.example.tests.shared"
-    )
-
-    let storage = SharedAppStorage(
-      configuration: configuration,
-      suite: suite,
-      containerURL: containerURL
-    )
-
-    #expect(storage.configuration == configuration)
-    #expect(storage.suite === suite)
-    #expect(storage.containerURL == containerURL)
-  }
-
-  private func makeBundle(info: [String: Any]) throws -> Bundle {
-    let root = FileManager.default.temporaryDirectory
-      .appendingPathComponent("HoleberryFakeBundle-\(UUID().uuidString).bundle", isDirectory: true)
-    let contents = root.appendingPathComponent("Contents", isDirectory: true)
-    try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
-
-    var plist: [String: Any] = [
-      "CFBundleIdentifier": "me.example.tests.fake",
-      "CFBundleName": "Fake",
-      "CFBundlePackageType": "BNDL"
-    ]
-    plist.merge(info) { _, new in new }
-    let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
-    try data.write(to: contents.appendingPathComponent("Info.plist"))
-    return try #require(Bundle(url: root))
-  }
-}
-
 @Suite("KeychainManager options")
 @MainActor
 struct KeychainManagerOptionsTests {
@@ -133,83 +28,27 @@ struct KeychainManagerOptionsTests {
   }
 }
 
-@Suite("SharedCredentialKeychain")
+@Suite("Defaults target verification")
 @MainActor
-struct SharedCredentialKeychainTests {
-  @Test func savesAndReadsOnlyTheSharedStore() throws {
-    let shared = MockKeychainManager()
-    let legacy = MockKeychainManager()
-    let id = UUID()
-    let keychain = SharedCredentialKeychain(shared: shared, legacy: legacy)
+struct DefaultsTargetVerificationTests {
+  @Test func registeredFallbackIsNotAPersistedValue() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    let key = Defaults.Keys.servers(suite: suite)
 
-    try keychain.saveCredential("shared-secret", for: id)
-
-    #expect(try keychain.readCredential(for: id) == "shared-secret")
-    #expect(shared.storedCredentials[id.uuidString] == "shared-secret")
-    #expect(legacy.storedCredentials[id.uuidString] == nil)
-  }
-
-  @Test func explicitDeletionClearsSharedAndRetainedLegacyItems() throws {
-    let shared = MockKeychainManager()
-    let legacy = MockKeychainManager()
-    let id = UUID()
-    try shared.saveCredential("shared-secret", for: id)
-    try legacy.saveCredential("legacy-secret", for: id)
-    let keychain = SharedCredentialKeychain(shared: shared, legacy: legacy)
-
-    try keychain.deleteCredential(for: id)
-
-    #expect(try shared.readCredential(for: id) == nil)
-    #expect(try legacy.readCredential(for: id) == nil)
-  }
-
-  @Test func readsNeverFallBackToLegacyAfterDeletion() throws {
-    let shared = MockKeychainManager()
-    let legacy = MockKeychainManager()
-    let id = UUID()
-    try shared.saveCredential("shared-secret", for: id)
-    try legacy.saveCredential("legacy-secret", for: id)
-    let keychain = SharedCredentialKeychain(shared: shared, legacy: legacy)
-
-    try keychain.deleteCredential(for: id)
-    try legacy.saveCredential("resurrected-secret", for: id)
-
-    #expect(try keychain.readCredential(for: id) == nil)
-  }
-
-  @Test func sharedDeletionFailureStillAttemptsLegacyCleanup() throws {
-    let shared = MockKeychainManager()
-    let legacy = MockKeychainManager()
-    let id = UUID()
-    try shared.saveCredential("shared-secret", for: id)
-    try legacy.saveCredential("legacy-secret", for: id)
-    shared.deleteErrorStub = SharedStorageTestError()
-    let keychain = SharedCredentialKeychain(shared: shared, legacy: legacy)
-
-    #expect(throws: SharedStorageTestError.self) {
-      try keychain.deleteCredential(for: id)
+    #expect(suite.object(forKey: key.name) != nil)
+    #expect(suite.persistentDomain(forName: name)?[key.name] == nil)
+    #expect(throws: DefaultsValueValidationError.missingPersistedValue(key.name)) {
+      try Defaults.Keys.strictlyDecodedPersistedArray(key, suiteName: name)
     }
-
-    #expect(shared.storedCredentials[id.uuidString] == "shared-secret")
-    #expect(legacy.storedCredentials[id.uuidString] == nil)
   }
 
-  @Test func legacyDeletionFailureAfterSharedSuccessDoesNotExposeLegacy() throws {
-    let shared = MockKeychainManager()
-    let legacy = MockKeychainManager()
-    let id = UUID()
-    try shared.saveCredential("shared-secret", for: id)
-    try legacy.saveCredential("legacy-secret", for: id)
-    legacy.deleteErrorStub = SharedStorageTestError()
-    let keychain = SharedCredentialKeychain(shared: shared, legacy: legacy)
+  @Test func explicitlySavedEmptyArrayIsPersisted() throws {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    let key = Defaults.Keys.servers(suite: suite)
 
-    #expect(throws: SharedStorageTestError.self) {
-      try keychain.deleteCredential(for: id)
-    }
+    Defaults[key] = []
 
-    #expect(shared.storedCredentials[id.uuidString] == nil)
-    #expect(legacy.storedCredentials[id.uuidString] == "legacy-secret")
-    #expect(try keychain.readCredential(for: id) == nil)
+    #expect(try Defaults.Keys.strictlyDecodedPersistedArray(key, suiteName: name) == [])
   }
 }
 
@@ -338,90 +177,144 @@ struct SharedStorageMigrationTests {
     #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
-  @Test func sourceCredentialReadFailurePreventsCompletion() throws {
+  @Test func malformedLegacyServersStartFreshAndPreserveLegacyData() throws {
+    let harness = makeHarness()
+    let key = Defaults.Keys.servers(suite: harness.legacySuite)
+    let malformed: [String] = ["not-json"]
+    setRawDefaultsValue(malformed, for: key)
+
+    try harness.migration.migrate()
+
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+    #expect(rawDefaultsValue(for: key) as? [String] == malformed)
+    #expect(harness.legacyKeychain.readCallCount == 0)
+
+    let late = ServerConfig(id: UUID(), url: "http://late.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [late]
+    try harness.legacyKeychain.saveCredential("late-secret", for: late.id)
+
+    try harness.migration.migrate()
+
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(try harness.sharedKeychain.readCredential(for: late.id) == nil)
+    #expect(harness.legacyKeychain.readCallCount == 0)
+  }
+
+  @Test func malformedLegacyTemporaryRecordsStartFreshAndPreserveLegacyData() throws {
     let harness = makeHarness()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
-    harness.legacyKeychain.readErrorStub = SharedStorageTestError()
+    let key = Defaults.Keys.tempUnblocks(for: server.id, suite: harness.legacySuite)
+    let malformed: [String] = ["not-json"]
+    setRawDefaultsValue(malformed, for: key)
 
-    #expect(throws: SharedStorageTestError.self) {
-      try harness.migration.migrate()
-    }
+    try harness.migration.migrate()
 
-    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
-    #expect(Defaults[.servers(suite: harness.legacySuite)].count == 1)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(Defaults[.tempUnblocks(for: server.id, suite: harness.sharedSuite)].isEmpty)
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+    #expect(rawDefaultsValue(for: key) as? [String] == malformed)
+    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [server.id])
   }
 
-  @Test func targetCredentialWriteFailurePreventsCompletion() throws {
+  @Test func sourceCredentialReadFailureStartsFreshAndCompletes() throws {
+    let harness = makeHarness()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+    try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
+    harness.legacyKeychain.readErrorStub = SharedStorageTestError()
+
+    try harness.migration.migrate()
+
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [server.id])
+    #expect(harness.legacyKeychain.storedCredentials[server.id.uuidString] == "legacy-secret")
+  }
+
+  @Test func targetCredentialWriteFailureStartsFreshAndCompletes() throws {
     let harness = makeHarness()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
     harness.sharedKeychain.saveErrorStub = SharedStorageTestError()
 
-    #expect(throws: SharedStorageTestError.self) {
-      try harness.migration.migrate()
-    }
+    try harness.migration.migrate()
 
-    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
     #expect(try harness.legacyKeychain.readCredential(for: server.id) == "legacy-secret")
   }
 
-  @Test func credentialReadbackMismatchPreventsCompletion() throws {
+  @Test func credentialReadbackMismatchStartsFreshAndCompletes() throws {
     let harness = makeHarness()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
     harness.sharedKeychain.readResultOverride = .success("different-secret")
 
-    #expect(throws: SharedStorageMigrationError.credentialReadbackMismatch(server.id)) {
-      try harness.migration.migrate()
-    }
+    try harness.migration.migrate()
 
-    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(try harness.sharedKeychain.readCredential(for: server.id) == nil)
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+    #expect(try harness.legacyKeychain.readCredential(for: server.id) == "legacy-secret")
   }
 
-  @Test func retryUsesCurrentLegacyFieldsAndCredential() throws {
+  @Test func partialImportFailureLeavesNoPartialServersOrCredentials() throws {
     let harness = makeHarness()
-    let id = UUID()
-    let initial = ServerConfig(
-      id: id,
-      label: "Old",
-      icon: "old",
-      url: "http://old.local",
-      version: .v6
+    let first = ServerConfig(id: UUID(), url: "http://first.local", version: .v6)
+    let second = ServerConfig(id: UUID(), url: "http://second.local", version: .v6)
+    let record = TempUnblockRecord(
+      domain: "ads.example",
+      uuid: UUID().uuidString,
+      startDateUTC: Date(timeIntervalSince1970: 1_000),
+      durationSeconds: 300
     )
-    Defaults[.servers(suite: harness.legacySuite)] = [initial]
-    try harness.legacyKeychain.saveCredential("old-secret", for: id)
-    harness.sharedKeychain.saveErrorStub = SharedStorageTestError()
-
-    #expect(throws: SharedStorageTestError.self) {
-      try harness.migration.migrate()
-    }
-    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
-
-    harness.sharedKeychain.saveErrorStub = nil
-    let updated = ServerConfig(
-      id: id,
-      label: "New",
-      icon: "new",
-      url: "https://new.local",
-      version: .v5
-    )
-    Defaults[.servers(suite: harness.legacySuite)] = [updated]
-    try harness.legacyKeychain.saveCredential("new-secret", for: id)
+    Defaults[.servers(suite: harness.legacySuite)] = [first, second]
+    Defaults[.tempUnblocks(for: first.id, suite: harness.legacySuite)] = [record]
+    Defaults[.tempUnblocks(for: second.id, suite: harness.legacySuite)] = [record]
+    try harness.legacyKeychain.saveCredential("first-secret", for: first.id)
+    try harness.legacyKeychain.saveCredential("second-secret", for: second.id)
+    harness.sharedKeychain.saveErrorsByServerID[second.id] = SharedStorageTestError()
 
     try harness.migration.migrate()
 
-    let shared = Defaults[.servers(suite: harness.sharedSuite)]
-    #expect(shared.count == 1)
-    #expect(shared[0].label == "New")
-    #expect(shared[0].icon == "new")
-    #expect(shared[0].url == "https://new.local")
-    #expect(shared[0].version == .v5)
-    #expect(try harness.sharedKeychain.readCredential(for: id) == "new-secret")
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(Defaults[.tempUnblocks(for: first.id, suite: harness.sharedSuite)].isEmpty)
+    #expect(Defaults[.tempUnblocks(for: second.id, suite: harness.sharedSuite)].isEmpty)
+    #expect(try harness.sharedKeychain.readCredential(for: first.id) == nil)
+    #expect(try harness.sharedKeychain.readCredential(for: second.id) == nil)
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [first.id, second.id])
+    #expect(Defaults[.tempUnblocks(for: first.id, suite: harness.legacySuite)] == [record])
+    #expect(Defaults[.tempUnblocks(for: second.id, suite: harness.legacySuite)] == [record])
+    #expect(try harness.legacyKeychain.readCredential(for: first.id) == "first-secret")
+  }
+
+  @Test func freshStartDecisionIsNotRepeatedOnNextMigration() throws {
+    let harness = makeHarness()
+    setRawDefaultsValue(["not-json"], for: Defaults.Keys.servers(suite: harness.legacySuite))
+
+    try harness.migration.migrate()
+    let legacyReadsAfterFreshStart = harness.legacyKeychain.readCallCount
+
+    let late = ServerConfig(id: UUID(), url: "http://late.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [late]
+    try harness.legacyKeychain.saveCredential("late-secret", for: late.id)
+
+    try harness.migration.migrate()
+
+    #expect(harness.legacyKeychain.readCallCount == legacyReadsAfterFreshStart)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(try harness.sharedKeychain.readCredential(for: late.id) == nil)
   }
 
   @Test func staleSharedServersFromPartialAttemptAreCleaned() throws {
@@ -451,7 +344,7 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
   }
 
-  @Test func completedMigrationDoesNotConsultLegacyOnLaterFailures() throws {
+  @Test func completedMigrationDoesNotConsultLegacy() throws {
     let harness = makeHarness()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
@@ -469,63 +362,23 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
   }
 
-  @Test func malformedLegacyServersPreventCompletionAndPreserveRawData() throws {
+  @Test func completedMigrationKeepsExistingSharedConfiguration() throws {
     let harness = makeHarness()
-    let key = Defaults.Keys.servers(suite: harness.legacySuite)
-    let malformed: [String] = ["not-json"]
-    setRawDefaultsValue(malformed, for: key)
-
-    #expect(throws: SharedStorageMigrationError.malformedLegacyConfiguration) {
-      try harness.migration.migrate()
-    }
-
-    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
-    #expect(rawDefaultsValue(for: key) as? [String] == malformed)
-    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
-
-    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
-    Defaults[.servers(suite: harness.legacySuite)] = [server]
+    let legacy = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v5)
+    let shared = ServerConfig(id: UUID(), url: "http://shared.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [legacy]
+    Defaults[.servers(suite: harness.sharedSuite)] = [shared]
+    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageMigration.currentVersion
 
     try harness.migration.migrate()
 
-    #expect(Defaults[.servers(suite: harness.sharedSuite)].count == 1)
-    #expect(
-      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
-  }
-
-  @Test func malformedLegacyTemporaryRecordsPreventCompletionAndPreserveRawData() throws {
-    let harness = makeHarness()
-    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
-    Defaults[.servers(suite: harness.legacySuite)] = [server]
-    let key = Defaults.Keys.tempUnblocks(for: server.id, suite: harness.legacySuite)
-    let malformed: [String] = ["not-json"]
-    setRawDefaultsValue(malformed, for: key)
-
-    #expect(throws: SharedStorageMigrationError.malformedLegacyTemporaryRecords(server.id)) {
-      try harness.migration.migrate()
-    }
-
-    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
-    #expect(rawDefaultsValue(for: key) as? [String] == malformed)
-    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
-
-    let records = [
-      TempUnblockRecord(
-        domain: "ads.example",
-        uuid: UUID().uuidString,
-        startDateUTC: Date(timeIntervalSince1970: 1_000),
-        durationSeconds: 300,
-        pendingRemoval: true,
-        retryCount: 2
-      )
-    ]
-    Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] = records
-
-    try harness.migration.migrate()
-
-    #expect(Defaults[.tempUnblocks(for: server.id, suite: harness.sharedSuite)] == records)
-    #expect(
-      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+    let current = Defaults[.servers(suite: harness.sharedSuite)]
+    #expect(current.count == 1)
+    #expect(current[0].id == shared.id)
+    #expect(current[0].url == "http://shared.local")
+    #expect(current[0].version == .v6)
+    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [legacy.id])
+    #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
   @Test func explicitEmptyServerArrayMigratesNormally() throws {
@@ -555,7 +408,7 @@ struct SharedStorageMigrationTests {
   @Test func synchronizationFailureDoesNotBlockCompletedMigration() throws {
     let sharedSuite = TestUserDefaults()
     sharedSuite.synchronizeResult = false
-    let harness = makeHarness(sharedSuite: sharedSuite)
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     let records = [
       TempUnblockRecord(
@@ -580,21 +433,40 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == SharedStorageMigration.currentVersion)
   }
 
-  @Test func sharedConfigurationWriteRejectionPreventsCompletion() throws {
+  @Test func malformedSharedResetWriteRejectionFailsClosed() throws {
     let sharedSuite = TestUserDefaults()
+    let legacySuite = TestDefaults.makeSuite()
+    setRawDefaultsValue(["not-json"], for: Defaults.Keys.servers(suite: sharedSuite))
     sharedSuite.rejectedWriteKeys = [Defaults.Keys.servers(suite: sharedSuite).name]
-    let harness = makeHarness(sharedSuite: sharedSuite)
-    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
-    Defaults[.servers(suite: harness.legacySuite)] = [server]
+    setRawDefaultsValue(["not-json"], for: Defaults.Keys.servers(suite: legacySuite))
+    let harness = makeHarness(
+      legacySuite: legacySuite,
+      shared: (sharedSuite.domainName, sharedSuite)
+    )
 
-    #expect(throws: SharedStorageMigrationError.configurationReadbackMismatch) {
+    #expect(throws: SharedStorageMigrationError.sharedConfigurationResetFailed) {
       try harness.migration.migrate()
     }
 
     #expect(Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == 0)
   }
 
-  @Test func sharedTemporaryRecordsWriteRejectionPreventsCompletion() throws {
+  @Test func sharedConfigurationResetWriteFailureFailsClosed() throws {
+    let sharedSuite = TestUserDefaults()
+    sharedSuite.rejectedWriteKeys = [Defaults.Keys.servers(suite: sharedSuite).name]
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+
+    #expect(throws: SharedStorageMigrationError.sharedConfigurationResetFailed) {
+      try harness.migration.migrate()
+    }
+
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == 0)
+    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [server.id])
+  }
+
+  @Test func sharedTemporaryRecordsWriteFailureStartsFreshAndCompletes() throws {
     let sharedSuite = TestUserDefaults()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     let records = [
@@ -606,21 +478,21 @@ struct SharedStorageMigrationTests {
       )
     ]
     sharedSuite.rejectedWriteKeys = [Defaults.Keys.tempUnblocks(for: server.id, suite: sharedSuite).name]
-    let harness = makeHarness(sharedSuite: sharedSuite)
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] = records
 
-    #expect(throws: SharedStorageMigrationError.temporaryRecordsReadbackMismatch(server.id)) {
-      try harness.migration.migrate()
-    }
+    try harness.migration.migrate()
 
-    #expect(Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == 0)
+    #expect(Defaults[.servers(suite: sharedSuite)].isEmpty)
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == SharedStorageMigration.currentVersion)
   }
 
-  @Test func sharedCompletionMarkerWriteRejectionPreventsCompletion() throws {
+  @Test func completionMarkerWriteFailureFailsClosed() throws {
     let sharedSuite = TestUserDefaults()
     sharedSuite.rejectedWriteKeys = [Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite).name]
-    let harness = makeHarness(sharedSuite: sharedSuite)
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
@@ -629,6 +501,20 @@ struct SharedStorageMigrationTests {
       try harness.migration.migrate()
     }
 
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == 0)
+    #expect(try harness.legacyKeychain.readCredential(for: server.id) == "legacy-secret")
+  }
+
+  @Test func emptyLegacyCompletionMarkerWriteFailureFailsClosed() throws {
+    let sharedSuite = TestUserDefaults()
+    sharedSuite.rejectedWriteKeys = [Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite).name]
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
+
+    #expect(throws: SharedStorageMigrationError.completionMarkerNotPersisted) {
+      try harness.migration.migrate()
+    }
+
+    #expect(Defaults[.servers(suite: sharedSuite)].isEmpty)
     #expect(Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == 0)
   }
 
@@ -642,18 +528,19 @@ struct SharedStorageMigrationTests {
 
   private func makeHarness(
     legacySuite: UserDefaults = TestDefaults.makeSuite(),
-    sharedSuite: UserDefaults = TestDefaults.makeSuite()
+    shared: (name: String, suite: UserDefaults) = TestDefaults.makeNamedSuite()
   ) -> Harness {
     let legacyKeychain = MockKeychainManager()
     let sharedKeychain = MockKeychainManager()
     return Harness(
       legacySuite: legacySuite,
-      sharedSuite: sharedSuite,
+      sharedSuite: shared.suite,
       legacyKeychain: legacyKeychain,
       sharedKeychain: sharedKeychain,
       migration: SharedStorageMigration(
         legacySuite: legacySuite,
-        sharedSuite: sharedSuite,
+        sharedSuite: shared.suite,
+        sharedSuiteName: shared.name,
         legacyKeychain: legacyKeychain,
         sharedKeychain: sharedKeychain
       )

@@ -14,16 +14,15 @@ writes to Pi-hole.
    Startup migration runs automatically before the app-mode manager and copies
    the server configuration, temporary-unblock records, and credentials into the
    shared App Group and Keychain. There is no manual migration step.
+   If a copy or readback check fails, Holeberry starts with an empty new server
+   configuration instead of exposing partial data. The original legacy data is
+   left untouched, but it is not imported later. Add your servers again.
 2. Open the macOS widget gallery, choose Holeberry, and add the **All servers**
    widget to Notification Center or the desktop.
-3. If Holeberry reports **Widget setup unavailable**, keep using the app. That
-   message is failure-only: migration has not completed, so that launch stays on
-   the original storage and retries at the next app launch. Servers and
-   passwords do not need to be re-entered.
-4. If shared storage worked before but cannot be reopened, Holeberry shows
+3. If the shared stores cannot be opened or written at all, Holeberry shows
    **Saved storage unavailable**, keeps the app running on a no-write empty
    state, and disables adding or changing servers until storage reopens. It does
-   not fall back to stale legacy data.
+   not fall back to legacy data. Quit and reopen Holeberry to retry.
 
 ## What the widget shows
 
@@ -79,12 +78,20 @@ writes to Pi-hole.
   - every configured server's complete temporary-unblock records, including
     record UUID, start time, duration, pending-removal state, and retry count;
   - each present credential, with exact readback verification.
-- The completion marker is versioned and is written only after all copies
-  verify. Legacy data is preserved. An interrupted migration retries from the
-  current legacy state.
-- A present but malformed legacy configuration or temporary-record array fails
-  closed instead of being copied as empty. An intentionally empty completed
-  configuration stays authoritative and never resurrects removed servers.
+- The completion marker is versioned and is written only after every copy and
+  readback verify, or after a validated reset to an empty new configuration.
+  Legacy data is preserved. A failed import never exposes partial shared servers.
+- If a copy or readback fails, Holeberry resets the new server configuration to
+  an empty setup whose saved value was verified, then records completion. The
+  old servers are not retried on later launches. Add them again to the new
+  configuration.
+- A present but malformed legacy configuration or temporary-record array is
+  never copied as partial or empty data; it triggers the same fresh-start reset.
+  An intentionally empty completed configuration stays authoritative and never
+  resurrects removed servers.
+- A genuine shared-storage failure (unresolvable or unwritable target) is not
+  reported as a successful fresh start. The app runs with no-write empty stores
+  and disables server changes until storage reopens.
 - The widget does not persist aggregate statistics between fetches. An older
   saved `widgetStatistics` value is unused.
 

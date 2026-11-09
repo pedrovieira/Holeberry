@@ -2,40 +2,34 @@ import Foundation
 
 @MainActor
 public enum AppStorageStartupSelection {
-  case useLegacy
-  case useShared(SharedAppStorage, didMigrate: Bool)
+  case useShared(UserDefaults, didMigrate: Bool)
   case unavailable
 }
 
-/// Selects application storage by resolving the real shared store before any
-/// migration or activation. A failed migration never activates the shared store.
+/// Resolves and activates the shared App Group suite before the application
+/// manager is constructed.
+///
+/// There is no legacy fallback: a suite that cannot be resolved or migrated is
+/// reported as unavailable, and the app runs with no-write empty stores.
 @MainActor
 public enum AppStorageStartup {
   public static func select(
     isActivated: Bool,
-    resolve: () throws -> SharedAppStorage,
-    migrate: (SharedAppStorage) throws -> Void,
+    resolve: () throws -> UserDefaults,
+    migrate: (UserDefaults) throws -> Void,
     markActivated: () -> Void
   ) -> AppStorageStartupSelection {
-    if isActivated {
-      do {
-        return .useShared(try resolve(), didMigrate: false)
-      } catch {
-        return .unavailable
-      }
-    }
-
     do {
-      let storage = try resolve()
-      do {
-        try migrate(storage)
-        markActivated()
-        return .useShared(storage, didMigrate: true)
-      } catch {
-        return .useLegacy
+      let suite = try resolve()
+      guard !isActivated else {
+        return .useShared(suite, didMigrate: false)
       }
+
+      try migrate(suite)
+      markActivated()
+      return .useShared(suite, didMigrate: true)
     } catch {
-      return .useLegacy
+      return .unavailable
     }
   }
 }

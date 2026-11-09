@@ -152,18 +152,17 @@ struct WidgetPresentationTests {
 @Suite("AppStorageStartup")
 @MainActor
 struct AppStorageStartupTests {
-  @Test func firstMigrationSuccessUsesResolvedSharedStorageAndActivates() {
-    let storage = makeStorage()
+  @Test func firstMigrationSuccessUsesResolvedSuiteAndActivates() {
+    let suite = TestDefaults.makeSuite()
     var migrationCount = 0
     var activated = false
 
     let selection = AppStorageStartup.select(
       isActivated: false,
-      resolve: { storage },
+      resolve: { suite },
       migrate: { resolved in
         migrationCount += 1
-        #expect(resolved.suite === storage.suite)
-        #expect(resolved.containerURL == storage.containerURL)
+        #expect(resolved === suite)
       },
       markActivated: { activated = true }
     )
@@ -172,13 +171,13 @@ struct AppStorageStartupTests {
       Issue.record("Expected shared storage")
       return
     }
-    #expect(selected.suite === storage.suite)
+    #expect(selected === suite)
     #expect(didMigrate)
     #expect(migrationCount == 1)
     #expect(activated)
   }
 
-  @Test func resolverFailureBeforeActivationUsesLegacyWithoutMigrationOrActivation() {
+  @Test func resolverFailureIsUnavailableWithoutMigrationOrActivation() {
     var migrationCount = 0
     var activated = false
 
@@ -189,30 +188,33 @@ struct AppStorageStartupTests {
       markActivated: { activated = true }
     )
 
-    guard case .useLegacy = selection else {
-      Issue.record("Expected legacy storage")
+    guard case .unavailable = selection else {
+      Issue.record("Expected unavailable storage")
       return
     }
     #expect(migrationCount == 0)
     #expect(activated == false)
   }
 
-  @Test func migrationFailureUsesLegacyWithoutActivation() {
-    let storage = makeStorage()
+  @Test func migrationFailureIsUnavailableWithoutLegacyFallback() {
+    let suite = TestDefaults.makeSuite()
+    let server = ServerConfig(id: UUID(), url: "http://shared.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
     var activated = false
 
     let selection = AppStorageStartup.select(
       isActivated: false,
-      resolve: { storage },
+      resolve: { suite },
       migrate: { _ in throw AppStorageStartupTestError.migrationFailed },
       markActivated: { activated = true }
     )
 
-    guard case .useLegacy = selection else {
-      Issue.record("Expected legacy storage")
+    guard case .unavailable = selection else {
+      Issue.record("Expected unavailable storage")
       return
     }
     #expect(activated == false)
+    #expect(Defaults[.servers(suite: suite)].map(\.id) == [server.id])
   }
 
   @Test func activatedResolutionFailureIsUnavailableWithoutMigration() {
@@ -235,13 +237,13 @@ struct AppStorageStartupTests {
   }
 
   @Test func activatedResolutionSuccessUsesSharedWithoutMigration() {
-    let storage = makeStorage()
+    let suite = TestDefaults.makeSuite()
     var migrationCount = 0
     var activated = false
 
     let selection = AppStorageStartup.select(
       isActivated: true,
-      resolve: { storage },
+      resolve: { suite },
       migrate: { _ in migrationCount += 1 },
       markActivated: { activated = true }
     )
@@ -250,19 +252,19 @@ struct AppStorageStartupTests {
       Issue.record("Expected shared storage")
       return
     }
-    #expect(selected.suite === storage.suite)
+    #expect(selected === suite)
     #expect(didMigrate == false)
     #expect(migrationCount == 0)
     #expect(activated == false)
   }
 
-  @Test func unavailableSelectionDoesNotMutateLegacyOrSharedData() {
-    let legacySuite = TestDefaults.makeSuite()
-    let sharedSuite = TestDefaults.makeSuite()
-    let legacyServer = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v6)
-    let sharedServer = ServerConfig(id: UUID(), url: "http://shared.local", version: .v6)
-    Defaults[.servers(suite: legacySuite)] = [legacyServer]
-    Defaults[.servers(suite: sharedSuite)] = [sharedServer]
+  @Test func unavailableSelectionDoesNotMutateSuites() {
+    let firstSuite = TestDefaults.makeSuite()
+    let secondSuite = TestDefaults.makeSuite()
+    let firstServer = ServerConfig(id: UUID(), url: "http://first.local", version: .v6)
+    let secondServer = ServerConfig(id: UUID(), url: "http://second.local", version: .v6)
+    Defaults[.servers(suite: firstSuite)] = [firstServer]
+    Defaults[.servers(suite: secondSuite)] = [secondServer]
 
     let selection = AppStorageStartup.select(
       isActivated: true,
@@ -275,8 +277,8 @@ struct AppStorageStartupTests {
       Issue.record("Expected unavailable storage")
       return
     }
-    #expect(Defaults[.servers(suite: legacySuite)].map(\.id) == [legacyServer.id])
-    #expect(Defaults[.servers(suite: sharedSuite)].map(\.id) == [sharedServer.id])
+    #expect(Defaults[.servers(suite: firstSuite)].map(\.id) == [firstServer.id])
+    #expect(Defaults[.servers(suite: secondSuite)].map(\.id) == [secondServer.id])
   }
 
   @Test func unavailableDefaultsNeverReadsOrWrites() {
@@ -310,18 +312,6 @@ struct AppStorageStartupTests {
     #expect(throws: UnavailableKeychainError.storageUnavailable) {
       try keychain.deleteCredential(for: id)
     }
-  }
-
-  private func makeStorage() -> SharedAppStorage {
-    SharedAppStorage(
-      configuration: SharedAppStorageConfiguration(
-        appGroupIdentifier: "group.me.example.tests",
-        keychainAccessGroup: "TEAMID.me.example.tests.shared"
-      ),
-      suite: TestDefaults.makeSuite(),
-      containerURL: FileManager.default.temporaryDirectory
-        .appendingPathComponent("HoleberryAppStorageStartupTests-\(UUID().uuidString)", isDirectory: true)
-    )
   }
 }
 

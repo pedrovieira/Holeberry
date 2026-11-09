@@ -125,8 +125,23 @@ extension Defaults.Keys {
   }
 }
 
+public enum DefaultsSuiteError: Error, Equatable {
+  case unavailableGroupSuite(String)
+}
+
+extension UserDefaults {
+  /// Opens the registered App Group suite. Never falls back to `.standard`.
+  public static func sharedStorageSuite(appGroupIdentifier: String) throws -> UserDefaults {
+    guard let suite = UserDefaults(suiteName: appGroupIdentifier) else {
+      throw DefaultsSuiteError.unavailableGroupSuite(appGroupIdentifier)
+    }
+    return suite
+  }
+}
+
 enum DefaultsValueValidationError: Error, Equatable {
   case malformedValue(String)
+  case missingPersistedValue(String)
 }
 
 extension Defaults.Keys {
@@ -137,14 +152,36 @@ extension Defaults.Keys {
     _ key: Defaults.Key<[Element]>
   ) throws -> [Element] {
     guard let rawValue = key.suite.object(forKey: key.name) else { return [] }
+    return try decodeStrictArray(rawValue, keyName: key.name)
+  }
+
+  /// Decodes only the value explicitly saved in the suite's persistent domain.
+  ///
+  /// An absent key or a registered fallback default throws instead of decoding
+  /// as empty, so a successful result proves the suite holds a saved value.
+  /// This is an in-process check; it does not prove disk durability.
+  static func strictlyDecodedPersistedArray<Element: Defaults.Serializable>(
+    _ key: Defaults.Key<[Element]>,
+    suiteName: String
+  ) throws -> [Element] {
+    guard let rawValue = key.suite.persistentDomain(forName: suiteName)?[key.name] else {
+      throw DefaultsValueValidationError.missingPersistedValue(key.name)
+    }
+    return try decodeStrictArray(rawValue, keyName: key.name)
+  }
+
+  private static func decodeStrictArray<Element: Defaults.Serializable>(
+    _ rawValue: Any,
+    keyName: String
+  ) throws -> [Element] {
     guard let serializedElements = rawValue as? [Element.Serializable] else {
-      throw DefaultsValueValidationError.malformedValue(key.name)
+      throw DefaultsValueValidationError.malformedValue(keyName)
     }
     guard
       let decoded = [Element].bridge.deserialize(serializedElements),
       decoded.count == serializedElements.count
     else {
-      throw DefaultsValueValidationError.malformedValue(key.name)
+      throw DefaultsValueValidationError.malformedValue(keyName)
     }
     return decoded
   }

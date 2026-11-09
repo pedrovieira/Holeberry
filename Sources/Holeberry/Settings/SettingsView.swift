@@ -47,7 +47,6 @@ struct SettingsView: View {
   let discoveryService: PiholeDiscoveryService
   let statusPoller: ServerStatusPoller
   let notificationCoordinator: NotificationCoordinator
-  let widgetSetupMessage: String?
   let storageUnavailable: Bool
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
@@ -62,7 +61,6 @@ struct SettingsView: View {
     discoveryService: PiholeDiscoveryService,
     statusPoller: ServerStatusPoller,
     notificationCoordinator: NotificationCoordinator,
-    widgetSetupMessage: String? = nil,
     storageUnavailable: Bool = false
   ) {
     self.serverManager = serverManager
@@ -70,7 +68,6 @@ struct SettingsView: View {
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
     self.notificationCoordinator = notificationCoordinator
-    self.widgetSetupMessage = widgetSetupMessage
     self.storageUnavailable = storageUnavailable
     self.defaultsSuite = defaultsSuite
     _launchAtLogin = .init(.launchAtLogin(suite: defaultsSuite))
@@ -108,7 +105,6 @@ struct SettingsView: View {
             serverManager: serverManager,
             discoveryService: discoveryService,
             statusPoller: statusPoller,
-            widgetSetupMessage: widgetSetupMessage,
             storageUnavailable: storageUnavailable
           )
         }

@@ -5,7 +5,6 @@ struct ConnectionListView: View {
   let serverManager: PiholeServerManager
   @ObservedObject var discoveryService: PiholeDiscoveryService
   @ObservedObject var statusPoller: ServerStatusPoller
-  let widgetSetupMessage: String?
   let storageUnavailable: Bool
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
@@ -56,12 +55,16 @@ struct ConnectionListView: View {
 
   var body: some View {
     Group {
-      if let widgetSetupMessage {
+      if storageUnavailable {
         Section {
-          Label(widgetSetupMessage, systemImage: "rectangle.3.group")
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+          Label(
+            "Saved storage unavailable. Your server settings were not changed. "
+              + "Quit and reopen Holeberry.",
+            systemImage: "exclamationmark.triangle"
+          )
+          .font(.callout)
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
         }
       }
 

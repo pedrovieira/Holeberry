@@ -15,6 +15,10 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
   var readErrorStub: (any Error)?
   var deleteErrorStub: (any Error)?
 
+  /// Per-server save failures, used to simulate a failure partway through a
+  /// multi-server migration.
+  var saveErrorsByServerID: [UUID: any Error] = [:]
+
   /// One-shot override for `readCredential`, used to simulate readback mismatches.
   var readResultOverride: Result<String?, any Error>?
 
@@ -24,6 +28,7 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
 
   func saveCredential(_ credential: String, for serverID: UUID) throws {
     saveCallCount += 1
+    if let error = saveErrorsByServerID[serverID] { throw error }
     if let saveErrorStub { throw saveErrorStub }
     if let errorStub { throw errorStub }
     storedCredentials[serverID.uuidString] = credential
