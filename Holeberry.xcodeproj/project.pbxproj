@@ -18,6 +18,7 @@
 		1D695BDB1606AEB646E61F52 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DC65D5EABF4AAD66A2EEE5 /* MenuBuilder.swift */; };
 		1E4C2C53C279A2F1E82D3594 /* RecentlyBlockedMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */; };
 		208911EBF1F6B4A2D6038E83 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */; };
+		215544CA9732ED912FD58CEA /* QueryStatisticsEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73C1DD2D5D51C6C26651DC46 /* QueryStatisticsEntry.swift */; };
 		247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */; };
 		249954947F589744BC9B0C01 /* QueryStatisticsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5242561DD056E260419CA202 /* QueryStatisticsProvider.swift */; };
 		2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */; };
@@ -46,6 +47,8 @@
 		99B98E3D2641197AC15A764A /* GravityOutcomeNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB0932AC37D03E558E68FC8 /* GravityOutcomeNotifier.swift */; };
 		9DDB0976A4D8D345ECA55DF2 /* HoleberryCore in Frameworks */ = {isa = PBXBuildFile; productRef = B1204454748A09F43C08E5ED /* HoleberryCore */; };
 		A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145FEF2113A4C79130480D19 /* VisualEffectView.swift */; };
+		A62CE088DFF8B3E42C9F9EA5 /* AllServersWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164ECA10BF81D4B2E2EB03C8 /* AllServersWidget.swift */; };
+		AA0648565180223D8364B981 /* AllServersWidgetPreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3868234EAFBC70042E06FDC /* AllServersWidgetPreviews.swift */; };
 		B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */; };
 		BBD4E8FAA636A794162F8A60 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4A7925530C12A1C1F48C21F6 /* Sparkle */; };
 		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
@@ -130,6 +133,7 @@
 		BAAC70B91F4037F2332EA013 /* RedMenuButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedMenuButton.swift; sourceTree = "<group>"; };
 		C0DC65D5EABF4AAD66A2EEE5 /* MenuBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBuilder.swift; sourceTree = "<group>"; };
 		C151C0B11314A1587D7CF5F2 /* ConnectionStatus+Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ConnectionStatus+Colors.swift"; sourceTree = "<group>"; };
+		C3868234EAFBC70042E06FDC /* AllServersWidgetPreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllServersWidgetPreviews.swift; sourceTree = "<group>"; };
 		C61E1630F877D0AADD5D70B7 /* DurationShortcutScoper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationShortcutScoper.swift; sourceTree = "<group>"; };
 		C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
@@ -243,6 +247,7 @@
 				7A9C1FFB8A5467F2CDE63B48 /* Components */,
 				7F52781CCA397B67BB88F3F7 /* MenuBar */,
 				977CD55D23B21DE364A2D23C /* Notifications */,
+				BC9D4056EAA465C0133BDFC1 /* Previews */,
 				40CFFDE54F1764017E70CC4B /* Resources */,
 				8BB69277240BEEB373A07922 /* Settings */,
 				1B50BBED5512D4096E3454F4 /* Shortcuts */,
@@ -334,6 +339,14 @@
 				673234159EF188F69FA949DB /* Packages */,
 				DB7783B91E0F747BBB9AB1F9 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		BC9D4056EAA465C0133BDFC1 /* Previews */ = {
+			isa = PBXGroup;
+			children = (
+				C3868234EAFBC70042E06FDC /* AllServersWidgetPreviews.swift */,
+			);
+			path = Previews;
 			sourceTree = "<group>";
 		};
 		D896E40B54EB478DDBA83EA5 /* Support */ = {
@@ -509,6 +522,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				58FB67ADD81EED114FFA75A3 /* AboutAppIconTile.swift in Sources */,
+				A62CE088DFF8B3E42C9F9EA5 /* AllServersWidget.swift in Sources */,
+				AA0648565180223D8364B981 /* AllServersWidgetPreviews.swift in Sources */,
 				32B3DB91B041007E362C5BF1 /* AuthFailureReason+Copy.swift in Sources */,
 				2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */,
 				9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */,
@@ -537,6 +552,7 @@
 				247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */,
 				F0DE9A37F4CD8D2CA0D915D8 /* PermissionSettingsPane+DisplayName.swift in Sources */,
 				33B8E2A4506E2533450F3E0D /* PermissionSettingsPane+SystemSettingsURL.swift in Sources */,
+				215544CA9732ED912FD58CEA /* QueryStatisticsEntry.swift in Sources */,
 				1E4C2C53C279A2F1E82D3594 /* RecentlyBlockedMenu.swift in Sources */,
 				4BD8A9C46A99DBF6875E0B71 /* RedMenuButton.swift in Sources */,
 				BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */,
@@ -706,6 +722,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)";
 				PROVISIONING_PROFILE_SPECIFIER = "$(HOLEBERRY_APP_PROVISIONING_PROFILE_SPECIFIER)";
 				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HOLEBERRY_APP_TARGET";
 				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
 			};
 			name = Release;
@@ -789,6 +806,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)";
 				PROVISIONING_PROFILE_SPECIFIER = "$(HOLEBERRY_APP_PROVISIONING_PROFILE_SPECIFIER)";
 				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HOLEBERRY_APP_TARGET";
 				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
 			};
 			name = Debug;

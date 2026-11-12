@@ -200,22 +200,6 @@ struct AllServersWidgetEntryView: View {
     }
   }
 
-  private var healthGlyph: String {
-    switch entry.presentation.health {
-    case .allHealthy: return "checkmark"
-    case .someHealthy: return "exclamationmark"
-    case .noneHealthy: return "xmark"
-    case .notChecked: return "questionmark"
-    }
-  }
-
-  private var healthGlyphColor: Color {
-    switch entry.presentation.health {
-    case .allHealthy, .someHealthy: return .black.opacity(0.75)
-    case .noneHealthy, .notChecked: return .white
-    }
-  }
-
   private var accessibilityText: String {
     var parts = [statusText, "24 hours"]
     if let statistics = entry.presentation.statistics {
@@ -242,66 +226,20 @@ struct AllServersWidgetEntryView: View {
   }
 }
 
-struct AllServersWidget: Widget {
-  let kind = "AllServersWidget"
+// The app target compiles this file only to preview the view above; Xcode
+// cannot host previews in a macOS widget extension.
+#if !HOLEBERRY_APP_TARGET
+  struct AllServersWidget: Widget {
+    let kind = "AllServersWidget"
 
-  var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: QueryStatisticsProvider(scope: .all)) { entry in
-      AllServersWidgetEntryView(entry: entry)
+    var body: some WidgetConfiguration {
+      StaticConfiguration(kind: kind, provider: QueryStatisticsProvider(scope: .all)) { entry in
+        AllServersWidgetEntryView(entry: entry)
+      }
+      .configurationDisplayName("All servers")
+      .description("Block rate and query totals for all Pi-hole servers.")
+      .supportedFamilies([.systemSmall])
+      .contentMarginsDisabled()
     }
-    .configurationDisplayName("All servers")
-    .description("Block rate and query totals for all Pi-hole servers.")
-    .supportedFamilies([.systemSmall])
-    .contentMarginsDisabled()
   }
-}
-
-#Preview(as: .systemSmall) {
-  AllServersWidget()
-} timeline: {
-  QueryStatisticsEntry.placeholder()
-}
-
-#Preview("Partial", as: .systemSmall) {
-  AllServersWidget()
-} timeline: {
-  WidgetPreviewData.partial()
-}
-
-#Preview("Zero", as: .systemSmall) {
-  AllServersWidget()
-} timeline: {
-  WidgetPreviewData.zero()
-}
-
-private enum WidgetPreviewData {
-  static func partial(now: Date = .now) -> QueryStatisticsEntry {
-    let first = WidgetServerIdentity(id: UUID(), url: "https://first.example", version: .v6)
-    let second = WidgetServerIdentity(id: UUID(), url: "https://second.example", version: .v6)
-    return QueryStatisticsEntry(
-      date: now,
-      setupRequired: false,
-      summary: WidgetSummary(
-        servers: [first, second],
-        results: [
-          first.id: .success(QuerySummary(totalQueries: 100, totalBlocked: 10)),
-          second.id: .failure(.network("preview"))
-        ],
-        checkedAt: now
-      )
-    )
-  }
-
-  static func zero(now: Date = .now) -> QueryStatisticsEntry {
-    let server = WidgetServerIdentity(id: UUID(), url: "https://zero.example", version: .v6)
-    return QueryStatisticsEntry(
-      date: now,
-      setupRequired: false,
-      summary: WidgetSummary(
-        servers: [server],
-        results: [server.id: .success(QuerySummary(totalQueries: 0, totalBlocked: 0))],
-        checkedAt: now
-      )
-    )
-  }
-}
+#endif

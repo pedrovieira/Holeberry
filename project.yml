@@ -36,8 +36,15 @@ targets:
   Holeberry:
     type: application
     platform: macOS
+    scheme:
+      testTargets: []
     sources:
       - path: Sources/Holeberry
+      # Compiled into the app target so Xcode can preview the widget view.
+      # Xcode does not support previews for macOS widget extensions.
+      # The HOLEBERRY_APP_TARGET flag excludes the Widget configuration there.
+      - path: Sources/HoleberryWidgets/AllServersWidget.swift
+      - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
     info:
       path: Sources/Holeberry/Support/Info.plist
       properties:
@@ -72,6 +79,7 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) HOLEBERRY_APP_TARGET"
         PROVISIONING_PROFILE_SPECIFIER: "$(HOLEBERRY_APP_PROVISIONING_PROFILE_SPECIFIER)"
     dependencies:
       - package: HoleberryCore
