@@ -26,22 +26,33 @@ writes to Pi-hole.
 
 ## What the widget shows
 
-- A health dot and the fixed **All servers** heading.
-  - Green: every configured server returned a query summary.
-  - Amber: some servers returned a query summary.
-  - Red: no server returned a query summary.
-  - Gray: no recent check, no servers configured, or the latest check is more
-    than 60 minutes old.
+- A status badge with a health icon and exact label:
+  - Green check: **All servers online** when every configured server returned a
+    query summary.
+  - Amber warning: **Some servers offline** when some servers returned a query
+    summary.
+  - Red X: **All servers offline** when no server returned a query summary.
+  - Gray question: **All servers** when there is no recent check, no servers are
+    configured, or the latest check is more than 60 minutes old.
+- A static **24h** label at the trailing edge of the header. It is not a
+  selectable time range.
 - Health uses query-summary success only. Blocking state is excluded, so a
   server that is paused but reachable can still be healthy.
-- A large one-decimal blocked percentage: `100 * sum(blocked) / sum(queries)`.
-  Zero queries safely show `0.0%`.
-- Blocked and total query counts from the same live query summaries used by the app.
-- A compact **Updated HH:mm** footer for the latest successful live fetch.
+- A large one-decimal **block rate** with a half-size percent sign:
+  `100 * sum(blocked) / sum(queries)`. Zero queries safely show `0.0%`.
+- Two columns, **Queries** and **Blocked**, from the same live query summaries
+  used by the app. Counts use compact, locale-aware notation; the blocked count
+  uses a light-blue accent.
+- A subdued footer for the latest successful live fetch. It shows **Updated
+  moments ago** for the first minute, then **Updated 1min ago**, **Updated 2min
+  ago**, and so on; completed hours become **Updated 1h ago** and completed days
+  **Updated 1d ago**. Timeline entries at the next minute boundaries change the
+  text without fetching new statistics, and the label never shows seconds.
+  VoiceOver reports the observation's local time with a 24-hour clock.
 - Every refresh fetches live query summaries; the widget never saves or reuses
   aggregate totals.
-- A partial or failed refresh shows **Statistics unavailable**; the dot still
-  reflects which servers responded. Earlier numbers are never displayed.
+- A partial or failed refresh shows **Statistics unavailable**; the status badge
+  still reflects which servers responded. Earlier numbers are never displayed.
 
 ## Reads and scheduling
 

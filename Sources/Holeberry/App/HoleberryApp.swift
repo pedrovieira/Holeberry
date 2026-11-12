@@ -94,9 +94,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
-    if appStorage.didMigrate {
-      WidgetCenter.shared.reloadAllTimelines()
-    }
+    // Initialize shared storage before widgets read it, then refresh every widget kind.
+    _ = appStorage
+    WidgetCenter.shared.reloadAllTimelines()
 
     let notificationCoordinator = NotificationCoordinator(
       defaultsSuite: .standard,

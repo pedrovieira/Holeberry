@@ -197,17 +197,7 @@ struct ConnectionCardView: View {
     guard let lastSeen else {
       return String(localized: "Unreachable")
     }
-    // Minute granularity only — round down and floor at 1 minute so the
-    // subtitle doesn't churn on every poll ("5 sec. ago" → "35 sec. ago").
-    let minutes = max(1, Int(Date().timeIntervalSince(lastSeen) / 60))
-    let relative = RelativeDateTimeFormatter()
-    relative.unitsStyle = .short
-    // Feed a date exactly `minutes` in the past so the formatter always
-    // lands on whole minutes ("5 min. ago", never "4 min. 30 sec. ago").
-    let relativeTime = relative.localizedString(
-      for: Date().addingTimeInterval(-TimeInterval(minutes) * 60),
-      relativeTo: Date()
-    )
+    let relativeTime = RelativeAgeFormatter(style: .wholeMinutes).string(since: lastSeen)
     return String(localized: "Unreachable · \(relativeTime)")
   }
 

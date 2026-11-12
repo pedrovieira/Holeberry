@@ -21,7 +21,7 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
     )
     let summary = WidgetSummary(
       servers: [server],
-      results: [server.id: .success(QuerySummary(totalQueries: 12_345, totalBlocked: 3_210))],
+      results: [server.id: .success(QuerySummary(totalQueries: 184_200, totalBlocked: 31_200))],
       checkedAt: now
     )
     return QueryStatisticsEntry(date: now, setupRequired: false, summary: summary)

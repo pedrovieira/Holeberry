@@ -175,34 +175,43 @@ struct QueryStatisticsProvider: TimelineProvider {
     from entry: QueryStatisticsEntry,
     now: Date
   ) -> Timeline<QueryStatisticsEntry> {
-    let presentation = entry.presentation
     let nextFetch = now.addingTimeInterval(15 * 60)
-    var expiryDates = Set<Date>()
-
-    if let lastCheckedAt = presentation.lastCheckedAt {
-      expiryDates.insert(lastCheckedAt.addingTimeInterval(60 * 60))
-    }
-
     let currentEntry = QueryStatisticsEntry(
       date: now,
       setupRequired: entry.setupRequired,
       summary: entry.summary
     )
-    let expiryEntries =
-      expiryDates
-      .filter { $0 > now }
-      .sorted()
-      .map {
-        QueryStatisticsEntry(
-          date: $0,
-          setupRequired: entry.setupRequired,
-          summary: entry.summary
-        )
-      }
+    let footerEntries = footerEntryDates(
+      observedAt: entry.presentation.lastCheckedAt,
+      now: now
+    ).map {
+      QueryStatisticsEntry(
+        date: $0,
+        setupRequired: entry.setupRequired,
+        summary: entry.summary
+      )
+    }
 
     return Timeline(
-      entries: [currentEntry] + expiryEntries,
+      entries: [currentEntry] + footerEntries,
       policy: .after(nextFetch)
     )
+  }
+
+  /// One entry per minute until the next fetch, then a coarse fallback up to
+  /// the one-hour health expiry. Each entry carries static footer text, so the
+  /// label advances without a network request and without a custom
+  /// `FormatStyle`, which WidgetKit cannot unarchive.
+  private func footerEntryDates(observedAt: Date?, now: Date) -> [Date] {
+    guard let observedAt else { return [] }
+
+    var dates = Set<Date>()
+    for minute in 1...15 {
+      dates.insert(observedAt.addingTimeInterval(Double(minute) * 60))
+    }
+    for minute in stride(from: 20, through: 60, by: 5) {
+      dates.insert(observedAt.addingTimeInterval(Double(minute) * 60))
+    }
+    return dates.filter { $0 > now }.sorted()
   }
 }
