@@ -39,6 +39,17 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "55A29B688495962C212546AD"
+               BuildableName = "HoleberryWidgetsTests.xctest"
+               BlueprintName = "HoleberryWidgetsTests"
+               ReferencedContainer = "container:Holeberry.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

@@ -37,7 +37,8 @@ targets:
     type: application
     platform: macOS
     scheme:
-      testTargets: []
+      testTargets:
+        - HoleberryWidgetsTests
     sources:
       - path: Sources/Holeberry
       # Compiled into the app target so Xcode can preview the widget view.
@@ -45,6 +46,7 @@ targets:
       # The HOLEBERRY_APP_TARGET flag excludes the Widget configuration there.
       - path: Sources/HoleberryWidgets/AllServersWidget.swift
       - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
+      - path: Sources/HoleberryWidgets/WidgetPresentation.swift
     info:
       path: Sources/Holeberry/Support/Info.plist
       properties:
@@ -114,6 +116,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/HoleberryWidgets
+      - path: Sources/Holeberry/Resources/Assets.xcassets
     info:
       path: Sources/HoleberryWidgets/Support/Info.plist
       properties:
@@ -143,4 +146,16 @@ targets:
     dependencies:
       - package: HoleberryCore
 
-
+  HoleberryWidgetsTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/HoleberryWidgetsTests
+      # Test the same presentation source without hosting the widget extension.
+      - path: Sources/HoleberryWidgets/WidgetPresentation.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    dependencies:
+      - package: HoleberryCore

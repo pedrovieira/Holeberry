@@ -14,13 +14,16 @@
 		1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */; };
 		187240CE35BA57A6BD11965D /* AllServersWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164ECA10BF81D4B2E2EB03C8 /* AllServersWidget.swift */; };
 		190DDC489CC23486BD2C7290 /* SymbolPicker in Frameworks */ = {isa = PBXBuildFile; productRef = B0E62A40CEFA9876FE31890F /* SymbolPicker */; };
+		1AF48CA0B8D35F9576012616 /* WidgetPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0275B582C4A4E94748A9C3E6 /* WidgetPresentation.swift */; };
 		1CA9613D75CEDCA3D3F5EBF6 /* HoleberryCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5655861CCA489CC3B0BBB29F /* HoleberryCore */; };
 		1D695BDB1606AEB646E61F52 /* MenuBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DC65D5EABF4AAD66A2EEE5 /* MenuBuilder.swift */; };
+		1DACB5C991796B68E57B8005 /* WidgetPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0275B582C4A4E94748A9C3E6 /* WidgetPresentation.swift */; };
 		1E4C2C53C279A2F1E82D3594 /* RecentlyBlockedMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */; };
 		208911EBF1F6B4A2D6038E83 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D169516B36F5A63F8DDA0A44 /* MenuBarController.swift */; };
 		215544CA9732ED912FD58CEA /* QueryStatisticsEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73C1DD2D5D51C6C26651DC46 /* QueryStatisticsEntry.swift */; };
 		247B75B18E264961931925D6 /* NotificationsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4DF8AB1E93DDB96290B3AD /* NotificationsSettingsView.swift */; };
 		249954947F589744BC9B0C01 /* QueryStatisticsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5242561DD056E260419CA202 /* QueryStatisticsProvider.swift */; };
+		27F93D539382FAF785EA015C /* WidgetPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED982660E76331A7B47D76AB /* WidgetPresentationTests.swift */; };
 		2B420EDB060EE00CDC7FD152 /* BrowserTabSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273AFF6EDCDF91E06737FA6F /* BrowserTabSettingsView.swift */; };
 		2B8502196952CB0360511F10 /* DurationMenuShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6400CCFEF0D77716DB29E0 /* DurationMenuShortcut.swift */; };
 		2D274003B08DCE0B66A48C96 /* ShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02F9A5864E11136906AE2FF /* ShortcutController.swift */; };
@@ -46,8 +49,11 @@
 		9993477808C3E22DA3DE016A /* ConnectionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */; };
 		99B98E3D2641197AC15A764A /* GravityOutcomeNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEB0932AC37D03E558E68FC8 /* GravityOutcomeNotifier.swift */; };
 		9DDB0976A4D8D345ECA55DF2 /* HoleberryCore in Frameworks */ = {isa = PBXBuildFile; productRef = B1204454748A09F43C08E5ED /* HoleberryCore */; };
+		A2ED0DE7F8D7F3A513248737 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C039DDD8F05E05A8D434F71 /* Assets.xcassets */; };
 		A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145FEF2113A4C79130480D19 /* VisualEffectView.swift */; };
 		A62CE088DFF8B3E42C9F9EA5 /* AllServersWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164ECA10BF81D4B2E2EB03C8 /* AllServersWidget.swift */; };
+		A7EDF11E59BF15DE4A4150E0 /* WidgetPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0275B582C4A4E94748A9C3E6 /* WidgetPresentation.swift */; };
+		A9A20A5DE9E8D87F7BD44AB9 /* HoleberryCore in Frameworks */ = {isa = PBXBuildFile; productRef = 18636C63CE27697AF19B2F06 /* HoleberryCore */; };
 		AA0648565180223D8364B981 /* AllServersWidgetPreviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3868234EAFBC70042E06FDC /* AllServersWidgetPreviews.swift */; };
 		B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */; };
 		BBD4E8FAA636A794162F8A60 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4A7925530C12A1C1F48C21F6 /* Sparkle */; };
@@ -90,6 +96,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0275B582C4A4E94748A9C3E6 /* WidgetPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPresentation.swift; sourceTree = "<group>"; };
 		0C039DDD8F05E05A8D434F71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		137F6E8460925E2F5D571724 /* AuthFailureReason+Copy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthFailureReason+Copy.swift"; sourceTree = "<group>"; };
 		145FEF2113A4C79130480D19 /* VisualEffectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualEffectView.swift; sourceTree = "<group>"; };
@@ -117,6 +124,7 @@
 		6B7EE8CF46DEF43ED07E2388 /* ConnectionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionCardView.swift; sourceTree = "<group>"; };
 		6CD6BDF4314C6BCC6B6E0EA5 /* MenuItemFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemFactory.swift; sourceTree = "<group>"; };
 		708D635B240324C5A79BA870 /* LimitedTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LimitedTextField.swift; sourceTree = "<group>"; };
+		731882DC24F3FE840F460CDD /* HoleberryWidgetsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HoleberryWidgetsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		73C1DD2D5D51C6C26651DC46 /* QueryStatisticsEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryStatisticsEntry.swift; sourceTree = "<group>"; };
 		740E0351B8319723BD1DD852 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainStatusBarMenu.swift; sourceTree = "<group>"; };
@@ -142,6 +150,7 @@
 		DD1E78AE878782CEF84BCDDC /* NSMenuItem+ImageVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSMenuItem+ImageVisibility.swift"; sourceTree = "<group>"; };
 		DEB0932AC37D03E558E68FC8 /* GravityOutcomeNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GravityOutcomeNotifier.swift; sourceTree = "<group>"; };
 		E02F9A5864E11136906AE2FF /* ShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutController.swift; sourceTree = "<group>"; };
+		ED982660E76331A7B47D76AB /* WidgetPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPresentationTests.swift; sourceTree = "<group>"; };
 		F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
 		F31A919694E8DA217421B5B5 /* HoleberryWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HoleberryWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionListView.swift; sourceTree = "<group>"; };
@@ -164,6 +173,14 @@
 				D8E3C678109A99C500F416AE /* KeyboardShortcuts in Frameworks */,
 				190DDC489CC23486BD2C7290 /* SymbolPicker in Frameworks */,
 				BBD4E8FAA636A794162F8A60 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B394CB2B68F22E5A8DE13A16 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9A20A5DE9E8D87F7BD44AB9 /* HoleberryCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -190,6 +207,7 @@
 				323697D1C0C42DF049936F65 /* HoleberryWidgets.swift */,
 				73C1DD2D5D51C6C26651DC46 /* QueryStatisticsEntry.swift */,
 				5242561DD056E260419CA202 /* QueryStatisticsProvider.swift */,
+				0275B582C4A4E94748A9C3E6 /* WidgetPresentation.swift */,
 				2040FD53C3B6176AED036BDA /* Support */,
 			);
 			name = HoleberryWidgets;
@@ -212,6 +230,15 @@
 				8AEAE3D3AF6DF75263144C73 /* ShortcutNames.swift */,
 			);
 			path = Shortcuts;
+			sourceTree = "<group>";
+		};
+		1BFABFD8B4F0F9E89AB606B1 /* HoleberryWidgetsTests */ = {
+			isa = PBXGroup;
+			children = (
+				ED982660E76331A7B47D76AB /* WidgetPresentationTests.swift */,
+			);
+			name = HoleberryWidgetsTests;
+			path = Tests/HoleberryWidgetsTests;
 			sourceTree = "<group>";
 		};
 		2040FD53C3B6176AED036BDA /* Support */ = {
@@ -336,6 +363,7 @@
 			children = (
 				78F58E90EDC49C9FF3E31C6C /* Holeberry */,
 				0FDC222CB43894C4FA4BC9CD /* HoleberryWidgets */,
+				1BFABFD8B4F0F9E89AB606B1 /* HoleberryWidgetsTests */,
 				673234159EF188F69FA949DB /* Packages */,
 				DB7783B91E0F747BBB9AB1F9 /* Products */,
 			);
@@ -365,6 +393,7 @@
 			children = (
 				8A5D9D07B8EC02852147638F /* Holeberry.app */,
 				F31A919694E8DA217421B5B5 /* HoleberryWidgets.appex */,
+				731882DC24F3FE840F460CDD /* HoleberryWidgetsTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -377,6 +406,7 @@
 			buildConfigurationList = 2D53F0C43230F628F7EF59F0 /* Build configuration list for PBXNativeTarget "HoleberryWidgets" */;
 			buildPhases = (
 				F49920823BF5B3E0664766EA /* Sources */,
+				5FAC4C5601E63A1F55649B66 /* Resources */,
 				8967A7C50FFBDFEBB1654574 /* Frameworks */,
 			);
 			buildRules = (
@@ -390,6 +420,25 @@
 			productName = HoleberryWidgets;
 			productReference = F31A919694E8DA217421B5B5 /* HoleberryWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		55A29B688495962C212546AD /* HoleberryWidgetsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 25BE6176215E59C106FB888C /* Build configuration list for PBXNativeTarget "HoleberryWidgetsTests" */;
+			buildPhases = (
+				1B69D49C585E2B08F7636F25 /* Sources */,
+				B394CB2B68F22E5A8DE13A16 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HoleberryWidgetsTests;
+			packageProductDependencies = (
+				18636C63CE27697AF19B2F06 /* HoleberryCore */,
+			);
+			productName = HoleberryWidgetsTests;
+			productReference = 731882DC24F3FE840F460CDD /* HoleberryWidgetsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		84B5E82FE32C304FB3B13672 /* Holeberry */ = {
 			isa = PBXNativeTarget;
@@ -431,6 +480,9 @@
 						DevelopmentTeam = 5UN5GTF749;
 						ProvisioningStyle = Automatic;
 					};
+					55A29B688495962C212546AD = {
+						DevelopmentTeam = 5UN5GTF749;
+					};
 					84B5E82FE32C304FB3B13672 = {
 						DevelopmentTeam = 5UN5GTF749;
 						ProvisioningStyle = Automatic;
@@ -459,11 +511,20 @@
 			targets = (
 				84B5E82FE32C304FB3B13672 /* Holeberry */,
 				3BD1030CCDF9E9E10768B5E8 /* HoleberryWidgets */,
+				55A29B688495962C212546AD /* HoleberryWidgetsTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		5FAC4C5601E63A1F55649B66 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2ED0DE7F8D7F3A513248737 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6B712A805367450E10F6C9A2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -517,6 +578,15 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1B69D49C585E2B08F7636F25 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1AF48CA0B8D35F9576012616 /* WidgetPresentation.swift in Sources */,
+				27F93D539382FAF785EA015C /* WidgetPresentationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5CB3C8460B3AEF8A4CC34405 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -565,6 +635,7 @@
 				B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */,
 				E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */,
 				A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */,
+				1DACB5C991796B68E57B8005 /* WidgetPresentation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -576,6 +647,7 @@
 				537CD7B50A5B43FC93C660C4 /* HoleberryWidgets.swift in Sources */,
 				55B91C8396C1F50D47F94075 /* QueryStatisticsEntry.swift in Sources */,
 				249954947F589744BC9B0C01 /* QueryStatisticsProvider.swift in Sources */,
+				A7EDF11E59BF15DE4A4150E0 /* WidgetPresentation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -590,6 +662,23 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		28233DCFFEC471BB9FBCF182 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.HoleberryWidgetsTests;
+				SDKROOT = macosx;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
+			};
+			name = Debug;
+		};
 		2E9BEF13A2AF2CE7E79B5D42 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -658,6 +747,23 @@
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
+		};
+		310781E8ECB4BF1DD5151124 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.pedrovieira.HoleberryWidgetsTests;
+				SDKROOT = macosx;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
+			};
+			name = Release;
 		};
 		58DE1173DE2595304D971F50 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -814,6 +920,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		25BE6176215E59C106FB888C /* Build configuration list for PBXNativeTarget "HoleberryWidgetsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				28233DCFFEC471BB9FBCF182 /* Debug */,
+				310781E8ECB4BF1DD5151124 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		2D53F0C43230F628F7EF59F0 /* Build configuration list for PBXNativeTarget "HoleberryWidgets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -878,6 +993,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		18636C63CE27697AF19B2F06 /* HoleberryCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HoleberryCore;
+		};
 		4A7925530C12A1C1F48C21F6 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6CA834CB68D3626489BC1792 /* XCRemoteSwiftPackageReference "Sparkle" */;

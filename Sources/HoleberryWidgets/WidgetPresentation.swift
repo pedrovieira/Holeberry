@@ -1,26 +1,27 @@
 import Foundation
+import HoleberryCore
 
 /// Display-ready widget state derived from one live fetch summary.
-public struct WidgetPresentation: Equatable, Sendable {
-  public enum Content: Equatable, Sendable {
+struct WidgetPresentation: Equatable, Sendable {
+  enum Content: Equatable, Sendable {
     case setupRequired
     case noServers
-    case statistics(WidgetQueryStatistics)
+    case statistics(QueryStatistics)
     case unavailable
   }
 
-  public let content: Content
-  public let health: WidgetHealth
-  public let lastCheckedAt: Date?
+  let content: Content
+  let availability: QueryStatisticsAvailability
+  let lastCheckedAt: Date?
 
-  public static let setupRequired = WidgetPresentation(
+  static let setupRequired = WidgetPresentation(
     content: .setupRequired,
-    health: .notChecked,
+    availability: .notChecked,
     lastCheckedAt: nil
   )
 
-  public init(
-    summary: WidgetSummary,
+  init(
+    summary: QueryStatisticsFetchResult,
     now: Date,
     expirationInterval: TimeInterval = 60 * 60
   ) {
@@ -35,21 +36,21 @@ public struct WidgetPresentation: Equatable, Sendable {
     if let checkedAt = summary.checkedAt,
       now.timeIntervalSince(checkedAt) < expirationInterval
     {
-      self.health = summary.health
+      self.availability = summary.availability
     } else {
-      self.health = .notChecked
+      self.availability = .notChecked
     }
     self.lastCheckedAt = summary.checkedAt
   }
 
-  public var statistics: WidgetQueryStatistics? {
+  var statistics: QueryStatistics? {
     guard case .statistics(let statistics) = content else { return nil }
     return statistics
   }
 
-  private init(content: Content, health: WidgetHealth, lastCheckedAt: Date?) {
+  private init(content: Content, availability: QueryStatisticsAvailability, lastCheckedAt: Date?) {
     self.content = content
-    self.health = health
+    self.availability = availability
     self.lastCheckedAt = lastCheckedAt
   }
 }

@@ -14,6 +14,7 @@ struct AboutAppIconTile: View {
       .resizable()
       .scaledToFit()
       .frame(width: Self.logoSize, height: Self.logoSize)
+      .brightness(colorScheme == .dark ? 0.2 : 0)
       // Directional shadow on the logo itself (follows the berry glyph's
       // alpha silhouette): plain black at mode-specific opacity reads as
       // crisp depth in dark mode instead of a light halo.

@@ -6,7 +6,7 @@ import WidgetKit
 struct QueryStatisticsEntry: TimelineEntry, Sendable {
   let date: Date
   let setupRequired: Bool
-  let summary: WidgetSummary?
+  let summary: QueryStatisticsFetchResult?
 
   var presentation: WidgetPresentation {
     guard !setupRequired, let summary else { return .setupRequired }
@@ -14,12 +14,12 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
   }
 
   static func placeholder(now: Date = Date()) -> QueryStatisticsEntry {
-    let server = WidgetServerIdentity(
+    let server = QueryStatisticsServer(
       id: UUID(),
       url: "https://example.invalid",
       version: .v6
     )
-    let summary = WidgetSummary(
+    let summary = QueryStatisticsFetchResult(
       servers: [server],
       results: [server.id: .success(QuerySummary(totalQueries: 184_200, totalBlocked: 31_200))],
       checkedAt: now

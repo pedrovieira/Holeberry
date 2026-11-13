@@ -7,6 +7,8 @@ import WidgetKit
 struct AllServersWidgetEntryView: View {
   let entry: QueryStatisticsEntry
 
+  @Environment(\.colorScheme) private var colorScheme
+
   private static let nominalCardSide: CGFloat = 160
   private static let contentInset: CGFloat = 17
   private static let bottomInset: CGFloat = 13
@@ -23,10 +25,6 @@ struct AllServersWidgetEntryView: View {
     GeometryReader { proxy in
       let scale = max(proxy.size.width / Self.nominalCardSide, 0.1)
       content(scale: scale)
-        .padding(.horizontal, Self.contentInset * scale)
-        .padding(.top, Self.contentInset * scale)
-        .padding(.bottom, Self.bottomInset * scale)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
     .containerBackground(for: .widget) {
       Color(nsColor: .windowBackgroundColor)
@@ -38,18 +36,27 @@ struct AllServersWidgetEntryView: View {
 
   @ViewBuilder
   private func content(scale: CGFloat) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
-      header(scale: scale)
-      switch entry.presentation.content {
-      case .statistics(let statistics):
+    switch entry.presentation.content {
+    case .statistics(let statistics):
+      VStack(alignment: .leading, spacing: 0) {
+        header(scale: scale)
         statisticsContent(statistics, scale: scale)
-      case .setupRequired:
-        guidance("Open Holeberry to finish setup", scale: scale)
-      case .noServers:
-        guidance("Add a server in Holeberry", scale: scale)
-      case .unavailable:
-        guidance("Statistics unavailable", scale: scale)
       }
+      .padding(.horizontal, Self.contentInset * scale)
+      .padding(.top, Self.contentInset * scale)
+      .padding(.bottom, Self.bottomInset * scale)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    case .setupRequired:
+      guidance("Open Holeberry to finish setup", scale: scale)
+    case .noServers:
+      guidance("Add a server in Holeberry", scale: scale)
+    case .unavailable:
+      guidance(unavailableText, scale: scale)
+        .overlay(alignment: .topLeading) {
+          header(scale: scale)
+            .padding(.horizontal, Self.contentInset * scale)
+            .padding(.top, Self.contentInset * scale)
+        }
     }
   }
 
@@ -58,22 +65,27 @@ struct AllServersWidgetEntryView: View {
       Circle()
         .fill(healthColor)
         .frame(width: 10 * scale, height: 10 * scale)
-      Text(statusText)
-        .font(.system(size: 9.5 * scale, weight: .semibold))
-        .foregroundStyle(.primary)
-        .lineLimit(1)
-        .minimumScaleFactor(0.85)
+      if entry.presentation.availability != .noneAvailable {
+        Text(statusText)
+          .font(.system(size: 8.5 * scale, weight: .semibold))
+          .foregroundStyle(.primary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.75)
+      }
       Spacer(minLength: 4 * scale)
-      Text("24h")
-        .font(.system(size: 9 * scale, weight: .semibold))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
+      if hasHealthyServer {
+        Text("24h")
+          .font(.system(size: 9 * scale, weight: .semibold))
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .fixedSize()
+      }
     }
     .frame(height: 12 * scale)
   }
 
   @ViewBuilder
-  private func statisticsContent(_ statistics: WidgetQueryStatistics, scale: CGFloat) -> some View {
+  private func statisticsContent(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
     hero(statistics, scale: scale)
     Text("block rate")
       .font(.system(size: 10 * scale, weight: .semibold))
@@ -88,7 +100,7 @@ struct AllServersWidgetEntryView: View {
     footer(statistics, scale: scale)
   }
 
-  private func hero(_ statistics: WidgetQueryStatistics, scale: CGFloat) -> some View {
+  private func hero(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
     HStack(alignment: .firstTextBaseline, spacing: 0) {
       Text(statistics.blockedPercentage, format: .number.precision(.fractionLength(1)))
         .font(.system(size: 42 * scale, weight: .bold))
@@ -103,7 +115,7 @@ struct AllServersWidgetEntryView: View {
     }
   }
 
-  private func metrics(_ statistics: WidgetQueryStatistics, scale: CGFloat) -> some View {
+  private func metrics(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
     HStack(alignment: .center, spacing: 0) {
       metricColumn(
         value: statistics.totalQueries,
@@ -154,7 +166,7 @@ struct AllServersWidgetEntryView: View {
       .frame(height: 0.5 * scale)
   }
 
-  private func footer(_ statistics: WidgetQueryStatistics, scale: CGFloat) -> some View {
+  private func footer(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
     let age = RelativeAgeFormatter(style: .compact).string(
       since: statistics.observedAt,
       relativeTo: entry.date
@@ -167,14 +179,21 @@ struct AllServersWidgetEntryView: View {
   }
 
   private func guidance(_ text: String, scale: CGFloat) -> some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Spacer(minLength: 8 * scale)
+    VStack(spacing: 12 * scale) {
+      Image("holeberry-logo")
+        .resizable()
+        .scaledToFit()
+        .frame(width: 40 * scale, height: 40 * scale)
+        .brightness(colorScheme == .dark ? 0.2 : 0)
+        .accessibilityHidden(true)
       Text(text)
         .font(.system(size: 10 * scale, weight: .medium))
         .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
-      Spacer(minLength: 0)
     }
+    .padding(.horizontal, Self.contentInset * scale)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
   }
 
   private static func updatedText(for date: Date) -> String {
@@ -183,25 +202,45 @@ struct AllServersWidgetEntryView: View {
   }
 
   private var statusText: String {
-    switch entry.presentation.health {
-    case .allHealthy: return "All servers online"
-    case .someHealthy: return "Some servers offline"
-    case .noneHealthy: return "All servers offline"
+    switch entry.presentation.availability {
+    case .allAvailable: return "All servers online"
+    case .someAvailable: return "Some servers offline"
+    case .noneAvailable: return "All servers offline"
     case .notChecked: return "All servers"
     }
   }
 
   private var healthColor: Color {
-    switch entry.presentation.health {
-    case .allHealthy: return .green
-    case .someHealthy: return Color(red: 1, green: 0.624, blue: 0.039)
-    case .noneHealthy: return .red
-    case .notChecked: return .gray
+    switch entry.presentation.availability {
+    case .allAvailable: return ServerStatusColor.healthy.color
+    case .someAvailable: return ServerStatusColor.partial.color
+    case .noneAvailable: return ServerStatusColor.offline.color
+    case .notChecked: return ServerStatusColor.inactive.color
     }
   }
 
+  private var showsHeader: Bool {
+    switch entry.presentation.content {
+    case .setupRequired, .noServers: return false
+    case .statistics, .unavailable: return true
+    }
+  }
+
+  private var hasHealthyServer: Bool {
+    entry.presentation.availability == .allAvailable || entry.presentation.availability == .someAvailable
+  }
+
+  private var unavailableText: String {
+    entry.presentation.availability == .noneAvailable
+      ? "Statistics Unavailable, all servers offline"
+      : "Statistics unavailable"
+  }
+
   private var accessibilityText: String {
-    var parts = [statusText, "24 hours"]
+    var parts: [String] = showsHeader ? [statusText] : []
+    if hasHealthyServer {
+      parts.append("24 hours")
+    }
     if let statistics = entry.presentation.statistics {
       let percentage = statistics.blockedPercentage.formatted(
         .number.precision(.fractionLength(1))
@@ -217,7 +256,7 @@ struct AllServersWidgetEntryView: View {
       case .noServers:
         parts.append("Add a server in Holeberry")
       case .unavailable:
-        parts.append("Statistics unavailable")
+        parts.append(unavailableText)
       case .statistics:
         break
       }

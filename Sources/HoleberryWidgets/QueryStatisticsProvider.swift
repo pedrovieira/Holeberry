@@ -99,13 +99,13 @@ struct QueryStatisticsProvider: TimelineProvider {
     )
   }
 
-  private func scopedIdentities(_ servers: [ServerConfig]) -> [WidgetServerIdentity] {
+  private func scopedIdentities(_ servers: [ServerConfig]) -> [QueryStatisticsServer] {
     switch scope {
     case .all:
-      return servers.map { WidgetServerIdentity(server: $0) }
+      return servers.map { QueryStatisticsServer(server: $0) }
     case .server(let id):
       guard let selected = servers.first(where: { $0.id == id }) else { return [] }
-      return [WidgetServerIdentity(server: selected)]
+      return [QueryStatisticsServer(server: selected)]
     }
   }
 
@@ -147,23 +147,23 @@ struct QueryStatisticsProvider: TimelineProvider {
   }
 
   private func noMatchingServerEntry(now: Date) -> QueryStatisticsEntry {
-    let summary = WidgetSummary(servers: [], results: [:], checkedAt: nil)
+    let summary = QueryStatisticsFetchResult(servers: [], results: [:], checkedAt: nil)
     return QueryStatisticsEntry(date: now, setupRequired: false, summary: summary)
   }
 
   @MainActor
-  private func changedConfigurationEntry(servers: [WidgetServerIdentity]) -> QueryStatisticsEntry {
-    let summary = WidgetSummary(servers: servers, results: [:], checkedAt: nil)
+  private func changedConfigurationEntry(servers: [QueryStatisticsServer]) -> QueryStatisticsEntry {
+    let summary = QueryStatisticsFetchResult(servers: servers, results: [:], checkedAt: nil)
     return QueryStatisticsEntry(date: Date(), setupRequired: false, summary: summary)
   }
 
   @MainActor
   private func completedEntry(
-    servers: [WidgetServerIdentity],
+    servers: [QueryStatisticsServer],
     results: [UUID: Result<QuerySummary, PiholeError>],
     observedAt: Date
   ) -> QueryStatisticsEntry {
-    let summary = WidgetSummary(
+    let summary = QueryStatisticsFetchResult(
       servers: servers,
       results: results,
       checkedAt: observedAt

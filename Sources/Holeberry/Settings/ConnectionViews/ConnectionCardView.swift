@@ -25,9 +25,9 @@ struct ConnectionCardView: View {
 
   private var dotColor: Color {
     switch state {
-    case .healthy: return .green
-    case .authError: return .red
-    case .unreachable, nil: return .gray
+    case .healthy: return ServerStatusColor.healthy.color
+    case .authError: return ServerStatusColor.offline.color
+    case .unreachable, nil: return ServerStatusColor.inactive.color
     }
   }
 

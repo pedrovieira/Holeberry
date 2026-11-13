@@ -3,16 +3,16 @@ import Testing
 
 @testable import HoleberryCore
 
-@Suite("WidgetSummary")
+@Suite("QueryStatisticsFetchResult")
 @MainActor
-struct WidgetSummaryTests {
+struct QueryStatisticsFetchResultTests {
   @Test func identityIncludesURLAndVersion() {
     let id = UUID()
-    let base = WidgetServerIdentity(id: id, url: "http://pihole.local", version: .v6)
+    let base = QueryStatisticsServer(id: id, url: "http://pihole.local", version: .v6)
 
-    #expect(base != WidgetServerIdentity(id: id, url: "http://other.local", version: .v6))
-    #expect(base != WidgetServerIdentity(id: id, url: "http://pihole.local", version: .v5))
-    #expect(base == WidgetServerIdentity(id: id, url: "http://pihole.local", version: .v6))
+    #expect(base != QueryStatisticsServer(id: id, url: "http://other.local", version: .v6))
+    #expect(base != QueryStatisticsServer(id: id, url: "http://pihole.local", version: .v5))
+    #expect(base == QueryStatisticsServer(id: id, url: "http://pihole.local", version: .v6))
   }
 
   @Test func weightedPercentageUsesAggregateCounts() throws {
@@ -20,7 +20,7 @@ struct WidgetSummaryTests {
     let second = identity(url: "http://second.local")
     let observedAt = Date(timeIntervalSince1970: 1_000)
     let statistics = try #require(
-      WidgetQueryStatistics(
+      QueryStatistics(
         servers: [first, second],
         results: [
           first.id: .success(QuerySummary(totalQueries: 20, totalBlocked: 10)),
@@ -39,7 +39,7 @@ struct WidgetSummaryTests {
   @Test func zeroQueriesProducesZeroPercentage() throws {
     let server = identity()
     let statistics = try #require(
-      WidgetQueryStatistics(
+      QueryStatistics(
         servers: [server],
         results: [server.id: .success(QuerySummary(totalQueries: 0, totalBlocked: 0))],
         observedAt: Date(timeIntervalSince1970: 1_000)
@@ -53,7 +53,7 @@ struct WidgetSummaryTests {
   @Test func emptyConfigurationIsNotChecked() {
     let summary = makeSummary(servers: [], results: [:], checkedAt: Date(timeIntervalSince1970: 1_000))
 
-    #expect(summary.health == .notChecked)
+    #expect(summary.availability == .notChecked)
     #expect(summary.completedStatistics == nil)
   }
 
@@ -64,14 +64,14 @@ struct WidgetSummaryTests {
       results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
     )
 
-    #expect(summary.health == .allHealthy)
+    #expect(summary.availability == .allAvailable)
   }
 
   @Test func singleServerFailureIsNoneHealthy() {
     let server = identity()
     let summary = makeSummary(servers: [server], results: [server.id: .failure(.network("offline"))])
 
-    #expect(summary.health == .noneHealthy)
+    #expect(summary.availability == .noneAvailable)
   }
 
   @Test func twoServerHealthMapping() {
@@ -83,13 +83,13 @@ struct WidgetSummaryTests {
     let failure = Result<QuerySummary, PiholeError>.failure(.network("offline"))
 
     let all = makeSummary(servers: [first, second], results: [first.id: success, second.id: success])
-    #expect(all.health == .allHealthy)
+    #expect(all.availability == .allAvailable)
 
     let some = makeSummary(servers: [first, second], results: [first.id: success, second.id: failure])
-    #expect(some.health == .someHealthy)
+    #expect(some.availability == .someAvailable)
 
     let none = makeSummary(servers: [first, second], results: [first.id: failure, second.id: failure])
-    #expect(none.health == .noneHealthy)
+    #expect(none.availability == .noneAvailable)
   }
 
   @Test func notCheckedBeforeAnyFetch() {
@@ -100,10 +100,10 @@ struct WidgetSummaryTests {
       checkedAt: nil
     )
 
-    #expect(summary.health == .notChecked)
+    #expect(summary.availability == .notChecked)
   }
 
-  @Test func partialFailureProducesNoStatistics() {
+  @Test func partialFailureIncludesSuccessfulStatistics() {
     let first = identity(url: "http://first.local")
     let second = identity(url: "http://second.local")
     let summary = makeSummary(
@@ -115,8 +115,10 @@ struct WidgetSummaryTests {
       checkedAt: Date(timeIntervalSince1970: 900)
     )
 
-    #expect(summary.health == .someHealthy)
-    #expect(summary.completedStatistics == nil)
+    #expect(summary.availability == .someAvailable)
+    #expect(summary.completedStatistics?.totalQueries == 1_000)
+    #expect(summary.completedStatistics?.totalBlocked == 500)
+    #expect(summary.completedStatistics?.observedAt == Date(timeIntervalSince1970: 900))
   }
 
   @Test func totalFailureProducesNoStatistics() {
@@ -128,11 +130,11 @@ struct WidgetSummaryTests {
       checkedAt: Date(timeIntervalSince1970: 900)
     )
 
-    #expect(summary.health == .noneHealthy)
+    #expect(summary.availability == .noneAvailable)
     #expect(summary.completedStatistics == nil)
   }
 
-  @Test func missingResultProducesNoStatistics() {
+  @Test func missingResultIncludesSuccessfulStatistics() {
     let first = identity(url: "http://first.local")
     let second = identity(url: "http://second.local")
     let summary = makeSummary(
@@ -140,7 +142,8 @@ struct WidgetSummaryTests {
       results: [first.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
     )
 
-    #expect(summary.completedStatistics == nil)
+    #expect(summary.completedStatistics?.totalQueries == 10)
+    #expect(summary.completedStatistics?.totalBlocked == 1)
   }
 
   @Test func duplicateServerIdentifiersProduceNoStatistics() {
@@ -168,18 +171,35 @@ struct WidgetSummaryTests {
     #expect(statistics.observedAt == checkedAt)
   }
 
+  @Test func blockedFractionClampsToRenderableRange() {
+    let observedAt = Date(timeIntervalSince1970: 1_000)
+
+    #expect(
+      QueryStatistics(totalQueries: 0, totalBlocked: 0, observedAt: observedAt).blockedFraction == 0
+    )
+    #expect(
+      QueryStatistics(totalQueries: 100, totalBlocked: 25, observedAt: observedAt).blockedFraction == 0.25
+    )
+    #expect(
+      QueryStatistics(totalQueries: 100, totalBlocked: 150, observedAt: observedAt).blockedFraction == 1
+    )
+    #expect(
+      QueryStatistics(totalQueries: 100, totalBlocked: -20, observedAt: observedAt).blockedFraction == 0
+    )
+  }
+
   private func identity(
     url: String = "http://pihole.local",
     version: ServerVersion = .v6
-  ) -> WidgetServerIdentity {
-    WidgetServerIdentity(id: UUID(), url: url, version: version)
+  ) -> QueryStatisticsServer {
+    QueryStatisticsServer(id: UUID(), url: url, version: version)
   }
 
   private func makeSummary(
-    servers: [WidgetServerIdentity],
+    servers: [QueryStatisticsServer],
     results: [UUID: Result<QuerySummary, PiholeError>],
     checkedAt: Date? = Date(timeIntervalSince1970: 1_000)
-  ) -> WidgetSummary {
-    WidgetSummary(servers: servers, results: results, checkedAt: checkedAt)
+  ) -> QueryStatisticsFetchResult {
+    QueryStatisticsFetchResult(servers: servers, results: results, checkedAt: checkedAt)
   }
 }

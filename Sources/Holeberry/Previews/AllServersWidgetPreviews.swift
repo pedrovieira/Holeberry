@@ -44,12 +44,12 @@ import SwiftUI
 
 private enum WidgetPreviewData {
   static func partial(now: Date = .now) -> QueryStatisticsEntry {
-    let first = WidgetServerIdentity(id: UUID(), url: "https://first.example", version: .v6)
-    let second = WidgetServerIdentity(id: UUID(), url: "https://second.example", version: .v6)
+    let first = QueryStatisticsServer(id: UUID(), url: "https://first.example", version: .v6)
+    let second = QueryStatisticsServer(id: UUID(), url: "https://second.example", version: .v6)
     return QueryStatisticsEntry(
       date: now,
       setupRequired: false,
-      summary: WidgetSummary(
+      summary: QueryStatisticsFetchResult(
         servers: [first, second],
         results: [
           first.id: .success(QuerySummary(totalQueries: 100, totalBlocked: 10)),
@@ -61,12 +61,12 @@ private enum WidgetPreviewData {
   }
 
   static func allOffline(now: Date = .now) -> QueryStatisticsEntry {
-    let first = WidgetServerIdentity(id: UUID(), url: "https://first.example", version: .v6)
-    let second = WidgetServerIdentity(id: UUID(), url: "https://second.example", version: .v6)
+    let first = QueryStatisticsServer(id: UUID(), url: "https://first.example", version: .v6)
+    let second = QueryStatisticsServer(id: UUID(), url: "https://second.example", version: .v6)
     return QueryStatisticsEntry(
       date: now,
       setupRequired: false,
-      summary: WidgetSummary(
+      summary: QueryStatisticsFetchResult(
         servers: [first, second],
         results: [
           first.id: .failure(.network("preview")),
@@ -81,16 +81,16 @@ private enum WidgetPreviewData {
     QueryStatisticsEntry(
       date: now,
       setupRequired: false,
-      summary: WidgetSummary(servers: [], results: [:], checkedAt: now)
+      summary: QueryStatisticsFetchResult(servers: [], results: [:], checkedAt: now)
     )
   }
 
   static func zero(now: Date = .now) -> QueryStatisticsEntry {
-    let server = WidgetServerIdentity(id: UUID(), url: "https://zero.example", version: .v6)
+    let server = QueryStatisticsServer(id: UUID(), url: "https://zero.example", version: .v6)
     return QueryStatisticsEntry(
       date: now,
       setupRequired: false,
-      summary: WidgetSummary(
+      summary: QueryStatisticsFetchResult(
         servers: [server],
         results: [server.id: .success(QuerySummary(totalQueries: 0, totalBlocked: 0))],
         checkedAt: now
@@ -99,12 +99,12 @@ private enum WidgetPreviewData {
   }
 
   static func stale(now: Date = .now) -> QueryStatisticsEntry {
-    let server = WidgetServerIdentity(id: UUID(), url: "https://stale.example", version: .v6)
+    let server = QueryStatisticsServer(id: UUID(), url: "https://stale.example", version: .v6)
     let observedAt = now.addingTimeInterval(-2 * 60 * 60)
     return QueryStatisticsEntry(
       date: now,
       setupRequired: false,
-      summary: WidgetSummary(
+      summary: QueryStatisticsFetchResult(
         servers: [server],
         results: [
           server.id: .success(QuerySummary(totalQueries: 50_000, totalBlocked: 5_000))

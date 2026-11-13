@@ -1,31 +1,10 @@
 import Foundation
 
-/// Stable identity of one configured Pi-hole server for widget statistics.
+/// Query counts and blocked percentage from one statistics fetch.
 ///
-/// `ServerConfig` equality compares only `id`, so this type includes the URL and
-/// API version as well. Changing either invalidates a fetch collected for the
-/// previous endpoint.
-public struct WidgetServerIdentity: Equatable, Sendable {
-  public let id: UUID
-  public let url: String
-  public let version: ServerVersion
-
-  public init(id: UUID, url: String, version: ServerVersion) {
-    self.id = id
-    self.url = url
-    self.version = version
-  }
-
-  public init(server: ServerConfig) {
-    self.init(id: server.id, url: server.url, version: server.version)
-  }
-}
-
-/// Query counts and blocked percentage from one successful widget fetch.
-///
-/// The totals cover every server in the selected scope at `observedAt`.
-/// Partial results never produce an observation.
-public struct WidgetQueryStatistics: Equatable, Sendable {
+/// The totals cover servers that returned a successful summary in the selected
+/// scope at `observedAt`. Failed and missing results are excluded.
+public struct QueryStatistics: Equatable, Sendable {
   public let totalQueries: Int
   public let totalBlocked: Int
   public let observedAt: Date
@@ -36,9 +15,9 @@ public struct WidgetQueryStatistics: Equatable, Sendable {
     self.observedAt = observedAt
   }
 
-  /// Creates an observation only when every supplied server has a successful summary.
+  /// Creates an observation when at least one supplied server has a successful summary.
   public init?(
-    servers: [WidgetServerIdentity],
+    servers: [QueryStatisticsServer],
     results: [UUID: Result<QuerySummary, PiholeError>],
     observedAt: Date
   ) {
@@ -46,11 +25,15 @@ public struct WidgetQueryStatistics: Equatable, Sendable {
 
     var totalQueries = 0
     var totalBlocked = 0
+    var successCount = 0
     for server in servers {
-      guard case .success(let summary)? = results[server.id] else { return nil }
+      guard case .success(let summary)? = results[server.id] else { continue }
+      successCount += 1
       totalQueries += summary.totalQueries
       totalBlocked += summary.totalBlocked
     }
+
+    guard successCount > 0 else { return nil }
 
     self.init(
       totalQueries: totalQueries,
