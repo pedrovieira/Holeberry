@@ -5,6 +5,7 @@ import HoleberryCore
 import OSLog
 import Sparkle
 import SwiftUI
+import WidgetKit
 
 @main
 struct HoleberryApp: App {
@@ -37,20 +38,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // Sparkle references its user-driver delegate weakly; keep it alive here.
   private var gentleUpdateReminderDelegate: GentleUpdateReminderDelegate?
   private var settingsWindowController: SettingsWindowController?
+  private var pendingOpenSettingsFromWidget = false
 
   // MARK: - Composition Root (lazy var dependency graph)
 
-  private lazy var keychain = KeychainManager()
+  private lazy var appStorage = makeAppStorageContext()
   private lazy var authFactory = ConcreteAuthSessionFactory()
   private lazy var serviceFactory = ConcretePiholeServiceFactory(
     authSessionFactory: authFactory
   )
   private lazy var versionDetector = PiholeVersionDetector()
   private lazy var serverManager = PiholeServerManager(
-    keychain: keychain,
+    keychain: appStorage.keychain,
     serviceFactory: serviceFactory,
-    versionDetector: versionDetector
-  )
+    versionDetector: versionDetector,
+    suite: appStorage.suite
+  ) {
+    WidgetCenter.shared.reloadAllTimelines()
+  }
   private lazy var localIPResolver = LocalIPAddressResolver()
   private lazy var dnsServerResolver = EffectiveDNSServerResolver()
   private lazy var pollScheduler = TaskPollScheduler()
@@ -88,6 +93,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // swiftlint:disable:next function_body_length
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
+
+    // Initialize shared storage before widgets read it, then refresh every widget
+    // kind only when this launch just migrated the stores. Server and credential
+    // changes reload through the manager's persistent change handler instead.
+    _ = appStorage
+    if appStorage.didMigrate {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
 
     let notificationCoordinator = NotificationCoordinator(
       defaultsSuite: .standard,
@@ -149,6 +162,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     )
     self.settingsWindowController = settingsWindowController
 
+    if pendingOpenSettingsFromWidget {
+      pendingOpenSettingsFromWidget = false
+      settingsWindowController.showWindow()
+    }
+
     statusPoller.startPolling()
 
     // Catch up at launch and after wake (a one-shot task doesn't run while asleep).
@@ -193,6 +211,86 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private func requestNotificationAuthorizationIfNeeded() {
     guard !serverManager.servers.isEmpty else { return }
     notificationCoordinator?.requestAuthorizationIfNeeded()
+  }
+
+  /// A deliberate widget click opens the settings window instead of the hidden
+  /// WindowGroup used to keep the SwiftUI app alive.
+  func application(_ application: NSApplication, open urls: [URL]) {
+    guard urls.contains(where: { $0.scheme == AppDeepLink.scheme }) else { return }
+    if let settingsWindowController {
+      settingsWindowController.showWindow()
+    } else {
+      pendingOpenSettingsFromWidget = true
+    }
+  }
+
+  private func makeAppStorageContext() -> AppStorageContext {
+    let legacySuite: UserDefaults = .standard
+    let legacyKeychain = KeychainManager()
+
+    let appGroupIdentifier: String
+    let keychainAccessGroup: String
+    do {
+      appGroupIdentifier = try Bundle.main.sharedAppGroupIdentifier()
+      keychainAccessGroup = try Bundle.main.sharedKeychainAccessGroup()
+    } catch {
+      logger.error("Shared storage configuration failed: \(error.localizedDescription, privacy: .public)")
+      return unavailableStorageContext()
+    }
+
+    let sharedKeychain = KeychainManager.shared(
+      accessGroup: keychainAccessGroup,
+      interactive: true
+    )
+    let selection = AppStorageStartup.select(
+      isCurrentMigrationActivated: SharedStorageMigration.isCurrentVersionActivated(in: legacySuite),
+      resolve: {
+        try UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier)
+      },
+      migrate: { sharedSuite in
+        do {
+          try SharedStorageMigration(
+            legacySuite: legacySuite,
+            sharedSuite: sharedSuite,
+            sharedSuiteName: appGroupIdentifier,
+            legacyKeychain: legacyKeychain,
+            sharedKeychain: sharedKeychain
+          ).migrate()
+        } catch {
+          logger.error("Shared storage migration failed: \(error.localizedDescription, privacy: .public)")
+          throw error
+        }
+      },
+      markActivated: {
+        SharedStorageMigration.markActivated(in: legacySuite)
+      }
+    )
+
+    switch selection {
+    case .useShared(let suite, let didMigrate):
+      return AppStorageContext(
+        suite: suite,
+        keychain: sharedKeychain,
+        didMigrate: didMigrate
+      )
+    case .unavailable:
+      logger.error("Shared storage unavailable; running on a no-write empty state for this launch.")
+      return unavailableStorageContext()
+    }
+  }
+
+  private func unavailableStorageContext() -> AppStorageContext {
+    AppStorageContext(
+      suite: UnavailableDefaults.shared,
+      keychain: UnavailableKeychain(),
+      didMigrate: false
+    )
+  }
+
+  private struct AppStorageContext {
+    let suite: UserDefaults
+    let keychain: any KeychainManaging
+    let didMigrate: Bool
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

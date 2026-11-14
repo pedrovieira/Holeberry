@@ -3,9 +3,6 @@ import HoleberryCore
 
 // swiftlint:disable file_length type_body_length
 
-/// Amber color (#ff9f0a) for the "instances disagree" state.
-private let statusAmber = NSColor(calibratedRed: 1.0, green: 0.624, blue: 0.039, alpha: 1.0)
-
 /// Menu-construction helper.
 ///
 /// Receives all data and actions as parameters; returns a fully-built
@@ -169,7 +166,7 @@ struct MenuBuilder {
     // 1. Any instance unreachable → red
     let allReachable = servers.allSatisfy { connectionStatuses[$0.id] == .connected }
     guard allReachable else {
-      return (.systemRed, "Instance Unreachable")
+      return (ServerStatusColor.offline.nsColor, "Instance Unreachable")
     }
 
     // 2. Check blocking state among reachable servers
@@ -183,13 +180,13 @@ struct MenuBuilder {
 
     if !allBlocking && !noneBlocking {
       // 3. Instances disagree → amber
-      return (statusAmber, "Blocking Partially Active")
+      return (ServerStatusColor.partial.nsColor, "Blocking Partially Active")
     } else if allBlocking {
       // 4. All blocking → green
-      return (.systemGreen, "Blocking Active")
+      return (ServerStatusColor.healthy.nsColor, "Blocking Active")
     } else {
       // 5. All confirmed off → gray
-      return (.systemGray, "Blocking Disabled")
+      return (ServerStatusColor.inactive.nsColor, "Blocking Disabled")
     }
   }
 
@@ -219,11 +216,11 @@ struct MenuBuilder {
       let blocking = .enabled == blockingStatuses[config.id]
       let dotColor: NSColor
       if !connected {
-        dotColor = .systemRed
+        dotColor = ServerStatusColor.offline.nsColor
       } else if blocking {
-        dotColor = .systemGreen
+        dotColor = ServerStatusColor.healthy.nsColor
       } else {
-        dotColor = .systemGray
+        dotColor = ServerStatusColor.inactive.nsColor
       }
 
       let item = NSMenuItem()
@@ -465,8 +462,8 @@ struct MenuBuilder {
   /// "a few moments ago" until the next poll lands; "at most " only for
   /// several servers, never alongside "a few moments ago".
   private func gravityRelativeText(maxAge: Date, showAtMost: Bool) -> String {
-    let isMomentsAgo = Date().timeIntervalSince(maxAge) < 60
-    let relative = isMomentsAgo ? "a few moments ago" : MenuItemFactory.relativeTimestamp(since: maxAge)
+    let isMomentsAgo = Date().timeIntervalSince(maxAge) < RelativeAgeFormatter.momentsThreshold
+    let relative = RelativeAgeFormatter(style: .standardWithMoments).string(since: maxAge)
     let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
     return "\(prefix)\(relative)"
   }

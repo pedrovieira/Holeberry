@@ -17,12 +17,16 @@ enum TestJSON {
 /// Creates an isolated `UserDefaults` suite for a single test.
 /// Each call returns a unique, pre-cleaned suite so parallel tests don't interfere.
 enum TestDefaults {
-  static func makeSuite() -> UserDefaults {
+  static func makeNamedSuite() -> (name: String, suite: UserDefaults) {
     let name = "com.holeberry.tests.\(UUID().uuidString)"
     guard let suite = UserDefaults(suiteName: name) else {
       fatalError("Failed to create test UserDefaults suite")
     }
-    return suite
+    return (name, suite)
+  }
+
+  static func makeSuite() -> UserDefaults {
+    makeNamedSuite().suite
   }
 }
 
@@ -49,4 +53,14 @@ func settle(turns: Int = 100) async {
   for _ in 0..<turns {
     await Task.yield()
   }
+}
+
+/// Injects a raw value into the underlying suite for malformed-storage tests.
+func setRawDefaultsValue<Value>(_ value: Any, for key: Defaults.Key<Value>) {
+  key.suite.set(value, forKey: key.name)
+}
+
+/// Reads the raw underlying value without `Defaults` decoding.
+func rawDefaultsValue<Value>(for key: Defaults.Key<Value>) -> Any? {
+  key.suite.object(forKey: key.name)
 }

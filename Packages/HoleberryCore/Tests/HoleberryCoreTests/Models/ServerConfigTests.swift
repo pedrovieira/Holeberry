@@ -33,6 +33,25 @@ struct ServerConfigTests {
     #expect(server1 == server2)  // equal by id
   }
 
+  @Test func connectionComparisonIncludesIDURLAndVersion() {
+    let id = UUID()
+    let server = ServerConfig(id: id, url: "http://pihole.local", version: .v6)
+
+    #expect(server.hasSameConnection(as: server))
+    #expect(!server.hasSameConnection(as: ServerConfig(url: server.url, version: .v6)))
+    #expect(!server.hasSameConnection(as: ServerConfig(id: id, url: "http://other.local", version: .v6)))
+    #expect(!server.hasSameConnection(as: ServerConfig(id: id, url: server.url, version: .v5)))
+  }
+
+  @Test func connectionComparisonIgnoresLabelAndIcon() {
+    let server = ServerConfig(label: "Home", icon: "house", url: "http://pihole.local", version: .v6)
+    var renamed = server
+    renamed.label = "Office"
+    renamed.icon = "building"
+
+    #expect(server.hasSameConnection(as: renamed))
+  }
+
   @Test func codableRoundTrip() throws {
     let server = ServerConfig(label: "Test", url: "http://test.com:8080", version: .v6)
     let data = try TestJSON.encoder.encode(server)

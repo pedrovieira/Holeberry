@@ -53,90 +53,92 @@ struct ConnectionListView: View {
   }
 
   var body: some View {
-    // --- Section 1: Existing connections ---
-    Section {
-      ForEach(statusPoller.servers) { server in
-        connectionRow(for: server)
-      }
-
-      if statusPoller.servers.count < 2 {
-        Button {
-          sheetMode = .add(prefillURL: nil)
-        } label: {
-          Label("New Connection", systemImage: "plus.circle")
-            .font(.system(size: 12))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+    Group {
+      // --- Section 1: Existing connections ---
+      Section {
+        ForEach(statusPoller.servers) { server in
+          connectionRow(for: server)
         }
-        .buttonStyle(.plain)
-        .foregroundColor(.accentColor)
-        .padding(.vertical, 4)
-      }
 
-      if statusPoller.servers.count >= 2 {
-        HStack(spacing: 6) {
-          Image(systemName: "plus")
-          Text("Maximum connections reached")
+        if statusPoller.servers.count < 2 {
+          Button {
+            sheetMode = .add(prefillURL: nil)
+          } label: {
+            Label("New Connection", systemImage: "plus.circle")
+              .font(.system(size: 12))
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .foregroundColor(.accentColor)
+          .padding(.vertical, 4)
         }
-        .font(.system(size: 11))
-        .foregroundColor(.secondary)
-        .opacity(0.4)
-        .allowsHitTesting(false)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 4)
-      }
-    } header: {
-      VStack(alignment: .leading, spacing: 4) {
-        Text("Your Pi-hole connections")
-          .font(.headline)
-        Text("Add and manage Pi-hole instances. Max 2 connections.")
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-      }
-      .textCase(nil)
-      .padding(.bottom, 4)
-    }
 
-    // --- Section 2: Instances Found ---
-    Section {
-      if statusPoller.servers.count >= 2 {
-        Text("All connection slots filled")
+        if statusPoller.servers.count >= 2 {
+          HStack(spacing: 6) {
+            Image(systemName: "plus")
+            Text("Maximum connections reached")
+          }
           .font(.system(size: 11))
           .foregroundColor(.secondary)
-          .frame(height: 30)
-      } else if discoveryService.isScanning && filteredInstances.isEmpty {
-        Text("Scanning your network...")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-          .frame(height: 30)
-      } else if !discoveryService.isScanning && filteredInstances.isEmpty {
-        Text("No Pi-hole instances found")
-          .font(.system(size: 11))
-          .foregroundColor(.secondary)
-          .frame(height: 30)
-      } else {
-        ForEach(filteredInstances) { instance in
-          DiscoveredRow(instance: instance) {
-            sheetMode = .add(prefillURL: "http://\(instance.addr)")
+          .opacity(0.4)
+          .allowsHitTesting(false)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.vertical, 4)
+        }
+      } header: {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Your Pi-hole connections")
+            .font(.headline)
+          Text("Add and manage Pi-hole instances. Max 2 connections.")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+        .textCase(nil)
+        .padding(.bottom, 4)
+      }
+
+      // --- Section 2: Instances Found ---
+      Section {
+        if statusPoller.servers.count >= 2 {
+          Text("All connection slots filled")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .frame(height: 30)
+        } else if discoveryService.isScanning && filteredInstances.isEmpty {
+          Text("Scanning your network...")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .frame(height: 30)
+        } else if !discoveryService.isScanning && filteredInstances.isEmpty {
+          Text("No Pi-hole instances found")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .frame(height: 30)
+        } else {
+          ForEach(filteredInstances) { instance in
+            DiscoveredRow(instance: instance) {
+              sheetMode = .add(prefillURL: "http://\(instance.addr)")
+            }
           }
         }
-      }
-    } header: {
-      HStack {
-        Text("Available Instances")
-          .font(.headline)
-        Spacer()
-        if discoveryService.isScanning {
-          ProgressView()
-            .controlSize(.small)
+      } header: {
+        HStack {
+          Text("Available Instances")
+            .font(.headline)
+          Spacer()
+          if discoveryService.isScanning {
+            ProgressView()
+              .controlSize(.small)
+          }
         }
-      }
-      .textCase(nil)
-    } footer: {
-      Text("Scans your local network and DNS servers when you visit this tab.")
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
         .textCase(nil)
+      } footer: {
+        Text("Scans your local network and DNS servers when you visit this tab.")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .textCase(nil)
+      }
     }
 
     // --- Modals ---

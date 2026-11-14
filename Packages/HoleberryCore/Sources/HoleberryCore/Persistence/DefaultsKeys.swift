@@ -106,4 +106,96 @@ extension Defaults.Keys {
   ) -> Defaults.Key<Date?> {
     Defaults.Key<Date?>("gravityUpdateNextDue", default: nil, suite: suite)
   }
+
+  /// Version of the verified legacy-to-shared storage migration completed in
+  /// the App Group suite. Zero means migration has not completed.
+  public static func sharedStorageMigrationVersion(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageMigrationVersion", default: 0, suite: suite)
+  }
+
+  /// Local metadata marker remembering which migration generation this app
+  /// activated. Stored in the standard suite so it survives a later group
+  /// resolution failure; it never contains configuration. Compare it with
+  /// `SharedStorageMigration.currentVersion` to decide whether startup migrates.
+  public static func sharedStorageActivatedVersion(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageActivatedVersion", default: 0, suite: suite)
+  }
+}
+
+public enum DefaultsSuiteError: Error, Equatable {
+  case unavailableGroupSuite(String)
+}
+
+extension UserDefaults {
+  /// Opens the registered App Group suite. Never falls back to `.standard`.
+  public static func sharedStorageSuite(appGroupIdentifier: String) throws -> UserDefaults {
+    guard let suite = UserDefaults(suiteName: appGroupIdentifier) else {
+      throw DefaultsSuiteError.unavailableGroupSuite(appGroupIdentifier)
+    }
+    return suite
+  }
+}
+
+enum DefaultsValueValidationError: Error, Equatable {
+  case malformedValue(String)
+  case missingPersistedValue(String)
+}
+
+extension Defaults.Keys {
+  /// Decodes a stored array through the Defaults bridge without accepting
+  /// partial results. A present value that loses elements during decoding
+  /// throws instead of becoming an empty or partial array.
+  static func strictlyDecodedArray<Element: Defaults.Serializable>(
+    _ key: Defaults.Key<[Element]>
+  ) throws -> [Element] {
+    guard let rawValue = key.suite.object(forKey: key.name) else { return [] }
+    return try decodeStrictArray(rawValue, keyName: key.name)
+  }
+
+  /// Decodes only the value explicitly saved in the suite's persistent domain.
+  ///
+  /// An absent key or a registered fallback default throws instead of decoding
+  /// as empty, so a successful result proves the suite holds a saved value.
+  /// This is an in-process check; it does not prove disk durability.
+  static func strictlyDecodedPersistedArray<Element: Defaults.Serializable>(
+    _ key: Defaults.Key<[Element]>,
+    suiteName: String
+  ) throws -> [Element] {
+    guard let rawValue = key.suite.persistentDomain(forName: suiteName)?[key.name] else {
+      throw DefaultsValueValidationError.missingPersistedValue(key.name)
+    }
+    return try decodeStrictArray(rawValue, keyName: key.name)
+  }
+
+  private static func decodeStrictArray<Element: Defaults.Serializable>(
+    _ rawValue: Any,
+    keyName: String
+  ) throws -> [Element] {
+    guard let serializedElements = rawValue as? [Element.Serializable] else {
+      throw DefaultsValueValidationError.malformedValue(keyName)
+    }
+    guard
+      let decoded = [Element].bridge.deserialize(serializedElements),
+      decoded.count == serializedElements.count
+    else {
+      throw DefaultsValueValidationError.malformedValue(keyName)
+    }
+    return decoded
+  }
+}
+
+/// Empty, no-write suite used only when previously activated shared storage
+/// cannot be reopened. It must never read, contain, or mutate data. Keeping the
+/// adapter here makes every raw `UserDefaults` override live in this file.
+public final class UnavailableDefaults: UserDefaults, @unchecked Sendable {
+  public static let shared = UnavailableDefaults()
+
+  public override func object(forKey defaultName: String) -> Any? { nil }
+  public override func set(_ value: Any?, forKey defaultName: String) {}
+  public override func removeObject(forKey defaultName: String) {}
+  public override func register(defaults registrationDictionary: [String: Any]) {}
 }
