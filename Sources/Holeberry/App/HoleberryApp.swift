@@ -94,9 +94,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
-    // Initialize shared storage before widgets read it, then refresh every widget kind.
+    // Initialize shared storage before widgets read it, then refresh every widget
+    // kind only when this launch just migrated the stores. Server and credential
+    // changes reload through the manager's persistent change handler instead.
     _ = appStorage
-    WidgetCenter.shared.reloadAllTimelines()
+    if appStorage.didMigrate {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
 
     let notificationCoordinator = NotificationCoordinator(
       defaultsSuite: .standard,
@@ -154,8 +158,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       updater: updaterController.updater,
       discoveryService: discoveryService,
       statusPoller: statusPoller,
-      notificationCoordinator: notificationCoordinator,
-      storageUnavailable: appStorage.storageUnavailable
+      notificationCoordinator: notificationCoordinator
     )
     self.settingsWindowController = settingsWindowController
 
@@ -213,7 +216,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   /// A deliberate widget click opens the settings window instead of the hidden
   /// WindowGroup used to keep the SwiftUI app alive.
   func application(_ application: NSApplication, open urls: [URL]) {
-    guard urls.contains(where: { $0.scheme == "holeberry" }) else { return }
+    guard urls.contains(where: { $0.scheme == AppDeepLink.scheme }) else { return }
     if let settingsWindowController {
       settingsWindowController.showWindow()
     } else {
@@ -268,11 +271,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       return AppStorageContext(
         suite: suite,
         keychain: sharedKeychain,
-        didMigrate: didMigrate,
-        storageUnavailable: false
+        didMigrate: didMigrate
       )
     case .unavailable:
-      logger.error("Shared storage unavailable; server changes are disabled for this launch.")
+      logger.error("Shared storage unavailable; running on a no-write empty state for this launch.")
       return unavailableStorageContext()
     }
   }
@@ -281,8 +283,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     AppStorageContext(
       suite: UnavailableDefaults.shared,
       keychain: UnavailableKeychain(),
-      didMigrate: false,
-      storageUnavailable: true
+      didMigrate: false
     )
   }
 
@@ -290,7 +291,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let suite: UserDefaults
     let keychain: any KeychainManaging
     let didMigrate: Bool
-    let storageUnavailable: Bool
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

@@ -162,23 +162,6 @@ struct QueryStatisticsFetchResultTests {
     #expect(statistics.observedAt == checkedAt)
   }
 
-  @Test func blockedFractionClampsToRenderableRange() {
-    let observedAt = Date(timeIntervalSince1970: 1_000)
-
-    #expect(
-      QueryStatistics(totalQueries: 0, totalBlocked: 0, observedAt: observedAt).blockedFraction == 0
-    )
-    #expect(
-      QueryStatistics(totalQueries: 100, totalBlocked: 25, observedAt: observedAt).blockedFraction == 0.25
-    )
-    #expect(
-      QueryStatistics(totalQueries: 100, totalBlocked: 150, observedAt: observedAt).blockedFraction == 1
-    )
-    #expect(
-      QueryStatistics(totalQueries: 100, totalBlocked: -20, observedAt: observedAt).blockedFraction == 0
-    )
-  }
-
   private func makeServer(
     url: String = "http://pihole.local",
     version: ServerVersion = .v6

@@ -47,9 +47,4 @@ public struct QueryStatistics: Equatable, Sendable {
     guard totalQueries > 0 else { return 0 }
     return 100 * Double(totalBlocked) / Double(totalQueries)
   }
-
-  /// Clamped fraction for rendering the proportional bar.
-  public var blockedFraction: Double {
-    min(max(blockedPercentage / 100, 0), 1)
-  }
 }

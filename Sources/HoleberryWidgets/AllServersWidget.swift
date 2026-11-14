@@ -29,7 +29,7 @@ struct AllServersWidgetEntryView: View {
     .containerBackground(for: .widget) {
       Color(nsColor: .windowBackgroundColor)
     }
-    .widgetURL(URL(string: "holeberry://settings"))
+    .widgetURL(AppDeepLink.settingsURL)
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilityText)
   }

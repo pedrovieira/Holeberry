@@ -5,7 +5,6 @@ struct ConnectionListView: View {
   let serverManager: PiholeServerManager
   @ObservedObject var discoveryService: PiholeDiscoveryService
   @ObservedObject var statusPoller: ServerStatusPoller
-  let storageUnavailable: Bool
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
   @State private var serverToDelete: ServerConfig?
@@ -55,19 +54,6 @@ struct ConnectionListView: View {
 
   var body: some View {
     Group {
-      if storageUnavailable {
-        Section {
-          Label(
-            "Saved storage unavailable. Your server settings were not changed. "
-              + "Quit and reopen Holeberry.",
-            systemImage: "exclamationmark.triangle"
-          )
-          .font(.callout)
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-        }
-      }
-
       // --- Section 1: Existing connections ---
       Section {
         ForEach(statusPoller.servers) { server in
@@ -86,7 +72,6 @@ struct ConnectionListView: View {
           .buttonStyle(.plain)
           .foregroundColor(.accentColor)
           .padding(.vertical, 4)
-          .disabled(storageUnavailable)
         }
 
         if statusPoller.servers.count >= 2 {
@@ -114,47 +99,45 @@ struct ConnectionListView: View {
       }
 
       // --- Section 2: Instances Found ---
-      if !storageUnavailable {
-        Section {
-          if statusPoller.servers.count >= 2 {
-            Text("All connection slots filled")
-              .font(.system(size: 11))
-              .foregroundColor(.secondary)
-              .frame(height: 30)
-          } else if discoveryService.isScanning && filteredInstances.isEmpty {
-            Text("Scanning your network...")
-              .font(.system(size: 11))
-              .foregroundColor(.secondary)
-              .frame(height: 30)
-          } else if !discoveryService.isScanning && filteredInstances.isEmpty {
-            Text("No Pi-hole instances found")
-              .font(.system(size: 11))
-              .foregroundColor(.secondary)
-              .frame(height: 30)
-          } else {
-            ForEach(filteredInstances) { instance in
-              DiscoveredRow(instance: instance) {
-                sheetMode = .add(prefillURL: "http://\(instance.addr)")
-              }
+      Section {
+        if statusPoller.servers.count >= 2 {
+          Text("All connection slots filled")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .frame(height: 30)
+        } else if discoveryService.isScanning && filteredInstances.isEmpty {
+          Text("Scanning your network...")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .frame(height: 30)
+        } else if !discoveryService.isScanning && filteredInstances.isEmpty {
+          Text("No Pi-hole instances found")
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .frame(height: 30)
+        } else {
+          ForEach(filteredInstances) { instance in
+            DiscoveredRow(instance: instance) {
+              sheetMode = .add(prefillURL: "http://\(instance.addr)")
             }
           }
-        } header: {
-          HStack {
-            Text("Available Instances")
-              .font(.headline)
-            Spacer()
-            if discoveryService.isScanning {
-              ProgressView()
-                .controlSize(.small)
-            }
-          }
-          .textCase(nil)
-        } footer: {
-          Text("Scans your local network and DNS servers when you visit this tab.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .textCase(nil)
         }
+      } header: {
+        HStack {
+          Text("Available Instances")
+            .font(.headline)
+          Spacer()
+          if discoveryService.isScanning {
+            ProgressView()
+              .controlSize(.small)
+          }
+        }
+        .textCase(nil)
+      } footer: {
+        Text("Scans your local network and DNS servers when you visit this tab.")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .textCase(nil)
       }
     }
 
@@ -181,12 +164,12 @@ struct ConnectionListView: View {
     // --- Lifecycle ---
     .task {
       statusPoller.pollNow()
-      if statusPoller.servers.count < 2 && !storageUnavailable {
+      if statusPoller.servers.count < 2 {
         await discoveryService.scan()
       }
     }
     .onChange(of: statusPoller.servers.count) {
-      guard statusPoller.servers.count < 2, !storageUnavailable else { return }
+      guard statusPoller.servers.count < 2 else { return }
       Task { await discoveryService.scan() }
     }
     .onChange(of: sheetMode) { _, newMode in

@@ -19,10 +19,10 @@ writes to Pi-hole.
    left untouched, but it is not imported later. Add your servers again.
 2. Open the macOS widget gallery, choose Holeberry, and add the **All servers**
    widget to Notification Center or the desktop.
-3. If the shared stores cannot be opened or written at all, Holeberry shows
-   **Saved storage unavailable**, keeps the app running on a no-write empty
-   state, and disables adding or changing servers until storage reopens. It does
-   not fall back to legacy data. Quit and reopen Holeberry to retry.
+3. If the shared stores cannot be opened or written at all, Holeberry keeps the
+   app running on a no-write empty state: server changes cannot be saved and the
+   widget stays in its setup state. It does not fall back to legacy data. Reopen
+   Holeberry to retry.
 
 ## What the widget shows
 
