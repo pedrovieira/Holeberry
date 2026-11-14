@@ -243,7 +243,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       interactive: true
     )
     let selection = AppStorageStartup.select(
-      isActivated: Defaults[.sharedStorageActivated(suite: legacySuite)],
+      isCurrentMigrationActivated: SharedStorageMigration.isCurrentVersionActivated(in: legacySuite),
       resolve: {
         try UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier)
       },
@@ -262,7 +262,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
       },
       markActivated: {
-        Defaults[.sharedStorageActivated(suite: legacySuite)] = true
+        SharedStorageMigration.markActivated(in: legacySuite)
       }
     )
 

@@ -381,6 +381,49 @@ struct SharedStorageMigrationTests {
     #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
+  @Test func activationRecordsCurrentVersionInLegacySuite() {
+    let suite = TestDefaults.makeSuite()
+
+    #expect(SharedStorageMigration.isCurrentVersionActivated(in: suite) == false)
+
+    SharedStorageMigration.markActivated(in: suite)
+
+    #expect(SharedStorageMigration.isCurrentVersionActivated(in: suite))
+    #expect(
+      Defaults[.sharedStorageActivatedVersion(suite: suite)] == SharedStorageMigration.currentVersion)
+  }
+
+  @Test func newerGenerationRecordsCompletionWithoutReimportingLegacy() throws {
+    let harness = makeHarness()
+    let legacy = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v5)
+    let shared = ServerConfig(id: UUID(), url: "http://shared.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [legacy]
+    Defaults[.servers(suite: harness.sharedSuite)] = [shared]
+    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = 1
+
+    try harness.migration.migrate(targetVersion: 2)
+
+    let current = Defaults[.servers(suite: harness.sharedSuite)]
+    #expect(current.map(\.id) == [shared.id])
+    #expect(current[0].url == "http://shared.local")
+    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [legacy.id])
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 2)
+    #expect(harness.legacyKeychain.readCallCount == 0)
+  }
+
+  @Test func generationBumpMarkerWriteFailureRestoresPreviousVersion() throws {
+    let sharedSuite = TestUserDefaults()
+    Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = 1
+    sharedSuite.rejectedWriteKeys = [Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite).name]
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
+
+    #expect(throws: SharedStorageMigrationError.completionMarkerNotPersisted) {
+      try harness.migration.migrate(targetVersion: 2)
+    }
+
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == 1)
+  }
+
   @Test func explicitEmptyServerArrayMigratesNormally() throws {
     let harness = makeHarness()
     Defaults[.servers(suite: harness.legacySuite)] = []

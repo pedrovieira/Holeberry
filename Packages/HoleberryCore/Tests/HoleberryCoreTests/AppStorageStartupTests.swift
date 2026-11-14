@@ -13,7 +13,7 @@ struct AppStorageStartupTests {
     var activated = false
 
     let selection = AppStorageStartup.select(
-      isActivated: false,
+      isCurrentMigrationActivated: false,
       resolve: { suite },
       migrate: { resolved in
         migrationCount += 1
@@ -37,7 +37,7 @@ struct AppStorageStartupTests {
     var activated = false
 
     let selection = AppStorageStartup.select(
-      isActivated: false,
+      isCurrentMigrationActivated: false,
       resolve: { throw AppStorageStartupTestError.resolutionFailed },
       migrate: { _ in migrationCount += 1 },
       markActivated: { activated = true }
@@ -58,7 +58,7 @@ struct AppStorageStartupTests {
     var activated = false
 
     let selection = AppStorageStartup.select(
-      isActivated: false,
+      isCurrentMigrationActivated: false,
       resolve: { suite },
       migrate: { _ in throw AppStorageStartupTestError.migrationFailed },
       markActivated: { activated = true }
@@ -77,7 +77,7 @@ struct AppStorageStartupTests {
     var activated = false
 
     let selection = AppStorageStartup.select(
-      isActivated: true,
+      isCurrentMigrationActivated: true,
       resolve: { throw AppStorageStartupTestError.resolutionFailed },
       migrate: { _ in migrationCount += 1 },
       markActivated: { activated = true }
@@ -97,7 +97,7 @@ struct AppStorageStartupTests {
     var activated = false
 
     let selection = AppStorageStartup.select(
-      isActivated: true,
+      isCurrentMigrationActivated: true,
       resolve: { suite },
       migrate: { _ in migrationCount += 1 },
       markActivated: { activated = true }
@@ -122,7 +122,7 @@ struct AppStorageStartupTests {
     Defaults[.servers(suite: secondSuite)] = [secondServer]
 
     let selection = AppStorageStartup.select(
-      isActivated: true,
+      isCurrentMigrationActivated: true,
       resolve: { throw AppStorageStartupTestError.resolutionFailed },
       migrate: { _ in Issue.record("Migration must not run") },
       markActivated: { Issue.record("Activation must not change") }

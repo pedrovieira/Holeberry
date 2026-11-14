@@ -13,15 +13,21 @@ public enum AppStorageStartupSelection {
 /// reported as unavailable, and the app runs with no-write empty stores.
 @MainActor
 public enum AppStorageStartup {
+  /// Resolves the shared suite and migrates it unless the current migration
+  /// generation was already activated.
+  ///
+  /// - Parameter isCurrentMigrationActivated: `true` when the standard suite
+  ///   already recorded `SharedStorageMigration.currentVersion`; a newer
+  ///   generation deliberately returns `false` so migration runs again.
   public static func select(
-    isActivated: Bool,
+    isCurrentMigrationActivated: Bool,
     resolve: () throws -> UserDefaults,
     migrate: (UserDefaults) throws -> Void,
     markActivated: () -> Void
   ) -> AppStorageStartupSelection {
     do {
       let suite = try resolve()
-      guard !isActivated else {
+      guard !isCurrentMigrationActivated else {
         return .useShared(suite, didMigrate: false)
       }
 

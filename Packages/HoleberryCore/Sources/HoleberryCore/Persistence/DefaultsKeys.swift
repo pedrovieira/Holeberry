@@ -115,13 +115,14 @@ extension Defaults.Keys {
     Defaults.Key<Int>("sharedStorageMigrationVersion", default: 0, suite: suite)
   }
 
-  /// Local metadata marker remembering that this app successfully activated the
-  /// shared stores. Stored in the standard suite so it survives a later group
-  /// resolution failure; it never contains configuration.
-  public static func sharedStorageActivated(
+  /// Local metadata marker remembering which migration generation this app
+  /// activated. Stored in the standard suite so it survives a later group
+  /// resolution failure; it never contains configuration. Compare it with
+  /// `SharedStorageMigration.currentVersion` to decide whether startup migrates.
+  public static func sharedStorageActivatedVersion(
     suite: UserDefaults = .standard
-  ) -> Defaults.Key<Bool> {
-    Defaults.Key<Bool>("sharedStorageActivated", default: false, suite: suite)
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageActivatedVersion", default: 0, suite: suite)
   }
 }
 

@@ -46,6 +46,13 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
 /// current legacy state as authoritative until completion is persisted.
 @MainActor
 public final class SharedStorageMigration {
+  /// The migration generation this build expects. Starts at 1 and is incremented
+  /// when the shared stores need a new migration generation.
+  ///
+  /// Activation and completion are both recorded against this value, so bumping
+  /// it makes existing installs run `migrate()` again. Only version zero imports
+  /// the legacy stores; later generations change shared data in place so edits
+  /// made after the first migration survive.
   public static let currentVersion = 1
 
   private static let logger = Logger(subsystem: Logger.appSubsystem, category: "shared-storage-migration")
@@ -74,19 +81,39 @@ public final class SharedStorageMigration {
     Defaults[.sharedStorageMigrationVersion(suite: suite)] >= currentVersion
   }
 
-  public func migrate() throws {
-    guard !Self.isComplete(in: sharedSuite) else { return }
+  /// Whether the legacy standard suite already activated `currentVersion`.
+  public static func isCurrentVersionActivated(in legacySuite: UserDefaults) -> Bool {
+    Defaults[.sharedStorageActivatedVersion(suite: legacySuite)] >= currentVersion
+  }
 
-    do {
-      try importLegacyState()
-    } catch {
-      let message =
-        "Legacy storage import failed; starting with empty shared configuration: "
-        + error.localizedDescription
-      Self.logger.error("\(message, privacy: .public)")
-      try discardPartialImport()
+  /// Records `currentVersion` in the legacy standard suite after a successful
+  /// migration.
+  public static func markActivated(in legacySuite: UserDefaults) {
+    Defaults[.sharedStorageActivatedVersion(suite: legacySuite)] = currentVersion
+  }
+
+  public func migrate() throws {
+    try migrate(targetVersion: Self.currentVersion)
+  }
+
+  /// Applies every step needed to reach `targetVersion`. Internal so tests can
+  /// exercise a generation bump before this build ships with one.
+  func migrate(targetVersion: Int) throws {
+    let completedVersion = Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)]
+    guard completedVersion < targetVersion else { return }
+
+    if completedVersion == 0 {
+      do {
+        try importLegacyState()
+      } catch {
+        let message =
+          "Legacy storage import failed; starting with empty shared configuration: "
+          + error.localizedDescription
+        Self.logger.error("\(message, privacy: .public)")
+        try discardPartialImport()
+      }
     }
-    try markComplete()
+    try markComplete(targetVersion: targetVersion, previousVersion: completedVersion)
   }
 
   private func importLegacyState() throws {
@@ -200,10 +227,11 @@ public final class SharedStorageMigration {
     }
   }
 
-  private func markComplete() throws {
-    Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = Self.currentVersion
-    guard Self.isComplete(in: sharedSuite) else {
-      Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = 0
+  private func markComplete(targetVersion: Int, previousVersion: Int) throws {
+    Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = targetVersion
+    guard Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] >= targetVersion else {
+      // Keep the last verified generation instead of claiming a fresh start.
+      Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = previousVersion
       throw SharedStorageMigrationError.completionMarkerNotPersisted
     }
   }
