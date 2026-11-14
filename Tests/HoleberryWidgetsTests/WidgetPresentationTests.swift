@@ -128,7 +128,7 @@ struct WidgetPresentationTests {
     #expect(WidgetPresentation.setupRequired.lastCheckedAt == nil)
   }
 
-  private func makeServer(url: String = "http://pihole.local") -> QueryStatisticsServer {
-    QueryStatisticsServer(id: UUID(), url: url, version: .v6)
+  private func makeServer(url: String = "http://pihole.local") -> ServerConfig {
+    ServerConfig(id: UUID(), url: url, version: .v6)
   }
 }

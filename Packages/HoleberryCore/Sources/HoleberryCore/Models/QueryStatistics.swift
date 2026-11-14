@@ -17,7 +17,7 @@ public struct QueryStatistics: Equatable, Sendable {
 
   /// Creates an observation when at least one supplied server has a successful summary.
   public init?(
-    servers: [QueryStatisticsServer],
+    servers: [ServerConfig],
     results: [UUID: Result<QuerySummary, PiholeError>],
     observedAt: Date
   ) {

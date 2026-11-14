@@ -6,46 +6,47 @@ import SwiftUI
 // `widgetExtension` process type, which macOS does not support
 // ("No plugin is registered to launch the process type widgetExtension").
 // Keep the view compiled into the app target and preview it here instead.
-// Sized to the macOS systemSmall widget (170 x 170 points).
+// Every preview is sized to the macOS systemSmall widget via
+// `WidgetPreviewSize.systemSmall`.
 #Preview("Healthy") {
   AllServersWidgetEntryView(entry: .placeholder())
-    .frame(width: 170, height: 170)
+    .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Partial") {
   AllServersWidgetEntryView(entry: WidgetPreviewData.partial())
-    .frame(width: 170, height: 170)
+    .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("All offline") {
   AllServersWidgetEntryView(entry: WidgetPreviewData.allOffline())
-    .frame(width: 170, height: 170)
+    .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("No servers") {
   AllServersWidgetEntryView(entry: WidgetPreviewData.noServers())
-    .frame(width: 170, height: 170)
+    .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Setup required") {
   AllServersWidgetEntryView(entry: .setupRequired())
-    .frame(width: 170, height: 170)
+    .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Zero") {
   AllServersWidgetEntryView(entry: WidgetPreviewData.zero())
-    .frame(width: 170, height: 170)
+    .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Stale") {
   AllServersWidgetEntryView(entry: WidgetPreviewData.stale())
-    .frame(width: 170, height: 170)
+    .widgetPreviewFrame(.systemSmall)
 }
 
 private enum WidgetPreviewData {
   static func partial(now: Date = .now) -> QueryStatisticsEntry {
-    let first = QueryStatisticsServer(id: UUID(), url: "https://first.example", version: .v6)
-    let second = QueryStatisticsServer(id: UUID(), url: "https://second.example", version: .v6)
+    let first = ServerConfig(id: UUID(), url: "https://first.example", version: .v6)
+    let second = ServerConfig(id: UUID(), url: "https://second.example", version: .v6)
     return QueryStatisticsEntry(
       date: now,
       setupRequired: false,
@@ -61,8 +62,8 @@ private enum WidgetPreviewData {
   }
 
   static func allOffline(now: Date = .now) -> QueryStatisticsEntry {
-    let first = QueryStatisticsServer(id: UUID(), url: "https://first.example", version: .v6)
-    let second = QueryStatisticsServer(id: UUID(), url: "https://second.example", version: .v6)
+    let first = ServerConfig(id: UUID(), url: "https://first.example", version: .v6)
+    let second = ServerConfig(id: UUID(), url: "https://second.example", version: .v6)
     return QueryStatisticsEntry(
       date: now,
       setupRequired: false,
@@ -86,7 +87,7 @@ private enum WidgetPreviewData {
   }
 
   static func zero(now: Date = .now) -> QueryStatisticsEntry {
-    let server = QueryStatisticsServer(id: UUID(), url: "https://zero.example", version: .v6)
+    let server = ServerConfig(id: UUID(), url: "https://zero.example", version: .v6)
     return QueryStatisticsEntry(
       date: now,
       setupRequired: false,
@@ -99,7 +100,7 @@ private enum WidgetPreviewData {
   }
 
   static func stale(now: Date = .now) -> QueryStatisticsEntry {
-    let server = QueryStatisticsServer(id: UUID(), url: "https://stale.example", version: .v6)
+    let server = ServerConfig(id: UUID(), url: "https://stale.example", version: .v6)
     let observedAt = now.addingTimeInterval(-2 * 60 * 60)
     return QueryStatisticsEntry(
       date: now,

@@ -184,7 +184,7 @@ struct AllServersWidgetEntryView: View {
         .resizable()
         .scaledToFit()
         .frame(width: 40 * scale, height: 40 * scale)
-        .brightness(colorScheme == .dark ? 0.2 : 0)
+        .brightness(colorScheme == .dark ? 0.1 : 0)
         .accessibilityHidden(true)
       Text(text)
         .font(.system(size: 10 * scale, weight: .medium))

@@ -10,6 +10,7 @@
 		011C13B859278B5DB78C9BE9 /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F090E5C51EA3578AF3CA6A93 /* NotificationCoordinator.swift */; };
 		038FEAFB14DC67AFACF9724F /* ShortcutNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AEAE3D3AF6DF75263144C73 /* ShortcutNames.swift */; };
 		0C28607455580131782E946F /* DurationShortcutScoper.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61E1630F877D0AADD5D70B7 /* DurationShortcutScoper.swift */; };
+		0EEB884E988E0605DB4B6EBA /* WidgetPreviewSize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F461B090A1989E5777891F1 /* WidgetPreviewSize.swift */; };
 		11C4A4764BB4E912153238E2 /* DurationField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95D78A3AB479976D7E8CF46 /* DurationField.swift */; };
 		1572CFD17AD9010FCE872313 /* DurationPickerAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE330606C4DD60836AE5E79 /* DurationPickerAlert.swift */; };
 		187240CE35BA57A6BD11965D /* AllServersWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164ECA10BF81D4B2E2EB03C8 /* AllServersWidget.swift */; };
@@ -111,6 +112,7 @@
 		34951E2A8D5E55644BA146D9 /* UnblockEndedNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnblockEndedNotifier.swift; sourceTree = "<group>"; };
 		3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleberryApp.swift; sourceTree = "<group>"; };
 		3E20B1A3D74D8CDCFC890687 /* ConnectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSheet.swift; sourceTree = "<group>"; };
+		3F461B090A1989E5777891F1 /* WidgetPreviewSize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPreviewSize.swift; sourceTree = "<group>"; };
 		47724023151A6137788C0D4E /* RecentlyBlockedMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyBlockedMenu.swift; sourceTree = "<group>"; };
 		47828B67486390E088F4DC1E /* PermissionSettingsPane+SystemSettingsURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PermissionSettingsPane+SystemSettingsURL.swift"; sourceTree = "<group>"; };
 		4ABCDA10739C949511E1D3AA /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
@@ -373,6 +375,7 @@
 			isa = PBXGroup;
 			children = (
 				C3868234EAFBC70042E06FDC /* AllServersWidgetPreviews.swift */,
+				3F461B090A1989E5777891F1 /* WidgetPreviewSize.swift */,
 			);
 			path = Previews;
 			sourceTree = "<group>";
@@ -636,6 +639,7 @@
 				E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */,
 				A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */,
 				1DACB5C991796B68E57B8005 /* WidgetPresentation.swift in Sources */,
+				0EEB884E988E0605DB4B6EBA /* WidgetPreviewSize.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

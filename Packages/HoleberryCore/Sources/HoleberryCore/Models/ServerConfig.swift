@@ -13,7 +13,7 @@ public enum ServerVersion: String, Codable, Sendable, CaseIterable {
   }
 }
 
-public struct ServerConfig: Codable, Identifiable, Equatable {
+public struct ServerConfig: Codable, Identifiable, Equatable, Sendable {
   public let id: UUID
   public var label: String?
   public var icon: String?
@@ -32,6 +32,12 @@ public struct ServerConfig: Codable, Identifiable, Equatable {
     self.icon = icon
     self.url = url
     self.version = version
+  }
+
+  /// Compares the connection configuration, excluding display metadata.
+  /// Use this when deciding whether a fetch still applies after a server edit.
+  public func hasSameConnection(as other: ServerConfig) -> Bool {
+    id == other.id && url == other.url && version == other.version
   }
 
   public static func == (lhs: ServerConfig, rhs: ServerConfig) -> Bool {

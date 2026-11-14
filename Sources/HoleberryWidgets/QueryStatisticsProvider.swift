@@ -74,7 +74,7 @@ struct QueryStatisticsProvider: TimelineProvider {
       suite: suite,
       executionMode: .onDemand
     )
-    let snapshot = scopedIdentities(manager.servers)
+    let snapshot = scopedServers(manager.servers)
     guard !snapshot.isEmpty else {
       return noMatchingServerEntry(now: now)
     }
@@ -87,8 +87,8 @@ struct QueryStatisticsProvider: TimelineProvider {
     await manager.logoutAll()
     _ = suite.synchronize()
 
-    let current = scopedIdentities(Defaults[.servers(suite: suite)])
-    guard current == snapshot else {
+    let current = scopedServers(Defaults[.servers(suite: suite)])
+    guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {
       return changedConfigurationEntry(servers: current)
     }
 
@@ -99,13 +99,13 @@ struct QueryStatisticsProvider: TimelineProvider {
     )
   }
 
-  private func scopedIdentities(_ servers: [ServerConfig]) -> [QueryStatisticsServer] {
+  private func scopedServers(_ servers: [ServerConfig]) -> [ServerConfig] {
     switch scope {
     case .all:
-      return servers.map { QueryStatisticsServer(server: $0) }
+      return servers
     case .server(let id):
       guard let selected = servers.first(where: { $0.id == id }) else { return [] }
-      return [QueryStatisticsServer(server: selected)]
+      return [selected]
     }
   }
 
@@ -152,14 +152,14 @@ struct QueryStatisticsProvider: TimelineProvider {
   }
 
   @MainActor
-  private func changedConfigurationEntry(servers: [QueryStatisticsServer]) -> QueryStatisticsEntry {
+  private func changedConfigurationEntry(servers: [ServerConfig]) -> QueryStatisticsEntry {
     let summary = QueryStatisticsFetchResult(servers: servers, results: [:], checkedAt: nil)
     return QueryStatisticsEntry(date: Date(), setupRequired: false, summary: summary)
   }
 
   @MainActor
   private func completedEntry(
-    servers: [QueryStatisticsServer],
+    servers: [ServerConfig],
     results: [UUID: Result<QuerySummary, PiholeError>],
     observedAt: Date
   ) -> QueryStatisticsEntry {

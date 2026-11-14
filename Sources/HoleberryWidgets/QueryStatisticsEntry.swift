@@ -14,7 +14,7 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
   }
 
   static func placeholder(now: Date = Date()) -> QueryStatisticsEntry {
-    let server = QueryStatisticsServer(
+    let server = ServerConfig(
       id: UUID(),
       url: "https://example.invalid",
       version: .v6

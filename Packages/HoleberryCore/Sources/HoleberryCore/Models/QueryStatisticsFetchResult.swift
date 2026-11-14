@@ -18,12 +18,12 @@ public enum QueryStatisticsAvailability: Equatable, Sendable {
 /// Statistics include the configured servers that returned a query summary for
 /// this fetch. No aggregate is persisted or reused across fetches.
 public struct QueryStatisticsFetchResult: Sendable {
-  public let servers: [QueryStatisticsServer]
+  public let servers: [ServerConfig]
   public let results: [UUID: Result<QuerySummary, PiholeError>]
   public let checkedAt: Date?
 
   public init(
-    servers: [QueryStatisticsServer],
+    servers: [ServerConfig],
     results: [UUID: Result<QuerySummary, PiholeError>],
     checkedAt: Date?
   ) {

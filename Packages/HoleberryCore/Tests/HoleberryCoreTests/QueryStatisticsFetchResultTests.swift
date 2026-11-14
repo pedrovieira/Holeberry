@@ -6,18 +6,9 @@ import Testing
 @Suite("QueryStatisticsFetchResult")
 @MainActor
 struct QueryStatisticsFetchResultTests {
-  @Test func identityIncludesURLAndVersion() {
-    let id = UUID()
-    let base = QueryStatisticsServer(id: id, url: "http://pihole.local", version: .v6)
-
-    #expect(base != QueryStatisticsServer(id: id, url: "http://other.local", version: .v6))
-    #expect(base != QueryStatisticsServer(id: id, url: "http://pihole.local", version: .v5))
-    #expect(base == QueryStatisticsServer(id: id, url: "http://pihole.local", version: .v6))
-  }
-
   @Test func weightedPercentageUsesAggregateCounts() throws {
-    let first = identity(url: "http://first.local")
-    let second = identity(url: "http://second.local")
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
     let observedAt = Date(timeIntervalSince1970: 1_000)
     let statistics = try #require(
       QueryStatistics(
@@ -37,7 +28,7 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func zeroQueriesProducesZeroPercentage() throws {
-    let server = identity()
+    let server = makeServer()
     let statistics = try #require(
       QueryStatistics(
         servers: [server],
@@ -58,7 +49,7 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func singleServerSuccessIsAllHealthy() {
-    let server = identity()
+    let server = makeServer()
     let summary = makeSummary(
       servers: [server],
       results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
@@ -68,15 +59,15 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func singleServerFailureIsNoneHealthy() {
-    let server = identity()
+    let server = makeServer()
     let summary = makeSummary(servers: [server], results: [server.id: .failure(.network("offline"))])
 
     #expect(summary.availability == .noneAvailable)
   }
 
   @Test func twoServerHealthMapping() {
-    let first = identity(url: "http://first.local")
-    let second = identity(url: "http://second.local")
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
     let success = Result<QuerySummary, PiholeError>.success(
       QuerySummary(totalQueries: 10, totalBlocked: 2)
     )
@@ -93,7 +84,7 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func notCheckedBeforeAnyFetch() {
-    let server = identity()
+    let server = makeServer()
     let summary = makeSummary(
       servers: [server],
       results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))],
@@ -104,8 +95,8 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func partialFailureIncludesSuccessfulStatistics() {
-    let first = identity(url: "http://first.local")
-    let second = identity(url: "http://second.local")
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
     let summary = makeSummary(
       servers: [first, second],
       results: [
@@ -122,8 +113,8 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func totalFailureProducesNoStatistics() {
-    let first = identity(url: "http://first.local")
-    let second = identity(url: "http://second.local")
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
     let summary = makeSummary(
       servers: [first, second],
       results: [first.id: .failure(.network("offline")), second.id: .failure(.unauthorized)],
@@ -135,8 +126,8 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func missingResultIncludesSuccessfulStatistics() {
-    let first = identity(url: "http://first.local")
-    let second = identity(url: "http://second.local")
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
     let summary = makeSummary(
       servers: [first, second],
       results: [first.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
@@ -147,7 +138,7 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func duplicateServerIdentifiersProduceNoStatistics() {
-    let server = identity()
+    let server = makeServer()
     let summary = makeSummary(
       servers: [server, server],
       results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
@@ -157,7 +148,7 @@ struct QueryStatisticsFetchResultTests {
   }
 
   @Test func successfulFetchAggregatesOnlyCurrentResults() throws {
-    let server = identity()
+    let server = makeServer()
     let checkedAt = Date(timeIntervalSince1970: 2_000)
     let summary = makeSummary(
       servers: [server],
@@ -188,15 +179,15 @@ struct QueryStatisticsFetchResultTests {
     )
   }
 
-  private func identity(
+  private func makeServer(
     url: String = "http://pihole.local",
     version: ServerVersion = .v6
-  ) -> QueryStatisticsServer {
-    QueryStatisticsServer(id: UUID(), url: url, version: version)
+  ) -> ServerConfig {
+    ServerConfig(id: UUID(), url: url, version: version)
   }
 
   private func makeSummary(
-    servers: [QueryStatisticsServer],
+    servers: [ServerConfig],
     results: [UUID: Result<QuerySummary, PiholeError>],
     checkedAt: Date? = Date(timeIntervalSince1970: 1_000)
   ) -> QueryStatisticsFetchResult {

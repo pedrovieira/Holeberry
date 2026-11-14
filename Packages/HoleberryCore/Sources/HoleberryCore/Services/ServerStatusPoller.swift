@@ -96,8 +96,7 @@ public final class ServerStatusPoller: ObservableObject {
         guard let self else { return }
 
         let structuralChange =
-          newServers.count != self.servers.count
-          || zip(self.servers, newServers).contains { $0.id != $1.id || $0.url != $1.url || $0.version != $1.version }
+          !newServers.elementsEqual(self.servers) { $0.hasSameConnection(as: $1) }
 
         let newIDs = Set(newServers.map(\.id))
         self.connectionStatuses = self.connectionStatuses.filter { newIDs.contains($0.key) }
