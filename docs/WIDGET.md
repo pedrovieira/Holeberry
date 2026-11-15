@@ -12,8 +12,9 @@ writes to Pi-hole.
 
 1. Update to a release that includes the widget, then launch Holeberry once.
    Startup migration runs automatically before the app-mode manager and copies
-   the server configuration, temporary-unblock records, and credentials into the
-   shared App Group and Keychain. There is no manual migration step.
+   the server configuration and credentials into the shared App Group and
+   Keychain. Temporary-unblock records stay in app-local defaults. There is no
+   manual migration step.
    If a copy or readback check fails, Holeberry starts with an empty new server
    configuration instead of exposing partial data. The original legacy data is
    left untouched, but it is not imported later. Add your servers again.
@@ -86,9 +87,10 @@ writes to Pi-hole.
   shared Keychain service `me.pedrovieira.holeberry.shared`.
 - Startup migration runs before the application-mode manager. It copies:
   - every server field, including UUID, label, icon, URL, and API version;
-  - every configured server's complete temporary-unblock records, including
-    record UUID, start time, duration, pending-removal state, and retry count;
   - each present credential, with exact readback verification.
+- Typed app storage routes configurations and credentials to shared stores.
+  Temporary-unblock records stay in app-local defaults; migration never reads
+  or writes them. The on-demand widget does not restore those records.
 - The completion marker is versioned and is written only after every copy and
   readback verify, or after a validated reset to an empty new configuration.
   Legacy data is preserved. A failed import never exposes partial shared servers.
@@ -96,7 +98,7 @@ writes to Pi-hole.
   an empty setup whose saved value was verified, then records completion. The
   old servers are not retried on later launches. Add them again to the new
   configuration.
-- A present but malformed legacy configuration or temporary-record array is
+- A present but malformed legacy configuration is
   never copied as partial or empty data; it triggers the same fresh-start reset.
   An intentionally empty completed configuration stays authoritative and never
   resurrects removed servers.
@@ -206,7 +208,7 @@ Still required before shipping:
     local-network permission may be undetermined, allowed, or denied;
   - observe the foreground server-setup prompt before relying on widget reads;
   - app-quit cross-process App Group/Keychain reads;
-  - real-user configuration/temporary-record/credential migration;
+  - real-user configuration/credential migration and local temporary-record restoration;
   - widget rendering and actual system scheduling of 15-minute refreshes.
 - WidgetKit background execution classification is not claimed proven. VPN
   interfaces differ from LAN, although `.local` DNS and routing can still

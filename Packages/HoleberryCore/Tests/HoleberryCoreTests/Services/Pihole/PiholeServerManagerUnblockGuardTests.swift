@@ -7,10 +7,12 @@ import Testing
 @MainActor
 @Suite("PiholeServerManager in-progress unblocks")
 struct PiholeServerManagerUnblockGuardTests {
+  private let storage = MockAppStorage()
+
   private func makeManager(
-    services: [any PiholeServiceProviding], suite: UserDefaults = TestDefaults.makeSuite()
+    services: [any PiholeServiceProviding]
   ) -> PiholeServerManager {
-    Defaults[.servers(suite: suite)] = services.map {
+    storage.servers = services.map {
       ServerConfig(id: $0.id, url: $0.url, version: $0.version)
     }
     let factory = MockPiholeServiceFactory()
@@ -18,10 +20,9 @@ struct PiholeServerManagerUnblockGuardTests {
       services.first { $0.id == config.id }!
     }
     return PiholeServerManager(
-      keychain: MockKeychainManager(),
+      storage: storage,
       serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector(),
-      suite: suite
+      versionDetector: MockPiholeVersionDetector()
     )
   }
 
@@ -179,7 +180,7 @@ struct PiholeServerManagerUnblockGuardTests {
       raw.addDomainStubQueue = [.failure(PiholeError.network("response lost")), .success(.added)]
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, defaultsSuite: suite,
+      service: raw, storage: makeTestStorage(appLocalSuite: suite),
       retrySleep: { _ in try await backoff.wait() },
       sleep: { _ in try await expiry.wait() })
     let managed = MockPiholeService(id: raw.id)
@@ -191,7 +192,7 @@ struct PiholeServerManagerUnblockGuardTests {
       }
       return outcome
     }
-    let manager = makeManager(services: [managed], suite: suite)
+    let manager = makeManager(services: [managed])
     let first = Task { try await manager.unblock(domain: "example.com", duration: 60) }
     await waitUntil { backoff.waitingCount == 1 }
 
@@ -237,7 +238,8 @@ struct PiholeServerManagerUnblockGuardTests {
     defer { expiry.cancel() }
     let decorators = rawServices.map { raw in
       TemporaryUnblockPiholeServiceDecorator(
-        service: raw, defaultsSuite: suite, retrySleep: { _ in }, sleep: { _ in try await expiry.wait() })
+        service: raw, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
+        sleep: { _ in try await expiry.wait() })
     }
     let managed = zip(rawServices, decorators).map { raw, decorator in
       let service = MockPiholeService(id: raw.id)
@@ -246,7 +248,7 @@ struct PiholeServerManagerUnblockGuardTests {
       }
       return service
     }
-    let manager = makeManager(services: managed, suite: suite)
+    let manager = makeManager(services: managed)
     let outcomes = try await manager.unblock(domain: "example.com", duration: 60)
     #expect(outcomes.count == 2)
     #expect(outcomes.values.allSatisfy { $0 == .added })

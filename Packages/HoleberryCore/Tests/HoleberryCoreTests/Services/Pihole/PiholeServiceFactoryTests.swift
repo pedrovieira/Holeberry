@@ -58,7 +58,8 @@ struct PiholeServiceFactoryTests {
       )
     }
     let service: any PiholeServiceProviding = try factory.buildService(
-      config: config, credential: "api-token", session: session, suite: suite, executionMode: .application
+      config: config, credential: "api-token", session: session,
+      storage: makeTestStorage(appLocalSuite: suite), executionMode: .application
     )
     #expect(service.id == config.id)
     #expect(service.label == "Test")
@@ -87,16 +88,76 @@ struct PiholeServiceFactoryTests {
     #expect(session.requests.count == (version == .v5 ? 3 : 2))
   }
 
+  @Test(
+    "Factory wraps both versions and restores records from the injected storage",
+    arguments: [ServerVersion.v5, .v6]
+  )
+  func restoresRecordsFromInjectedStorage(version: ServerVersion) throws {
+    let session = MockURLSession()
+    let mockAuthFactory = MockAuthSessionFactory()
+    mockAuthFactory.stubbedProvider = MockAuthSessionProvider()
+    let factory = ConcretePiholeServiceFactory(authSessionFactory: mockAuthFactory)
+    let sharedDataSuite = TestDefaults.makeSuite()
+    let appLocalSuite = TestDefaults.makeSuite()
+    let config = ServerConfig(label: "Test", url: "http://restore.local", version: version)
+    // Configurations use a different suite from temporary records.
+    Defaults[.servers(suite: sharedDataSuite)] = [config]
+    Defaults[.servers(suite: appLocalSuite)] = [
+      ServerConfig(label: "Wrong Suite", url: "http://wrong.local", version: .v6)
+    ]
+    // Started a minute ago with an hour duration, so the record is live: the
+    // decorator schedules a far-future expiry instead of expiring during the test.
+    let startDate = Date().addingTimeInterval(-60)
+    let record = TempUnblockRecord(
+      domain: "Restored.Example",
+      uuid: "restored-token",
+      startDateUTC: startDate,
+      durationSeconds: 3_600,
+      pendingRemoval: false,
+      retryCount: 1
+    )
+    Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)] = [record]
+    let storage = makeTestStorage(
+      appLocalSuite: appLocalSuite, sharedDataSuite: sharedDataSuite)
+
+    let service = try factory.buildService(
+      config: config, credential: "api-token", session: session, storage: storage,
+      executionMode: .application)
+
+    #expect(
+      service is TemporaryUnblockPiholeServiceDecorator,
+      "every raw service must stay wrapped by the temporary-unblock decorator")
+    #expect(service.id == config.id)
+    #expect(service.version == version)
+
+    // Init restored the record through the injected storage, normalizing the
+    // domain and preserving every other field.
+    let restored: [TempUnblockRecord] = Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)]
+    #expect(restored.count == 1)
+    let saved = try #require(restored.first)
+    #expect(saved.domain == "restored.example")
+    #expect(saved.uuid == "restored-token")
+    #expect(saved.startDateUTC == startDate)
+    #expect(saved.durationSeconds == 3_600)
+    #expect(saved.pendingRemoval == false)
+    #expect(saved.retryCount == 1)
+
+    // The adapter's shared-data suite is the injected one, not the app-local suite.
+    let configs = storage.loadServers()
+    #expect(configs.count == 1)
+    #expect(configs.first?.id == config.id)
+  }
+
   @Test("Production factory on-demand clients authenticate only on requests", arguments: [ServerVersion.v5, .v6])
   func lazyAuthentication(version: ServerVersion) async throws {
     let suite = TestDefaults.makeSuite()
     let session = MockURLSession()
     let config = ServerConfig(url: "http://test.local", version: version)
-    let key = Defaults.Keys.tempUnblocks(for: config.id, suite: suite)
+    let storage = makeTestStorage(appLocalSuite: suite)
     let record = TempUnblockRecord(
       domain: "EXAMPLE.COM", uuid: "existing", startDateUTC: .distantPast, durationSeconds: 1
     )
-    Defaults[key] = [record]
+    storage.saveTemporaryUnblocks([record], for: config.id)
     session.asyncHandler = { request in
       let body: String
       if request.url?.path == "/api/auth" {
@@ -117,14 +178,15 @@ struct PiholeServiceFactoryTests {
     }
     let factory = ConcretePiholeServiceFactory(authSessionFactory: ConcreteAuthSessionFactory())
     let service = try factory.buildService(
-      config: config, credential: "secret", session: session, suite: suite, executionMode: .onDemand
+      config: config, credential: "secret", session: session, storage: storage,
+      executionMode: .onDemand
     )
     await settle()
     #expect(session.requests.isEmpty)
-    #expect(Defaults[key] == [record])
+    #expect(storage.loadTemporaryUnblocks(for: config.id) == [record])
     #expect(try await service.checkStatus() == .enabled)
     #expect(session.requests.count == (version == .v5 ? 1 : 2))
-    #expect(Defaults[key] == [record])
+    #expect(storage.loadTemporaryUnblocks(for: config.id) == [record])
   }
 
 }

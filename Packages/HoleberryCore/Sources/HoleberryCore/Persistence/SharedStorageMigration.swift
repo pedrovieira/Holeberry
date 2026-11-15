@@ -4,9 +4,7 @@ import OSLog
 
 public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
   case malformedLegacyConfiguration
-  case malformedLegacyTemporaryRecords(UUID)
   case configurationReadbackMismatch
-  case temporaryRecordsReadbackMismatch(UUID)
   case credentialReadbackMismatch(UUID)
   case sharedCredentialRemovalMismatch(UUID)
   case sharedConfigurationResetFailed
@@ -16,13 +14,8 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
     switch self {
     case .malformedLegacyConfiguration:
       return "Legacy server configuration is malformed."
-    case .malformedLegacyTemporaryRecords(let serverID):
-      return "Legacy temporary-unblock records are malformed for server \(serverID.uuidString)."
     case .configurationReadbackMismatch:
       return "Shared server configuration readback did not match the copied value."
-    case .temporaryRecordsReadbackMismatch(let serverID):
-      return
-        "Shared temporary-unblock records readback did not match the copied value for server \(serverID.uuidString)."
     case .credentialReadbackMismatch(let serverID):
       return "Shared credential readback did not match the copied value for server \(serverID.uuidString)."
     case .sharedCredentialRemovalMismatch(let serverID):
@@ -35,8 +28,9 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
   }
 }
 
-/// Copies configuration, temporary-unblock records, and credentials from the
-/// legacy stores into the shared App Group stores.
+/// Copies configuration and credentials from the
+/// legacy stores into the shared App Group stores. Temporary-unblock records
+/// stay in app-local defaults and are never read or written by this migration.
 ///
 /// The legacy stores are read-only inputs and are preserved. Completion is
 /// recorded only after every copy is verified by typed readback. If the copy
@@ -118,13 +112,14 @@ public final class SharedStorageMigration {
 
   private func importLegacyState() throws {
     let legacyServers = try validatedLegacyServers()
-    let legacyRecords = try validatedLegacyRecords(for: legacyServers)
     try removeStaleSharedState(legacyIDs: Set(legacyServers.map(\.id)))
     try copyConfiguration(legacyServers)
-    try copyRecordsAndCredentials(for: legacyServers, records: legacyRecords)
+    for server in legacyServers {
+      try copyCredential(for: server.id)
+    }
   }
 
-  /// Removes every shared server and its associated records after a failed
+  /// Removes every shared server and its associated credentials after a failed
   /// import. A rejected empty write is a genuine storage failure, so it is not
   /// reported as a successful fresh start.
   private func discardPartialImport() throws {
@@ -135,7 +130,6 @@ public final class SharedStorageMigration {
     }
 
     for serverID in previousIDs {
-      Defaults[.tempUnblocks(for: serverID, suite: sharedSuite)] = []
       try? removeSharedCredentialIfPresent(for: serverID)
     }
   }
@@ -149,30 +143,9 @@ public final class SharedStorageMigration {
     }
   }
 
-  private func validatedLegacyRecords(
-    for servers: [ServerConfig]
-  ) throws -> [UUID: [TempUnblockRecord]] {
-    var recordsByID: [UUID: [TempUnblockRecord]] = [:]
-    for server in servers {
-      do {
-        recordsByID[server.id] = try Defaults.Keys.strictlyDecodedArray(
-          .tempUnblocks(for: server.id, suite: legacySuite)
-        )
-      } catch {
-        guard error is DefaultsValueValidationError else { throw error }
-        throw SharedStorageMigrationError.malformedLegacyTemporaryRecords(server.id)
-      }
-    }
-    return recordsByID
-  }
-
   private func removeStaleSharedState(legacyIDs: Set<UUID>) throws {
     let previousSharedIDs = Set(Defaults[.servers(suite: sharedSuite)].map(\.id))
     for staleID in previousSharedIDs.subtracting(legacyIDs) {
-      Defaults[.tempUnblocks(for: staleID, suite: sharedSuite)] = []
-      guard let persisted = try? persistedTemporaryRecords(for: staleID), persisted.isEmpty else {
-        throw SharedStorageMigrationError.temporaryRecordsReadbackMismatch(staleID)
-      }
       try removeSharedCredentialIfPresent(for: staleID)
     }
   }
@@ -184,33 +157,9 @@ public final class SharedStorageMigration {
     }
   }
 
-  private func copyRecordsAndCredentials(
-    for servers: [ServerConfig],
-    records: [UUID: [TempUnblockRecord]]
-  ) throws {
-    for server in servers {
-      try copyTemporaryRecords(records[server.id] ?? [], for: server.id)
-      try copyCredential(for: server.id)
-    }
-  }
-
-  private func copyTemporaryRecords(_ records: [TempUnblockRecord], for serverID: UUID) throws {
-    Defaults[.tempUnblocks(for: serverID, suite: sharedSuite)] = records
-    guard let persisted = try? persistedTemporaryRecords(for: serverID), persisted == records else {
-      throw SharedStorageMigrationError.temporaryRecordsReadbackMismatch(serverID)
-    }
-  }
-
   private func persistedServers() throws -> [ServerConfig] {
     try Defaults.Keys.strictlyDecodedPersistedArray(
       .servers(suite: sharedSuite),
-      suiteName: sharedSuiteName
-    )
-  }
-
-  private func persistedTemporaryRecords(for serverID: UUID) throws -> [TempUnblockRecord] {
-    try Defaults.Keys.strictlyDecodedPersistedArray(
-      .tempUnblocks(for: serverID, suite: sharedSuite),
       suiteName: sharedSuiteName
     )
   }

@@ -26,8 +26,16 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
   private(set) var readCallCount = 0
   private(set) var deleteCallCount = 0
 
+  var saveCredentialCallCount: Int { saveCallCount }
+  var readCredentialCallCount: Int { readCallCount }
+  var deleteCredentialCallCount: Int { deleteCallCount }
+  private(set) var lastSavedCredential: (credential: String, serverID: UUID)?
+  private(set) var lastReadServerID: UUID?
+  private(set) var lastDeletedServerID: UUID?
+
   func saveCredential(_ credential: String, for serverID: UUID) throws {
     saveCallCount += 1
+    lastSavedCredential = (credential, serverID)
     if let error = saveErrorsByServerID[serverID] { throw error }
     if let saveErrorStub { throw saveErrorStub }
     if let errorStub { throw errorStub }
@@ -36,6 +44,7 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
 
   func readCredential(for serverID: UUID) throws -> String? {
     readCallCount += 1
+    lastReadServerID = serverID
     if let readResultOverride {
       self.readResultOverride = nil
       return try readResultOverride.get()
@@ -47,6 +56,7 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
 
   func deleteCredential(for serverID: UUID) throws {
     deleteCallCount += 1
+    lastDeletedServerID = serverID
     if let deleteErrorStub { throw deleteErrorStub }
     if let errorStub { throw errorStub }
     storedCredentials.removeValue(forKey: serverID.uuidString)

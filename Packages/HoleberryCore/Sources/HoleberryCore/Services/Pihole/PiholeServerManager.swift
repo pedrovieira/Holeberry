@@ -1,5 +1,4 @@
 import Combine
-import Defaults
 import Foundation
 import OSLog
 
@@ -10,10 +9,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private static let maxServers = 2
   @Published public var servers: [ServerConfig] = []
   public var serversPublisher: Published<[ServerConfig]>.Publisher { $servers }
-  private let keychain: any KeychainManaging
+  private let storage: any AppStorageProviding
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
-  private let suite: UserDefaults
   private let executionMode: ServiceExecutionMode
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
   /// Called after a persisted server or credential change.
@@ -26,17 +24,15 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private var inProgressUnblocks: Set<UnblockKey> = []
 
   public init(
-    keychain: any KeychainManaging,
+    storage: any AppStorageProviding,
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
-    suite: UserDefaults = .standard,
     executionMode: ServiceExecutionMode = .application,
     persistentChangeHandler: @escaping () -> Void = {}
   ) {
-    self.keychain = keychain
+    self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
-    self.suite = suite
     self.executionMode = executionMode
     self.persistentChangeHandler = persistentChangeHandler
     self.servers = []
@@ -80,16 +76,16 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: credential,
       session: session,
-      suite: suite,
+      storage: storage,
       executionMode: executionMode
     )
 
     try await service.login()
 
     if await service.isPasswordless || credential.isEmpty {
-      try? keychain.deleteCredential(for: config.id)
+      try? storage.deleteCredential(for: config.id)
     } else {
-      try keychain.saveCredential(credential, for: config.id)
+      try storage.saveCredential(credential, for: config.id)
     }
 
     servers.append(config)
@@ -115,7 +111,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       let credentialChanged: Bool
       if let credential {
         // nil = no change; "" = clear (password-less).
-        credentialChanged = (try? keychain.readCredential(for: id)) != credential
+        credentialChanged = (try? storage.readCredential(for: id)) != credential
       } else {
         credentialChanged = false
       }
@@ -138,9 +134,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     if let credential {
       // "" = clear (password-less), value = replace.
       if credential.isEmpty {
-        try? keychain.deleteCredential(for: id)
+        try? storage.deleteCredential(for: id)
       } else {
-        try? keychain.saveCredential(credential, for: id)
+        try? storage.saveCredential(credential, for: id)
       }
     }
 
@@ -171,7 +167,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: credential,
       session: session,
-      suite: suite,
+      storage: storage,
       executionMode: executionMode
     )
     do {
@@ -189,7 +185,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     let hadServer = servers.contains { $0.id == id }
     servers.removeAll { $0.id == id }
     saveServers()
-    try? keychain.deleteCredential(for: id)
+    try? storage.deleteCredential(for: id)
     if let service = services.removeValue(forKey: id) {
       Task { await service.logout() }
     }
@@ -207,7 +203,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     url: String,
     credential: String?
   ) {
-    let currentCredential = credential ?? (try? keychain.readCredential(for: id)) ?? ""
+    let currentCredential = credential ?? (try? storage.readCredential(for: id)) ?? ""
     let config = ServerConfig(
       id: id,
       label: existingService.label,
@@ -221,7 +217,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: currentCredential,
       session: session,
-      suite: suite,
+      storage: storage,
       executionMode: executionMode
     ) {
       services[id] = rebuilt
@@ -316,7 +312,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func hasStoredCredential(id: UUID) -> Bool {
-    (try? keychain.readCredential(for: id)) != nil
+    (try? storage.readCredential(for: id)) != nil
   }
 
   /// Toggle blocking on all servers. Returns per-server success/failure.
@@ -528,7 +524,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Persistence
 
   private func loadServers() {
-    let configs: [ServerConfig] = Defaults[.servers(suite: suite)]
+    let configs: [ServerConfig] = storage.loadServers()
     logger.debug("loadServers: found \(configs.count) configs")
 
     if configs.isEmpty {
@@ -541,14 +537,14 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       // Build the service even without a stored credential (using an empty
       // one): the health check then fails as an auth error and the UI can
       // offer a "Re-authenticate" affordance instead of "unreachable".
-      let credential = (try? keychain.readCredential(for: config.id)) ?? ""
+      let credential = (try? storage.readCredential(for: config.id)) ?? ""
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)
       if let rebuilt = try? serviceFactory.buildService(
         config: config,
         credential: credential,
         session: session,
-        suite: suite,
+        storage: storage,
         executionMode: executionMode
       ) {
         services[config.id] = rebuilt
@@ -567,7 +563,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   private func saveServers() {
-    Defaults[.servers(suite: suite)] = servers
+    storage.saveServers(servers)
   }
 
   private func syncConfigs() {

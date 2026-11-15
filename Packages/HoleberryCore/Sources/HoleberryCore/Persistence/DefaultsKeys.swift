@@ -191,8 +191,8 @@ extension Defaults.Keys {
 /// Empty, no-write suite used only when previously activated shared storage
 /// cannot be reopened. It must never read, contain, or mutate data. Keeping the
 /// adapter here makes every raw `UserDefaults` override live in this file.
-public final class UnavailableDefaults: UserDefaults, @unchecked Sendable {
-  public static let shared = UnavailableDefaults()
+public final class UnavailableDefaults: UserDefaults {
+  @MainActor public static let shared = UnavailableDefaults()
 
   public override func object(forKey defaultName: String) -> Any? { nil }
   public override func set(_ value: Any?, forKey defaultName: String) {}

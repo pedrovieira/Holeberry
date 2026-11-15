@@ -49,10 +49,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   )
   private lazy var versionDetector = PiholeVersionDetector()
   private lazy var serverManager = PiholeServerManager(
-    keychain: appStorage.keychain,
+    storage: appStorage.storage,
     serviceFactory: serviceFactory,
-    versionDetector: versionDetector,
-    suite: appStorage.suite
+    versionDetector: versionDetector
   ) {
     WidgetCenter.shared.reloadAllTimelines()
   }
@@ -269,8 +268,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     switch selection {
     case .useShared(let suite, let didMigrate):
       return AppStorageContext(
-        suite: suite,
-        keychain: sharedKeychain,
+        storage: ConcreteAppStorage(
+          sharedDataSuite: suite,
+          appLocalSuite: .standard,
+          keychain: sharedKeychain
+        ),
         didMigrate: didMigrate
       )
     case .unavailable:
@@ -281,15 +283,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func unavailableStorageContext() -> AppStorageContext {
     AppStorageContext(
-      suite: UnavailableDefaults.shared,
-      keychain: UnavailableKeychain(),
+      storage: ConcreteAppStorage(
+        sharedDataSuite: UnavailableDefaults.shared,
+        appLocalSuite: .standard,
+        keychain: UnavailableKeychain()
+      ),
       didMigrate: false
     )
   }
 
   private struct AppStorageContext {
-    let suite: UserDefaults
-    let keychain: any KeychainManaging
+    let storage: any AppStorageProviding
     let didMigrate: Bool
   }
 

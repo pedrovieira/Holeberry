@@ -1,4 +1,3 @@
-import Defaults
 import Foundation
 import HoleberryCore
 import OSLog
@@ -62,16 +61,20 @@ struct QueryStatisticsProvider: TimelineProvider {
       return .setupRequired(now: now)
     }
 
-    let manager = PiholeServerManager(
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: suite,
+      appLocalSuite: UnavailableDefaults.shared,
       keychain: KeychainManager.shared(
         accessGroup: keychainAccessGroup,
         interactive: false
-      ),
+      )
+    )
+    let manager = PiholeServerManager(
+      storage: storage,
       serviceFactory: ConcretePiholeServiceFactory(
         authSessionFactory: ConcreteAuthSessionFactory()
       ),
       versionDetector: PiholeVersionDetector(),
-      suite: suite,
       executionMode: .onDemand
     )
     let snapshot = scopedServers(manager.servers)
@@ -87,7 +90,7 @@ struct QueryStatisticsProvider: TimelineProvider {
     await manager.logoutAll()
     _ = suite.synchronize()
 
-    let current = scopedServers(Defaults[.servers(suite: suite)])
+    let current = scopedServers(storage.loadServers())
     guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {
       return changedConfigurationEntry(servers: current)
     }

@@ -10,7 +10,7 @@ public protocol PiholeServiceFactory {
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
-    suite: UserDefaults,
+    storage: any AppStorageProviding,
     executionMode: ServiceExecutionMode
   ) throws -> any PiholeServiceProviding
 }
@@ -28,7 +28,7 @@ public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
-    suite: UserDefaults,
+    storage: any AppStorageProviding,
     executionMode: ServiceExecutionMode
   ) throws -> any PiholeServiceProviding {
     guard let url = URL(string: config.url) else {
@@ -62,7 +62,7 @@ public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
       )
     }
     return TemporaryUnblockPiholeServiceDecorator(
-      service: raw, defaultsSuite: suite, executionMode: executionMode
+      service: raw, storage: storage, executionMode: executionMode
     )
   }
 }

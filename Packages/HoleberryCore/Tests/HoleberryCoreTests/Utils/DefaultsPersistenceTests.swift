@@ -75,10 +75,13 @@ struct DefaultsPersistenceTests {
       authSessionFactory: MockAuthSessionFactory()
     )
     let manager = PiholeServerManager(
-      keychain: MockKeychainManager(),
+      storage: ConcreteAppStorage(
+        sharedDataSuite: suite,
+        appLocalSuite: suite,
+        keychain: MockKeychainManager()
+      ),
       serviceFactory: mockFactory,
-      versionDetector: PiholeVersionDetector(),
-      suite: suite
+      versionDetector: PiholeVersionDetector()
     )
     #expect(manager.servers.isEmpty)
   }

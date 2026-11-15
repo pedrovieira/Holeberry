@@ -86,7 +86,7 @@ struct SharedStorageMigrationTests {
     #expect(Defaults[.servers(suite: harness.legacySuite)].count == 2)
   }
 
-  @Test func copiesTemporaryUnblockRecordsExactly() throws {
+  @Test func leavesTemporaryUnblockRecordsInAppLocalStorage() throws {
     let harness = makeHarness()
     let first = ServerConfig(id: UUID(), url: "http://first.local", version: .v6)
     let second = ServerConfig(id: UUID(), url: "http://second.local", version: .v6)
@@ -122,8 +122,12 @@ struct SharedStorageMigrationTests {
 
     try harness.migration.migrate()
 
-    #expect(Defaults[.tempUnblocks(for: first.id, suite: harness.sharedSuite)] == firstRecords)
-    #expect(Defaults[.tempUnblocks(for: second.id, suite: harness.sharedSuite)] == secondRecords)
+    #expect(
+      harness.sharedSuite.persistentDomain(forName: harness.sharedSuiteName)?[
+        Defaults.Keys.tempUnblocks(for: first.id, suite: harness.sharedSuite).name] == nil)
+    #expect(
+      harness.sharedSuite.persistentDomain(forName: harness.sharedSuiteName)?[
+        Defaults.Keys.tempUnblocks(for: second.id, suite: harness.sharedSuite).name] == nil)
     #expect(Defaults[.tempUnblocks(for: first.id, suite: harness.legacySuite)] == firstRecords)
     #expect(Defaults[.tempUnblocks(for: second.id, suite: harness.legacySuite)] == secondRecords)
   }
@@ -202,7 +206,7 @@ struct SharedStorageMigrationTests {
     #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
-  @Test func malformedLegacyTemporaryRecordsStartFreshAndPreserveLegacyData() throws {
+  @Test func malformedLocalTemporaryRecordsDoNotBlockConfigurationMigration() throws {
     let harness = makeHarness()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
@@ -212,7 +216,7 @@ struct SharedStorageMigrationTests {
 
     try harness.migration.migrate()
 
-    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [server.id])
     #expect(Defaults[.tempUnblocks(for: server.id, suite: harness.sharedSuite)].isEmpty)
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
@@ -287,8 +291,12 @@ struct SharedStorageMigrationTests {
     try harness.migration.migrate()
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
-    #expect(Defaults[.tempUnblocks(for: first.id, suite: harness.sharedSuite)].isEmpty)
-    #expect(Defaults[.tempUnblocks(for: second.id, suite: harness.sharedSuite)].isEmpty)
+    #expect(
+      harness.sharedSuite.persistentDomain(forName: harness.sharedSuiteName)?[
+        Defaults.Keys.tempUnblocks(for: first.id, suite: harness.sharedSuite).name] == nil)
+    #expect(
+      harness.sharedSuite.persistentDomain(forName: harness.sharedSuiteName)?[
+        Defaults.Keys.tempUnblocks(for: second.id, suite: harness.sharedSuite).name] == nil)
     #expect(try harness.sharedKeychain.readCredential(for: first.id) == nil)
     #expect(try harness.sharedKeychain.readCredential(for: second.id) == nil)
     #expect(
@@ -338,7 +346,7 @@ struct SharedStorageMigrationTests {
     #expect(shared.count == 1)
     #expect(shared[0].id == kept.id)
     #expect(shared[0].url == "http://kept.local")
-    #expect(Defaults[.tempUnblocks(for: removed.id, suite: harness.sharedSuite)].isEmpty)
+    #expect(Defaults[.tempUnblocks(for: removed.id, suite: harness.sharedSuite)] == [staleRecord])
     #expect(try harness.sharedKeychain.readCredential(for: removed.id) == nil)
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
@@ -435,7 +443,7 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
   }
 
-  @Test func explicitEmptyTemporaryRecordsArrayMigratesNormally() throws {
+  @Test func emptyLocalTemporaryRecordsDoNotBlockMigration() throws {
     let harness = makeHarness()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
@@ -470,7 +478,7 @@ struct SharedStorageMigrationTests {
     try harness.migration.migrate()
 
     #expect(Defaults[.servers(suite: sharedSuite)].map(\.id) == [server.id])
-    #expect(Defaults[.tempUnblocks(for: server.id, suite: sharedSuite)] == records)
+    #expect(Defaults[.tempUnblocks(for: server.id, suite: sharedSuite)].isEmpty)
     #expect(try harness.sharedKeychain.readCredential(for: server.id) == "legacy-secret")
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == SharedStorageMigration.currentVersion)
@@ -509,7 +517,7 @@ struct SharedStorageMigrationTests {
     #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [server.id])
   }
 
-  @Test func sharedTemporaryRecordsWriteFailureStartsFreshAndCompletes() throws {
+  @Test func rejectedSharedTemporaryRecordsWritesDoNotAffectMigration() throws {
     let sharedSuite = TestUserDefaults()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     let records = [
@@ -527,7 +535,7 @@ struct SharedStorageMigrationTests {
 
     try harness.migration.migrate()
 
-    #expect(Defaults[.servers(suite: sharedSuite)].isEmpty)
+    #expect(Defaults[.servers(suite: sharedSuite)].map(\.id) == [server.id])
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == SharedStorageMigration.currentVersion)
   }
@@ -564,6 +572,7 @@ struct SharedStorageMigrationTests {
   private struct Harness {
     let legacySuite: UserDefaults
     let sharedSuite: UserDefaults
+    let sharedSuiteName: String
     let legacyKeychain: MockKeychainManager
     let sharedKeychain: MockKeychainManager
     let migration: SharedStorageMigration
@@ -578,6 +587,7 @@ struct SharedStorageMigrationTests {
     return Harness(
       legacySuite: legacySuite,
       sharedSuite: shared.suite,
+      sharedSuiteName: shared.name,
       legacyKeychain: legacyKeychain,
       sharedKeychain: sharedKeychain,
       migration: SharedStorageMigration(

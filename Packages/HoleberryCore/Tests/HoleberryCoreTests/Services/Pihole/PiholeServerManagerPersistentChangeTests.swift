@@ -138,10 +138,9 @@ struct PiholeServerManagerPersistentChangeTests {
     persistentChangeHandler: @escaping () -> Void = {}
   ) -> PiholeServerManager {
     PiholeServerManager(
-      keychain: keychain,
+      storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite(), sharedDataSuite: suite, keychain: keychain),
       serviceFactory: MockPiholeServiceFactory(),
       versionDetector: MockPiholeVersionDetector(),
-      suite: suite,
       persistentChangeHandler: persistentChangeHandler
     )
   }
