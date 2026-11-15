@@ -247,7 +247,116 @@ struct AppStorageTests {
     #expect(Defaults[.tempUnblocks(for: secondID, suite: appLocalSuite)].count == 1)
   }
 
+  // MARK: - Read isolation
+
+  @Test("server loads read only the shared-data suite", arguments: [true, false])
+  func serverLoadsUseOnlySharedDataSuite(intendedStorePopulated: Bool) {
+    let sharedDataSuite = TestDefaults.makeSuite()
+    let appLocalSuite = TestDefaults.makeSuite()
+    let intended = [
+      makeConfig(label: "Intended", icon: "star", url: "http://intended.local", version: .v5),
+      makeConfig(label: "Second", icon: "bolt", url: "https://second.local:8443", version: .v6)
+    ]
+    let decoy = [
+      makeConfig(label: "Decoy", icon: "x", url: "http://decoy.local", version: .v6)
+    ]
+    Defaults[.servers(suite: appLocalSuite)] = decoy
+    if intendedStorePopulated {
+      Defaults[.servers(suite: sharedDataSuite)] = intended
+    }
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: MockKeychainManager())
+
+    let loaded = storage.loadServers()
+
+    if intendedStorePopulated {
+      #expect(loaded.count == intended.count)
+      for (index, expected) in intended.enumerated() where index < loaded.count {
+        expectConfigEquals(loaded[index], expected)
+      }
+    } else {
+      #expect(
+        loaded.isEmpty,
+        "configurations must never fall back to the app-local suite")
+    }
+  }
+
+  @Test("temporary records read only the app-local suite", arguments: [true, false])
+  func temporaryUnblocksUseOnlyAppLocalSuite(intendedStorePopulated: Bool) {
+    let sharedDataSuite = TestDefaults.makeSuite()
+    let appLocalSuite = TestDefaults.makeSuite()
+    let serverID = UUID()
+    let intended = [
+      TempUnblockRecord(
+        domain: "Intended.Example",
+        uuid: "intended-token",
+        startDateUTC: Date(timeIntervalSince1970: 1_700_009_000),
+        durationSeconds: 900,
+        pendingRemoval: true,
+        retryCount: 2
+      ),
+      TempUnblockRecord(
+        domain: "Second.Example",
+        uuid: "second-token",
+        startDateUTC: Date(timeIntervalSince1970: 1_700_009_500),
+        durationSeconds: 3_600
+      )
+    ]
+    let decoy = [
+      TempUnblockRecord(
+        domain: "decoy.example",
+        uuid: "decoy-token",
+        startDateUTC: Date(timeIntervalSince1970: 1_600_000_000),
+        durationSeconds: 60
+      )
+    ]
+    Defaults[.tempUnblocks(for: serverID, suite: sharedDataSuite)] = decoy
+    if intendedStorePopulated {
+      Defaults[.tempUnblocks(for: serverID, suite: appLocalSuite)] = intended
+    }
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: MockKeychainManager())
+
+    let loaded = storage.loadTemporaryUnblocks(for: serverID)
+
+    if intendedStorePopulated {
+      #expect(loaded.count == intended.count)
+      for (index, expected) in intended.enumerated() where index < loaded.count {
+        expectRecordEquals(loaded[index], expected)
+      }
+    } else {
+      #expect(
+        loaded.isEmpty,
+        "temporary records must never fall back to the shared-data suite")
+    }
+  }
+
   // MARK: - Credentials
+
+  @Test("credential reads ignore decoy values in both defaults suites")
+  func credentialReadsIgnoreDefaultsDecoys() throws {
+    let sharedDataSuite = TestDefaults.makeSuite()
+    let appLocalSuite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: keychain)
+    let serverID = UUID()
+
+    // Synthetic test-only keys: production has no credential defaults key.
+    sharedDataSuite.set("decoy-shared-data-credential", forKey: "testOnlyDecoyCredential")
+    appLocalSuite.set("decoy-app-local-credential", forKey: "testOnlyDecoyCredential")
+    sharedDataSuite.set(
+      "decoy-shared-data-credential-\(serverID.uuidString)",
+      forKey: "testOnlyDecoyCredential-\(serverID.uuidString)")
+    appLocalSuite.set(
+      "decoy-app-local-credential-\(serverID.uuidString)",
+      forKey: "testOnlyDecoyCredential-\(serverID.uuidString)")
+
+    #expect(try storage.readCredential(for: serverID) == nil)
+    #expect(keychain.readCredentialCallCount == 1)
+    #expect(keychain.lastReadServerID == serverID)
+    #expect(keychain.storedCredentials[serverID.uuidString] == nil)
+  }
 
   @Test("credential roundtrip goes only to the injected keychain")
   func credentialRoundtrip() throws {
