@@ -4,7 +4,7 @@ import HoleberryCore
 import SwiftUI
 import WidgetKit
 
-struct AllServersWidgetEntryView: View {
+struct ServerStatisticsGlanceWidgetEntryView: View {
   let entry: QueryStatisticsEntry
 
   @Environment(\.colorScheme) private var colorScheme
@@ -167,11 +167,7 @@ struct AllServersWidgetEntryView: View {
   }
 
   private func footer(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
-    let age = RelativeAgeFormatter(style: .compact).string(
-      since: statistics.observedAt,
-      relativeTo: entry.date
-    )
-    return Text(verbatim: "Updated \(age)")
+    Text(verbatim: WidgetFooter.text(observedAt: statistics.observedAt, renderedAt: entry.date))
       .font(.system(size: 9 * scale, weight: .medium))
       .foregroundStyle(.secondary)
       .lineLimit(1)
@@ -268,12 +264,14 @@ struct AllServersWidgetEntryView: View {
 // The app target compiles this file only to preview the view above; Xcode
 // cannot host previews in a macOS widget extension.
 #if !HOLEBERRY_APP_TARGET
-  struct AllServersWidget: Widget {
+  struct ServerStatisticsGlanceWidget: Widget {
+    // The Swift type was renamed; this kind is persisted for widgets that are
+    // already installed, so it must not follow the type name.
     let kind = "AllServersWidget"
 
     var body: some WidgetConfiguration {
       StaticConfiguration(kind: kind, provider: QueryStatisticsProvider(scope: .all)) { entry in
-        AllServersWidgetEntryView(entry: entry)
+        ServerStatisticsGlanceWidgetEntryView(entry: entry)
       }
       .configurationDisplayName("All servers")
       .description("Block rate and query totals for all Pi-hole servers.")

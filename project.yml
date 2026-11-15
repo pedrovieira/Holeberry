@@ -44,7 +44,7 @@ targets:
       # Compiled into the app target so Xcode can preview the widget view.
       # Xcode does not support previews for macOS widget extensions.
       # The HOLEBERRY_APP_TARGET flag excludes the Widget configuration there.
-      - path: Sources/HoleberryWidgets/AllServersWidget.swift
+      - path: Sources/HoleberryWidgets/ServerStatisticsGlanceWidget.swift
       - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
       - path: Sources/HoleberryWidgets/WidgetPresentation.swift
     info:

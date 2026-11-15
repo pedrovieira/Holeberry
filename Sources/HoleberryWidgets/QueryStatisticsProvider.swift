@@ -184,12 +184,13 @@ struct QueryStatisticsProvider: TimelineProvider {
       setupRequired: entry.setupRequired,
       summary: entry.summary
     )
-    let footerEntries = footerEntryDates(
+    let footerDates = WidgetFooter.entryDates(
       observedAt: entry.presentation.lastCheckedAt,
       now: now
-    ).map {
+    )
+    let footerEntries = footerDates.map { date in
       QueryStatisticsEntry(
-        date: $0,
+        date: date,
         setupRequired: entry.setupRequired,
         summary: entry.summary
       )
@@ -199,22 +200,5 @@ struct QueryStatisticsProvider: TimelineProvider {
       entries: [currentEntry] + footerEntries,
       policy: .after(nextFetch)
     )
-  }
-
-  /// One entry per minute until the next fetch, then a coarse fallback up to
-  /// the one-hour health expiry. Each entry carries static footer text, so the
-  /// label advances without a network request and without a custom
-  /// `FormatStyle`, which WidgetKit cannot unarchive.
-  private func footerEntryDates(observedAt: Date?, now: Date) -> [Date] {
-    guard let observedAt else { return [] }
-
-    var dates = Set<Date>()
-    for minute in 1...15 {
-      dates.insert(observedAt.addingTimeInterval(Double(minute) * 60))
-    }
-    for minute in stride(from: 20, through: 60, by: 5) {
-      dates.insert(observedAt.addingTimeInterval(Double(minute) * 60))
-    }
-    return dates.filter { $0 > now }.sorted()
   }
 }

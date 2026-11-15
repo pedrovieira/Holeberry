@@ -36,31 +36,39 @@ struct RelativeAgeFormatterTests {
     #expect(formatter.string(since: date(secondsAgo: 3_900), relativeTo: now) == "1 hr. ago")
   }
 
-  @Test func compactShowsMomentsDuringTheFirstMinute() {
-    let formatter = RelativeAgeFormatter(style: .compact, locale: english)
+  @Test func differentlyConfiguredLocalesKeepTheirOwnSettings() {
+    let plain = RelativeAgeFormatter(locale: english)
+    let arabicDigits = RelativeAgeFormatter(locale: Locale(identifier: "en_US@numbers=arab"))
 
-    #expect(formatter.string(since: date(secondsAgo: -1), relativeTo: now) == "moments ago")
-    #expect(formatter.string(since: date(secondsAgo: 0), relativeTo: now) == "moments ago")
-    #expect(formatter.string(since: date(secondsAgo: 59.999), relativeTo: now) == "moments ago")
+    for _ in 0..<3 {
+      let plainText = plain.string(since: date(secondsAgo: 90), relativeTo: now)
+      let arabicText = arabicDigits.string(since: date(secondsAgo: 90), relativeTo: now)
+
+      #expect(plainText == "1 min. ago")
+      #expect(arabicText != plainText)
+      #expect(arabicText.hasSuffix(" min. ago"))
+    }
   }
 
-  @Test func compactShowsWholeMinutesWithoutSeconds() {
-    let formatter = RelativeAgeFormatter(style: .compact, locale: english)
+  @Test func concurrentCallsProduceConsistentText() async {
+    let formatter = RelativeAgeFormatter(locale: Locale(identifier: "en_ZA"))
+    let target = date(secondsAgo: 3_900)
+    let reference = now
+    let expected = formatter.string(since: target, relativeTo: reference)
 
-    #expect(formatter.string(since: date(secondsAgo: 60), relativeTo: now) == "1min ago")
-    #expect(formatter.string(since: date(secondsAgo: 119.999), relativeTo: now) == "1min ago")
-    #expect(formatter.string(since: date(secondsAgo: 120), relativeTo: now) == "2min ago")
-    #expect(formatter.string(since: date(secondsAgo: 3_599), relativeTo: now) == "59min ago")
-  }
+    let results = await withTaskGroup(of: String.self) { group in
+      for _ in 0..<32 {
+        group.addTask {
+          formatter.string(since: target, relativeTo: reference)
+        }
+      }
+      var collected: [String] = []
+      for await result in group {
+        collected.append(result)
+      }
+      return collected
+    }
 
-  @Test func compactShowsHoursAndDays() {
-    let formatter = RelativeAgeFormatter(style: .compact, locale: english)
-
-    #expect(formatter.string(since: date(secondsAgo: 3_600), relativeTo: now) == "1h ago")
-    #expect(formatter.string(since: date(secondsAgo: 7_199), relativeTo: now) == "1h ago")
-    #expect(formatter.string(since: date(secondsAgo: 7_200), relativeTo: now) == "2h ago")
-    #expect(formatter.string(since: date(secondsAgo: 86_399), relativeTo: now) == "23h ago")
-    #expect(formatter.string(since: date(secondsAgo: 86_400), relativeTo: now) == "1d ago")
-    #expect(formatter.string(since: date(secondsAgo: 172_800), relativeTo: now) == "2d ago")
+    #expect(Set(results) == [expected])
   }
 }

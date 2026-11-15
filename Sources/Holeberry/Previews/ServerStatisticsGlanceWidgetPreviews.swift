@@ -9,37 +9,37 @@ import SwiftUI
 // Every preview is sized to the macOS systemSmall widget via
 // `WidgetPreviewSize.systemSmall`.
 #Preview("Healthy") {
-  AllServersWidgetEntryView(entry: .placeholder())
+  ServerStatisticsGlanceWidgetEntryView(entry: .placeholder())
     .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Partial") {
-  AllServersWidgetEntryView(entry: WidgetPreviewData.partial())
+  ServerStatisticsGlanceWidgetEntryView(entry: WidgetPreviewData.partial())
     .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("All offline") {
-  AllServersWidgetEntryView(entry: WidgetPreviewData.allOffline())
+  ServerStatisticsGlanceWidgetEntryView(entry: WidgetPreviewData.allOffline())
     .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("No servers") {
-  AllServersWidgetEntryView(entry: WidgetPreviewData.noServers())
+  ServerStatisticsGlanceWidgetEntryView(entry: WidgetPreviewData.noServers())
     .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Setup required") {
-  AllServersWidgetEntryView(entry: .setupRequired())
+  ServerStatisticsGlanceWidgetEntryView(entry: .setupRequired())
     .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Zero") {
-  AllServersWidgetEntryView(entry: WidgetPreviewData.zero())
+  ServerStatisticsGlanceWidgetEntryView(entry: WidgetPreviewData.zero())
     .widgetPreviewFrame(.systemSmall)
 }
 
 #Preview("Stale") {
-  AllServersWidgetEntryView(entry: WidgetPreviewData.stale())
+  ServerStatisticsGlanceWidgetEntryView(entry: WidgetPreviewData.stale())
     .widgetPreviewFrame(.systemSmall)
 }
 
