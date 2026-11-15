@@ -16,6 +16,24 @@ enum IntegrationContextError: Error, LocalizedError, Equatable {
   }
 }
 
+/// In-memory keychain for integration contexts. Credentials are passed to the
+/// factory directly, so storage must never touch the real Keychain here.
+final class IntegrationKeychain: KeychainManaging, @unchecked Sendable {
+  private var credentials: [UUID: String] = [:]
+
+  func saveCredential(_ credential: String, for serverID: UUID) throws {
+    credentials[serverID] = credential
+  }
+
+  func readCredential(for serverID: UUID) throws -> String? {
+    credentials[serverID]
+  }
+
+  func deleteCredential(for serverID: UUID) throws {
+    credentials.removeValue(forKey: serverID)
+  }
+}
+
 /// Preserves the test failure when cleanup also fails.
 struct IntegrationOperationFailure: Error, LocalizedError {
   let operation: any Error
@@ -110,13 +128,18 @@ final class IntegrationContext {
     )
 
     do {
+      let storage = ConcreteAppStorage(
+        sharedDataSuite: defaults,
+        appLocalSuite: defaults,
+        keychain: IntegrationKeychain()
+      )
       let service = try ConcretePiholeServiceFactory(
         authSessionFactory: ConcreteAuthSessionFactory()
       ).buildService(
         config: config,
         credential: credential,
         session: session,
-        suite: defaults
+        storage: storage
       )
       return IntegrationContext(
         target: target,

@@ -14,7 +14,7 @@ struct TempUnblockDisabledEntryTests {
     let mock = MockPiholeAPI(version: version)
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, defaultsSuite: suite, retrySleep: { _ in },
+      service: mock, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: {
         _ in
         try await Task.sleep(for: .seconds(60))
@@ -44,7 +44,7 @@ struct TempUnblockDisabledEntryTests {
       DomainEntry(id: 1, domain: domain, type: 0, comment: mock?.addDomainLastComment, enabled: false)
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, defaultsSuite: suite, retrySleep: { _ in },
+      service: mock, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: {
         _ in
         try await Task.sleep(for: .seconds(60))

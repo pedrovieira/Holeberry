@@ -13,15 +13,19 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
   var buildServiceError: (any Error)?
   private(set) var buildServiceCallCount = 0
   private(set) var buildServiceLastConfig: ServerConfig?
+  private(set) var buildServiceLastCredential: String?
+  private(set) var buildServiceLastStorage: (any AppStorageProviding)?
 
   func buildService(
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
-    suite: UserDefaults
+    storage: any AppStorageProviding
   ) throws -> any PiholeServiceProviding {
     buildServiceCallCount += 1
     buildServiceLastConfig = config
+    buildServiceLastCredential = credential
+    buildServiceLastStorage = storage
     if let buildServiceError {
       throw buildServiceError
     }

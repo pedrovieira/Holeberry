@@ -10,7 +10,7 @@ public protocol PiholeServiceFactory {
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
-    suite: UserDefaults
+    storage: any AppStorageProviding
   ) throws -> any PiholeServiceProviding
 }
 
@@ -27,7 +27,7 @@ public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
-    suite: UserDefaults = .standard
+    storage: any AppStorageProviding
   ) throws -> any PiholeServiceProviding {
     guard let url = URL(string: config.url) else {
       fatalError("Invalid URL in ServerConfig: \(config.url)")
@@ -59,6 +59,6 @@ public struct ConcretePiholeServiceFactory: PiholeServiceFactory {
         apiToken: credential
       )
     }
-    return TemporaryUnblockPiholeServiceDecorator(service: raw, defaultsSuite: suite)
+    return TemporaryUnblockPiholeServiceDecorator(service: raw, storage: storage)
   }
 }

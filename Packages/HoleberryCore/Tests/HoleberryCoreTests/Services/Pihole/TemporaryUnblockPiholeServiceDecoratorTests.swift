@@ -14,7 +14,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     suite: UserDefaults = TestDefaults.makeSuite()
   ) -> TemporaryUnblockPiholeServiceDecorator {
     TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite, retrySleep: { _ in }, sleep: { _ in })
+      service: service, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in }, sleep: { _ in })
   }
 
   /// Like `makeDecorator`, but real-world durations (≥10s) park for the whole
@@ -24,7 +24,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     suite: UserDefaults = TestDefaults.makeSuite()
   ) -> TemporaryUnblockPiholeServiceDecorator {
     TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite, retrySleep: { _ in },
+      service: service, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: { duration in
         if duration < 10 { return }
         try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
@@ -119,7 +119,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     // fires during the test.
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      defaultsSuite: TestDefaults.makeSuite(),
+      storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()),
       sleep: { duration in
         if duration < 10 { return }
         try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
@@ -149,7 +149,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let gate = RetryGate()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      defaultsSuite: suite,
+      storage: makeTestStorage(appLocalSuite: suite),
       sleep: { duration in
         // Expiry delay (0.5s) returns immediately; every retry backoff parks on
         // the gate so the test can swap the stub before the retry runs.
@@ -185,7 +185,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     var sleeps = 0
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      defaultsSuite: suite,
+      storage: makeTestStorage(appLocalSuite: suite),
       sleep: { duration in
         sleeps += 1
         // Expiry + first two backoffs are instant; the third backoff stalls
@@ -214,7 +214,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     let gate = RetryGate()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      defaultsSuite: suite,
+      storage: makeTestStorage(appLocalSuite: suite),
       sleep: { duration in
         if duration < 10 { return }
         while !gate.isOpen {
@@ -260,7 +260,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      defaultsSuite: TestDefaults.makeSuite(),
+      storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()),
       notificationCenter: center, sleep: { _ in })
     try await decorator.unblockDomain("notify-expiry.com", duration: 0.5)
 
@@ -290,7 +290,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     // during the test — the removal below is the user's own action.
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      defaultsSuite: suite,
+      storage: makeTestStorage(appLocalSuite: suite),
       notificationCenter: center,
       sleep: { duration in
         if duration < 10 { return }
@@ -644,7 +644,7 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      defaultsSuite: suite, sleep: { _ in })
+      storage: makeTestStorage(appLocalSuite: suite), sleep: { _ in })
     _ = decorator
 
     #expect(

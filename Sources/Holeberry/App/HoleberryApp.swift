@@ -46,8 +46,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     authSessionFactory: authFactory
   )
   private lazy var versionDetector = PiholeVersionDetector()
+  private lazy var appStorage: any AppStorageProviding = ConcreteAppStorage(
+    sharedDataSuite: .standard,
+    appLocalSuite: .standard,
+    keychain: keychain
+  )
   private lazy var serverManager = PiholeServerManager(
-    keychain: keychain,
+    storage: appStorage,
     serviceFactory: serviceFactory,
     versionDetector: versionDetector
   )

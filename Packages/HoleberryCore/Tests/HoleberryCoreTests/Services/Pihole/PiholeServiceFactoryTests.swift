@@ -58,7 +58,7 @@ struct PiholeServiceFactoryTests {
       )
     }
     let service: any PiholeServiceProviding = try factory.buildService(
-      config: config, credential: "api-token", session: session, suite: suite
+      config: config, credential: "api-token", session: session, storage: makeTestStorage(appLocalSuite: suite)
     )
     #expect(service.id == config.id)
     #expect(service.label == "Test")
@@ -85,5 +85,61 @@ struct PiholeServiceFactoryTests {
     #expect(Defaults[key].isEmpty)
     await settle()
     #expect(session.requests.count == (version == .v5 ? 3 : 2))
+  }
+
+  @Test(
+    "Factory wraps both versions and restores records from the injected storage",
+    arguments: [ServerVersion.v5, .v6]
+  )
+  func restoresRecordsFromInjectedStorage(version: ServerVersion) throws {
+    let session = MockURLSession()
+    let mockAuthFactory = MockAuthSessionFactory()
+    mockAuthFactory.stubbedProvider = MockAuthSessionProvider()
+    let factory = ConcretePiholeServiceFactory(authSessionFactory: mockAuthFactory)
+    let sharedDataSuite = TestDefaults.makeSuite()
+    let appLocalSuite = TestDefaults.makeSuite()
+    let config = ServerConfig(label: "Test", url: "http://restore.local", version: version)
+    // Configurations use a different suite from temporary records.
+    Defaults[.servers(suite: sharedDataSuite)] = [config]
+    Defaults[.servers(suite: appLocalSuite)] = [
+      ServerConfig(label: "Wrong Suite", url: "http://wrong.local", version: .v6)
+    ]
+    let record = TempUnblockRecord(
+      domain: "Restored.Example",
+      uuid: "restored-token",
+      startDateUTC: Date(timeIntervalSince1970: 1_700_007_000),
+      durationSeconds: 3_600,
+      pendingRemoval: false,
+      retryCount: 1
+    )
+    Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)] = [record]
+    let storage = makeTestStorage(
+      appLocalSuite: appLocalSuite, sharedDataSuite: sharedDataSuite)
+
+    let service = try factory.buildService(
+      config: config, credential: "api-token", session: session, storage: storage)
+
+    #expect(
+      service is TemporaryUnblockPiholeServiceDecorator,
+      "every raw service must stay wrapped by the temporary-unblock decorator")
+    #expect(service.id == config.id)
+    #expect(service.version == version)
+
+    // Init restored the record through the injected storage, normalizing the
+    // domain and preserving every other field.
+    let restored: [TempUnblockRecord] = Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)]
+    #expect(restored.count == 1)
+    let saved = try #require(restored.first)
+    #expect(saved.domain == "restored.example")
+    #expect(saved.uuid == "restored-token")
+    #expect(saved.startDateUTC == record.startDateUTC)
+    #expect(saved.durationSeconds == 3_600)
+    #expect(saved.pendingRemoval == false)
+    #expect(saved.retryCount == 1)
+
+    // The adapter's shared-data suite is the injected one, not the app-local suite.
+    let configs = storage.loadServers()
+    #expect(configs.count == 1)
+    #expect(configs.first?.id == config.id)
   }
 }

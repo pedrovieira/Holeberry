@@ -2,6 +2,8 @@ import Defaults
 import Foundation
 import Testing
 
+@testable import HoleberryCore
+
 /// Shared JSON encoder/decoder instances for tests.
 /// Using a single instance avoids re-creating these lightweight but commonly-used objects.
 enum TestJSON {
@@ -24,6 +26,30 @@ enum TestDefaults {
     }
     return suite
   }
+}
+
+/// Creates the production storage adapter over isolated defaults suites and a
+/// mock Keychain, so behavioral tests exercise persistence end to end without
+/// touching real storage.
+@MainActor
+func makeTestStorage(
+  appLocalSuite: UserDefaults,
+  sharedDataSuite: UserDefaults = TestDefaults.makeSuite(),
+  keychain: MockKeychainManager = MockKeychainManager()
+) -> ConcreteAppStorage {
+  ConcreteAppStorage(
+    sharedDataSuite: sharedDataSuite,
+    appLocalSuite: appLocalSuite,
+    keychain: keychain
+  )
+}
+
+/// Identity comparison for `any` storage references: the protocol is not
+/// class-bound, so `===` cannot take the values directly.
+@MainActor
+func isSameStorageInstance(_ lhs: (any AppStorageProviding)?, _ rhs: any AppStorageProviding) -> Bool {
+  guard let lhs else { return false }
+  return (lhs as AnyObject) === (rhs as AnyObject)
 }
 
 /// Awaits until `condition` returns true, yielding the main actor between checks.
