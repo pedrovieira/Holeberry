@@ -19,7 +19,7 @@ struct DomainUnblockOutcomeTests {
     )
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite,
+      service: service, storage: makeTestStorage(appLocalSuite: suite),
       sleep: { _ in
         Issue.record("An existing entry must not start an expiry timer")
       })
@@ -40,7 +40,7 @@ struct DomainUnblockOutcomeTests {
     service.getDomainStub = .failure(PiholeError.network("offline"))
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite,
+      service: service, storage: makeTestStorage(appLocalSuite: suite),
       sleep: { _ in
         Issue.record("A duplicate must not start an expiry timer")
       })
@@ -57,7 +57,8 @@ struct DomainUnblockOutcomeTests {
     service.getDomainStub = .success(
       DomainEntry(id: 1, domain: "example.com", type: 0, comment: "manual", enabled: false)
     )
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: TestDefaults.makeSuite())
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()))
     #expect(
       try await decorator.unblockDomain("example.com", duration: nil)
         == .alreadyPresent(enabled: false))
@@ -99,7 +100,8 @@ struct DomainUnblockOutcomeTests {
         Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
       )
     }
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: TestDefaults.makeSuite())
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()))
     #expect(
       try await decorator.unblockDomain("BÜCHER.de", duration: nil)
         == .alreadyPresent(enabled: false))
@@ -123,7 +125,8 @@ struct DomainUnblockOutcomeTests {
       )
     }
     let suite = TestDefaults.makeSuite()
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite)
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, storage: makeTestStorage(appLocalSuite: suite))
     #expect(
       try await decorator.unblockDomain("example.com", duration: 60)
         == .alreadyPresent(enabled: false))
@@ -150,7 +153,7 @@ struct DomainUnblockOutcomeTests {
     }
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite,
+      service: service, storage: makeTestStorage(appLocalSuite: suite),
       sleep: { _ in
         Issue.record("A duplicate must not start an expiry timer")
       })
@@ -203,7 +206,8 @@ struct DomainUnblockOutcomeTests {
       }
     ]
     let suite = TestDefaults.makeSuite()
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite)
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, storage: makeTestStorage(appLocalSuite: suite))
     #expect(
       try await decorator.unblockDomain("Example.COM", duration: duration)
         == .alreadyPresent(enabled: false))
@@ -236,7 +240,8 @@ struct DomainUnblockOutcomeTests {
         )
       }
     ]
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: TestDefaults.makeSuite())
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()))
     #expect(
       try await decorator.unblockDomain("Example.COM", duration: nil)
         == .alreadyPresent(enabled: nil))

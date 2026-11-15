@@ -551,7 +551,11 @@ struct PiholeIntegrationTests {
       config: config,
       credential: "wrong-credential",
       session: session,
-      suite: defaults,
+      storage: ConcreteAppStorage(
+        sharedDataSuite: defaults,
+        appLocalSuite: defaults,
+        keychain: IntegrationKeychain()
+      ),
       executionMode: .application
     )
     try await operation(service)

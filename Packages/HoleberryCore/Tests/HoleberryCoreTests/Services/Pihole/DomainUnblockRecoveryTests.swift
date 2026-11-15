@@ -54,7 +54,7 @@ struct DomainUnblockRecoveryTests {
       return reply(listBody(version, marker: marker), request: request)
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite, retrySleep: { _ in },
+      service: service, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: { remaining in
         expiryDelay = remaining
         await withCheckedContinuation { expire = $0 }
@@ -107,7 +107,7 @@ struct DomainUnblockRecoveryTests {
       return reply(listBody(version, marker: marker), request: request)
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite, retrySleep: { _ in },
+      service: service, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: { _ in
         while !expire { try await Task.sleep(for: .milliseconds(1)) }
       })
@@ -137,7 +137,7 @@ struct DomainUnblockRecoveryTests {
     }
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, defaultsSuite: suite, retrySleep: { _ in },
+      service: mock, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: {
         _ in
         Issue.record("An unsuccessful recovery must not create an expiry timer")
@@ -157,7 +157,7 @@ struct DomainUnblockRecoveryTests {
     let mock = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, defaultsSuite: suite, retrySleep: { _ in },
+      service: mock, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: {
         _ in
         try await Task.sleep(for: .seconds(60))
@@ -195,7 +195,7 @@ struct DomainUnblockRecoveryTests {
         domain: domain, uuid: "record", startDateUTC: Date().addingTimeInterval(-100), durationSeconds: 300)
     ]
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite, retrySleep: { _ in },
+      service: service, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: { remaining in
         delay = remaining
       })
