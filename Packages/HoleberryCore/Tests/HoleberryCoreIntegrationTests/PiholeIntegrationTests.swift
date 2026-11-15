@@ -555,7 +555,8 @@ struct PiholeIntegrationTests {
         sharedDataSuite: defaults,
         appLocalSuite: defaults,
         keychain: IntegrationKeychain()
-      )
+      ),
+      executionMode: .application
     )
     try await operation(service)
   }

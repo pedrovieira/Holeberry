@@ -27,8 +27,8 @@ struct GravityUpdaterTests {
     let oldDate = Date(timeIntervalSince1970: 1_000)
     let newDate = Date(timeIntervalSince1970: 2_000)
     mockManager.getQuerySummaryResponses = [
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)]
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate))],
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate))]
     ]
     mockManager.updateGravityStub = [id: .success(())]
 
@@ -46,8 +46,14 @@ struct GravityUpdaterTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getQuerySummaryResponses = [
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 1_000))],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 2_000))]
+      [
+        id: .success(
+          QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 1_000)))
+      ],
+      [
+        id: .success(
+          QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date(timeIntervalSince1970: 2_000)))
+      ]
     ]
     mockManager.updateGravityStub = [id: .success(())]
     let updater = makeUpdater()
@@ -69,9 +75,9 @@ struct GravityUpdaterTests {
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     let oldDate = Date(timeIntervalSince1970: 1_000)
     mockManager.getQuerySummaryResponses = [
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
-      [id: nil],
-      [id: nil]
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate))],
+      [id: .failure(.network("offline"))],
+      [id: .failure(.network("offline"))]
     ]
     mockManager.updateGravityStub = [id: .success(())]
 
@@ -91,9 +97,9 @@ struct GravityUpdaterTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getQuerySummaryResponses = [
-      [id: nil],
-      [id: nil],
-      [id: nil]
+      [id: .failure(.network("offline"))],
+      [id: .failure(.network("offline"))],
+      [id: .failure(.network("offline"))]
     ]
     mockManager.updateGravityStub = [id: .success(())]
 
@@ -133,9 +139,9 @@ struct GravityUpdaterTests {
     let date = Date(timeIntervalSince1970: 1_000)
     // Third response feeds the delayed re-check.
     mockManager.getQuerySummaryResponses = [
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date)]
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date))],
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date))],
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: date))]
     ]
     mockManager.updateGravityStub = [id: .success(())]
 
@@ -154,9 +160,9 @@ struct GravityUpdaterTests {
     let newDate = Date(timeIntervalSince1970: 2_000)
     // Immediate after-fetch can lag; the delayed re-check sees the new one.
     mockManager.getQuerySummaryResponses = [
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)]
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate))],
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate))],
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate))]
     ]
     mockManager.updateGravityStub = [id: .success(())]
 
@@ -185,8 +191,8 @@ struct GravityUpdaterTests {
     let id = UUID()
     mockManager.servers = [ServerConfig(id: id, url: "http://a.local", version: .v6)]
     mockManager.getQuerySummaryResponses = [
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: nil)],
-      [id: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date())]
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: nil))],
+      [id: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: Date()))]
     ]
     mockManager.updateGravityStub = [id: .success(())]
     let updater = makeUpdater()
@@ -216,8 +222,8 @@ struct GravityUpdaterTests {
     let oldDate = Date(timeIntervalSince1970: 1_000)
     let newDate = Date(timeIntervalSince1970: 2_000)
     mockManager.getQuerySummaryResponses = [
-      [v6ID: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)],
-      [v6ID: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)]
+      [v6ID: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate))],
+      [v6ID: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate))]
     ]
     // Simulate an unsupported result slipping through the manager.
     mockManager.updateGravityStub = [
@@ -244,12 +250,12 @@ struct GravityUpdaterTests {
     let newDate = Date(timeIntervalSince1970: 2_000)
     mockManager.getQuerySummaryResponses = [
       [
-        kept: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate),
-        removed: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)
+        kept: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate)),
+        removed: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: oldDate))
       ],
       [
-        kept: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate),
-        removed: QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)
+        kept: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate)),
+        removed: .success(QuerySummary(totalQueries: 1, totalBlocked: 0, gravityLastUpdated: newDate))
       ]
     ]
     mockManager.updateGravityStub = [kept: .success(()), removed: .success(())]

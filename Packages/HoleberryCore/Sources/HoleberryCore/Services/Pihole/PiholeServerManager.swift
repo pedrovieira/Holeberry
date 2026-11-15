@@ -12,6 +12,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let storage: any AppStorageProviding
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
+  private let executionMode: ServiceExecutionMode
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
   private var services: [UUID: any PiholeServiceProviding] = [:]
   private struct UnblockKey: Hashable {
@@ -23,11 +24,13 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   public init(
     storage: any AppStorageProviding,
     serviceFactory: any PiholeServiceFactory,
-    versionDetector: any PiholeVersionDetecting
+    versionDetector: any PiholeVersionDetecting,
+    executionMode: ServiceExecutionMode = .application
   ) {
     self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
+    self.executionMode = executionMode
     self.servers = []
     loadServers()
   }
@@ -69,7 +72,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: credential,
       session: session,
-      storage: storage
+      storage: storage,
+      executionMode: executionMode
     )
 
     try await service.login()
@@ -157,7 +161,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: credential,
       session: session,
-      storage: storage
+      storage: storage,
+      executionMode: executionMode
     )
     do {
       try await probe.login()
@@ -202,7 +207,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: currentCredential,
       session: session,
-      storage: storage
+      storage: storage,
+      executionMode: executionMode
     ) {
       services[id] = rebuilt
     }
@@ -227,27 +233,37 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Status & Blocking
 
-  /// Returns blocking status for all servers. Each entry carries the typed
+  /// Returns blocking status for the selected servers. Each entry carries the typed
   /// error when that server's check failed (after its own retries).
-  public func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
-    let configs = servers
-    let svcs = services
-    return await withTaskGroup(of: (UUID, Result<BlockingStatus, PiholeError>).self) { group in
-      for config in configs {
-        let svc = svcs[config.id]
-        let id = config.id
+  public func getBlockingStatus(scope: ServerScope) async -> [UUID: Result<BlockingStatus, PiholeError>] {
+    await performOnServers(scope: scope) { try await $0.checkStatus() }
+  }
+
+  /// Snapshots targets before awaiting, preserving failures for missing selected servers.
+  private func performOnServers<Value: Sendable>(
+    scope: ServerScope,
+    operation: @escaping @MainActor @Sendable (any PiholeServiceProviding) async throws -> Value
+  ) async -> [UUID: Result<Value, PiholeError>] {
+    let configuredIDs = Set(servers.map(\.id))
+    let ids: [UUID]
+    switch scope {
+    case .all: ids = servers.map(\.id)
+    case .server(let id): ids = [id]
+    }
+    let clients = services
+    return await withTaskGroup(of: (UUID, Result<Value, PiholeError>).self) { group in
+      for id in ids {
+        let client = configuredIDs.contains(id) ? clients[id] : nil
         group.addTask {
-          guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
+          guard let client else { return (id, .failure(.unknown("Server not found"))) }
           do {
-            let status = try await svc.checkStatus()
-            return (id, .success(status))
+            return (id, .success(try await operation(client)))
           } catch {
-            let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
-            return (id, .failure(piholeError))
+            return (id, .failure(error as? PiholeError ?? .unknown(error.localizedDescription)))
           }
         }
       }
-      var results: [UUID: Result<BlockingStatus, PiholeError>] = [:]
+      var results: [UUID: Result<Value, PiholeError>] = [:]
       for await (id, result) in group {
         results[id] = result
       }
@@ -429,30 +445,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     return deduped
   }
 
-  /// Returns query summaries for all servers. Each entry is `nil` if that server was unreachable.
-  public func getQuerySummary() async -> [UUID: QuerySummary?] {
-    let configs = servers
-    let svcs = services
-    return await withTaskGroup(of: (UUID, QuerySummary?).self) { group in
-      for config in configs {
-        let svc = svcs[config.id]
-        let id = config.id
-        group.addTask {
-          do {
-            guard let svc else { return (id, nil) }
-            let summary = try await svc.getQuerySummary()
-            return (id, summary)
-          } catch {
-            return (id, nil)
-          }
-        }
-      }
-      var results: [UUID: QuerySummary?] = [:]
-      for await (id, summary) in group {
-        results[id] = summary
-      }
-      return results
-    }
+  /// Returns independent summary results for the selected servers.
+  public func getQuerySummary(scope: ServerScope) async -> [UUID: Result<QuerySummary, PiholeError>] {
+    await performOnServers(scope: scope) { try await $0.getQuerySummary() }
   }
 
   /// Triggers a gravity update on all servers; unsupported ones are skipped.
@@ -538,7 +533,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
         config: config,
         credential: credential,
         session: session,
-        storage: storage
+        storage: storage,
+        executionMode: executionMode
       ) {
         services[config.id] = rebuilt
       }
@@ -548,8 +544,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     // Warm up sessions so first concurrent requests don't trigger
     // the actor-reentrancy race in acquireSession().
-    for (_, service) in services {
-      Task { try? await service.login() }
+    if executionMode == .application {
+      for (_, service) in services {
+        Task { try? await service.login() }
+      }
     }
   }
 

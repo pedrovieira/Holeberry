@@ -62,21 +62,11 @@ public final class PiholeV5Service: PiholeAPIProviding {
   }
 
   public func checkStatus() async throws -> BlockingStatus {
-    let (data, httpResponse) = try await getRequest(path: "/admin/api.php", params: ["status": nil])
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
     struct StatusResponse: Decodable {
       let status: String?
     }
-    let status: StatusResponse
-    do {
-      status = try Self.decoder.decode(StatusResponse.self, from: data)
-    } catch {
-      throw PiholeError.decoding(error.localizedDescription)
-    }
+    let status: StatusResponse = try await send(
+      params: ["status": nil], context: "Blocking status")
 
     guard let rawStatus = status.status else {
       // Unauthenticated v5 returns 200 `{}` (gated on $auth, not HTTP status).
@@ -95,15 +85,12 @@ public final class PiholeV5Service: PiholeAPIProviding {
       path: "/admin/api.php", params: ["summaryRaw": nil]
     )
 
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    // v5 serves the FTL stats as float values with snake_case keys
+    // v5 serves the FTL stats as float values with snake_case keys.
     let response: V5SummaryResponse
     do {
-      response = try Self.decoder.decode(V5SummaryResponse.self, from: data)
-    } catch {
+      response = try decodeResponse(
+        data: data, response: httpResponse, context: "Query summary")
+    } catch PiholeError.decoding {
       let body = String(data: data, encoding: .utf8) ?? ""
       throw PiholeError.decoding("Unexpected summary format: \(body)")
     }
@@ -170,15 +157,11 @@ public final class PiholeV5Service: PiholeAPIProviding {
       params["client"] = forClientIp
     }
 
-    let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: params
-    )
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    guard let response = try? Self.decoder.decode(V5RecentQueriesResponse.self, from: data) else {
+    let response: V5RecentQueriesResponse
+    do {
+      response = try await send(
+        params: params, context: "Recent blocked queries")
+    } catch PiholeError.decoding {
       return []
     }
     let rows = response.data
@@ -294,28 +277,19 @@ public final class PiholeV5Service: PiholeAPIProviding {
   }
 
   private func fetchDomainList(listType: String) async throws -> [DomainEntry] {
-    let (data, httpResponse) = try await getRequest(
-      path: "/admin/api.php", params: ["list": listType]
-    )
-
-    guard httpResponse.isSuccess else {
-      throw PiholeError.server(httpResponse.statusCode, String(data: data, encoding: .utf8))
-    }
-
-    do {
-      // v5 returns {"data":[…]} as JSON; it has never returned HTML (verified v5.5–v5.21).
-      let entries = try Self.decoder.decode(V5DomainsResponse.self, from: data).data
-      return entries.map { entry in
-        DomainEntry(
-          id: entry.id,
-          domain: Self.domainIdentity(from: entry.domain),
-          type: entry.type,
-          comment: entry.comment,
-          enabled: entry.enabled
-        )
-      }
-    } catch {
-      throw PiholeError.decoding("Domain list \(listType): \(error.localizedDescription)")
+    // v5 returns {"data":[…]} as JSON; it has never returned HTML (verified v5.5–v5.21).
+    let response: V5DomainsResponse = try await send(
+      params: ["list": listType],
+      context: "Domain list",
+      decodingErrorPrefix: "Domain list \(listType)")
+    return response.data.map { entry in
+      DomainEntry(
+        id: entry.id,
+        domain: Self.domainIdentity(from: entry.domain),
+        type: entry.type,
+        comment: entry.comment,
+        enabled: entry.enabled
+      )
     }
   }
 
@@ -327,6 +301,39 @@ public final class PiholeV5Service: PiholeAPIProviding {
     let labels = ascii.split(separator: ".")
     guard labels.contains(where: { $0.hasPrefix("xn--") }), !ascii.contains(" ") else { return value }
     return String(ascii)
+  }
+
+  private func send<Response: Decodable>(
+    params: [String: String?],
+    method: HTTPMethod = .get,
+    comment: String? = nil,
+    context: String,
+    decodingErrorPrefix: String? = nil
+  ) async throws -> Response {
+    let (data, response) = try await getRequest(
+      path: "/admin/api.php", params: params, method: method, comment: comment)
+    return try decodeResponse(
+      data: data, response: response, context: context, decodingErrorPrefix: decodingErrorPrefix)
+  }
+
+  private func decodeResponse<Response: Decodable>(
+    data: Data, response: HTTPURLResponse, context: String, decodingErrorPrefix: String? = nil
+  ) throws -> Response {
+    guard response.isSuccess else {
+      throw PiholeError.server(response.statusCode, String(data: data, encoding: .utf8))
+    }
+    do {
+      return try Self.decoder.decode(Response.self, from: data)
+    } catch {
+      logger.error(
+        """
+        \(context, privacy: .public) decode failed. Status \(response.statusCode). \
+        Error: \(String(describing: error), privacy: .private)
+        """
+      )
+      let prefix = decodingErrorPrefix.map { "\($0): " } ?? ""
+      throw PiholeError.decoding("\(prefix)\(error.localizedDescription)")
+    }
   }
 
   private func getRequest(

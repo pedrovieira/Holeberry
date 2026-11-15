@@ -44,7 +44,8 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
     retrySleep: @escaping @Sendable (Duration) async throws -> Void = {
       try await ContinuousClock().sleep(for: $0)
     },
-    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) }
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) },
+    executionMode: ServiceExecutionMode = .application
   ) {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals
@@ -52,11 +53,13 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
     self.notificationCenter = notificationCenter
     self.retrySleep = retrySleep
     self.sleep = sleep
-    self.activeRecords = restoreFromStorage()
-    saveRecords()
-    if !activeRecords.isEmpty {
-      let records = activeRecords
-      Task { await reconcileWithServer(records) }
+    if executionMode == .application {
+      self.activeRecords = restoreFromStorage()
+      saveRecords()
+      if !activeRecords.isEmpty {
+        let records = activeRecords
+        Task { await reconcileWithServer(records) }
+      }
     }
   }
 

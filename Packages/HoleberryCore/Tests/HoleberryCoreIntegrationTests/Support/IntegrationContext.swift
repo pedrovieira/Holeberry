@@ -139,7 +139,8 @@ final class IntegrationContext {
         config: config,
         credential: credential,
         session: session,
-        storage: storage
+        storage: storage,
+        executionMode: .application
       )
       return IntegrationContext(
         target: target,

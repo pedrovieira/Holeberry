@@ -58,7 +58,8 @@ struct PiholeServiceFactoryTests {
       )
     }
     let service: any PiholeServiceProviding = try factory.buildService(
-      config: config, credential: "api-token", session: session, storage: makeTestStorage(appLocalSuite: suite)
+      config: config, credential: "api-token", session: session,
+      storage: makeTestStorage(appLocalSuite: suite), executionMode: .application
     )
     #expect(service.id == config.id)
     #expect(service.label == "Test")
@@ -120,7 +121,8 @@ struct PiholeServiceFactoryTests {
       appLocalSuite: appLocalSuite, sharedDataSuite: sharedDataSuite)
 
     let service = try factory.buildService(
-      config: config, credential: "api-token", session: session, storage: storage)
+      config: config, credential: "api-token", session: session, storage: storage,
+      executionMode: .application)
 
     #expect(
       service is TemporaryUnblockPiholeServiceDecorator,
@@ -145,4 +147,46 @@ struct PiholeServiceFactoryTests {
     #expect(configs.count == 1)
     #expect(configs.first?.id == config.id)
   }
+
+  @Test("Production factory on-demand clients authenticate only on requests", arguments: [ServerVersion.v5, .v6])
+  func lazyAuthentication(version: ServerVersion) async throws {
+    let suite = TestDefaults.makeSuite()
+    let session = MockURLSession()
+    let config = ServerConfig(url: "http://test.local", version: version)
+    let storage = makeTestStorage(appLocalSuite: suite)
+    let record = TempUnblockRecord(
+      domain: "EXAMPLE.COM", uuid: "existing", startDateUTC: .distantPast, durationSeconds: 1
+    )
+    storage.saveTemporaryUnblocks([record], for: config.id)
+    session.asyncHandler = { request in
+      let body: String
+      if request.url?.path == "/api/auth" {
+        #expect(request.httpMethod == "POST")
+        body = #"{"session":{"valid":true,"sid":"test-sid","csrf":"test-csrf","validity":300,"totp":false}}"#
+      } else if version == .v5 {
+        #expect(request.url?.path == "/admin/api.php")
+        #expect(request.url?.query?.contains("auth=secret") == true)
+        body = #"{"status":"enabled"}"#
+      } else {
+        #expect(request.url?.path == "/api/dns/blocking")
+        #expect(request.value(forHTTPHeaderField: "X-FTL-SID") == "test-sid")
+        body = #"{"blocking":"enabled","timer":null}"#
+      }
+      return (
+        Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+      )
+    }
+    let factory = ConcretePiholeServiceFactory(authSessionFactory: ConcreteAuthSessionFactory())
+    let service = try factory.buildService(
+      config: config, credential: "secret", session: session, storage: storage,
+      executionMode: .onDemand
+    )
+    await settle()
+    #expect(session.requests.isEmpty)
+    #expect(storage.loadTemporaryUnblocks(for: config.id) == [record])
+    #expect(try await service.checkStatus() == .enabled)
+    #expect(session.requests.count == (version == .v5 ? 1 : 2))
+    #expect(storage.loadTemporaryUnblocks(for: config.id) == [record])
+  }
+
 }

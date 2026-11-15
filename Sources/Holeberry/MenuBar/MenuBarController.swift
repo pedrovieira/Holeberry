@@ -248,7 +248,7 @@ final class MenuBarController: NSObject {
   private func pollInitialStatus() {
     guard let server = serverManager.servers.first else { return }
     Task {
-      let statuses = await serverManager.getBlockingStatus()
+      let statuses = await serverManager.getBlockingStatus(scope: .all)
       if case .success(let status) = statuses[server.id] {
         switch status {
         case .enabled:
