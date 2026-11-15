@@ -15,12 +15,16 @@ public protocol KeychainManaging: Sendable {
 // MARK: - Concrete Implementation
 
 public final class KeychainManager: KeychainManaging {
-  /// Service shared by the app and its widget extension.
-  public static let sharedService = Bundle.containingAppIdentifier() + ".shared"
+  /// Service shared by the app and its widget extension. Throws instead of
+  /// selecting another bundle identifier, because both processes must derive
+  /// the same service or shared credentials become unreadable.
+  static func sharedService(startingAt bundle: Bundle) throws -> String {
+    try Bundle.containingAppIdentifier(startingAt: bundle) + ".shared"
+  }
 
   private static let logger = Logger(subsystem: Logger.appSubsystem, category: "Keychain")
 
-  let service: String
+  public let service: String
   let accessGroup: String?
   let usesDataProtectionKeychain: Bool
   let isInteractive: Bool
@@ -59,9 +63,17 @@ public final class KeychainManager: KeychainManaging {
   }
 
   /// Shared store used after migration. Widgets pass `interactive: false`.
-  public static func shared(accessGroup: String, interactive: Bool) -> KeychainManager {
-    Self(
-      service: sharedService,
+  public static func shared(accessGroup: String, interactive: Bool) throws -> KeychainManager {
+    try shared(accessGroup: accessGroup, interactive: interactive, startingAt: .main)
+  }
+
+  static func shared(
+    accessGroup: String,
+    interactive: Bool,
+    startingAt bundle: Bundle
+  ) throws -> KeychainManager {
+    try Self(
+      service: sharedService(startingAt: bundle),
       accessGroup: accessGroup,
       useDataProtectionKeychain: true,
       interactive: interactive

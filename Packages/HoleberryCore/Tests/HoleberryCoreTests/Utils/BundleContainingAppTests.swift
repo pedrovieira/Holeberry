@@ -7,17 +7,17 @@ import Testing
 @MainActor
 struct BundleContainingAppTests {
   @Test func appAndExtensionWithMarkersShareTheAppService() throws {
-    let appURL = try makeAppBundle(appIdentifier: "me.example.host")
+    let appURL = try TestBundles.makeAppBundle()
     let appExtensionURL = try makeAppExtensionBundle(
       in: appURL,
       identifier: "me.example.host.widgets"
     )
-    defer { try? FileManager.default.removeItem(at: appURL) }
+    defer { TestBundles.remove(appURL) }
 
-    let appBundle = try #require(Bundle(url: appURL))
-    let appExtensionBundle = try #require(Bundle(url: appExtensionURL))
-    let appService = Bundle.containingAppIdentifier(startingAt: appBundle) + ".shared"
-    let appExtensionService = Bundle.containingAppIdentifier(startingAt: appExtensionBundle) + ".shared"
+    let appBundle = try TestBundles.bundle(at: appURL)
+    let appExtensionBundle = try TestBundles.bundle(at: appExtensionURL)
+    let appService = try Bundle.containingAppIdentifier(startingAt: appBundle) + ".shared"
+    let appExtensionService = try Bundle.containingAppIdentifier(startingAt: appExtensionBundle) + ".shared"
 
     #expect(appBundle.bundleIdentifier == "me.example.host")
     #expect(appExtensionBundle.bundleIdentifier == "me.example.host.widgets")
@@ -26,72 +26,108 @@ struct BundleContainingAppTests {
   }
 
   @Test func extensionWithoutHostBundleResolvesMarkerFromOwnInfo() throws {
-    let extensionURL = try makeBundle(
+    let extensionURL = try TestBundles.makeBundle(
       named: "StandaloneWidgets-\(UUID().uuidString).appex",
       identifier: "me.example.host.widgets",
       containingAppIdentifier: "me.example.host"
     )
-    defer { try? FileManager.default.removeItem(at: extensionURL) }
+    defer { TestBundles.remove(extensionURL) }
 
-    let extensionBundle = try #require(Bundle(url: extensionURL))
+    let extensionBundle = try TestBundles.bundle(at: extensionURL)
 
-    #expect(Bundle.containingAppIdentifier(startingAt: extensionBundle) == "me.example.host")
+    #expect(try Bundle.containingAppIdentifier(startingAt: extensionBundle) == "me.example.host")
     #expect(
-      Bundle.containingAppIdentifier(startingAt: extensionBundle) + ".shared"
+      try Bundle.containingAppIdentifier(startingAt: extensionBundle) + ".shared"
         == "me.example.host.shared")
   }
 
-  @Test func appWithoutMarkerFallsBackToCurrentAppIdentifier() throws {
-    let appURL = try makeBundle(named: "Markerless-\(UUID().uuidString).app", identifier: "me.example.host")
-    defer { try? FileManager.default.removeItem(at: appURL) }
+  @Test func appWithoutMarkerThrows() throws {
+    let appURL = try TestBundles.makeBundle(
+      named: "Markerless-\(UUID().uuidString).app",
+      identifier: "me.example.host"
+    )
+    defer { TestBundles.remove(appURL) }
 
-    let appBundle = try #require(Bundle(url: appURL))
+    let appBundle = try TestBundles.bundle(at: appURL)
 
-    #expect(Bundle.containingAppIdentifier(startingAt: appBundle) == Bundle.appIdentifier)
+    #expect(
+      throws: BundleMetadataError.missingInfoValue("HoleberryContainingAppIdentifier")
+    ) {
+      try Bundle.containingAppIdentifier(startingAt: appBundle)
+    }
   }
 
-  @Test func bundleOutsideAnAppFallsBackToTheCurrentAppIdentifier() throws {
-    let standaloneURL = try makeBundle(
+  @Test func bundleOutsideAnAppThrows() throws {
+    let standaloneURL = try TestBundles.makeBundle(
       named: "HoleberryStandalone-\(UUID().uuidString).bundle",
       identifier: "me.example.standalone"
     )
-    defer { try? FileManager.default.removeItem(at: standaloneURL) }
+    defer { TestBundles.remove(standaloneURL) }
 
-    let standaloneBundle = try #require(Bundle(url: standaloneURL))
+    let standaloneBundle = try TestBundles.bundle(at: standaloneURL)
 
     #expect(standaloneBundle.bundleIdentifier == "me.example.standalone")
-    #expect(Bundle.containingAppIdentifier(startingAt: standaloneBundle) == Bundle.appIdentifier)
+    #expect(
+      throws: BundleMetadataError.missingInfoValue("HoleberryContainingAppIdentifier")
+    ) {
+      try Bundle.containingAppIdentifier(startingAt: standaloneBundle)
+    }
   }
 
-  @Test func emptyOrUnexpandedMarkerIsRejected() throws {
-    for marker in ["", "  ", "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)"] {
-      let extensionURL = try makeBundle(
+  @Test func blankMarkerIsRejected() throws {
+    for marker in ["", "  "] {
+      let extensionURL = try TestBundles.makeBundle(
         named: "InvalidMarker-\(UUID().uuidString).appex",
         identifier: "me.example.host.widgets",
         containingAppIdentifier: marker
       )
-      defer { try? FileManager.default.removeItem(at: extensionURL) }
+      defer { TestBundles.remove(extensionURL) }
 
-      let extensionBundle = try #require(Bundle(url: extensionURL))
+      let extensionBundle = try TestBundles.bundle(at: extensionURL)
 
-      #expect(Bundle.containingAppIdentifier(startingAt: extensionBundle) == Bundle.appIdentifier)
+      #expect(
+        throws: BundleMetadataError.missingInfoValue("HoleberryContainingAppIdentifier")
+      ) {
+        try Bundle.containingAppIdentifier(startingAt: extensionBundle)
+      }
+    }
+  }
+
+  @Test func unexpandedMarkerIsRejected() throws {
+    let extensionURL = try TestBundles.makeBundle(
+      named: "UnexpandedMarker-\(UUID().uuidString).appex",
+      identifier: "me.example.host.widgets",
+      containingAppIdentifier: "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)"
+    )
+    defer { TestBundles.remove(extensionURL) }
+
+    let extensionBundle = try TestBundles.bundle(at: extensionURL)
+
+    #expect(
+      throws: BundleMetadataError.invalidInfoValue("HoleberryContainingAppIdentifier")
+    ) {
+      try Bundle.containingAppIdentifier(startingAt: extensionBundle)
     }
   }
 
   @Test func nestedBundleDoesNotInheritAncestorAppMarker() throws {
-    let appURL = try makeAppBundle(appIdentifier: "me.example.host")
+    let appURL = try TestBundles.makeAppBundle()
     let toolURL = appURL.appendingPathComponent(
       "Contents/Developer/usr/bin/Tool",
       isDirectory: true
     )
-    try writeInfoPlist(at: toolURL, identifier: "com.example.toolchain.tool")
-    defer { try? FileManager.default.removeItem(at: appURL) }
+    try TestBundles.writeInfoPlist(at: toolURL, identifier: "com.example.toolchain.tool")
+    defer { TestBundles.remove(appURL) }
 
-    let appBundle = try #require(Bundle(url: appURL))
-    let toolBundle = try #require(Bundle(url: toolURL))
+    let appBundle = try TestBundles.bundle(at: appURL)
+    let toolBundle = try TestBundles.bundle(at: toolURL)
 
-    #expect(Bundle.containingAppIdentifier(startingAt: appBundle) == "me.example.host")
-    #expect(Bundle.containingAppIdentifier(startingAt: toolBundle) == Bundle.appIdentifier)
+    #expect(try Bundle.containingAppIdentifier(startingAt: appBundle) == "me.example.host")
+    #expect(
+      throws: BundleMetadataError.missingInfoValue("HoleberryContainingAppIdentifier")
+    ) {
+      try Bundle.containingAppIdentifier(startingAt: toolBundle)
+    }
   }
 
   @Test func sharedMetadataReadsValidatedBundledValues() throws {
@@ -99,7 +135,7 @@ struct BundleContainingAppTests {
       appGroupIdentifier: " group.me.example.tests ",
       keychainAccessGroup: "TEAMID.me.example.tests.shared"
     )
-    defer { try? FileManager.default.removeItem(at: bundle.bundleURL) }
+    defer { TestBundles.remove(bundle.bundleURL) }
 
     #expect(try bundle.sharedAppGroupIdentifier() == "group.me.example.tests")
     #expect(try bundle.sharedKeychainAccessGroup() == "TEAMID.me.example.tests.shared")
@@ -109,7 +145,7 @@ struct BundleContainingAppTests {
     let missingAppGroup = try makeMetadataBundle(
       keychainAccessGroup: "TEAMID.me.example.tests.shared"
     )
-    defer { try? FileManager.default.removeItem(at: missingAppGroup.bundleURL) }
+    defer { TestBundles.remove(missingAppGroup.bundleURL) }
     #expect(throws: BundleMetadataError.missingInfoValue("HoleberryAppGroupIdentifier")) {
       try missingAppGroup.sharedAppGroupIdentifier()
     }
@@ -117,7 +153,7 @@ struct BundleContainingAppTests {
     let missingKeychain = try makeMetadataBundle(
       appGroupIdentifier: "group.me.example.tests"
     )
-    defer { try? FileManager.default.removeItem(at: missingKeychain.bundleURL) }
+    defer { TestBundles.remove(missingKeychain.bundleURL) }
     #expect(throws: BundleMetadataError.missingInfoValue("HoleberryKeychainAccessGroup")) {
       try missingKeychain.sharedKeychainAccessGroup()
     }
@@ -128,7 +164,7 @@ struct BundleContainingAppTests {
       appGroupIdentifier: "  ",
       keychainAccessGroup: "TEAMID.me.example.tests.shared"
     )
-    defer { try? FileManager.default.removeItem(at: blankAppGroup.bundleURL) }
+    defer { TestBundles.remove(blankAppGroup.bundleURL) }
     #expect(throws: BundleMetadataError.missingInfoValue("HoleberryAppGroupIdentifier")) {
       try blankAppGroup.sharedAppGroupIdentifier()
     }
@@ -137,7 +173,7 @@ struct BundleContainingAppTests {
       appGroupIdentifier: "group.me.example.tests",
       keychainAccessGroup: "  "
     )
-    defer { try? FileManager.default.removeItem(at: blankKeychain.bundleURL) }
+    defer { TestBundles.remove(blankKeychain.bundleURL) }
     #expect(throws: BundleMetadataError.missingInfoValue("HoleberryKeychainAccessGroup")) {
       try blankKeychain.sharedKeychainAccessGroup()
     }
@@ -148,7 +184,7 @@ struct BundleContainingAppTests {
       appGroupIdentifier: "$(APP_GROUP)",
       keychainAccessGroup: "$(AppIdentifierPrefix)me.example.tests.shared"
     )
-    defer { try? FileManager.default.removeItem(at: bundle.bundleURL) }
+    defer { TestBundles.remove(bundle.bundleURL) }
 
     #expect(throws: BundleMetadataError.invalidInfoValue("HoleberryAppGroupIdentifier")) {
       try bundle.sharedAppGroupIdentifier()
@@ -163,19 +199,11 @@ struct BundleContainingAppTests {
       appGroupIdentifier: "me.example.tests",
       keychainAccessGroup: "TEAMID.me.example.tests.shared"
     )
-    defer { try? FileManager.default.removeItem(at: bundle.bundleURL) }
+    defer { TestBundles.remove(bundle.bundleURL) }
 
     #expect(throws: BundleMetadataError.invalidInfoValue("HoleberryAppGroupIdentifier")) {
       try bundle.sharedAppGroupIdentifier()
     }
-  }
-
-  private func makeAppBundle(appIdentifier: String) throws -> URL {
-    try makeBundle(
-      named: "HoleberryHost-\(UUID().uuidString).app",
-      identifier: appIdentifier,
-      containingAppIdentifier: appIdentifier
-    )
   }
 
   private func makeMetadataBundle(
@@ -186,13 +214,13 @@ struct BundleContainingAppTests {
       "HoleberryMetadata-\(UUID().uuidString).bundle",
       isDirectory: true
     )
-    try writeInfoPlist(
+    try TestBundles.writeInfoPlist(
       at: root,
       identifier: "me.example.tests",
       appGroupIdentifier: appGroupIdentifier,
       keychainAccessGroup: keychainAccessGroup
     )
-    return try #require(Bundle(url: root))
+    return try TestBundles.bundle(at: root)
   }
 
   private func makeAppExtensionBundle(in appURL: URL, identifier: String) throws -> URL {
@@ -201,46 +229,11 @@ struct BundleContainingAppTests {
       "PlugIns/HostWidgets-\(UUID().uuidString).appex",
       isDirectory: true
     )
-    try writeInfoPlist(
+    try TestBundles.writeInfoPlist(
       at: appExtensionURL,
       identifier: identifier,
       containingAppIdentifier: "me.example.host"
     )
     return appExtensionURL
-  }
-
-  private func makeBundle(
-    named name: String,
-    identifier: String,
-    containingAppIdentifier: String? = nil
-  ) throws -> URL {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
-    try writeInfoPlist(
-      at: root,
-      identifier: identifier,
-      containingAppIdentifier: containingAppIdentifier
-    )
-    return root
-  }
-
-  private func writeInfoPlist(
-    at bundleURL: URL,
-    identifier: String,
-    containingAppIdentifier: String? = nil,
-    appGroupIdentifier: String? = nil,
-    keychainAccessGroup: String? = nil
-  ) throws {
-    let contents = bundleURL.appendingPathComponent("Contents", isDirectory: true)
-    try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
-    var plist: [String: Any] = [
-      "CFBundleIdentifier": identifier,
-      "CFBundleName": "Fake",
-      "CFBundlePackageType": "BNDL"
-    ]
-    plist["HoleberryContainingAppIdentifier"] = containingAppIdentifier
-    plist["HoleberryAppGroupIdentifier"] = appGroupIdentifier
-    plist["HoleberryKeychainAccessGroup"] = keychainAccessGroup
-    let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
-    try data.write(to: contents.appendingPathComponent("Info.plist"))
   }
 }

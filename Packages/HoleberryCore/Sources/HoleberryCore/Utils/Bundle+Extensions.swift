@@ -45,21 +45,12 @@ extension Bundle {
 
   /// Returns the app identifier for an app or its embedded plug-in.
   ///
-  /// Reads the target's own `HoleberryContainingAppIdentifier` metadata; an
-  /// absent, empty, or unexpanded value falls back to `appIdentifier`. Never
-  /// inspects the host bundle.
-  static func containingAppIdentifier(startingAt bundle: Bundle = .main) -> String {
-    guard
-      let rawValue = bundle.infoDictionary?[containingAppIdentifierInfoKey] as? String
-    else {
-      return appIdentifier
-    }
-
-    let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !value.isEmpty, !value.contains("$(") else {
-      return appIdentifier
-    }
-    return value
+  /// Reads the target's own `HoleberryContainingAppIdentifier` metadata and
+  /// rejects missing, blank, and unexpanded values. Never inspects the host
+  /// bundle and never substitutes another bundle's identifier: the app and its
+  /// widget must derive the same shared Keychain service.
+  static func containingAppIdentifier(startingAt bundle: Bundle = .main) throws -> String {
+    try bundle.requiredMetadataValue(forKey: containingAppIdentifierInfoKey)
   }
 
   private func requiredMetadataValue(forKey key: String) throws -> String {

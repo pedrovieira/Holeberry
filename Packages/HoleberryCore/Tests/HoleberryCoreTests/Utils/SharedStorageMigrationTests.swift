@@ -18,13 +18,85 @@ struct KeychainManagerOptionsTests {
     #expect(keychain.isInteractive)
   }
 
-  @Test func sharedFactorySelectsDataProtectionKeychain() {
-    let keychain = KeychainManager.shared(accessGroup: "TEAMID.me.example.tests.shared", interactive: false)
+  @Test func sharedFactorySelectsDataProtectionKeychain() throws {
+    let bundleURL = try TestBundles.makeAppBundle(identifier: "me.example.host")
+    defer { TestBundles.remove(bundleURL) }
+    let bundle = try TestBundles.bundle(at: bundleURL)
 
-    #expect(keychain.service == KeychainManager.sharedService)
+    let keychain = try KeychainManager.shared(
+      accessGroup: "TEAMID.me.example.tests.shared",
+      interactive: false,
+      startingAt: bundle
+    )
+
+    #expect(keychain.service == "me.example.host.shared")
+    #expect(keychain.service == (try KeychainManager.sharedService(startingAt: bundle)))
     #expect(keychain.accessGroup == "TEAMID.me.example.tests.shared")
     #expect(keychain.usesDataProtectionKeychain)
     #expect(keychain.isInteractive == false)
+  }
+
+  @Test func appAndWidgetDeriveTheSameSharedService() throws {
+    let appURL = try TestBundles.makeAppBundle(identifier: "me.example.host")
+    defer { TestBundles.remove(appURL) }
+    let widgetURL = try TestBundles.makeBundle(
+      named: "HostWidgets-\(UUID().uuidString).appex",
+      identifier: "me.example.host.widgets",
+      containingAppIdentifier: "me.example.host"
+    )
+    defer { TestBundles.remove(widgetURL) }
+
+    let appService = try KeychainManager.sharedService(startingAt: try TestBundles.bundle(at: appURL))
+    let widgetService = try KeychainManager.sharedService(
+      startingAt: try TestBundles.bundle(at: widgetURL)
+    )
+
+    #expect(appService == "me.example.host.shared")
+    #expect(widgetService == appService)
+  }
+
+  @Test func sharedFactoryRejectsMissingContainingAppMarker() throws {
+    let bundleURL = try TestBundles.makeBundle(
+      named: "Markerless-\(UUID().uuidString).app",
+      identifier: "me.example.standalone"
+    )
+    defer { TestBundles.remove(bundleURL) }
+    let bundle = try TestBundles.bundle(at: bundleURL)
+
+    #expect(
+      throws: BundleMetadataError.missingInfoValue("HoleberryContainingAppIdentifier")
+    ) {
+      try KeychainManager.shared(
+        accessGroup: "TEAMID.me.example.tests.shared",
+        interactive: false,
+        startingAt: bundle
+      )
+    }
+    #expect(
+      throws: BundleMetadataError.missingInfoValue("HoleberryContainingAppIdentifier")
+    ) {
+      try KeychainManager.sharedService(startingAt: bundle)
+    }
+  }
+
+  @Test func sharedFactoryRejectsUnexpandedContainingAppMarker() throws {
+    let bundleURL = try TestBundles.makeBundle(
+      named: "Unexpanded-\(UUID().uuidString).appex",
+      identifier: "me.example.host.widgets",
+      containingAppIdentifier: "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)"
+    )
+    defer { TestBundles.remove(bundleURL) }
+    let bundle = try TestBundles.bundle(at: bundleURL)
+
+    #expect(
+      throws: BundleMetadataError.invalidInfoValue("HoleberryContainingAppIdentifier")
+    ) {
+      try KeychainManager.shared(
+        accessGroup: "TEAMID.me.example.tests.shared",
+        interactive: false,
+        startingAt: bundle
+      )
+    }
   }
 }
 
@@ -48,7 +120,7 @@ struct DefaultsTargetVerificationTests {
 
     Defaults[key] = []
 
-    #expect(try Defaults.Keys.strictlyDecodedPersistedArray(key, suiteName: name) == [])
+    #expect(try Defaults.Keys.strictlyDecodedPersistedArray(key, suiteName: name).isEmpty)
   }
 }
 

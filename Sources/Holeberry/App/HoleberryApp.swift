@@ -229,18 +229,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     let appGroupIdentifier: String
     let keychainAccessGroup: String
+    let sharedKeychain: KeychainManager
     do {
       appGroupIdentifier = try Bundle.main.sharedAppGroupIdentifier()
       keychainAccessGroup = try Bundle.main.sharedKeychainAccessGroup()
+      sharedKeychain = try KeychainManager.shared(
+        accessGroup: keychainAccessGroup,
+        interactive: true
+      )
     } catch {
       logger.error("Shared storage configuration failed: \(error.localizedDescription, privacy: .public)")
       return unavailableStorageContext()
     }
 
-    let sharedKeychain = KeychainManager.shared(
-      accessGroup: keychainAccessGroup,
-      interactive: true
-    )
     let selection = AppStorageStartup.select(
       isCurrentMigrationActivated: SharedStorageMigration.isCurrentVersionActivated(in: legacySuite),
       resolve: {

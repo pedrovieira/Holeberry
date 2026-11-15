@@ -16,7 +16,8 @@ public enum QueryStatisticsAvailability: Equatable, Sendable {
 /// Transient result of one live query statistics fetch.
 ///
 /// Statistics include the configured servers that returned a query summary for
-/// this fetch. No aggregate is persisted or reused across fetches.
+/// this fetch. Duplicate server identifiers count once. No aggregate is
+/// persisted or reused across fetches.
 public struct QueryStatisticsFetchResult: Sendable {
   public let servers: [ServerConfig]
   public let results: [UUID: Result<QuerySummary, PiholeError>]
@@ -27,7 +28,10 @@ public struct QueryStatisticsFetchResult: Sendable {
     results: [UUID: Result<QuerySummary, PiholeError>],
     checkedAt: Date?
   ) {
-    self.servers = servers
+    // Duplicate identifiers describe the same server, so availability and totals
+    // must count it once. Keep the first occurrence for stable presentation.
+    var seenServerIDs: Set<UUID> = []
+    self.servers = servers.filter { seenServerIDs.insert($0.id).inserted }
     self.results = results
     self.checkedAt = checkedAt
   }

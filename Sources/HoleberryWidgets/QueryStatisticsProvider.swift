@@ -47,13 +47,24 @@ struct QueryStatisticsProvider: TimelineProvider {
 
   @MainActor
   private func loadEntry(now: Date) async -> QueryStatisticsEntry {
-    guard
-      let appGroupIdentifier = try? Bundle.main.sharedAppGroupIdentifier(),
-      let keychainAccessGroup = try? Bundle.main.sharedKeychainAccessGroup(),
-      let suite = try? UserDefaults.sharedStorageSuite(
+    let appGroupIdentifier: String
+    let keychainAccessGroup: String
+    let suite: UserDefaults
+    let sharedKeychain: KeychainManager
+    do {
+      appGroupIdentifier = try Bundle.main.sharedAppGroupIdentifier()
+      keychainAccessGroup = try Bundle.main.sharedKeychainAccessGroup()
+      suite = try UserDefaults.sharedStorageSuite(
         appGroupIdentifier: appGroupIdentifier
       )
-    else {
+      sharedKeychain = try KeychainManager.shared(
+        accessGroup: keychainAccessGroup,
+        interactive: false
+      )
+    } catch {
+      Self.logger.error(
+        "Widget shared storage setup failed: \(error.localizedDescription, privacy: .public)"
+      )
       return .setupRequired(now: now)
     }
     _ = suite.synchronize()
@@ -64,10 +75,7 @@ struct QueryStatisticsProvider: TimelineProvider {
     let storage = ConcreteAppStorage(
       sharedDataSuite: suite,
       appLocalSuite: UnavailableDefaults.shared,
-      keychain: KeychainManager.shared(
-        accessGroup: keychainAccessGroup,
-        interactive: false
-      )
+      keychain: sharedKeychain
     )
     let manager = PiholeServerManager(
       storage: storage,
@@ -86,7 +94,7 @@ struct QueryStatisticsProvider: TimelineProvider {
     // Stamp the response before awaiting logout: cleanup latency must not make
     // an older overlapping response look newer to the widget timeline.
     let observedAt = Date()
-    logSummaryFailures(results)
+    logSummaryFailures(results, credentialService: sharedKeychain.service)
     await manager.logoutAll()
     _ = suite.synchronize()
 
@@ -114,7 +122,10 @@ struct QueryStatisticsProvider: TimelineProvider {
 
   /// Logs the coarse failure categories and the service used for credentials.
   /// Never logs credentials, response bodies, server URLs, or server UUIDs.
-  private func logSummaryFailures(_ results: [UUID: Result<QuerySummary, PiholeError>]) {
+  private func logSummaryFailures(
+    _ results: [UUID: Result<QuerySummary, PiholeError>],
+    credentialService: String
+  ) {
     let failures = results.values.compactMap { result -> PiholeError? in
       guard case .failure(let error) = result else { return nil }
       return error
@@ -124,7 +135,7 @@ struct QueryStatisticsProvider: TimelineProvider {
     let categories = Set(failures.map(Self.failureCategory)).sorted().joined(separator: ",")
     let message =
       "Summary fetch failed: failures=\(failures.count) categories=\(categories) "
-      + "credentialService=\(KeychainManager.sharedService)"
+      + "credentialService=\(credentialService)"
     Self.logger.error("\(message, privacy: .public)")
   }
 

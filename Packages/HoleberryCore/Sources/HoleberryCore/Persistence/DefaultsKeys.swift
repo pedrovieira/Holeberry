@@ -145,6 +145,9 @@ enum DefaultsValueValidationError: Error, Equatable {
   case missingPersistedValue(String)
 }
 
+// Migration-only reads: normal Defaults array decoding drops invalid elements,
+// and registered defaults can hide a missing write. Keep raw suite access here
+// so migration can verify a complete copy without spreading UserDefaults access.
 extension Defaults.Keys {
   /// Decodes a stored array through the Defaults bridge without accepting
   /// partial results. A present value that loses elements during decoding

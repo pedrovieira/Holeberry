@@ -137,14 +137,121 @@ struct QueryStatisticsFetchResultTests {
     #expect(summary.completedStatistics?.totalBlocked == 1)
   }
 
-  @Test func duplicateServerIdentifiersProduceNoStatistics() {
+  @Test func duplicateServerIdentifiersCountOnce() throws {
     let server = makeServer()
     let summary = makeSummary(
       servers: [server, server],
       results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
     )
+    let statistics = try #require(summary.completedStatistics)
 
+    #expect(summary.servers == [server])
+    #expect(summary.availability == .allAvailable)
+    #expect(statistics.totalQueries == 10)
+    #expect(statistics.totalBlocked == 1)
+  }
+
+  @Test func duplicateServerIdentifiersKeepTheFirstOccurrence() {
+    let id = UUID()
+    let first = ServerConfig(id: id, url: "http://first.local", version: .v6)
+    let conflicting = ServerConfig(id: id, label: "Second", url: "http://second.local", version: .v5)
+    let summary = makeSummary(
+      servers: [first, conflicting],
+      results: [id: .success(QuerySummary(totalQueries: 4, totalBlocked: 2))]
+    )
+
+    #expect(summary.servers == [first])
+    #expect(summary.servers.first?.url == "http://first.local")
+    #expect(summary.servers.first?.version == .v6)
+    #expect(summary.completedStatistics?.totalQueries == 4)
+  }
+
+  @Test func duplicateServerWithMissingResultKeepsAvailabilityInAgreement() {
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
+    let summary = makeSummary(
+      servers: [first, first, second],
+      results: [first.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
+    )
+
+    #expect(summary.servers == [first, second])
+    #expect(summary.availability == .someAvailable)
+    #expect(summary.completedStatistics?.totalQueries == 10)
+  }
+
+  @Test func duplicateServerFailuresCountOnce() {
+    let server = makeServer()
+    let summary = makeSummary(
+      servers: [server, server],
+      results: [server.id: .failure(.network("offline"))]
+    )
+
+    #expect(summary.servers == [server])
+    #expect(summary.availability == .noneAvailable)
     #expect(summary.completedStatistics == nil)
+  }
+
+  @Test func directStatisticsAggregateDuplicateIdentifiersOnce() throws {
+    let server = makeServer()
+    let statistics = try #require(
+      QueryStatistics(
+        servers: [server, server],
+        results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))],
+        observedAt: Date(timeIntervalSince1970: 1_000)
+      )
+    )
+
+    #expect(statistics.totalQueries == 10)
+    #expect(statistics.totalBlocked == 1)
+  }
+
+  @Test func int32MaxTotalsFromTwoServersAggregateExactly() throws {
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
+    let maximum = Int(Int32.max)
+    let statistics = try #require(
+      QueryStatistics(
+        servers: [first, second],
+        results: [
+          first.id: .success(QuerySummary(totalQueries: maximum, totalBlocked: maximum)),
+          second.id: .success(QuerySummary(totalQueries: maximum, totalBlocked: maximum))
+        ],
+        observedAt: Date(timeIntervalSince1970: 1_000)
+      )
+    )
+
+    #expect(statistics.totalQueries == 4_294_967_294)
+    #expect(statistics.totalBlocked == 4_294_967_294)
+  }
+
+  @Test func queryCountOverflowProducesNoStatistics() {
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
+    let statistics = QueryStatistics(
+      servers: [first, second],
+      results: [
+        first.id: .success(QuerySummary(totalQueries: Int.max, totalBlocked: 1)),
+        second.id: .success(QuerySummary(totalQueries: 1, totalBlocked: 1))
+      ],
+      observedAt: Date(timeIntervalSince1970: 1_000)
+    )
+
+    #expect(statistics == nil)
+  }
+
+  @Test func blockedCountOverflowProducesNoStatistics() {
+    let first = makeServer(url: "http://first.local")
+    let second = makeServer(url: "http://second.local")
+    let statistics = QueryStatistics(
+      servers: [first, second],
+      results: [
+        first.id: .success(QuerySummary(totalQueries: 1, totalBlocked: Int.max)),
+        second.id: .success(QuerySummary(totalQueries: 1, totalBlocked: 1))
+      ],
+      observedAt: Date(timeIntervalSince1970: 1_000)
+    )
+
+    #expect(statistics == nil)
   }
 
   @Test func successfulFetchAggregatesOnlyCurrentResults() throws {
