@@ -41,10 +41,6 @@ struct AppStorageTests {
     #expect(actual.retryCount == expected.retryCount)
   }
 
-  private func containsStringValue(_ needle: String, in suite: UserDefaults) -> Bool {
-    String(describing: suite.dictionaryRepresentation()).contains(needle)
-  }
-
   // MARK: - Compatibility
 
   @Test("loads existing arrays with all fields")
@@ -255,33 +251,49 @@ struct AppStorageTests {
 
   @Test("credential roundtrip goes only to the injected keychain")
   func credentialRoundtrip() throws {
-    let sharedDataSuite = TestDefaults.makeSuite()
-    let appLocalSuite = TestDefaults.makeSuite()
+    let sharedData = TestDefaults.makeNamedSuite()
+    let appLocal = TestDefaults.makeNamedSuite()
     let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: keychain)
+      sharedDataSuite: sharedData.suite, appLocalSuite: appLocal.suite, keychain: keychain)
     let serverID = UUID()
     let secret = "super-secret-token"
+    let sharedDataBaseline = NSDictionary(
+      dictionary: sharedData.suite.persistentDomain(forName: sharedData.name) ?? [:])
+    let appLocalBaseline = NSDictionary(
+      dictionary: appLocal.suite.persistentDomain(forName: appLocal.name) ?? [:])
+
+    /// Neither suite may gain, lose, or change a key during any credential operation.
+    /// Reading the exact domain keeps this independent of the merged search list.
+    func expectNoSuiteWrites(_ moment: String) {
+      let sharedDataNow = NSDictionary(
+        dictionary: sharedData.suite.persistentDomain(forName: sharedData.name) ?? [:])
+      let appLocalNow = NSDictionary(
+        dictionary: appLocal.suite.persistentDomain(forName: appLocal.name) ?? [:])
+      #expect(sharedDataNow.isEqual(sharedDataBaseline), "shared-data suite changed \(moment)")
+      #expect(appLocalNow.isEqual(appLocalBaseline), "app-local suite changed \(moment)")
+    }
 
     #expect(try storage.readCredential(for: serverID) == nil)
     #expect(keychain.readCredentialCallCount == 1)
     #expect(keychain.lastReadServerID == serverID)
+    expectNoSuiteWrites("during an absent read")
 
     try storage.saveCredential(secret, for: serverID)
     #expect(keychain.saveCredentialCallCount == 1)
     #expect(keychain.lastSavedCredential?.credential == secret)
     #expect(keychain.lastSavedCredential?.serverID == serverID)
     #expect(keychain.storedCredentials[serverID.uuidString] == secret)
+    expectNoSuiteWrites("during save")
+
     #expect(try storage.readCredential(for: serverID) == secret)
+    expectNoSuiteWrites("during a successful read")
 
     try storage.deleteCredential(for: serverID)
     #expect(keychain.deleteCredentialCallCount == 1)
     #expect(keychain.lastDeletedServerID == serverID)
     #expect(try storage.readCredential(for: serverID) == nil)
-
-    // Credentials never enter either defaults suite.
-    #expect(!containsStringValue(secret, in: sharedDataSuite))
-    #expect(!containsStringValue(secret, in: appLocalSuite))
+    expectNoSuiteWrites("during delete")
   }
 
   @Test("credential errors propagate with identity preserved")

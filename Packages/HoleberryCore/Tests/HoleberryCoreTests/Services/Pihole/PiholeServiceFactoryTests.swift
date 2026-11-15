@@ -104,10 +104,13 @@ struct PiholeServiceFactoryTests {
     Defaults[.servers(suite: appLocalSuite)] = [
       ServerConfig(label: "Wrong Suite", url: "http://wrong.local", version: .v6)
     ]
+    // Started a minute ago with an hour duration, so the record is live: the
+    // decorator schedules a far-future expiry instead of expiring during the test.
+    let startDate = Date().addingTimeInterval(-60)
     let record = TempUnblockRecord(
       domain: "Restored.Example",
       uuid: "restored-token",
-      startDateUTC: Date(timeIntervalSince1970: 1_700_007_000),
+      startDateUTC: startDate,
       durationSeconds: 3_600,
       pendingRemoval: false,
       retryCount: 1
@@ -132,7 +135,7 @@ struct PiholeServiceFactoryTests {
     let saved = try #require(restored.first)
     #expect(saved.domain == "restored.example")
     #expect(saved.uuid == "restored-token")
-    #expect(saved.startDateUTC == record.startDateUTC)
+    #expect(saved.startDateUTC == startDate)
     #expect(saved.durationSeconds == 3_600)
     #expect(saved.pendingRemoval == false)
     #expect(saved.retryCount == 1)

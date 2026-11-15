@@ -20,11 +20,17 @@ enum TestJSON {
 /// Each call returns a unique, pre-cleaned suite so parallel tests don't interfere.
 enum TestDefaults {
   static func makeSuite() -> UserDefaults {
+    makeNamedSuite().suite
+  }
+
+  /// Same isolated suite, with the domain name kept so tests can snapshot the
+  /// exact persistent domain instead of the merged search list.
+  static func makeNamedSuite() -> (name: String, suite: UserDefaults) {
     let name = "com.holeberry.tests.\(UUID().uuidString)"
     guard let suite = UserDefaults(suiteName: name) else {
       fatalError("Failed to create test UserDefaults suite")
     }
-    return suite
+    return (name, suite)
   }
 }
 
