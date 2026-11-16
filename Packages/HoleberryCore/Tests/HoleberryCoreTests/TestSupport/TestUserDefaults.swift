@@ -10,8 +10,14 @@ final class TestUserDefaults: UserDefaults, @unchecked Sendable {
   /// Value returned by `synchronize()`. Never affects typed reads or writes.
   var synchronizeResult = true
 
-  /// Keys whose writes are ignored, simulating a suite that fails to persist.
+  /// Keys whose writes and removals are ignored, simulating a suite that fails
+  /// to persist.
   var rejectedWriteKeys: Set<String> = []
+
+  /// Every key passed to `set` or `removeObject`, including rejected ones. Lets
+  /// a test prove that a code path never attempts the write at all.
+  private(set) var attemptedSetKeys: [String] = []
+  private(set) var attemptedRemoveKeys: [String] = []
 
   private var values: [String: Any] = [:]
   private var registeredValues: [String: Any] = [:]
@@ -21,11 +27,14 @@ final class TestUserDefaults: UserDefaults, @unchecked Sendable {
   }
 
   override func set(_ value: Any?, forKey defaultName: String) {
+    attemptedSetKeys.append(defaultName)
     guard !rejectedWriteKeys.contains(defaultName) else { return }
     values[defaultName] = value
   }
 
   override func removeObject(forKey defaultName: String) {
+    attemptedRemoveKeys.append(defaultName)
+    guard !rejectedWriteKeys.contains(defaultName) else { return }
     values.removeValue(forKey: defaultName)
   }
 

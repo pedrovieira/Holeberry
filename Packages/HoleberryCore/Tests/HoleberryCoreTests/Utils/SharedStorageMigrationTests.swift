@@ -588,8 +588,9 @@ struct SharedStorageMigrationTests {
     #expect(try harness.legacyKeychain.readCredential(for: server.id) == "legacy-secret")
   }
 
-  @Test func rejectedSharedTemporaryRecordsWritesDoNotAffectMigration() throws {
+  @Test func migrationNeverWritesSharedTemporaryUnblockRecords() throws {
     let sharedSuite = TestUserDefaults()
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     let records = [
       TempUnblockRecord(
@@ -599,14 +600,20 @@ struct SharedStorageMigrationTests {
         durationSeconds: 300
       )
     ]
-    sharedSuite.rejectedWriteKeys = [Defaults.Keys.tempUnblocks(for: server.id, suite: sharedSuite).name]
-    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] = records
 
     try harness.migration.migrate()
 
+    let sharedKey = Defaults.Keys.tempUnblocks(for: server.id, suite: sharedSuite).name
+    // The servers key proves the recording spy observes this migration's writes,
+    // so the absent temporary-unblock key is a real absence, not an empty log.
+    #expect(sharedSuite.attemptedSetKeys.contains(Defaults.Keys.servers(suite: sharedSuite).name))
+    #expect(sharedSuite.attemptedSetKeys.contains(sharedKey) == false)
+    #expect(sharedSuite.attemptedRemoveKeys.contains(sharedKey) == false)
+    #expect(sharedSuite.persistentDomain(forName: sharedSuite.domainName)?[sharedKey] == nil)
     #expect(Defaults[.servers(suite: sharedSuite)].map(\.id) == [server.id])
+    #expect(Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] == records)
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] == SharedStorageMigration.currentVersion)
   }

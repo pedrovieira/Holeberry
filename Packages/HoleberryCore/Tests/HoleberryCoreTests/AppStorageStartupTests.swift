@@ -113,35 +113,26 @@ struct AppStorageStartupTests {
     #expect(activated == false)
   }
 
-  @Test func unavailableSelectionDoesNotMutateSuites() {
-    let firstSuite = TestDefaults.makeSuite()
-    let secondSuite = TestDefaults.makeSuite()
-    let firstServer = ServerConfig(id: UUID(), url: "http://first.local", version: .v6)
-    let secondServer = ServerConfig(id: UUID(), url: "http://second.local", version: .v6)
-    Defaults[.servers(suite: firstSuite)] = [firstServer]
-    Defaults[.servers(suite: secondSuite)] = [secondServer]
+  @Test func unavailableDefaultsRejectPrimitiveAndTypedWritesInTheirOwnSuite() throws {
+    let (name, control) = TestDefaults.makeNamedSuite()
+    let unavailable = try #require(UnavailableDefaults(suiteName: name))
 
-    let selection = AppStorageStartup.select(
-      isCurrentMigrationActivated: true,
-      resolve: { throw AppStorageStartupTestError.resolutionFailed },
-      migrate: { _ in Issue.record("Migration must not run") },
-      markActivated: { Issue.record("Activation must not change") }
+    let sentinel = ServerConfig(id: UUID(), url: "http://sentinel.local", version: .v6)
+    let sentinelRecord = TempUnblockRecord(
+      domain: "sentinel.example",
+      uuid: UUID().uuidString,
+      startDateUTC: Date(timeIntervalSince1970: 500),
+      durationSeconds: 60
     )
+    Defaults[.servers(suite: control)] = [sentinel]
+    Defaults[.tempUnblocks(for: sentinel.id, suite: control)] = [sentinelRecord]
+    control.set(["saved"], forKey: "savedProbe")
+    control.set(["kept"], forKey: "removalProbe")
+    let seededDomain = try #require(control.persistentDomain(forName: name))
 
-    guard case .unavailable = selection else {
-      Issue.record("Expected unavailable storage")
-      return
-    }
-    #expect(Defaults[.servers(suite: firstSuite)].map(\.id) == [firstServer.id])
-    #expect(Defaults[.servers(suite: secondSuite)].map(\.id) == [secondServer.id])
-  }
-
-  @Test func unavailableDefaultsNeverReadsOrWrites() {
-    let suite = UnavailableDefaults()
     let server = ServerConfig(id: UUID(), url: "http://unavailable.local", version: .v6)
-
-    Defaults[.servers(suite: suite)] = [server]
-    Defaults[.tempUnblocks(for: server.id, suite: suite)] = [
+    Defaults[.servers(suite: unavailable)] = [server]
+    Defaults[.tempUnblocks(for: server.id, suite: unavailable)] = [
       TempUnblockRecord(
         domain: "ads.example",
         uuid: UUID().uuidString,
@@ -149,9 +140,24 @@ struct AppStorageStartupTests {
         durationSeconds: 300
       )
     ]
+    let registrationProbe = "registrationProbe-\(UUID().uuidString)"
+    unavailable.set(["leaked"], forKey: "savedProbe")
+    unavailable.set(["leaked"], forKey: "typedProbe")
+    unavailable.register(defaults: [registrationProbe: "registered"])
 
-    #expect(Defaults[.servers(suite: suite)].isEmpty)
-    #expect(Defaults[.tempUnblocks(for: server.id, suite: suite)].isEmpty)
+    // Both objects use the same named suite, so a write that escapes the
+    // override shows up here. Inspect before the removal below could undo it.
+    #expect(control.persistentDomain(forName: name) as NSDictionary? == seededDomain as NSDictionary?)
+    #expect(control.object(forKey: "savedProbe") as? [String] == ["saved"])
+    #expect(control.object(forKey: "typedProbe") == nil)
+    // The registration domain is volatile, so check the unavailable instance itself.
+    #expect(unavailable.volatileDomain(forName: UserDefaults.registrationDomain)[registrationProbe] == nil)
+
+    unavailable.removeObject(forKey: "removalProbe")
+    #expect(control.object(forKey: "removalProbe") as? [String] == ["kept"])
+
+    #expect(Defaults[.servers(suite: unavailable)].isEmpty)
+    #expect(Defaults[.tempUnblocks(for: server.id, suite: unavailable)].isEmpty)
   }
 
   @Test func unavailableKeychainRejectsAllOperations() {
