@@ -1,13 +1,11 @@
 import Defaults
 import Foundation
-import OSLog
 
 public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
   case malformedLegacyConfiguration
   case configurationReadbackMismatch
   case credentialReadbackMismatch(UUID)
   case sharedCredentialRemovalMismatch(UUID)
-  case sharedConfigurationResetFailed
   case completionMarkerNotPersisted
 
   public var errorDescription: String? {
@@ -20,8 +18,6 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
       return "Shared credential readback did not match the copied value for server \(serverID.uuidString)."
     case .sharedCredentialRemovalMismatch(let serverID):
       return "Shared credential removal was not persisted for server \(serverID.uuidString)."
-    case .sharedConfigurationResetFailed:
-      return "Shared server configuration reset was not persisted."
     case .completionMarkerNotPersisted:
       return "Migration completion marker was not persisted."
     }
@@ -33,11 +29,10 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
 /// stay in app-local defaults and are never read or written by this migration.
 ///
 /// The legacy stores are read-only inputs and are preserved. Completion is
-/// recorded only after every copy is verified by typed readback. If the copy
-/// cannot be verified, the new stores are reset to an empty server
-/// configuration instead of exposing partial data; that reset must itself be
-/// written and verified before completion is recorded. Retries always use the
-/// current legacy state as authoritative until completion is persisted.
+/// recorded only after every copy is verified by typed readback. A failed
+/// import throws its original error before completion is recorded, so the
+/// partial shared writes are not published to the app; the next attempt
+/// repeats the copy from the current legacy state.
 @MainActor
 public final class SharedStorageMigration {
   /// The migration generation this build expects. Starts at 1 and is incremented
@@ -48,8 +43,6 @@ public final class SharedStorageMigration {
   /// the legacy stores; later generations change shared data in place so edits
   /// made after the first migration survive.
   public static let currentVersion = 1
-
-  private static let logger = Logger(subsystem: Logger.appSubsystem, category: "shared-storage-migration")
 
   private let legacySuite: UserDefaults
   private let sharedSuite: UserDefaults
@@ -97,19 +90,13 @@ public final class SharedStorageMigration {
     guard completedVersion < targetVersion else { return }
 
     if completedVersion == 0 {
-      do {
-        try importLegacyState()
-      } catch {
-        let message =
-          "Legacy storage import failed; starting with empty shared configuration: "
-          + error.localizedDescription
-        Self.logger.error("\(message, privacy: .public)")
-        try discardPartialImport()
-      }
+      try importLegacyState()
     }
     try markComplete(targetVersion: targetVersion, previousVersion: completedVersion)
   }
 
+  /// Order matters: stale cleanup runs before the copy so credentials left by an
+  /// earlier attempt cannot outlive a server that legacy data no longer has.
   private func importLegacyState() throws {
     let legacyServers = try validatedLegacyServers()
     try removeStaleSharedState(legacyIDs: Set(legacyServers.map(\.id)))
@@ -119,21 +106,8 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Removes every shared server and its associated credentials after a failed
-  /// import. A rejected empty write is a genuine storage failure, so it is not
-  /// reported as a successful fresh start.
-  private func discardPartialImport() throws {
-    let previousIDs = Set(Defaults[.servers(suite: sharedSuite)].map(\.id))
-    Defaults[.servers(suite: sharedSuite)] = []
-    guard let persisted = try? persistedServers(), persisted.isEmpty else {
-      throw SharedStorageMigrationError.sharedConfigurationResetFailed
-    }
-
-    for serverID in previousIDs {
-      try? removeSharedCredentialIfPresent(for: serverID)
-    }
-  }
-
+  /// Strict decode: one bad element rejects the whole array instead of importing
+  /// a silently shortened server list.
   private func validatedLegacyServers() throws -> [ServerConfig] {
     do {
       return try Defaults.Keys.strictlyDecodedArray(.servers(suite: legacySuite))
@@ -143,6 +117,8 @@ public final class SharedStorageMigration {
     }
   }
 
+  /// Deletes credentials orphaned by an earlier incomplete attempt. Legacy data
+  /// is never removed, only shared entries the current legacy set lacks.
   private func removeStaleSharedState(legacyIDs: Set<UUID>) throws {
     let previousSharedIDs = Set(Defaults[.servers(suite: sharedSuite)].map(\.id))
     for staleID in previousSharedIDs.subtracting(legacyIDs) {
@@ -150,6 +126,8 @@ public final class SharedStorageMigration {
     }
   }
 
+  /// Writes the array and verifies it by readback. The completion marker is not
+  /// written yet, so a rejected write leaves a retryable state.
   private func copyConfiguration(_ servers: [ServerConfig]) throws {
     Defaults[.servers(suite: sharedSuite)] = servers
     guard let persisted = try? persistedServers(), configsMatch(persisted, servers) else {
@@ -157,6 +135,8 @@ public final class SharedStorageMigration {
     }
   }
 
+  /// Reads the persistent domain, not registered defaults, so a fallback value
+  /// cannot mask a failed write. Success is not a disk-durability guarantee.
   private func persistedServers() throws -> [ServerConfig] {
     try Defaults.Keys.strictlyDecodedPersistedArray(
       .servers(suite: sharedSuite),
@@ -164,6 +144,8 @@ public final class SharedStorageMigration {
     )
   }
 
+  /// An absent legacy secret clears any shared copy from an earlier attempt; a
+  /// present one is verified by readback before the run continues.
   private func copyCredential(for serverID: UUID) throws {
     let credential = try legacyKeychain.readCredential(for: serverID)
     if let credential {
@@ -176,6 +158,8 @@ public final class SharedStorageMigration {
     }
   }
 
+  /// Written last, after every copy verified. A rejected marker write restores
+  /// the previous generation so the import stays retryable.
   private func markComplete(targetVersion: Int, previousVersion: Int) throws {
     Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = targetVersion
     guard Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] >= targetVersion else {
@@ -185,6 +169,8 @@ public final class SharedStorageMigration {
     }
   }
 
+  /// Reads first so repeat attempts stay idempotent, then verifies the delete:
+  /// cleanup that fails silently would leave an old secret in shared storage.
   private func removeSharedCredentialIfPresent(for serverID: UUID) throws {
     guard try sharedKeychain.readCredential(for: serverID) != nil else { return }
     try sharedKeychain.deleteCredential(for: serverID)
@@ -193,11 +179,14 @@ public final class SharedStorageMigration {
     }
   }
 
+  /// Compares every stored field because `ServerConfig.==` compares only IDs; a
+  /// changed URL or label would otherwise pass as a successful copy.
   private func configsMatch(_ lhs: [ServerConfig], _ rhs: [ServerConfig]) -> Bool {
     guard lhs.count == rhs.count else { return false }
     return zip(lhs, rhs).allSatisfy { configFieldsMatch($0.0, $0.1) }
   }
 
+  /// Field-by-field equality; display metadata must round-trip too.
   private func configFieldsMatch(_ lhs: ServerConfig, _ rhs: ServerConfig) -> Bool {
     lhs.id == rhs.id
       && lhs.label == rhs.label
