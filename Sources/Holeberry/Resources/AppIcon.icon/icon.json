@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "display-p3:0.14078,0.01227,0.25510,1.00000",
-      "display-p3:0.00000,0.00000,0.00000,1.00000"
+      "display-p3:0.22745,0.07451,0.43922,1.00000",
+      "display-p3:0.10196,0.03137,0.25098,1.00000"
     ],
     "orientation" : {
       "start" : {
@@ -19,25 +19,13 @@
     {
       "layers" : [
         {
-          "blend-mode" : "normal",
-          "glass" : true,
-          "hidden" : false,
           "image-name" : "holeberry-logo.png",
           "name" : "holeberry-logo",
-          "opacity-specializations" : [
-            {
-              "value" : 1
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 1
-            }
-          ],
           "position" : {
             "scale" : 0.7,
             "translation-in-points" : [
               -3.1499999999999773,
-              3.5000000000001137
+              3.500000000000057
             ]
           }
         }
