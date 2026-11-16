@@ -17,12 +17,12 @@ struct AboutAppIconTile: View {
       // Directional shadow on the logo itself (follows the berry glyph's
       // alpha silhouette): plain black at mode-specific opacity reads as
       // crisp depth in dark mode instead of a light halo.
-      .shadow(color: .black.opacity(colorScheme == .dark ? 0.45 : 0.18), radius: 10, y: 3)
+      .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.22), radius: 10, y: 3)
       .frame(width: Self.side, height: Self.side)
       .background {
         ZStack {
           VisualEffectView(
-            material: colorScheme == .dark ? .underWindowBackground : .hudWindow,
+            material: .hudWindow,
             blendingMode: .behindWindow)
         }
       }
