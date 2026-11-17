@@ -24,7 +24,7 @@ struct RelativeAgeFormatterTests {
   @Test func standardWithMomentsReplacesTheFirstMinute() {
     let formatter = RelativeAgeFormatter(style: .standardWithMoments, locale: english)
 
-    #expect(formatter.string(since: date(secondsAgo: 59), relativeTo: now) == "a few moments ago")
+    #expect(formatter.string(since: date(secondsAgo: 59), relativeTo: now) == "moments ago")
     #expect(formatter.string(since: date(secondsAgo: 60), relativeTo: now) == "1 min. ago")
   }
 

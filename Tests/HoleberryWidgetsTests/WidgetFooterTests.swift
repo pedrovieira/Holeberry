@@ -21,7 +21,7 @@ struct WidgetFooterTests {
   }
 
   @Test func footerShowsFoundationRelativeUnits() {
-    #expect(text(minutesAfterObservation: 0) == "Updated a few moments ago")
+    #expect(text(minutesAfterObservation: 0) == "Updated moments ago")
     #expect(text(minutesAfterObservation: 1) == "Updated 1 min. ago")
     #expect(text(minutesAfterObservation: 59) == "Updated 59 min. ago")
     #expect(text(minutesAfterObservation: 60) == "Updated 1 hr. ago")

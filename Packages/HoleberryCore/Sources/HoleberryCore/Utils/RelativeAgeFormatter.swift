@@ -32,7 +32,7 @@ public struct RelativeAgeFormatter: Sendable {
       return localizedString(since: date, relativeTo: now, unitsStyle: .short)
     case .standardWithMoments:
       if now.timeIntervalSince(date) < Self.momentsThreshold {
-        return "a few moments ago"
+        return "moments ago"
       }
       return localizedString(since: date, relativeTo: now, unitsStyle: .short)
     case .wholeMinutes:
