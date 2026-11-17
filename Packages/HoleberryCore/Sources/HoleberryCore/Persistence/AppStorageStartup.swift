@@ -3,7 +3,9 @@ import Foundation
 @MainActor
 public enum AppStorageStartupSelection {
   case useShared(UserDefaults, didMigrate: Bool)
-  case unavailable
+  /// The shared suite could not be resolved or migrated. `cause` is the error
+  /// that ended startup, kept so the caller can log it.
+  case unavailable(cause: any Error)
 }
 
 /// Resolves and activates the shared App Group suite before the application
@@ -35,7 +37,7 @@ public enum AppStorageStartup {
       markActivated()
       return .useShared(suite, didMigrate: true)
     } catch {
-      return .unavailable
+      return .unavailable(cause: error)
     }
   }
 }

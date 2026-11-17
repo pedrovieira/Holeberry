@@ -94,19 +94,21 @@ struct BundleContainingAppTests {
   }
 
   @Test func unexpandedMarkerIsRejected() throws {
-    let extensionURL = try TestBundles.makeBundle(
-      named: "UnexpandedMarker-\(UUID().uuidString).appex",
-      identifier: "me.example.host.widgets",
-      containingAppIdentifier: "$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)"
-    )
-    defer { TestBundles.remove(extensionURL) }
+    for marker in ["$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)", "${HOLEBERRY_APP_BUNDLE_IDENTIFIER}"] {
+      let extensionURL = try TestBundles.makeBundle(
+        named: "UnexpandedMarker-\(UUID().uuidString).appex",
+        identifier: "me.example.host.widgets",
+        containingAppIdentifier: marker
+      )
+      defer { TestBundles.remove(extensionURL) }
 
-    let extensionBundle = try TestBundles.bundle(at: extensionURL)
+      let extensionBundle = try TestBundles.bundle(at: extensionURL)
 
-    #expect(
-      throws: BundleMetadataError.invalidInfoValue("HoleberryContainingAppIdentifier")
-    ) {
-      try Bundle.containingAppIdentifier(startingAt: extensionBundle)
+      #expect(
+        throws: BundleMetadataError.invalidInfoValue("HoleberryContainingAppIdentifier")
+      ) {
+        try Bundle.containingAppIdentifier(startingAt: extensionBundle)
+      }
     }
   }
 
@@ -180,17 +182,24 @@ struct BundleContainingAppTests {
   }
 
   @Test func unresolvedSharedMetadataBuildSubstitutionThrows() throws {
-    let bundle = try makeMetadataBundle(
-      appGroupIdentifier: "$(APP_GROUP)",
-      keychainAccessGroup: "$(AppIdentifierPrefix)me.example.tests.shared"
-    )
-    defer { TestBundles.remove(bundle.bundleURL) }
+    for (appGroup, keychainGroup) in [
+      ("$(APP_GROUP)", "$(AppIdentifierPrefix)me.example.tests.shared"),
+      ("${APP_GROUP}", "${AppIdentifierPrefix}me.example.tests.shared"),
+      ("group.$(APP_GROUP_SUFFIX)", "$(AppIdentifierPrefix)app.tests.shared"),
+      ("group.${APP_GROUP_SUFFIX}", "${AppIdentifierPrefix}app.tests.shared")
+    ] {
+      let bundle = try makeMetadataBundle(
+        appGroupIdentifier: appGroup,
+        keychainAccessGroup: keychainGroup
+      )
+      defer { TestBundles.remove(bundle.bundleURL) }
 
-    #expect(throws: BundleMetadataError.invalidInfoValue("HoleberryAppGroupIdentifier")) {
-      try bundle.sharedAppGroupIdentifier()
-    }
-    #expect(throws: BundleMetadataError.invalidInfoValue("HoleberryKeychainAccessGroup")) {
-      try bundle.sharedKeychainAccessGroup()
+      #expect(throws: BundleMetadataError.invalidInfoValue("HoleberryAppGroupIdentifier")) {
+        try bundle.sharedAppGroupIdentifier()
+      }
+      #expect(throws: BundleMetadataError.invalidInfoValue("HoleberryKeychainAccessGroup")) {
+        try bundle.sharedKeychainAccessGroup()
+      }
     }
   }
 

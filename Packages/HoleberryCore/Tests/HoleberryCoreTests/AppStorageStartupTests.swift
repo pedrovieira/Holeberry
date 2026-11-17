@@ -43,10 +43,11 @@ struct AppStorageStartupTests {
       markActivated: { activated = true }
     )
 
-    guard case .unavailable = selection else {
+    guard case .unavailable(let cause) = selection else {
       Issue.record("Expected unavailable storage")
       return
     }
+    #expect(cause as? AppStorageStartupTestError == .resolutionFailed)
     #expect(migrationCount == 0)
     #expect(activated == false)
   }
@@ -64,10 +65,11 @@ struct AppStorageStartupTests {
       markActivated: { activated = true }
     )
 
-    guard case .unavailable = selection else {
+    guard case .unavailable(let cause) = selection else {
       Issue.record("Expected unavailable storage")
       return
     }
+    #expect(cause as? AppStorageStartupTestError == .migrationFailed)
     #expect(activated == false)
     #expect(Defaults[.servers(suite: suite)].map(\.id) == [server.id])
   }
@@ -83,10 +85,11 @@ struct AppStorageStartupTests {
       markActivated: { activated = true }
     )
 
-    guard case .unavailable = selection else {
+    guard case .unavailable(let cause) = selection else {
       Issue.record("Expected unavailable storage")
       return
     }
+    #expect(cause as? AppStorageStartupTestError == .resolutionFailed)
     #expect(migrationCount == 0)
     #expect(activated == false)
   }
@@ -176,7 +179,7 @@ struct AppStorageStartupTests {
   }
 }
 
-private enum AppStorageStartupTestError: Error {
+private enum AppStorageStartupTestError: Error, Equatable {
   case resolutionFailed
   case migrationFailed
 }

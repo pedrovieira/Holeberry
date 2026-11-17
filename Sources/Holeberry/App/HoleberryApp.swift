@@ -276,8 +276,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ),
         didMigrate: didMigrate
       )
-    case .unavailable:
-      logger.error("Shared storage unavailable; running on a no-write empty state for this launch.")
+    case .unavailable(let cause):
+      logger.error(
+        "Shared storage unavailable; using a no-write empty state: \(cause.localizedDescription, privacy: .public)")
       return unavailableStorageContext()
     }
   }

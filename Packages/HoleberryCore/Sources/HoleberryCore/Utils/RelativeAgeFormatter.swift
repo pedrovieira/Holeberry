@@ -26,7 +26,14 @@ public struct RelativeAgeFormatter: Sendable {
   }
 
   /// Text for the age of `date`, measured from `now`.
+  ///
+  /// Dates after `now` format as future-relative text ("in 5 min.") in every
+  /// style, including `.standardWithMoments` and `.wholeMinutes`.
   public func string(since date: Date, relativeTo now: Date = Date()) -> String {
+    guard date <= now else {
+      return localizedString(since: date, relativeTo: now, unitsStyle: .short)
+    }
+
     switch style {
     case .standard:
       return localizedString(since: date, relativeTo: now, unitsStyle: .short)

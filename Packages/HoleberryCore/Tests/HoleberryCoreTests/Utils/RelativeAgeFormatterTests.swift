@@ -36,6 +36,37 @@ struct RelativeAgeFormatterTests {
     #expect(formatter.string(since: date(secondsAgo: 3_900), relativeTo: now) == "1 hr. ago")
   }
 
+  @Test func futureTimestampsUseFutureRelativeText() {
+    let formatter = RelativeAgeFormatter(locale: english)
+
+    #expect(formatter.string(since: date(secondsAgo: -30), relativeTo: now) == "in 30 sec.")
+    #expect(formatter.string(since: date(secondsAgo: -125), relativeTo: now) == "in 2 min.")
+  }
+
+  @Test func standardWithMomentsUsesFutureTextInsteadOfMomentsAgo() {
+    let formatter = RelativeAgeFormatter(style: .standardWithMoments, locale: english)
+
+    #expect(formatter.string(since: date(secondsAgo: -30), relativeTo: now) == "in 30 sec.")
+    #expect(formatter.string(since: date(secondsAgo: -3600), relativeTo: now) == "in 1 hr.")
+  }
+
+  @Test func wholeMinutesUsesFutureTextInsteadOfFlooredMinutes() {
+    let formatter = RelativeAgeFormatter(style: .wholeMinutes, locale: english)
+
+    #expect(formatter.string(since: date(secondsAgo: -30), relativeTo: now) == "in 30 sec.")
+    #expect(formatter.string(since: date(secondsAgo: -125), relativeTo: now) == "in 2 min.")
+  }
+
+  @Test func zeroAgeKeepsEachStyleUnchanged() {
+    #expect(RelativeAgeFormatter(locale: english).string(since: now, relativeTo: now) == "in 0 sec.")
+    #expect(
+      RelativeAgeFormatter(style: .standardWithMoments, locale: english)
+        .string(since: now, relativeTo: now) == "moments ago")
+    #expect(
+      RelativeAgeFormatter(style: .wholeMinutes, locale: english)
+        .string(since: now, relativeTo: now) == "1 min. ago")
+  }
+
   @Test func differentlyConfiguredLocalesKeepTheirOwnSettings() {
     let plain = RelativeAgeFormatter(locale: english)
     let arabicDigits = RelativeAgeFormatter(locale: Locale(identifier: "en_US@numbers=arab"))
