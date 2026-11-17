@@ -7,113 +7,366 @@ import Testing
 @Suite("AppStorageStartup")
 @MainActor
 struct AppStorageStartupTests {
-  @Test func firstMigrationSuccessUsesResolvedSuiteAndActivates() {
-    let suite = TestDefaults.makeSuite()
-    var migrationCount = 0
-    var activated = false
+  @Test func pendingStoreMigratesThenUsesSharedAndActivates() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.pending)
+    probe.readinessAfterMigration = .success(.ready)
 
-    let selection = AppStorageStartup.select(
-      isCurrentMigrationActivated: false,
-      resolve: { suite },
-      migrate: { resolved in
-        migrationCount += 1
-        #expect(resolved === suite)
-      },
-      markActivated: { activated = true }
-    )
+    let selection = probe.select(activatedVersion: 0)
 
     guard case .useShared(let selected, let didMigrate) = selection else {
       Issue.record("Expected shared storage")
       return
     }
-    #expect(selected === suite)
+    #expect(selected === probe.suite)
     #expect(didMigrate)
-    #expect(migrationCount == 1)
-    #expect(activated)
+    #expect(probe.migrationCount == 1)
+    #expect(probe.activationCount == 1)
   }
 
-  @Test func resolverFailureIsUnavailableWithoutMigrationOrActivation() {
-    var migrationCount = 0
-    var activated = false
+  @Test func firstCopyFailureUsesLegacyWithoutActivation() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.pending)
+    probe.readinessAfterMigration = .success(.pending)
+    probe.migrationError = AppStorageStartupTestError.migrationFailed
 
-    let selection = AppStorageStartup.select(
-      isCurrentMigrationActivated: false,
-      resolve: { throw AppStorageStartupTestError.resolutionFailed },
-      migrate: { _ in migrationCount += 1 },
-      markActivated: { activated = true }
-    )
+    let selection = probe.select(activatedVersion: 0)
 
-    guard case .unavailable(let cause) = selection else {
-      Issue.record("Expected unavailable storage")
-      return
-    }
-    #expect(cause as? AppStorageStartupTestError == .resolutionFailed)
-    #expect(migrationCount == 0)
-    #expect(activated == false)
-  }
-
-  @Test func migrationFailureIsUnavailableWithoutLegacyFallback() {
-    let suite = TestDefaults.makeSuite()
-    let server = ServerConfig(id: UUID(), url: "http://shared.local", version: .v6)
-    Defaults[.servers(suite: suite)] = [server]
-    var activated = false
-
-    let selection = AppStorageStartup.select(
-      isCurrentMigrationActivated: false,
-      resolve: { suite },
-      migrate: { _ in throw AppStorageStartupTestError.migrationFailed },
-      markActivated: { activated = true }
-    )
-
-    guard case .unavailable(let cause) = selection else {
-      Issue.record("Expected unavailable storage")
+    guard case .useLegacy(let cause) = selection else {
+      Issue.record("Expected legacy storage")
       return
     }
     #expect(cause as? AppStorageStartupTestError == .migrationFailed)
-    #expect(activated == false)
-    #expect(Defaults[.servers(suite: suite)].map(\.id) == [server.id])
+    #expect(probe.migrationCount == 1)
+    #expect(probe.activationCount == 0)
   }
 
-  @Test func activatedResolutionFailureIsUnavailableWithoutMigration() {
-    var migrationCount = 0
-    var activated = false
+  @Test func verifiedMarkerAfterFailedCopyTakesPrecedence() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.pending)
+    probe.readinessAfterMigration = .success(.ready)
+    probe.migrationError = AppStorageStartupTestError.migrationFailed
 
-    let selection = AppStorageStartup.select(
-      isCurrentMigrationActivated: true,
-      resolve: { throw AppStorageStartupTestError.resolutionFailed },
-      migrate: { _ in migrationCount += 1 },
-      markActivated: { activated = true }
-    )
-
-    guard case .unavailable(let cause) = selection else {
-      Issue.record("Expected unavailable storage")
-      return
-    }
-    #expect(cause as? AppStorageStartupTestError == .resolutionFailed)
-    #expect(migrationCount == 0)
-    #expect(activated == false)
-  }
-
-  @Test func activatedResolutionSuccessUsesSharedWithoutMigration() {
-    let suite = TestDefaults.makeSuite()
-    var migrationCount = 0
-    var activated = false
-
-    let selection = AppStorageStartup.select(
-      isCurrentMigrationActivated: true,
-      resolve: { suite },
-      migrate: { _ in migrationCount += 1 },
-      markActivated: { activated = true }
-    )
+    let selection = probe.select(activatedVersion: 0)
 
     guard case .useShared(let selected, let didMigrate) = selection else {
       Issue.record("Expected shared storage")
       return
     }
-    #expect(selected === suite)
+    #expect(selected === probe.suite)
+    #expect(didMigrate)
+    #expect(probe.activationCount == 1)
+  }
+
+  @Test func resolverFailureWithoutEarlierActivationUsesLegacy() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.resolveError = AppStorageStartupTestError.resolutionFailed
+
+    let selection = probe.select(activatedVersion: 0)
+
+    guard case .useLegacy(let cause) = selection else {
+      Issue.record("Expected legacy storage")
+      return
+    }
+    #expect(cause as? AppStorageStartupTestError == .resolutionFailed)
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 0)
+  }
+
+  @Test func resolverFailureWithEarlierActivationIsUnavailable() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.resolveError = AppStorageStartupTestError.resolutionFailed
+
+    let selection = probe.select(activatedVersion: SharedStorageMigration.currentVersion)
+
+    guard case .unavailable(let cause) = selection else {
+      Issue.record("Expected recovery")
+      return
+    }
+    #expect(cause as? AppStorageStartupTestError == .resolutionFailed)
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 0)
+  }
+
+  @Test func readyStoreWithoutLocalActivationRecordsActivation() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.ready)
+    probe.activationError = AppStorageStartupTestError.activationNotPersisted
+
+    let selection = probe.select(activatedVersion: 0)
+
+    guard case .unavailable(let cause) = selection else {
+      Issue.record("Expected recovery when the activation record cannot be verified")
+      return
+    }
+    #expect(cause as? AppStorageStartupTestError == .activationNotPersisted)
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 1)
+  }
+
+  @Test func readyStoreWithEarlierActivationSkipsMigrationAndActivation() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.ready)
+
+    let selection = probe.select(activatedVersion: SharedStorageMigration.currentVersion)
+
+    guard case .useShared(let selected, let didMigrate) = selection else {
+      Issue.record("Expected shared storage")
+      return
+    }
+    #expect(selected === probe.suite)
     #expect(didMigrate == false)
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 0)
+  }
+
+  @Test func newerActivationWithResetSharedSuiteIsUnavailableWithoutReplay() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.pending)
+    probe.readinessAfterMigration = .success(.ready)
+
+    let selection = probe.select(activatedVersion: SharedStorageMigration.currentVersion + 1)
+
+    guard case .unavailable = selection else {
+      Issue.record("Expected recovery instead of replaying legacy data")
+      return
+    }
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 0)
+  }
+
+  @Test func writeAccessAndStatusFollowTheSelection() {
+    let suite = TestDefaults.makeSuite()
+    let shared = AppStorageStartupSelection.useShared(suite, didMigrate: false)
+    let legacy = AppStorageStartupSelection.useLegacy(cause: AppStorageStartupTestError.migrationFailed)
+    let recovery = AppStorageStartupSelection.unavailable(
+      cause: AppStorageStartupTestError.resolutionFailed
+    )
+
+    #expect(shared.status == .shared)
+    #expect(shared.allowsServerChanges)
+    #expect(legacy.status == .legacy)
+    #expect(legacy.allowsServerChanges)
+    #expect(recovery.status == .recovery)
+    #expect(recovery.allowsServerChanges == false)
+  }
+
+  @Test func earlierActivationWithResetSharedSuiteIsUnavailableWithoutReplay() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.pending)
+    probe.readinessAfterMigration = .success(.ready)
+
+    let selection = probe.select(activatedVersion: SharedStorageMigration.currentVersion)
+
+    guard case .unavailable = selection else {
+      Issue.record("Expected recovery instead of replaying legacy data")
+      return
+    }
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 0)
+  }
+
+  @Test func invalidSharedStoreIsUnavailableWithOrWithoutActivation() {
+    for activatedVersion in [0, SharedStorageMigration.currentVersion] {
+      let probe = StartupProbe(suite: TestDefaults.makeSuite())
+      probe.readiness = .failure(
+        SharedStorageReadinessError.unsupportedCompletionVersion(
+          SharedStorageMigration.currentVersion + 1
+        )
+      )
+
+      let selection = probe.select(activatedVersion: activatedVersion)
+
+      guard case .unavailable = selection else {
+        Issue.record("Expected recovery for an unsupported shared store")
+        return
+      }
+      #expect(probe.migrationCount == 0)
+      #expect(probe.activationCount == 0)
+    }
+  }
+
+  @Test func activationFailureAfterSuccessfulImportIsUnavailable() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.pending)
+    probe.readinessAfterMigration = .success(.ready)
+    probe.activationError = AppStorageStartupTestError.activationNotPersisted
+
+    let selection = probe.select(activatedVersion: 0)
+
+    guard case .unavailable(let cause) = selection else {
+      Issue.record("Expected recovery when the activation record cannot be verified")
+      return
+    }
+    #expect(cause as? AppStorageStartupTestError == .activationNotPersisted)
+    #expect(probe.migrationCount == 1)
+    #expect(probe.activationCount == 1)
+  }
+
+  @Test func retryAfterFailedCopyImportsEditedLegacyConnection() throws {
+    let legacySuite = TestUserDefaults()
+    let sharedSuite = TestUserDefaults()
+    let legacyKeychain = MockKeychainManager()
+    let sharedKeychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), label: "Original", url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: legacySuite)] = [server]
+    try legacyKeychain.saveCredential("legacy-secret", for: server.id)
+    sharedSuite.rejectedWriteKeys = [Defaults.Keys.servers(suite: sharedSuite).name]
+
+    let migration = SharedStorageMigration(
+      legacySuite: legacySuite,
+      sharedSuite: sharedSuite,
+      sharedSuiteName: sharedSuite.domainName,
+      legacyKeychain: legacyKeychain,
+      sharedKeychain: sharedKeychain
+    )
+    var migrationCount = 0
+    var activationCount = 0
+
+    func select() -> AppStorageStartupSelection {
+      AppStorageStartup.select(
+        readActivatedVersion: {
+          try SharedStorageMigration.activatedVersion(
+            in: legacySuite,
+            suiteName: legacySuite.domainName
+          )
+        },
+        resolve: { sharedSuite },
+        readReadiness: { suite in
+          try SharedStorageMigration.readiness(in: suite, suiteName: sharedSuite.domainName)
+        },
+        migrate: { _ in
+          migrationCount += 1
+          try migration.migrate()
+        },
+        markActivated: {
+          activationCount += 1
+          try SharedStorageMigration.markActivated(
+            in: legacySuite,
+            suiteName: legacySuite.domainName
+          )
+        }
+      )
+    }
+
+    guard case .useLegacy = select() else {
+      Issue.record("Expected legacy storage after a failed first copy")
+      return
+    }
+    #expect(migrationCount == 1)
+    #expect(activationCount == 0)
+    #expect(Defaults[.servers(suite: sharedSuite)].isEmpty)
+    #expect(Defaults[.sharedStorageActivatedVersion(suite: legacySuite)] == 0)
+
+    var edited = server
+    edited.label = "Edited"
+    Defaults[.servers(suite: legacySuite)] = [edited]
+    sharedSuite.rejectedWriteKeys = []
+
+    guard case .useShared(let selected, let didMigrate) = select() else {
+      Issue.record("Expected shared storage after a successful retry")
+      return
+    }
+    #expect(selected === sharedSuite)
+    #expect(didMigrate)
+    #expect(migrationCount == 2)
+    #expect(activationCount == 1)
+    #expect(Defaults[.servers(suite: sharedSuite)].map(\.label) == ["Edited"])
+    #expect(try sharedKeychain.readCredential(for: server.id) == "legacy-secret")
+    let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: legacySuite).name
+    #expect(
+      legacySuite.persistentDomain(forName: legacySuite.domainName)?[activationKey] as? Int
+        == SharedStorageMigration.currentVersion
+    )
+  }
+
+  @Test func malformedActivationWithVerifiedSharedStoreRepairsRecord() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.ready)
+
+    let selection = probe.select(readActivatedVersion: { throw AppStorageStartupTestError.activationUnreadable })
+
+    guard case .useShared(let selected, let didMigrate) = selection else {
+      Issue.record("Expected verified shared storage to win")
+      return
+    }
+    #expect(selected === probe.suite)
+    #expect(didMigrate == false)
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 1)
+  }
+
+  @Test func malformedActivationWithFailedRepairIsUnavailable() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.ready)
+    probe.activationError = AppStorageStartupTestError.activationNotPersisted
+
+    let selection = probe.select(readActivatedVersion: { throw AppStorageStartupTestError.activationUnreadable })
+
+    guard case .unavailable = selection else {
+      Issue.record("Expected recovery when the activation repair cannot be verified")
+      return
+    }
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 1)
+  }
+
+  @Test func malformedActivationWithPendingSharedStoreIsUnavailableWithoutMigration() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.readiness = .success(.pending)
+
+    let selection = probe.select(readActivatedVersion: { throw AppStorageStartupTestError.activationUnreadable })
+
+    guard case .unavailable(let cause) = selection else {
+      Issue.record("Expected recovery for malformed history with pending shared data")
+      return
+    }
+    #expect(cause as? AppStorageStartupTestError == .activationUnreadable)
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 0)
+  }
+
+  @Test func malformedActivationWithUnresolvableSuiteIsUnavailable() {
+    let probe = StartupProbe(suite: TestDefaults.makeSuite())
+    probe.resolveError = AppStorageStartupTestError.resolutionFailed
+
+    let selection = probe.select(readActivatedVersion: { throw AppStorageStartupTestError.activationUnreadable })
+
+    guard case .unavailable(let cause) = selection else {
+      Issue.record("Expected recovery when neither shared storage nor history verifies")
+      return
+    }
+    #expect(cause as? AppStorageStartupTestError == .resolutionFailed)
+    #expect(probe.migrationCount == 0)
+    #expect(probe.activationCount == 0)
+  }
+
+  @Test func negativePersistedActivationWithPendingSharedStoreIsUnavailableWithoutMigration() {
+    let legacySuite = TestUserDefaults()
+    let sharedSuite = TestUserDefaults()
+    let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: legacySuite).name
+    legacySuite.set(-1, forKey: activationKey)
+    var migrationCount = 0
+    var activationCount = 0
+
+    let selection = AppStorageStartup.select(
+      readActivatedVersion: {
+        try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuite.domainName)
+      },
+      resolve: { sharedSuite },
+      readReadiness: { suite in
+        try SharedStorageMigration.readiness(in: suite, suiteName: sharedSuite.domainName)
+      },
+      migrate: { _ in migrationCount += 1 },
+      markActivated: { activationCount += 1 }
+    )
+
+    guard case .unavailable = selection else {
+      Issue.record("Expected recovery for a negative activation record")
+      return
+    }
     #expect(migrationCount == 0)
-    #expect(activated == false)
+    #expect(activationCount == 0)
   }
 
   @Test func unavailableDefaultsRejectPrimitiveAndTypedWritesInTheirOwnSuite() throws {
@@ -179,7 +432,53 @@ struct AppStorageStartupTests {
   }
 }
 
+@MainActor
+private final class StartupProbe {
+  let suite: UserDefaults
+  var resolveError: (any Error)?
+  var readiness: Result<SharedStorageReadiness, any Error> = .success(.pending)
+  var readinessAfterMigration: Result<SharedStorageReadiness, any Error>?
+  var migrationError: (any Error)?
+  var activationError: (any Error)?
+  private(set) var readinessCallCount = 0
+  private(set) var migrationCount = 0
+  private(set) var activationCount = 0
+
+  init(suite: UserDefaults) {
+    self.suite = suite
+  }
+
+  func select(activatedVersion: Int) -> AppStorageStartupSelection {
+    select(readActivatedVersion: { activatedVersion })
+  }
+
+  func select(readActivatedVersion: () throws -> Int) -> AppStorageStartupSelection {
+    AppStorageStartup.select(
+      readActivatedVersion: readActivatedVersion,
+      resolve: {
+        if let resolveError { throw resolveError }
+        return suite
+      },
+      readReadiness: { _ in
+        readinessCallCount += 1
+        let result = readinessCallCount > 1 ? (readinessAfterMigration ?? readiness) : readiness
+        return try result.get()
+      },
+      migrate: { _ in
+        migrationCount += 1
+        if let migrationError { throw migrationError }
+      },
+      markActivated: {
+        activationCount += 1
+        if let activationError { throw activationError }
+      }
+    )
+  }
+}
+
 private enum AppStorageStartupTestError: Error, Equatable {
   case resolutionFailed
   case migrationFailed
+  case activationNotPersisted
+  case activationUnreadable
 }

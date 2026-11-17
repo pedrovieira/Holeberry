@@ -3,41 +3,149 @@ import Foundation
 @MainActor
 public enum AppStorageStartupSelection {
   case useShared(UserDefaults, didMigrate: Bool)
-  /// The shared suite could not be resolved or migrated. `cause` is the error
-  /// that ended startup, kept so the caller can log it.
+  /// The first migration is pending. Retry on the next launch.
+  case useLegacy(cause: any Error)
+  /// Recovery blocks writes and legacy import.
   case unavailable(cause: any Error)
 }
 
-/// Resolves and activates the shared App Group suite before the application
-/// manager is constructed.
-///
-/// There is no legacy fallback: a suite that cannot be resolved or migrated is
-/// reported as unavailable, and the app runs with no-write empty stores.
+public enum AppStorageStartupStatus: Equatable {
+  case shared
+  case legacy
+  case recovery
+}
+
+extension AppStorageStartupSelection {
+  public var allowsServerChanges: Bool {
+    switch self {
+    case .useShared, .useLegacy: return true
+    case .unavailable: return false
+    }
+  }
+
+  public var status: AppStorageStartupStatus {
+    switch self {
+    case .useShared: return .shared
+    case .useLegacy: return .legacy
+    case .unavailable: return .recovery
+    }
+  }
+}
+
+public enum AppStorageStartupError: Error, Equatable, LocalizedError {
+  case completedStoreMarkerMissing
+  case migrationDidNotComplete
+
+  public var errorDescription: String? {
+    switch self {
+    case .completedStoreMarkerMissing:
+      return "Shared storage was activated on an earlier launch but reports no completion marker."
+    case .migrationDidNotComplete:
+      return "Migration finished without a verified completion marker."
+    }
+  }
+}
+
+/// Chooses a storage mode for the current launch.
 @MainActor
 public enum AppStorageStartup {
-  /// Resolves the shared suite and migrates it unless the current migration
-  /// generation was already activated.
-  ///
-  /// - Parameter isCurrentMigrationActivated: `true` when the standard suite
-  ///   already recorded `SharedStorageMigration.currentVersion`; a newer
-  ///   generation deliberately returns `false` so migration runs again.
+  /// Zero permits a first import. Verified shared storage can repair unreadable activation history.
   public static func select(
-    isCurrentMigrationActivated: Bool,
+    readActivatedVersion: () throws -> Int,
     resolve: () throws -> UserDefaults,
+    readReadiness: (UserDefaults) throws -> SharedStorageReadiness,
     migrate: (UserDefaults) throws -> Void,
-    markActivated: () -> Void
+    markActivated: () throws -> Void
   ) -> AppStorageStartupSelection {
-    do {
-      let suite = try resolve()
-      guard !isCurrentMigrationActivated else {
-        return .useShared(suite, didMigrate: false)
-      }
+    let activation = Result(catching: readActivatedVersion)
 
-      try migrate(suite)
-      markActivated()
-      return .useShared(suite, didMigrate: true)
+    let suite: UserDefaults
+    do {
+      suite = try resolve()
+    } catch {
+      return hasPriorCutover(activation) ? .unavailable(cause: error) : .useLegacy(cause: error)
+    }
+
+    let readiness: SharedStorageReadiness
+    do {
+      readiness = try readReadiness(suite)
     } catch {
       return .unavailable(cause: error)
     }
+
+    switch readiness {
+    case .ready:
+      return useReadyShared(suite, activation: activation, markActivated: markActivated)
+    case .pending:
+      switch activation {
+      case .success(0):
+        return attemptCutover(
+          suite: suite,
+          readReadiness: readReadiness,
+          migrate: migrate,
+          markActivated: markActivated
+        )
+      case .success:
+        return .unavailable(cause: AppStorageStartupError.completedStoreMarkerMissing)
+      case .failure(let error):
+        return .unavailable(cause: error)
+      }
+    }
+  }
+
+  /// Unreadable history blocks legacy import.
+  private static func hasPriorCutover(_ activation: Result<Int, any Error>) -> Bool {
+    switch activation {
+    case .success(let version): return version > 0
+    case .failure: return true
+    }
+  }
+
+  private static func useReadyShared(
+    _ suite: UserDefaults,
+    activation: Result<Int, any Error>,
+    markActivated: () throws -> Void
+  ) -> AppStorageStartupSelection {
+    switch activation {
+    case .success(let version) where version > 0:
+      return .useShared(suite, didMigrate: false)
+    case .success, .failure:
+      do {
+        try markActivated()
+      } catch {
+        return .unavailable(cause: error)
+      }
+      return .useShared(suite, didMigrate: false)
+    }
+  }
+
+  private static func attemptCutover(
+    suite: UserDefaults,
+    readReadiness: (UserDefaults) throws -> SharedStorageReadiness,
+    migrate: (UserDefaults) throws -> Void,
+    markActivated: () throws -> Void
+  ) -> AppStorageStartupSelection {
+    var migrationCause: (any Error)?
+    do {
+      try migrate(suite)
+    } catch {
+      migrationCause = error
+    }
+
+    // Verified completion takes precedence over an import error.
+    do {
+      guard try readReadiness(suite) == .ready else {
+        return .useLegacy(cause: migrationCause ?? AppStorageStartupError.migrationDidNotComplete)
+      }
+    } catch {
+      return .unavailable(cause: error)
+    }
+
+    do {
+      try markActivated()
+    } catch {
+      return .unavailable(cause: error)
+    }
+    return .useShared(suite, didMigrate: true)
   }
 }

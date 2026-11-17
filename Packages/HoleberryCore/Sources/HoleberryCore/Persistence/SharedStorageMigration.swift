@@ -7,6 +7,7 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
   case credentialReadbackMismatch(UUID)
   case sharedCredentialRemovalMismatch(UUID)
   case completionMarkerNotPersisted
+  case activationRecordNotPersisted
 
   public var errorDescription: String? {
     switch self {
@@ -20,28 +21,43 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
       return "Shared credential removal was not persisted for server \(serverID.uuidString)."
     case .completionMarkerNotPersisted:
       return "Migration completion marker was not persisted."
+    case .activationRecordNotPersisted:
+      return "The local activation record was not persisted."
     }
   }
 }
 
-/// Copies configuration and credentials from the
-/// legacy stores into the shared App Group stores. Temporary-unblock records
-/// stay in app-local defaults and are never read or written by this migration.
-///
-/// The legacy stores are read-only inputs and are preserved. Completion is
-/// recorded only after every copy is verified by typed readback. A failed
-/// import throws its original error before completion is recorded, so the
-/// partial shared writes are not published to the app; the next attempt
-/// repeats the copy from the current legacy state.
+public enum SharedStorageReadiness: Equatable {
+  case pending
+  case ready
+}
+
+/// Invalid shared storage requires recovery.
+public enum SharedStorageReadinessError: Error, Equatable, LocalizedError {
+  case malformedCompletionVersion
+  case unsupportedCompletionVersion(Int)
+  case missingServerConfiguration
+  case malformedServerConfiguration
+
+  public var errorDescription: String? {
+    switch self {
+    case .malformedCompletionVersion:
+      return "The shared storage completion marker is malformed."
+    case .unsupportedCompletionVersion(let version):
+      return "Shared storage completion version \(version) is not supported by this build."
+    case .missingServerConfiguration:
+      return "Shared storage reports a completed migration without a saved server configuration."
+    case .malformedServerConfiguration:
+      return "The shared server configuration is malformed."
+    }
+  }
+}
+
+/// Copies server settings and credentials to the App Group. Temporary unblock records stay local.
+/// Failed attempts leave the legacy data intact for retry.
 @MainActor
 public final class SharedStorageMigration {
-  /// The migration generation this build expects. Starts at 1 and is incremented
-  /// when the shared stores need a new migration generation.
-  ///
-  /// Activation and completion are both recorded against this value, so bumping
-  /// it makes existing installs run `migrate()` again. Only version zero imports
-  /// the legacy stores; later generations change shared data in place so edits
-  /// made after the first migration survive.
+  /// The supported shared storage version. Only version zero imports legacy data.
   public static let currentVersion = 1
 
   private let legacySuite: UserDefaults
@@ -64,29 +80,78 @@ public final class SharedStorageMigration {
     self.sharedKeychain = sharedKeychain
   }
 
-  public static func isComplete(in suite: UserDefaults) -> Bool {
-    Defaults[.sharedStorageMigrationVersion(suite: suite)] >= currentVersion
+  /// Readiness requires a persisted completion marker and a valid saved server list.
+  /// An explicitly saved empty list is valid.
+  public static func readiness(
+    in suite: UserDefaults,
+    suiteName: String
+  ) throws -> SharedStorageReadiness {
+    let domain = Defaults.Keys.PersistedDomain(suite: suite, name: suiteName)
+    let markerKey = Defaults.Keys.sharedStorageMigrationVersion(suite: suite)
+    let version: Int
+    do {
+      version = try domain.strictlyDecodedInt(markerKey) ?? 0
+    } catch {
+      guard error is DefaultsValueValidationError else { throw error }
+      throw SharedStorageReadinessError.malformedCompletionVersion
+    }
+
+    guard version != 0 else { return .pending }
+    guard version == currentVersion else {
+      throw SharedStorageReadinessError.unsupportedCompletionVersion(version)
+    }
+
+    do {
+      _ = try domain.strictlyDecodedArray(.servers(suite: suite))
+    } catch DefaultsValueValidationError.missingPersistedValue {
+      throw SharedStorageReadinessError.missingServerConfiguration
+    } catch {
+      guard error is DefaultsValueValidationError else { throw error }
+      throw SharedStorageReadinessError.malformedServerConfiguration
+    }
+    return .ready
   }
 
-  /// Whether the legacy standard suite already activated `currentVersion`.
-  public static func isCurrentVersionActivated(in legacySuite: UserDefaults) -> Bool {
-    Defaults[.sharedStorageActivatedVersion(suite: legacySuite)] >= currentVersion
+  /// Reads persisted activation history. Zero means no prior activation. Invalid values throw.
+  public static func activatedVersion(in legacySuite: UserDefaults, suiteName: String) throws -> Int {
+    let key = Defaults.Keys.sharedStorageActivatedVersion(suite: legacySuite)
+    let version: Int
+    do {
+      version = try Defaults.Keys.strictlyDecodedPersistedInt(key, suiteName: suiteName) ?? 0
+    } catch {
+      guard error is DefaultsValueValidationError else { throw error }
+      throw SharedStorageMigrationError.activationRecordNotPersisted
+    }
+    guard version >= 0 else {
+      throw SharedStorageMigrationError.activationRecordNotPersisted
+    }
+    return version
   }
 
-  /// Records `currentVersion` in the legacy standard suite after a successful
-  /// migration.
-  public static func markActivated(in legacySuite: UserDefaults) {
-    Defaults[.sharedStorageActivatedVersion(suite: legacySuite)] = currentVersion
+  /// Records and verifies `currentVersion` in app-local defaults.
+  public static func markActivated(in legacySuite: UserDefaults, suiteName: String) throws {
+    let key = Defaults.Keys.sharedStorageActivatedVersion(suite: legacySuite)
+    Defaults[key] = currentVersion
+    let persisted = try? Defaults.Keys.strictlyDecodedPersistedInt(key, suiteName: suiteName)
+    guard persisted.flatMap({ $0 }) == currentVersion else {
+      throw SharedStorageMigrationError.activationRecordNotPersisted
+    }
   }
 
   public func migrate() throws {
     try migrate(targetVersion: Self.currentVersion)
   }
 
-  /// Applies every step needed to reach `targetVersion`. Internal so tests can
-  /// exercise a generation bump before this build ships with one.
+  /// Lets tests exercise a future version bump.
   func migrate(targetVersion: Int) throws {
-    let completedVersion = Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)]
+    let markerKey = Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite)
+    let completedVersion: Int
+    do {
+      completedVersion = try Defaults.Keys.strictlyDecodedPersistedInt(markerKey, suiteName: sharedSuiteName) ?? 0
+    } catch {
+      guard error is DefaultsValueValidationError else { throw error }
+      throw SharedStorageMigrationError.completionMarkerNotPersisted
+    }
     guard completedVersion < targetVersion else { return }
 
     if completedVersion == 0 {
@@ -95,8 +160,7 @@ public final class SharedStorageMigration {
     try markComplete(targetVersion: targetVersion, previousVersion: completedVersion)
   }
 
-  /// Order matters: stale cleanup runs before the copy so credentials left by an
-  /// earlier attempt cannot outlive a server that legacy data no longer has.
+  /// Clear stale credentials before replacing the previous server list.
   private func importLegacyState() throws {
     let legacyServers = try validatedLegacyServers()
     try removeStaleSharedState(legacyIDs: Set(legacyServers.map(\.id)))
@@ -106,8 +170,7 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Strict decode: one bad element rejects the whole array instead of importing
-  /// a silently shortened server list.
+  /// Reject the import if any server fails to decode.
   private func validatedLegacyServers() throws -> [ServerConfig] {
     do {
       return try Defaults.Keys.strictlyDecodedArray(.servers(suite: legacySuite))
@@ -117,8 +180,7 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Deletes credentials orphaned by an earlier incomplete attempt. Legacy data
-  /// is never removed, only shared entries the current legacy set lacks.
+  /// Remove shared credentials orphaned by an earlier attempt.
   private func removeStaleSharedState(legacyIDs: Set<UUID>) throws {
     let previousSharedIDs = Set(Defaults[.servers(suite: sharedSuite)].map(\.id))
     for staleID in previousSharedIDs.subtracting(legacyIDs) {
@@ -126,8 +188,6 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Writes the array and verifies it by readback. The completion marker is not
-  /// written yet, so a rejected write leaves a retryable state.
   private func copyConfiguration(_ servers: [ServerConfig]) throws {
     Defaults[.servers(suite: sharedSuite)] = servers
     guard let persisted = try? persistedServers(), configsMatch(persisted, servers) else {
@@ -135,8 +195,7 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Reads the persistent domain, not registered defaults, so a fallback value
-  /// cannot mask a failed write. Success is not a disk-durability guarantee.
+  /// Reads the persistent domain to detect rejected writes. Disk writes remain asynchronous.
   private func persistedServers() throws -> [ServerConfig] {
     try Defaults.Keys.strictlyDecodedPersistedArray(
       .servers(suite: sharedSuite),
@@ -144,8 +203,7 @@ public final class SharedStorageMigration {
     )
   }
 
-  /// An absent legacy secret clears any shared copy from an earlier attempt; a
-  /// present one is verified by readback before the run continues.
+  /// Clear any earlier shared copy when the legacy credential is absent.
   private func copyCredential(for serverID: UUID) throws {
     let credential = try legacyKeychain.readCredential(for: serverID)
     if let credential {
@@ -158,19 +216,17 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Written last, after every copy verified. A rejected marker write restores
-  /// the previous generation so the import stays retryable.
+  /// Publish completion last. Keep the previous version if readback fails.
   private func markComplete(targetVersion: Int, previousVersion: Int) throws {
-    Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = targetVersion
-    guard Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] >= targetVersion else {
-      // Keep the last verified generation instead of claiming a fresh start.
-      Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = previousVersion
+    let markerKey = Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite)
+    Defaults[markerKey] = targetVersion
+    let persisted = try? Defaults.Keys.strictlyDecodedPersistedInt(markerKey, suiteName: sharedSuiteName)
+    guard persisted.flatMap({ $0 }) == targetVersion else {
+      Defaults[markerKey] = previousVersion
       throw SharedStorageMigrationError.completionMarkerNotPersisted
     }
   }
 
-  /// Reads first so repeat attempts stay idempotent, then verifies the delete:
-  /// cleanup that fails silently would leave an old secret in shared storage.
   private func removeSharedCredentialIfPresent(for serverID: UUID) throws {
     guard try sharedKeychain.readCredential(for: serverID) != nil else { return }
     try sharedKeychain.deleteCredential(for: serverID)
@@ -179,14 +235,12 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Compares every stored field because `ServerConfig.==` compares only IDs; a
-  /// changed URL or label would otherwise pass as a successful copy.
+  /// `ServerConfig.==` compares IDs only.
   private func configsMatch(_ lhs: [ServerConfig], _ rhs: [ServerConfig]) -> Bool {
     guard lhs.count == rhs.count else { return false }
     return zip(lhs, rhs).allSatisfy { configFieldsMatch($0.0, $0.1) }
   }
 
-  /// Field-by-field equality; display metadata must round-trip too.
   private func configFieldsMatch(_ lhs: ServerConfig, _ rhs: ServerConfig) -> Bool {
     lhs.id == rhs.id
       && lhs.label == rhs.label

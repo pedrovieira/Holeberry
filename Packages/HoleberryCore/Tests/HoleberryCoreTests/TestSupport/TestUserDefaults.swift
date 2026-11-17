@@ -18,6 +18,7 @@ final class TestUserDefaults: UserDefaults, @unchecked Sendable {
   /// a test prove that a code path never attempts the write at all.
   private(set) var attemptedSetKeys: [String] = []
   private(set) var attemptedRemoveKeys: [String] = []
+  private(set) var persistentDomainReadCount = 0
 
   private var values: [String: Any] = [:]
   private var registeredValues: [String: Any] = [:]
@@ -43,6 +44,7 @@ final class TestUserDefaults: UserDefaults, @unchecked Sendable {
   }
 
   override func persistentDomain(forName domainName: String) -> [String: Any]? {
+    persistentDomainReadCount += 1
     guard domainName == self.domainName else { return nil }
     return values
   }

@@ -68,7 +68,7 @@ struct QueryStatisticsProvider: TimelineProvider {
       return .setupRequired(now: now)
     }
     _ = suite.synchronize()
-    guard SharedStorageMigration.isComplete(in: suite) else {
+    guard (try? SharedStorageMigration.readiness(in: suite, suiteName: appGroupIdentifier)) == .ready else {
       return .setupRequired(now: now)
     }
 
@@ -97,6 +97,11 @@ struct QueryStatisticsProvider: TimelineProvider {
     logSummaryFailures(results, credentialService: sharedKeychain.service)
     await manager.logoutAll()
     _ = suite.synchronize()
+
+    // Migration readiness can change during the fetch.
+    guard (try? SharedStorageMigration.readiness(in: suite, suiteName: appGroupIdentifier)) == .ready else {
+      return .setupRequired(now: now)
+    }
 
     let current = scopedServers(storage.loadServers())
     guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {

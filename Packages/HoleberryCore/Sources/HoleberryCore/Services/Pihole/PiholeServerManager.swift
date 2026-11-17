@@ -13,6 +13,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
   private let executionMode: ServiceExecutionMode
+  private let allowsServerChanges: Bool
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
   /// Called after a persisted server or credential change.
   private let persistentChangeHandler: () -> Void
@@ -28,12 +29,14 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
     executionMode: ServiceExecutionMode = .application,
+    allowsServerChanges: Bool = true,
     persistentChangeHandler: @escaping () -> Void = {}
   ) {
     self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
     self.executionMode = executionMode
+    self.allowsServerChanges = allowsServerChanges
     self.persistentChangeHandler = persistentChangeHandler
     self.servers = []
     loadServers()
@@ -55,6 +58,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Server CRUD
 
   public func addServer(label: String?, icon: String? = nil, url: String, credential: String) async throws {
+    guard allowsServerChanges else {
+      throw PiholeServerMutationError.storageUnavailable
+    }
+
     guard servers.count < Self.maxServers else {
       throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
@@ -104,7 +111,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     credential: String?,
     version: ServerVersion? = nil
   ) {
-    guard let idx = servers.firstIndex(where: { $0.id == id }) else { return }
+    guard allowsServerChanges, let idx = servers.firstIndex(where: { $0.id == id }) else { return }
 
     if let existingService = services[id] {
       let urlChanged = url != existingService.url
@@ -182,6 +189,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func deleteServer(id: UUID) {
+    guard allowsServerChanges else { return }
     let hadServer = servers.contains { $0.id == id }
     servers.removeAll { $0.id == id }
     saveServers()
@@ -344,6 +352,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func updateServerVersion(id: UUID, version: ServerVersion) {
+    guard allowsServerChanges else { return }
     services[id]?.version = version
     syncConfigs()
     saveServers()

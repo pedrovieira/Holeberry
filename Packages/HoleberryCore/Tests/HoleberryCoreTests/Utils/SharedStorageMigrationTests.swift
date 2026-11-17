@@ -124,6 +124,85 @@ struct DefaultsTargetVerificationTests {
   }
 }
 
+@Suite("Shared storage readiness")
+@MainActor
+struct SharedStorageReadinessTests {
+  @Test func readyStorageReadsOnePersistentDomainSnapshot() throws {
+    let suite = TestUserDefaults()
+    Defaults[.sharedStorageMigrationVersion(suite: suite)] = SharedStorageMigration.currentVersion
+    Defaults[.servers(suite: suite)] = []
+
+    #expect(try SharedStorageMigration.readiness(in: suite, suiteName: suite.domainName) == .ready)
+    #expect(suite.persistentDomainReadCount == 1)
+  }
+
+  @Test func registeredCompletionValueWithoutPersistedMarkerIsPending() throws {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    let marker = Defaults.Keys.sharedStorageMigrationVersion(suite: suite).name
+    suite.register(defaults: [marker: SharedStorageMigration.currentVersion])
+
+    #expect(suite.object(forKey: marker) as? Int == SharedStorageMigration.currentVersion)
+    #expect(try SharedStorageMigration.readiness(in: suite, suiteName: name) == .pending)
+  }
+
+  @Test func currentMarkerWithoutSavedServerArrayThrows() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    suite.set(
+      SharedStorageMigration.currentVersion,
+      forKey: Defaults.Keys.sharedStorageMigrationVersion(suite: suite).name
+    )
+
+    #expect(throws: SharedStorageReadinessError.missingServerConfiguration) {
+      try SharedStorageMigration.readiness(in: suite, suiteName: name)
+    }
+  }
+
+  @Test func currentMarkerWithMalformedServerArrayThrows() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    suite.set(
+      SharedStorageMigration.currentVersion,
+      forKey: Defaults.Keys.sharedStorageMigrationVersion(suite: suite).name
+    )
+    suite.set("not-an-array", forKey: Defaults.Keys.servers(suite: suite).name)
+
+    #expect(throws: SharedStorageReadinessError.malformedServerConfiguration) {
+      try SharedStorageMigration.readiness(in: suite, suiteName: name)
+    }
+  }
+
+  @Test func currentMarkerWithExplicitlySavedEmptyServerArrayIsReady() throws {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    Defaults[.servers(suite: suite)] = []
+    suite.set(
+      SharedStorageMigration.currentVersion,
+      forKey: Defaults.Keys.sharedStorageMigrationVersion(suite: suite).name
+    )
+
+    #expect(try SharedStorageMigration.readiness(in: suite, suiteName: name) == .ready)
+  }
+
+  @Test func newerCompletionVersionThrowsUnsupported() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    let newer = SharedStorageMigration.currentVersion + 1
+    suite.set(
+      newer, forKey: Defaults.Keys.sharedStorageMigrationVersion(suite: suite).name)
+
+    #expect(throws: SharedStorageReadinessError.unsupportedCompletionVersion(newer)) {
+      try SharedStorageMigration.readiness(in: suite, suiteName: name)
+    }
+  }
+
+  @Test func malformedCompletionVersionThrows() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    suite.set(
+      "current", forKey: Defaults.Keys.sharedStorageMigrationVersion(suite: suite).name)
+
+    #expect(throws: SharedStorageReadinessError.malformedCompletionVersion) {
+      try SharedStorageMigration.readiness(in: suite, suiteName: name)
+    }
+  }
+}
+
 @Suite("SharedStorageMigration")
 @MainActor
 struct SharedStorageMigrationTests {
@@ -476,16 +555,78 @@ struct SharedStorageMigrationTests {
     #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
-  @Test func activationRecordsCurrentVersionInLegacySuite() {
-    let suite = TestDefaults.makeSuite()
+  @Test func activationRecordsCurrentVersionInLegacySuite() throws {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    let key = Defaults.Keys.sharedStorageActivatedVersion(suite: suite)
 
-    #expect(SharedStorageMigration.isCurrentVersionActivated(in: suite) == false)
+    #expect(Defaults[key] == 0)
 
-    SharedStorageMigration.markActivated(in: suite)
+    try SharedStorageMigration.markActivated(in: suite, suiteName: name)
 
-    #expect(SharedStorageMigration.isCurrentVersionActivated(in: suite))
+    #expect(Defaults[key] == SharedStorageMigration.currentVersion)
+    #expect(suite.persistentDomain(forName: name)?[key.name] as? Int == SharedStorageMigration.currentVersion)
+  }
+
+  @Test func activationRecordWriteFailureThrows() {
+    let suite = TestUserDefaults()
+    suite.rejectedWriteKeys = [Defaults.Keys.sharedStorageActivatedVersion(suite: suite).name]
+
+    #expect(throws: SharedStorageMigrationError.activationRecordNotPersisted) {
+      try SharedStorageMigration.markActivated(in: suite, suiteName: suite.domainName)
+    }
+  }
+
+  @Test func activationReaderIgnoresSearchDomainValue() throws {
+    let suite = TestUserDefaults()
+    let key = Defaults.Keys.sharedStorageActivatedVersion(suite: suite)
+    suite.register(defaults: [key.name: SharedStorageMigration.currentVersion])
+
+    #expect(try SharedStorageMigration.activatedVersion(in: suite, suiteName: suite.domainName) == 0)
+  }
+
+  @Test func negativePersistedActivationVersionIsRejected() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    suite.set(-1, forKey: Defaults.Keys.sharedStorageActivatedVersion(suite: suite).name)
+
+    #expect(throws: SharedStorageMigrationError.activationRecordNotPersisted) {
+      try SharedStorageMigration.activatedVersion(in: suite, suiteName: name)
+    }
+  }
+
+  @Test func malformedPersistedActivationVersionIsRejected() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    suite.set("current", forKey: Defaults.Keys.sharedStorageActivatedVersion(suite: suite).name)
+
+    #expect(throws: SharedStorageMigrationError.activationRecordNotPersisted) {
+      try SharedStorageMigration.activatedVersion(in: suite, suiteName: name)
+    }
+  }
+
+  @Test func activationReaderReturnsPersistedVersion() throws {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    try SharedStorageMigration.markActivated(in: suite, suiteName: name)
+
     #expect(
-      Defaults[.sharedStorageActivatedVersion(suite: suite)] == SharedStorageMigration.currentVersion)
+      try SharedStorageMigration.activatedVersion(in: suite, suiteName: name)
+        == SharedStorageMigration.currentVersion
+    )
+  }
+
+  @Test func registeredCompletionMarkerDoesNotSkipFirstImport() throws {
+    let sharedSuite = TestUserDefaults()
+    let marker = Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite).name
+    sharedSuite.register(defaults: [marker: SharedStorageMigration.currentVersion])
+    let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+
+    try harness.migration.migrate()
+
+    #expect(Defaults[.servers(suite: sharedSuite)].map(\.id) == [server.id])
+    #expect(
+      sharedSuite.persistentDomain(forName: sharedSuite.domainName)?[marker] as? Int
+        == SharedStorageMigration.currentVersion
+    )
   }
 
   @Test func newerGenerationRecordsCompletionWithoutReimportingLegacy() throws {

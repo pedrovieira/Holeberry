@@ -1,3 +1,4 @@
+import CoreFoundation
 import Defaults
 import Foundation
 
@@ -107,18 +108,14 @@ extension Defaults.Keys {
     Defaults.Key<Date?>("gravityUpdateNextDue", default: nil, suite: suite)
   }
 
-  /// Version of the verified legacy-to-shared storage migration completed in
-  /// the App Group suite. Zero means migration has not completed.
+  /// Verified App Group migration version. Zero means pending.
   public static func sharedStorageMigrationVersion(
     suite: UserDefaults = .standard
   ) -> Defaults.Key<Int> {
     Defaults.Key<Int>("sharedStorageMigrationVersion", default: 0, suite: suite)
   }
 
-  /// Local metadata marker remembering which migration generation this app
-  /// activated. Stored in the standard suite so it survives a later group
-  /// resolution failure; it never contains configuration. Compare it with
-  /// `SharedStorageMigration.currentVersion` to decide whether startup migrates.
+  /// App-local record of prior shared storage activation.
   public static func sharedStorageActivatedVersion(
     suite: UserDefaults = .standard
   ) -> Defaults.Key<Int> {
@@ -145,13 +142,9 @@ enum DefaultsValueValidationError: Error, Equatable {
   case missingPersistedValue(String)
 }
 
-// Migration-only reads: normal Defaults array decoding drops invalid elements,
-// and registered defaults can hide a missing write. Keep raw suite access here
-// so migration can verify a complete copy without spreading UserDefaults access.
+// Strict reads reject partial arrays and can bypass registered defaults.
 extension Defaults.Keys {
-  /// Decodes a stored array through the Defaults bridge without accepting
-  /// partial results. A present value that loses elements during decoding
-  /// throws instead of becoming an empty or partial array.
+  /// Throws if any stored element fails to decode.
   static func strictlyDecodedArray<Element: Defaults.Serializable>(
     _ key: Defaults.Key<[Element]>
   ) throws -> [Element] {
@@ -159,19 +152,49 @@ extension Defaults.Keys {
     return try decodeStrictArray(rawValue, keyName: key.name)
   }
 
-  /// Decodes only the value explicitly saved in the suite's persistent domain.
-  ///
-  /// An absent key or a registered fallback default throws instead of decoding
-  /// as empty, so a successful result proves the suite holds a saved value.
-  /// This is an in-process check; it does not prove disk durability.
+  /// Requires an explicitly saved array. Readback checks the in-process domain.
   static func strictlyDecodedPersistedArray<Element: Defaults.Serializable>(
     _ key: Defaults.Key<[Element]>,
     suiteName: String
   ) throws -> [Element] {
-    guard let rawValue = key.suite.persistentDomain(forName: suiteName)?[key.name] else {
-      throw DefaultsValueValidationError.missingPersistedValue(key.name)
+    try PersistedDomain(suite: key.suite, name: suiteName).strictlyDecodedArray(key)
+  }
+
+  static func strictlyDecodedPersistedInt(
+    _ key: Defaults.Key<Int>,
+    suiteName: String
+  ) throws -> Int? {
+    try PersistedDomain(suite: key.suite, name: suiteName).strictlyDecodedInt(key)
+  }
+
+  struct PersistedDomain {
+    private let values: [String: Any]
+
+    init(suite: UserDefaults, name: String) {
+      values = suite.persistentDomain(forName: name) ?? [:]
     }
-    return try decodeStrictArray(rawValue, keyName: key.name)
+
+    func strictlyDecodedArray<Element: Defaults.Serializable>(
+      _ key: Defaults.Key<[Element]>
+    ) throws -> [Element] {
+      guard let rawValue = values[key.name] else {
+        throw DefaultsValueValidationError.missingPersistedValue(key.name)
+      }
+      return try Defaults.Keys.decodeStrictArray(rawValue, keyName: key.name)
+    }
+
+    /// Rejects Boolean or fractional values.
+    func strictlyDecodedInt(_ key: Defaults.Key<Int>) throws -> Int? {
+      guard let rawValue = values[key.name] else { return nil }
+      guard let number = rawValue as? NSNumber, CFGetTypeID(number) == CFNumberGetTypeID() else {
+        throw DefaultsValueValidationError.malformedValue(key.name)
+      }
+      let value = number.intValue
+      guard number.doubleValue == Double(value) else {
+        throw DefaultsValueValidationError.malformedValue(key.name)
+      }
+      return value
+    }
   }
 
   private static func decodeStrictArray<Element: Defaults.Serializable>(
