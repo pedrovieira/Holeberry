@@ -1,9 +1,9 @@
 import Foundation
 
-/// Deep links the app advertises through `CFBundleURLSchemes`.
+/// Deep links shared by the app and widget targets.
 ///
-/// The app and every widget target compile against these values, so the scheme
-/// is defined once instead of drifting between call sites.
+/// The scheme mirrors `CFBundleURLSchemes` in the app's Info.plist, generated
+/// from project.yml. Keep the scheme here and in project.yml in sync.
 public enum AppDeepLink {
   /// URL scheme shared by every deep link the app handles.
   public static let scheme = "holeberry"
