@@ -142,16 +142,6 @@ enum DefaultsValueValidationError: Error, Equatable {
   case missingPersistedValue(String)
 }
 
-/// Injects a raw value into the underlying suite for malformed-storage tests.
-func setRawDefaultsValue<Value>(_ value: Any, for key: Defaults.Key<Value>) {
-  key.suite.set(value, forKey: key.name)
-}
-
-/// Reads the raw underlying value without `Defaults` decoding.
-func rawDefaultsValue<Value>(for key: Defaults.Key<Value>) -> Any? {
-  key.suite.object(forKey: key.name)
-}
-
 // Strict reads reject partial arrays and can bypass registered defaults.
 extension Defaults.Keys {
   /// Throws if any stored element fails to decode.
