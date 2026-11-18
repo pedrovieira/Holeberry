@@ -518,6 +518,33 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
   }
 
+  @Test func malformedPriorSharedServersBlockMigrationUntilRepaired() throws {
+    let harness = makeHarness()
+    let kept = ServerConfig(id: UUID(), url: "http://kept.local", version: .v6)
+    let removed = ServerConfig(id: UUID(), url: "http://removed.local", version: .v6)
+    let key = Defaults.Keys.servers(suite: harness.sharedSuite)
+    let encoded = try #require([ServerConfig].bridge.serialize([removed]))
+    let malformed = encoded + ["not-json"]
+    Defaults[.servers(suite: harness.legacySuite)] = [kept]
+    setRawDefaultsValue(malformed, for: key)
+    try harness.sharedKeychain.saveCredential("stale-secret", for: removed.id)
+
+    #expect(throws: SharedStorageReadinessError.malformedServerConfiguration) {
+      try harness.migration.migrate()
+    }
+
+    #expect(rawDefaultsValue(for: key) as? [String] == malformed)
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
+    #expect(harness.sharedKeychain.deleteCallCount == 0)
+    #expect(harness.legacyKeychain.readCallCount == 0)
+
+    Defaults[key] = [removed]
+    try harness.migration.migrate()
+
+    #expect(Defaults[key].map(\.id) == [kept.id])
+    #expect(try harness.sharedKeychain.readCredential(for: removed.id) == nil)
+  }
+
   @Test func completedMigrationDoesNotConsultLegacy() throws {
     let harness = makeHarness()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
@@ -627,6 +654,22 @@ struct SharedStorageMigrationTests {
       sharedSuite.persistentDomain(forName: sharedSuite.domainName)?[marker] as? Int
         == SharedStorageMigration.currentVersion
     )
+  }
+
+  @Test func negativeCompletionMarkerRejectsMigrationBeforeAnyWrites() {
+    let harness = makeHarness()
+    let markerKey = Defaults.Keys.sharedStorageMigrationVersion(suite: harness.sharedSuite)
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[markerKey] = -1
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+
+    #expect(throws: SharedStorageReadinessError.unsupportedCompletionVersion(-1)) {
+      try harness.migration.migrate()
+    }
+
+    #expect(Defaults[markerKey] == -1)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
   @Test func newerGenerationRecordsCompletionWithoutReimportingLegacy() throws {

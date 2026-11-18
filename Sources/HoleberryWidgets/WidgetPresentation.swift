@@ -48,6 +48,15 @@ struct WidgetPresentation: Equatable, Sendable {
     return statistics
   }
 
+  var statusText: String {
+    switch availability {
+    case .allAvailable: return "All servers online"
+    case .someAvailable: return "Some servers unavailable"
+    case .noneAvailable: return "All servers unavailable"
+    case .notChecked: return "All servers"
+    }
+  }
+
   private init(content: Content, availability: QueryStatisticsAvailability, lastCheckedAt: Date?) {
     self.content = content
     self.availability = availability

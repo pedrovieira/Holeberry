@@ -98,11 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
-    // Initialize shared storage before widgets read it, then refresh every widget
-    // kind only when this launch just migrated the stores. Server and credential
-    // changes reload through the manager's persistent change handler instead.
-    _ = appStorage
-    if appStorage.didMigrate {
+    if appStorage.didActivate {
       WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -293,7 +289,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     legacyKeychain: KeychainManager
   ) -> AppStorageContext {
     switch selection {
-    case .useShared(let sharedSuite, let didMigrate):
+    case .useShared(let sharedSuite, let didActivate):
       let sharedKeychain: KeychainManager
       do {
         sharedKeychain = try makeSharedKeychain()
@@ -308,7 +304,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
           appLocalSuite: .standard,
           keychain: sharedKeychain
         ),
-        didMigrate: didMigrate,
+        didActivate: didActivate,
         startupStatus: .shared,
         allowsServerChanges: true
       )
@@ -321,7 +317,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
           appLocalSuite: legacySuite,
           keychain: legacyKeychain
         ),
-        didMigrate: false,
+        didActivate: false,
         startupStatus: selection.status,
         allowsServerChanges: selection.allowsServerChanges
       )
@@ -339,7 +335,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     )
     return AppStorageContext(
       storage: storage,
-      didMigrate: false,
+      didActivate: false,
       startupStatus: .recovery,
       allowsServerChanges: false
     )
@@ -360,7 +356,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   private struct AppStorageContext {
     let storage: any AppStorageProviding
-    let didMigrate: Bool
+    let didActivate: Bool
     let startupStatus: AppStorageStartupStatus
     let allowsServerChanges: Bool
   }

@@ -152,6 +152,9 @@ public final class SharedStorageMigration {
       guard error is DefaultsValueValidationError else { throw error }
       throw SharedStorageMigrationError.completionMarkerNotPersisted
     }
+    guard completedVersion >= 0 else {
+      throw SharedStorageReadinessError.unsupportedCompletionVersion(completedVersion)
+    }
     guard completedVersion < targetVersion else { return }
 
     if completedVersion == 0 {
@@ -182,7 +185,15 @@ public final class SharedStorageMigration {
 
   /// Remove shared credentials orphaned by an earlier attempt.
   private func removeStaleSharedState(legacyIDs: Set<UUID>) throws {
-    let previousSharedIDs = Set(Defaults[.servers(suite: sharedSuite)].map(\.id))
+    let previousSharedServers: [ServerConfig]
+    do {
+      previousSharedServers = try persistedServers()
+    } catch DefaultsValueValidationError.missingPersistedValue {
+      return
+    } catch DefaultsValueValidationError.malformedValue {
+      throw SharedStorageReadinessError.malformedServerConfiguration
+    }
+    let previousSharedIDs = Set(previousSharedServers.map(\.id))
     for staleID in previousSharedIDs.subtracting(legacyIDs) {
       try removeSharedCredentialIfPresent(for: staleID)
     }

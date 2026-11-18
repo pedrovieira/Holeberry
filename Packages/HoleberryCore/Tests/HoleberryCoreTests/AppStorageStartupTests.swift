@@ -14,12 +14,12 @@ struct AppStorageStartupTests {
 
     let selection = probe.select(activatedVersion: 0)
 
-    guard case .useShared(let selected, let didMigrate) = selection else {
+    guard case .useShared(let selected, let didActivate) = selection else {
       Issue.record("Expected shared storage")
       return
     }
     #expect(selected === probe.suite)
-    #expect(didMigrate)
+    #expect(didActivate)
     #expect(probe.migrationCount == 1)
     #expect(probe.activationCount == 1)
   }
@@ -49,12 +49,12 @@ struct AppStorageStartupTests {
 
     let selection = probe.select(activatedVersion: 0)
 
-    guard case .useShared(let selected, let didMigrate) = selection else {
+    guard case .useShared(let selected, let didActivate) = selection else {
       Issue.record("Expected shared storage")
       return
     }
     #expect(selected === probe.suite)
-    #expect(didMigrate)
+    #expect(didActivate)
     #expect(probe.activationCount == 1)
   }
 
@@ -110,12 +110,12 @@ struct AppStorageStartupTests {
 
     let selection = probe.select(activatedVersion: SharedStorageMigration.currentVersion)
 
-    guard case .useShared(let selected, let didMigrate) = selection else {
+    guard case .useShared(let selected, let didActivate) = selection else {
       Issue.record("Expected shared storage")
       return
     }
     #expect(selected === probe.suite)
-    #expect(didMigrate == false)
+    #expect(didActivate == false)
     #expect(probe.migrationCount == 0)
     #expect(probe.activationCount == 0)
   }
@@ -137,7 +137,7 @@ struct AppStorageStartupTests {
 
   @Test func writeAccessAndStatusFollowTheSelection() {
     let suite = TestDefaults.makeSuite()
-    let shared = AppStorageStartupSelection.useShared(suite, didMigrate: false)
+    let shared = AppStorageStartupSelection.useShared(suite, didActivate: false)
     let legacy = AppStorageStartupSelection.useLegacy(cause: AppStorageStartupTestError.migrationFailed)
     let recovery = AppStorageStartupSelection.unavailable(
       cause: AppStorageStartupTestError.resolutionFailed
@@ -186,7 +186,7 @@ struct AppStorageStartupTests {
     }
   }
 
-  @Test func activationFailureAfterSuccessfulImportIsUnavailable() {
+  @Test func activationRetryAfterSuccessfulImportRequestsWidgetReload() {
     let probe = StartupProbe(suite: TestDefaults.makeSuite())
     probe.readiness = .success(.pending)
     probe.readinessAfterMigration = .success(.ready)
@@ -201,6 +201,20 @@ struct AppStorageStartupTests {
     #expect(cause as? AppStorageStartupTestError == .activationNotPersisted)
     #expect(probe.migrationCount == 1)
     #expect(probe.activationCount == 1)
+
+    probe.readiness = .success(.ready)
+    probe.activationError = nil
+
+    let retry = probe.select(activatedVersion: 0)
+
+    guard case .useShared(let selected, let shouldReloadWidgets) = retry else {
+      Issue.record("Expected shared storage after recording activation")
+      return
+    }
+    #expect(selected === probe.suite)
+    #expect(shouldReloadWidgets)
+    #expect(probe.migrationCount == 1)
+    #expect(probe.activationCount == 2)
   }
 
   @Test func retryAfterFailedCopyImportsEditedLegacyConnection() throws {
@@ -263,12 +277,12 @@ struct AppStorageStartupTests {
     Defaults[.servers(suite: legacySuite)] = [edited]
     sharedSuite.rejectedWriteKeys = []
 
-    guard case .useShared(let selected, let didMigrate) = select() else {
+    guard case .useShared(let selected, let didActivate) = select() else {
       Issue.record("Expected shared storage after a successful retry")
       return
     }
     #expect(selected === sharedSuite)
-    #expect(didMigrate)
+    #expect(didActivate)
     #expect(migrationCount == 2)
     #expect(activationCount == 1)
     #expect(Defaults[.servers(suite: sharedSuite)].map(\.label) == ["Edited"])
@@ -286,12 +300,12 @@ struct AppStorageStartupTests {
 
     let selection = probe.select(readActivatedVersion: { throw AppStorageStartupTestError.activationUnreadable })
 
-    guard case .useShared(let selected, let didMigrate) = selection else {
+    guard case .useShared(let selected, let didActivate) = selection else {
       Issue.record("Expected verified shared storage to win")
       return
     }
     #expect(selected === probe.suite)
-    #expect(didMigrate == false)
+    #expect(didActivate)
     #expect(probe.migrationCount == 0)
     #expect(probe.activationCount == 1)
   }

@@ -14,6 +14,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   private static let bottomInset: CGFloat = 13
   private static let dividerSpacing: CGFloat = 5
   private static let middleGap: CGFloat = 8
+  private static let unavailableText = "Statistics unavailable"
   private static let blockedBlue = Color(
     .sRGB,
     red: 108.0 / 255.0,
@@ -51,7 +52,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     case .noServers:
       guidance("Add a server in Holeberry", scale: scale)
     case .unavailable:
-      guidance(unavailableText, scale: scale)
+      guidance(Self.unavailableText, scale: scale)
         .overlay(alignment: .topLeading) {
           header(scale: scale)
             .padding(.horizontal, Self.contentInset * scale)
@@ -66,7 +67,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
         .fill(healthColor)
         .frame(width: 10 * scale, height: 10 * scale)
       if entry.presentation.availability != .noneAvailable {
-        Text(statusText)
+        Text(entry.presentation.statusText)
           .font(.system(size: 8.5 * scale, weight: .semibold))
           .foregroundStyle(.primary)
           .lineLimit(1)
@@ -196,15 +197,6 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     return String(format: "Updated %02dh%02d", components.hour ?? 0, components.minute ?? 0)
   }
 
-  private var statusText: String {
-    switch entry.presentation.availability {
-    case .allAvailable: return "All servers online"
-    case .someAvailable: return "Some servers offline"
-    case .noneAvailable: return "All servers offline"
-    case .notChecked: return "All servers"
-    }
-  }
-
   private var healthColor: Color {
     switch entry.presentation.availability {
     case .allAvailable: return ServerStatusColor.healthy.color
@@ -225,14 +217,8 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     entry.presentation.availability == .allAvailable || entry.presentation.availability == .someAvailable
   }
 
-  private var unavailableText: String {
-    entry.presentation.availability == .noneAvailable
-      ? "Statistics Unavailable, all servers offline"
-      : "Statistics unavailable"
-  }
-
   private var accessibilityText: String {
-    var parts: [String] = showsHeader ? [statusText] : []
+    var parts: [String] = showsHeader ? [entry.presentation.statusText] : []
     if hasHealthyServer {
       parts.append("24 hours")
     }
@@ -251,7 +237,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       case .noServers:
         parts.append("Add a server in Holeberry")
       case .unavailable:
-        parts.append(unavailableText)
+        parts.append(Self.unavailableText)
       case .statistics:
         break
       }

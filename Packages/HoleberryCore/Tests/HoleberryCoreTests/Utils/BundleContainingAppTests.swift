@@ -203,9 +203,10 @@ struct BundleContainingAppTests {
     }
   }
 
-  @Test func nonGroupAppGroupIdentifierMetadataThrows() throws {
+  @Test(arguments: ["me.example.tests", "group."])
+  func invalidAppGroupIdentifierMetadataThrows(identifier: String) throws {
     let bundle = try makeMetadataBundle(
-      appGroupIdentifier: "me.example.tests",
+      appGroupIdentifier: identifier,
       keychainAccessGroup: "TEAMID.me.example.tests.shared"
     )
     defer { TestBundles.remove(bundle.bundleURL) }

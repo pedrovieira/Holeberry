@@ -25,14 +25,11 @@ extension Bundle {
     Bundle.main.bundleIdentifier ?? "me.pedrovieira.holeberry"
   }
 
-  /// Returns the App Group identifier from this bundle's Info.plist.
-  ///
-  /// Rejects missing, blank, and unexpanded values, plus identifiers without
-  /// the `group.` prefix. The prefix check does not verify that the App Group
-  /// is registered with the system.
+  /// Reads a bundled App Group identifier and validates its prefix and suffix.
   public func sharedAppGroupIdentifier() throws -> String {
     let identifier = try requiredMetadataValue(forKey: Self.sharedAppGroupIdentifierInfoKey)
-    guard identifier.hasPrefix("group.") else {
+    let prefix = "group."
+    guard identifier.hasPrefix(prefix), identifier != prefix else {
       throw BundleMetadataError.invalidInfoValue(Self.sharedAppGroupIdentifierInfoKey)
     }
     return identifier

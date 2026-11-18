@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 public enum AppStorageStartupSelection {
-  case useShared(UserDefaults, didMigrate: Bool)
+  case useShared(UserDefaults, didActivate: Bool)
   /// The first migration is pending. Retry on the next launch.
   case useLegacy(cause: any Error)
   /// Recovery blocks writes and legacy import.
@@ -108,14 +108,9 @@ public enum AppStorageStartup {
   ) -> AppStorageStartupSelection {
     switch activation {
     case .success(let version) where version > 0:
-      return .useShared(suite, didMigrate: false)
+      return .useShared(suite, didActivate: false)
     case .success, .failure:
-      do {
-        try markActivated()
-      } catch {
-        return .unavailable(cause: error)
-      }
-      return .useShared(suite, didMigrate: false)
+      return activateShared(suite, markActivated: markActivated)
     }
   }
 
@@ -141,11 +136,18 @@ public enum AppStorageStartup {
       return .unavailable(cause: error)
     }
 
+    return activateShared(suite, markActivated: markActivated)
+  }
+
+  private static func activateShared(
+    _ suite: UserDefaults,
+    markActivated: () throws -> Void
+  ) -> AppStorageStartupSelection {
     do {
       try markActivated()
     } catch {
       return .unavailable(cause: error)
     }
-    return .useShared(suite, didMigrate: true)
+    return .useShared(suite, didActivate: true)
   }
 }

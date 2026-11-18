@@ -34,7 +34,7 @@ struct WidgetPresentationTests {
       servers: [first, second],
       results: [
         first.id: .success(QuerySummary(totalQueries: 1_000, totalBlocked: 500)),
-        second.id: .failure(.network("down"))
+        second.id: .failure(.unauthorized)
       ],
       checkedAt: Date(timeIntervalSince1970: 2_000)
     )
@@ -42,6 +42,7 @@ struct WidgetPresentationTests {
     let presentation = WidgetPresentation(summary: summary, now: Date(timeIntervalSince1970: 2_010))
 
     #expect(presentation.availability == .someAvailable)
+    #expect(presentation.statusText == "Some servers unavailable")
     #expect(presentation.statistics?.totalQueries == 1_000)
     #expect(presentation.statistics?.totalBlocked == 500)
     #expect(presentation.statistics?.blockedPercentage == 50)
@@ -59,6 +60,7 @@ struct WidgetPresentationTests {
     let presentation = WidgetPresentation(summary: summary, now: Date(timeIntervalSince1970: 2_010))
 
     #expect(presentation.availability == .noneAvailable)
+    #expect(presentation.statusText == "All servers unavailable")
     #expect(presentation.content == .unavailable)
     #expect(presentation.statistics == nil)
   }

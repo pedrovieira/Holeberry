@@ -39,9 +39,8 @@ struct QueryStatisticsProvider: TimelineProvider {
     completion: @escaping @Sendable (Timeline<QueryStatisticsEntry>) -> Void
   ) {
     Task { @MainActor in
-      let now = Date()
-      let entry = await loadEntry(now: now)
-      completion(makeTimeline(from: entry, now: now))
+      let entry = await loadEntry(now: Date())
+      completion(makeTimeline(from: entry, now: Date()))
     }
   }
 
@@ -67,8 +66,7 @@ struct QueryStatisticsProvider: TimelineProvider {
       )
       return .setupRequired(now: now)
     }
-    _ = suite.synchronize()
-    guard (try? SharedStorageMigration.readiness(in: suite, suiteName: appGroupIdentifier)) == .ready else {
+    guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
       return .setupRequired(now: now)
     }
 
@@ -96,10 +94,9 @@ struct QueryStatisticsProvider: TimelineProvider {
     let observedAt = Date()
     logSummaryFailures(results, credentialService: sharedKeychain.service)
     await manager.logoutAll()
-    _ = suite.synchronize()
 
     // Migration readiness can change during the fetch.
-    guard (try? SharedStorageMigration.readiness(in: suite, suiteName: appGroupIdentifier)) == .ready else {
+    guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
       return .setupRequired(now: now)
     }
 
@@ -113,6 +110,17 @@ struct QueryStatisticsProvider: TimelineProvider {
       results: results,
       observedAt: observedAt
     )
+  }
+
+  @MainActor
+  private func isSharedStorageReady(in suite: UserDefaults, suiteName: String) -> Bool {
+    _ = suite.synchronize()
+    do {
+      return try SharedStorageMigration.readiness(in: suite, suiteName: suiteName) == .ready
+    } catch {
+      Self.logger.error("Widget shared storage readiness failed: \(error.localizedDescription, privacy: .public)")
+      return false
+    }
   }
 
   private func scopedServers(_ servers: [ServerConfig]) -> [ServerConfig] {
