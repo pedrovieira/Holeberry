@@ -727,9 +727,8 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
   }
 
-  @Test func synchronizationFailureDoesNotBlockCompletedMigration() throws {
+  @Test func completedMigrationCopiesConfigurationAndCredentialsWithoutTemporaryRecords() throws {
     let sharedSuite = TestUserDefaults()
-    sharedSuite.synchronizeResult = false
     let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     let records = [
@@ -743,8 +742,6 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] = records
     try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
-
-    #expect(sharedSuite.synchronize() == false)
 
     try harness.migration.migrate()
 

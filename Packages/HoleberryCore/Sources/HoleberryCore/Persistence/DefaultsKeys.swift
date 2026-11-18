@@ -224,4 +224,14 @@ public final class UnavailableDefaults: UserDefaults {
   public override func set(_ value: Any?, forKey defaultName: String) {}
   public override func removeObject(forKey defaultName: String) {}
   public override func register(defaults registrationDictionary: [String: Any]) {}
+
+  public override func persistentDomain(forName domainName: String) -> [String: Any]? { nil }
+  public override func setPersistentDomain(_ domain: [String: Any], forName domainName: String) {}
+  public override func removePersistentDomain(forName domainName: String) {}
+  public override func dictionaryRepresentation() -> [String: Any] { [:] }
+
+  public override var volatileDomainNames: [String] { [] }
+  public override func volatileDomain(forName domainName: String) -> [String: Any] { [:] }
+  public override func setVolatileDomain(_ domain: [String: Any], forName domainName: String) {}
+  public override func removeVolatileDomain(forName domainName: String) {}
 }

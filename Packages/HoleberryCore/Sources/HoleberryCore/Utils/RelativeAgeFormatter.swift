@@ -10,7 +10,7 @@ public struct RelativeAgeFormatter: Sendable {
   public enum Style: Sendable {
     /// Locale-aware short units; may include seconds ("10 sec. ago").
     case standard
-    /// "a few moments ago" under one minute, then `.standard`.
+    /// "moments ago" under one minute, then `.standard`.
     case standardWithMoments
     /// Locale-aware short units with whole minutes, floored at one minute
     /// ("1 min. ago", never "35 sec. ago").
