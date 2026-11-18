@@ -150,7 +150,7 @@ public final class SharedStorageMigration {
       completedVersion = try Defaults.Keys.strictlyDecodedPersistedInt(markerKey, suiteName: sharedSuiteName) ?? 0
     } catch {
       guard error is DefaultsValueValidationError else { throw error }
-      throw SharedStorageMigrationError.completionMarkerNotPersisted
+      throw SharedStorageReadinessError.malformedCompletionVersion
     }
     guard completedVersion >= 0 else {
       throw SharedStorageReadinessError.unsupportedCompletionVersion(completedVersion)

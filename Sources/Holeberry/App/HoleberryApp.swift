@@ -217,7 +217,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   /// A deliberate widget click opens the settings window instead of the hidden
   /// WindowGroup used to keep the SwiftUI app alive.
   func application(_ application: NSApplication, open urls: [URL]) {
-    guard urls.contains(where: { $0.scheme == AppDeepLink.scheme }) else { return }
+    guard urls.contains(where: AppDeepLink.isSettingsURL) else { return }
     if let settingsWindowController {
       settingsWindowController.showWindow()
     } else {

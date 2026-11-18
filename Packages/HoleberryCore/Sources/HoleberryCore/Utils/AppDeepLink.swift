@@ -10,4 +10,13 @@ public enum AppDeepLink {
 
   /// Opens the settings window; widgets use it as their tap target.
   public static let settingsURL = URL(string: "\(scheme)://settings")
+
+  /// Whether a URL targets the settings window.
+  public static func isSettingsURL(_ url: URL) -> Bool {
+    url.scheme?.lowercased() == scheme
+      && url.host?.lowercased() == "settings"
+      && url.user == nil && url.password == nil && url.port == nil
+      && (url.path.isEmpty || url.path == "/")
+      && url.query == nil && url.fragment == nil
+  }
 }

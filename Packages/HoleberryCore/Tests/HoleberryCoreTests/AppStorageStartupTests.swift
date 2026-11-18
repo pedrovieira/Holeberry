@@ -420,8 +420,9 @@ struct AppStorageStartupTests {
     #expect(control.persistentDomain(forName: name) as NSDictionary? == seededDomain as NSDictionary?)
     #expect(control.object(forKey: "savedProbe") as? [String] == ["saved"])
     #expect(control.object(forKey: "typedProbe") == nil)
-    // The registration domain is volatile, so check the unavailable instance itself.
-    #expect(unavailable.volatileDomain(forName: UserDefaults.registrationDomain)[registrationProbe] == nil)
+    // Registration is process-wide; inspect it through the control suite so
+    // the unavailable adapter cannot hide a leaked write.
+    #expect(control.volatileDomain(forName: UserDefaults.registrationDomain)[registrationProbe] == nil)
 
     unavailable.removeObject(forKey: "removalProbe")
     #expect(control.object(forKey: "removalProbe") as? [String] == ["kept"])

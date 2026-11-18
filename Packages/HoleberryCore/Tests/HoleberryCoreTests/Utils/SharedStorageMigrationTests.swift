@@ -672,6 +672,23 @@ struct SharedStorageMigrationTests {
     #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
+  @Test func malformedCompletionMarkerRejectsMigrationBeforeAnyWrites() {
+    for value: Any in ["current", true, 1.5] {
+      let sharedSuite = TestUserDefaults()
+      let markerKey = Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite)
+      setRawDefaultsValue(value, for: markerKey)
+      let harness = makeHarness(shared: (sharedSuite.domainName, sharedSuite))
+
+      #expect(throws: SharedStorageReadinessError.malformedCompletionVersion) {
+        try harness.migration.migrate()
+      }
+
+      #expect(sharedSuite.attemptedSetKeys == [markerKey.name])
+      #expect(sharedSuite.attemptedRemoveKeys.isEmpty)
+      #expect(harness.legacyKeychain.readCallCount == 0)
+    }
+  }
+
   @Test func newerGenerationRecordsCompletionWithoutReimportingLegacy() throws {
     let harness = makeHarness()
     let legacy = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v5)
