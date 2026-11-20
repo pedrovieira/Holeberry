@@ -84,4 +84,19 @@ targets:
             echo "warning: swift-format not found in Xcode toolchain"
           fi
 
+# Generate a shared Holeberry scheme for Xcode and command-line builds.
+schemes:
+  Holeberry:
+    build:
+      targets:
+        Holeberry: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
 
