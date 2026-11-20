@@ -46,6 +46,11 @@ final class MockAppStorage: AppStorageProviding {
     self.servers = servers
   }
 
+  func removeServer(id: UUID) throws {
+    try deleteCredential(for: id)
+    saveServers(servers.filter { $0.id != id })
+  }
+
   // MARK: - Credentials
 
   func readCredential(for serverID: UUID) throws -> String? {

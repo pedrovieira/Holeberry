@@ -26,7 +26,7 @@ public enum ServerCheckFailure: Equatable, Sendable {
       return .unsupported
     case .network, .tlsUntrusted, .decoding, .unknown, .invalidDomain:
       // `.invalidDomain` is caller input, not a server state; a health check
-      // never produces it, so this bucket is a formality.
+      // never produces it, and this bucket is a formality.
       return .unreachable
     case .server:
       return .unreachable

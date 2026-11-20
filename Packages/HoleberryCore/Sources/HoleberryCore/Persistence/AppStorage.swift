@@ -1,5 +1,6 @@
 import Defaults
 import Foundation
+import OSLog
 
 // MARK: - Protocol
 
@@ -12,6 +13,7 @@ import Foundation
 public protocol AppStorageProviding {
   func loadServers() -> [ServerConfig]
   func saveServers(_ servers: [ServerConfig])
+  func removeServer(id: UUID) throws
 
   func readCredential(for serverID: UUID) throws -> String?
   func saveCredential(_ credential: String, for serverID: UUID) throws
@@ -25,43 +27,53 @@ public protocol AppStorageProviding {
 
 /// Thin adapter over the existing typed `Defaults` keys and `KeychainManaging`.
 ///
-/// Every load reads the backing store; there is no cache. The adapter does no
-/// normalization, validation, expiry calculation, or error conversion — those
-/// stay with the callers. Construction has no side effects.
+/// Server lists come from the domain shared with the widget. An explicit
+/// connection deletion also removes the original migrated password.
 ///
 /// The two defaults suites are separate dependencies so their locations can move
-/// independently. Both are `.standard` in the current app and no sharing is set
-/// up yet.
+/// independently. The app shares server configurations with its widget while
+/// temporary-unblock records remain in app-local defaults.
 @MainActor
 public final class ConcreteAppStorage: AppStorageProviding {
   private let sharedDataSuite: UserDefaults
   private let appLocalSuite: UserDefaults
   private let keychain: any KeychainManaging
+  private let legacyKeychain: (any KeychainManaging)?
 
   /// - Parameters:
-  ///   - sharedDataSuite: Backing store for server configurations. Uses `.standard`
-  ///     today; the widget work (PR #59) will pass a shared suite here.
+  ///   - sharedDataSuite: Backing store for server configurations.
   ///   - appLocalSuite: Backing store for temporary-unblock records. `.standard`
-  ///     before and after the widget work.
+  ///     in the app; widgets never write these records.
   ///   - keychain: Credential storage, keyed by server UUID.
+  ///   - legacyKeychain: Original credential store for a migrated connection.
   public init(
     sharedDataSuite: UserDefaults,
     appLocalSuite: UserDefaults,
-    keychain: any KeychainManaging
+    keychain: any KeychainManaging,
+    legacyKeychain: (any KeychainManaging)? = nil
   ) {
     self.sharedDataSuite = sharedDataSuite
     self.appLocalSuite = appLocalSuite
+    self.legacyKeychain = legacyKeychain
     self.keychain = keychain
   }
 
   // MARK: - Server configurations
 
+  /// An unreadable saved list reads as no connections. Startup reports it
+  /// separately and blocks editing before any save can replace it.
   public func loadServers() -> [ServerConfig] {
     Defaults[.servers(suite: sharedDataSuite)]
   }
 
   public func saveServers(_ servers: [ServerConfig]) {
     Defaults[.servers(suite: sharedDataSuite)] = servers
+  }
+
+  public func removeServer(id: UUID) throws {
+    try keychain.deleteCredential(for: id)
+    try legacyKeychain?.deleteCredential(for: id)
+    saveServers(loadServers().filter { $0.id != id })
   }
 
   // MARK: - Credentials
@@ -86,5 +98,46 @@ public final class ConcreteAppStorage: AppStorageProviding {
 
   public func saveTemporaryUnblocks(_ records: [TempUnblockRecord], for serverID: UUID) {
     Defaults[.tempUnblocks(for: serverID, suite: appLocalSuite)] = records
+  }
+}
+
+// MARK: - Unavailable Storage
+
+/// Storage for a launch where startup found no usable store.
+///
+/// It reports no connections and refuses every change. Startup blocks editing
+/// in this state, so a refused write signals a defect rather than a user path.
+@MainActor
+public struct UnavailableAppStorage: AppStorageProviding {
+  private let logger = Logger(subsystem: Logger.appSubsystem, category: "storage")
+
+  public init() {}
+
+  public func loadServers() -> [ServerConfig] { [] }
+
+  public func saveServers(_ servers: [ServerConfig]) {
+    logger.error("Refused to save servers: no storage is available for this launch.")
+  }
+
+  public func removeServer(id: UUID) throws {
+    throw HoleberryError.storageUnavailable
+  }
+
+  public func readCredential(for serverID: UUID) throws -> String? {
+    throw HoleberryError.storageUnavailable
+  }
+
+  public func saveCredential(_ credential: String, for serverID: UUID) throws {
+    throw HoleberryError.storageUnavailable
+  }
+
+  public func deleteCredential(for serverID: UUID) throws {
+    throw HoleberryError.storageUnavailable
+  }
+
+  public func loadTemporaryUnblocks(for serverID: UUID) -> [TempUnblockRecord] { [] }
+
+  public func saveTemporaryUnblocks(_ records: [TempUnblockRecord], for serverID: UUID) {
+    logger.error("Refused to save temporary unblocks: no storage is available for this launch.")
   }
 }

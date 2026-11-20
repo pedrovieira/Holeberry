@@ -118,7 +118,7 @@ struct PiholeServiceFactoryTests {
     )
     Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)] = [record]
     let storage = makeTestStorage(
-      appLocalSuite: appLocalSuite, sharedDataSuite: sharedDataSuite)
+      appLocalSuite: appLocalSuite, sharedData: sharedDataSuite)
 
     let service = try factory.buildService(
       config: config, credential: "api-token", session: session, storage: storage,

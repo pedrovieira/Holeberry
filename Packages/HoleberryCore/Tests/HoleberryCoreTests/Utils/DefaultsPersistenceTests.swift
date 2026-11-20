@@ -85,4 +85,58 @@ struct DefaultsPersistenceTests {
     )
     #expect(manager.servers.isEmpty)
   }
+
+  @Test func sharedStorageMigrationVersionDefaultsToZero() {
+    let suite = TestDefaults.makeSuite()
+
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: suite)] == 0)
+
+    Defaults[.sharedStorageMigrationVersion(suite: suite)] = 1
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: suite)] == 1)
+  }
+
+  @Test func sharedStorageActivatedVersionDefaultsToZero() {
+    let suite = TestDefaults.makeSuite()
+
+    #expect(Defaults[.sharedStorageActivatedVersion(suite: suite)] == 0)
+
+    Defaults[.sharedStorageActivatedVersion(suite: suite)] = 1
+    #expect(Defaults[.sharedStorageActivatedVersion(suite: suite)] == 1)
+  }
+
+  @Test func migrationVersionsRejectFloatingPointNumbers() {
+    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let keys = [
+      Defaults.Keys.sharedStorageMigrationVersion(suite: suite),
+      Defaults.Keys.sharedStorageActivatedVersion(suite: suite)
+    ]
+    let values = [
+      NSNumber(value: 0.0), NSNumber(value: 1.0), NSNumber(value: 2.0),
+      NSNumber(value: Float(1.0)), NSNumber(value: 1.5)
+    ]
+    for key in keys {
+      for value in values {
+        setRawDefaultsValue(value, for: key)
+
+        #expect(throws: DefaultsValueValidationError.malformedValue(key.name)) {
+          try PersistedStartupValue.version(key, suiteName: suiteName)
+        }
+      }
+    }
+  }
+
+  @Test func migrationVersionsAcceptIntegerNumbers() throws {
+    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let keys = [
+      Defaults.Keys.sharedStorageMigrationVersion(suite: suite),
+      Defaults.Keys.sharedStorageActivatedVersion(suite: suite)
+    ]
+    for key in keys {
+      for value in [0, 1, 2] {
+        setRawDefaultsValue(NSNumber(value: value), for: key)
+
+        #expect(try PersistedStartupValue.version(key, suiteName: suiteName) == value)
+      }
+    }
+  }
 }

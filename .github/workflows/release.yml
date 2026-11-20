@@ -61,7 +61,10 @@ jobs:
           echo "version=$SPARKLE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          brew update
+          brew install xcodegen
+          xcodegen --version
 
       - name: Import signing certificate
         env:

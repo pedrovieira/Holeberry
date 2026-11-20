@@ -18,6 +18,43 @@ private final class AppStorageTestError: Error, CustomStringConvertible {
 @MainActor
 @Suite("AppStorage")
 struct AppStorageTests {
+  /// Ordinary reads report no connections for a value that cannot be decoded.
+  /// Startup owns the decision to preserve it and block editing.
+  @Test func unreadableSavedListLoadsAsNoServers() {
+    let suite = TestDefaults.makeSuite()
+    let key = Defaults.Keys.servers(suite: suite)
+    setRawDefaultsValue("not-an-array", for: key)
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: suite,
+      appLocalSuite: TestDefaults.makeSuite(),
+      keychain: MockKeychainManager()
+    )
+
+    #expect(storage.loadServers().isEmpty)
+  }
+
+  /// Startup never hands out this adapter with editing enabled; it must not
+  /// pretend that settings or credentials are available.
+  @Test func unavailableStorageReportsNothingAndRefusesCredentials() {
+    let storage = UnavailableAppStorage()
+    let id = UUID()
+
+    #expect(storage.loadServers().isEmpty)
+    #expect(storage.loadTemporaryUnblocks(for: id).isEmpty)
+    #expect(throws: HoleberryError.storageUnavailable) {
+      _ = try storage.readCredential(for: id)
+    }
+    #expect(throws: HoleberryError.storageUnavailable) {
+      try storage.saveCredential("secret", for: id)
+    }
+    #expect(throws: HoleberryError.storageUnavailable) {
+      try storage.deleteCredential(for: id)
+    }
+    #expect(throws: HoleberryError.storageUnavailable) {
+      try storage.removeServer(id: id)
+    }
+  }
+
   private func makeConfig(
     id: UUID = UUID(), label: String? = nil, icon: String? = nil, url: String, version: ServerVersion
   ) -> ServerConfig {
@@ -94,7 +131,7 @@ struct AppStorageTests {
   }
 
   @Test("save uses existing keys and persists empty arrays")
-  func saveUsesExistingKeys() {
+  func saveUsesExistingKeys() throws {
     let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let storage = ConcreteAppStorage(
@@ -204,7 +241,8 @@ struct AppStorageTests {
 
     let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: keychain)
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
+      keychain: keychain)
 
     let replacement = [
       makeConfig(label: "Replacement", icon: "r", url: "http://replacement.local", version: .v6)
@@ -265,7 +303,8 @@ struct AppStorageTests {
       Defaults[.servers(suite: sharedDataSuite)] = intended
     }
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: MockKeychainManager())
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
+      keychain: MockKeychainManager())
 
     let loaded = storage.loadServers()
 
@@ -315,7 +354,8 @@ struct AppStorageTests {
       Defaults[.tempUnblocks(for: serverID, suite: appLocalSuite)] = intended
     }
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: MockKeychainManager())
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
+      keychain: MockKeychainManager())
 
     let loaded = storage.loadTemporaryUnblocks(for: serverID)
 
@@ -333,13 +373,91 @@ struct AppStorageTests {
 
   // MARK: - Credentials
 
+  @Test func clearingTheActivePasswordKeepsTheMigrationCopyUntilConnectionDeletion() throws {
+    let sharedData = TestDefaults.makeNamedSuite()
+    let legacy = MockKeychainManager()
+    let shared = MockKeychainManager()
+    let server = ServerConfig(url: "http://saved.local", version: .v6)
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: sharedData.suite,
+      appLocalSuite: TestDefaults.makeSuite(),
+      keychain: shared,
+      legacyKeychain: legacy
+    )
+    storage.saveServers([server])
+    try legacy.saveCredential("legacy-secret", for: server.id)
+    try shared.saveCredential("active-secret", for: server.id)
+
+    try storage.deleteCredential(for: server.id)
+    #expect(try legacy.readCredential(for: server.id) == "legacy-secret")
+    #expect(try shared.readCredential(for: server.id) == nil)
+
+    try storage.removeServer(id: server.id)
+    #expect(try legacy.readCredential(for: server.id) == nil)
+    #expect(storage.loadServers().isEmpty)
+  }
+
+  @Test func legacyCleanupFailureStillDeletesTheActiveCredential() throws {
+    let legacy = MockKeychainManager()
+    let shared = MockKeychainManager()
+    let id = UUID()
+    try legacy.saveCredential("original-secret", for: id)
+    try shared.saveCredential("active-secret", for: id)
+    let failure = AppStorageTestError("legacy-locked")
+    legacy.errorStub = failure
+    let sharedData = TestDefaults.makeNamedSuite()
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: sharedData.suite,
+      appLocalSuite: TestDefaults.makeSuite(),
+      keychain: shared,
+      legacyKeychain: legacy
+    )
+
+    let error = #expect(throws: AppStorageTestError.self) {
+      try storage.removeServer(id: id)
+    }
+
+    #expect(error === failure)
+    #expect(try shared.readCredential(for: id) == nil)
+  }
+
+  @Test func activeCredentialDeletionFailurePreservesLegacyCredentialAndConnection() throws {
+    let legacy = MockKeychainManager()
+    let active = MockKeychainManager()
+    let server = ServerConfig(url: "http://saved.local", version: .v6)
+    let failure = AppStorageTestError("active-locked")
+    try legacy.saveCredential("legacy-secret", for: server.id)
+    try active.saveCredential("active-secret", for: server.id)
+    active.deleteErrorStub = failure
+    let sharedData = TestDefaults.makeNamedSuite()
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: sharedData.suite,
+      appLocalSuite: TestDefaults.makeSuite(),
+      keychain: active,
+      legacyKeychain: legacy
+    )
+    storage.saveServers([server])
+
+    let error = #expect(throws: AppStorageTestError.self) {
+      try storage.removeServer(id: server.id)
+    }
+
+    #expect(error === failure)
+    #expect(active.deleteCallCount == 1)
+    #expect(legacy.deleteCallCount == 0)
+    #expect(try active.readCredential(for: server.id) == "active-secret")
+    #expect(try legacy.readCredential(for: server.id) == "legacy-secret")
+    #expect(storage.loadServers().map(\.id) == [server.id])
+  }
+
   @Test("credential reads ignore decoy values in both defaults suites")
   func credentialReadsIgnoreDefaultsDecoys() throws {
     let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite, keychain: keychain)
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
+      keychain: keychain)
     let serverID = UUID()
 
     // Synthetic test-only keys: production has no credential defaults key.
@@ -364,7 +482,8 @@ struct AppStorageTests {
     let appLocal = TestDefaults.makeNamedSuite()
     let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedData.suite, appLocalSuite: appLocal.suite, keychain: keychain)
+      sharedDataSuite: sharedData.suite, appLocalSuite: appLocal.suite,
+      keychain: keychain)
     let serverID = UUID()
     let secret = "super-secret-token"
     let sharedDataBaseline = NSDictionary(
@@ -410,8 +529,9 @@ struct AppStorageTests {
     let keychain = MockKeychainManager()
     let original = AppStorageTestError("keychain-failure")
     keychain.errorStub = original
+    let sharedData = TestDefaults.makeNamedSuite()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: TestDefaults.makeSuite(),
+      sharedDataSuite: sharedData.suite,
       appLocalSuite: TestDefaults.makeSuite(),
       keychain: keychain
     )
