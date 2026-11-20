@@ -1,3 +1,4 @@
+import CoreFoundation
 import Defaults
 import Foundation
 
@@ -106,4 +107,134 @@ extension Defaults.Keys {
   ) -> Defaults.Key<Date?> {
     Defaults.Key<Date?>("gravityUpdateNextDue", default: nil, suite: suite)
   }
+
+  /// Verified App Group migration version. Zero means pending.
+  public static func sharedStorageMigrationVersion(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageMigrationVersion", default: 0, suite: suite)
+  }
+
+  /// App-local record of prior shared storage activation.
+  public static func sharedStorageActivatedVersion(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageActivatedVersion", default: 0, suite: suite)
+  }
+}
+
+public enum DefaultsSuiteError: Error, Equatable {
+  case unavailableGroupSuite(String)
+}
+
+extension UserDefaults {
+  /// Opens the registered App Group suite. Never falls back to `.standard`.
+  public static func sharedStorageSuite(appGroupIdentifier: String) throws -> UserDefaults {
+    guard let suite = UserDefaults(suiteName: appGroupIdentifier) else {
+      throw DefaultsSuiteError.unavailableGroupSuite(appGroupIdentifier)
+    }
+    return suite
+  }
+}
+
+enum DefaultsValueValidationError: Error, Equatable {
+  case malformedValue(String)
+  case missingPersistedValue(String)
+}
+
+// Strict reads reject partial arrays and can bypass registered defaults.
+extension Defaults.Keys {
+  /// Requires an explicitly saved array. Readback checks the in-process domain.
+  static func strictlyDecodedPersistedArray<Element: Defaults.Serializable>(
+    _ key: Defaults.Key<[Element]>,
+    suiteName: String
+  ) throws -> [Element] {
+    try PersistedDomain(suite: key.suite, name: suiteName).strictlyDecodedArray(key)
+  }
+
+  static func strictlyDecodedPersistedInt(
+    _ key: Defaults.Key<Int>,
+    suiteName: String
+  ) throws -> Int? {
+    try PersistedDomain(suite: key.suite, name: suiteName).strictlyDecodedInt(key)
+  }
+
+  struct PersistedDomain {
+    private let values: [String: Any]
+
+    init(suite: UserDefaults, name: String) {
+      values = suite.persistentDomain(forName: name) ?? [:]
+    }
+
+    func strictlyDecodedArray<Element: Defaults.Serializable>(
+      _ key: Defaults.Key<[Element]>
+    ) throws -> [Element] {
+      guard let rawValue = values[key.name] else {
+        throw DefaultsValueValidationError.missingPersistedValue(key.name)
+      }
+      return try Defaults.Keys.decodeStrictArray(rawValue, keyName: key.name)
+    }
+
+    /// Missing means a fresh install. A partially decoded list or repeated ID is invalid.
+    func servers(in suite: UserDefaults) throws -> [ServerConfig]? {
+      let key = Defaults.Keys.servers(suite: suite)
+      guard values[key.name] != nil else { return nil }
+      let servers = try strictlyDecodedArray(key)
+      guard Set(servers.map(\.id)).count == servers.count else {
+        throw DefaultsValueValidationError.malformedValue(key.name)
+      }
+      return servers
+    }
+
+    /// Rejects Boolean or fractional values.
+    func strictlyDecodedInt(_ key: Defaults.Key<Int>) throws -> Int? {
+      guard let rawValue = values[key.name] else { return nil }
+      guard let number = rawValue as? NSNumber, CFGetTypeID(number) == CFNumberGetTypeID() else {
+        throw DefaultsValueValidationError.malformedValue(key.name)
+      }
+      let value = number.intValue
+      guard number.doubleValue == Double(value) else {
+        throw DefaultsValueValidationError.malformedValue(key.name)
+      }
+      return value
+    }
+  }
+
+  private static func decodeStrictArray<Element: Defaults.Serializable>(
+    _ rawValue: Any,
+    keyName: String
+  ) throws -> [Element] {
+    guard let serializedElements = rawValue as? [Element.Serializable] else {
+      throw DefaultsValueValidationError.malformedValue(keyName)
+    }
+    guard
+      let decoded = [Element].bridge.deserialize(serializedElements),
+      decoded.count == serializedElements.count
+    else {
+      throw DefaultsValueValidationError.malformedValue(keyName)
+    }
+    return decoded
+  }
+}
+
+/// Empty, no-write suite used only when previously activated shared storage
+/// cannot be reopened. It must never read, contain, or mutate data. Keeping the
+/// adapter here makes every raw `UserDefaults` override live in this file.
+public final class UnavailableDefaults: UserDefaults {
+  @MainActor public static let shared = UnavailableDefaults()
+
+  public override func object(forKey defaultName: String) -> Any? { nil }
+  public override func set(_ value: Any?, forKey defaultName: String) {}
+  public override func removeObject(forKey defaultName: String) {}
+  public override func register(defaults registrationDictionary: [String: Any]) {}
+
+  public override func persistentDomain(forName domainName: String) -> [String: Any]? { nil }
+  public override func setPersistentDomain(_ domain: [String: Any], forName domainName: String) {}
+  public override func removePersistentDomain(forName domainName: String) {}
+  public override func dictionaryRepresentation() -> [String: Any] { [:] }
+
+  public override var volatileDomainNames: [String] { [] }
+  public override func volatileDomain(forName domainName: String) -> [String: Any] { [:] }
+  public override func setVolatileDomain(_ domain: [String: Any], forName domainName: String) {}
+  public override func removeVolatileDomain(forName domainName: String) {}
 }

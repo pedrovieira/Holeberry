@@ -1,5 +1,6 @@
+import Foundation
 import OSLog
 
 extension Logger {
-  public static let appSubsystem = Bundle.main.bundleIdentifier ?? "me.pedrovieira.holeberry"
+  public static let appSubsystem = Bundle.appIdentifier
 }
