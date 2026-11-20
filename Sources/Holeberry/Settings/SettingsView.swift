@@ -1,3 +1,4 @@
+import AppKit
 import Defaults
 import HoleberryCore
 import KeyboardShortcuts
@@ -47,6 +48,7 @@ struct SettingsView: View {
   let discoveryService: PiholeDiscoveryService
   let statusPoller: ServerStatusPoller
   let notificationCoordinator: NotificationCoordinator
+  let startupStatus: AppStorageStartupStatus
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
@@ -55,6 +57,7 @@ struct SettingsView: View {
   init(
     serverManager: PiholeServerManager,
     initialTab: SettingsTab = .servers,
+    startupStatus: AppStorageStartupStatus,
     updater: SPUUpdater? = nil,
     defaultsSuite: UserDefaults = .standard,
     discoveryService: PiholeDiscoveryService,
@@ -62,6 +65,7 @@ struct SettingsView: View {
     notificationCoordinator: NotificationCoordinator
   ) {
     self.serverManager = serverManager
+    self.startupStatus = startupStatus
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
@@ -98,11 +102,16 @@ struct SettingsView: View {
       switch selectedTab {
       case .servers:
         Form {
-          ConnectionListView(
-            serverManager: serverManager,
-            discoveryService: discoveryService,
-            statusPoller: statusPoller
-          )
+          if startupStatus != .recovery {
+            ConnectionListView(
+              serverManager: serverManager,
+              discoveryService: discoveryService,
+              statusPoller: statusPoller
+            )
+          }
+          if startupStatus != .shared {
+            StorageSetupNotice(status: startupStatus)
+          }
         }
         .formStyle(.grouped)
       case .defaults:
@@ -456,5 +465,30 @@ struct SettingsView: View {
   private func syncLaunchAtLoginFromSystem() {
     launchAtLogin = SMAppService.mainApp.status == .enabled
     requiresApproval = SMAppService.mainApp.status == .requiresApproval
+  }
+}
+
+private struct StorageSetupNotice: View {
+  let status: AppStorageStartupStatus
+
+  private var message: String {
+    switch status {
+    case .legacy:
+      return "Widget setup is pending. Quit and reopen Holeberry to retry."
+    case .recovery, .shared:
+      return "Shared storage is unavailable. Quit and reopen Holeberry to retry."
+    }
+  }
+
+  var body: some View {
+    Section {
+      Text(message)
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+      Button("Quit Holeberry") {
+        NSApp.terminate(nil)
+      }
+    }
   }
 }

@@ -17,9 +17,26 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>me.pedrovieira.holeberry</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>holeberry</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>HoleberryAppGroupIdentifier</key>
+	<string>group.me.pedrovieira.holeberry</string>
+	<key>HoleberryContainingAppIdentifier</key>
+	<string>$(HOLEBERRY_APP_BUNDLE_IDENTIFIER)</string>
+	<key>HoleberryKeychainAccessGroup</key>
+	<string>$(AppIdentifierPrefix)me.pedrovieira.holeberry.shared</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
