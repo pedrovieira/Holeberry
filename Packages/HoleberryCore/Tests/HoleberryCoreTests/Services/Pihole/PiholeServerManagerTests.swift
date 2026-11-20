@@ -896,12 +896,14 @@ struct PiholeServerManagerStorageTests {
   private let keychain = MockKeychainManager()
   private let factory = MockPiholeServiceFactory()
   private let detector = MockPiholeVersionDetector()
-  private let sharedDataSuite = TestDefaults.makeSuite()
+  private let sharedData = TestDefaults.makeNamedSuite()
+  private var sharedDataSuite: UserDefaults { sharedData.suite }
   private let appLocalSuite = TestDefaults.makeSuite()
 
   private func makeStorage() -> ConcreteAppStorage {
     ConcreteAppStorage(
       sharedDataSuite: sharedDataSuite,
+      sharedDataSuiteName: sharedData.name,
       appLocalSuite: appLocalSuite,
       keychain: keychain
     )

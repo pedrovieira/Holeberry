@@ -12,6 +12,7 @@ import Foundation
 public protocol AppStorageProviding {
   func loadServers() -> [ServerConfig]
   func saveServers(_ servers: [ServerConfig])
+  func removeServer(id: UUID) throws
 
   func readCredential(for serverID: UUID) throws -> String?
   func saveCredential(_ credential: String, for serverID: UUID) throws
@@ -25,43 +26,67 @@ public protocol AppStorageProviding {
 
 /// Thin adapter over the existing typed `Defaults` keys and `KeychainManaging`.
 ///
-/// Every load reads the backing store; there is no cache. The adapter does no
-/// normalization, validation, expiry calculation, or error conversion — those
-/// stay with the callers. Construction has no side effects.
+/// Server lists come from the persistent domain shared with the widget.
+/// An explicit connection deletion also removes the original migrated password.
 ///
 /// The two defaults suites are separate dependencies so their locations can move
-/// independently. Both are `.standard` in the current app and no sharing is set
-/// up yet.
+/// independently. The app shares server configurations with its widget while
+/// temporary-unblock records remain in app-local defaults.
 @MainActor
 public final class ConcreteAppStorage: AppStorageProviding {
   private let sharedDataSuite: UserDefaults
+  private let sharedDataSuiteName: String
   private let appLocalSuite: UserDefaults
   private let keychain: any KeychainManaging
+  private let legacyKeychain: (any KeychainManaging)?
 
   /// - Parameters:
-  ///   - sharedDataSuite: Backing store for server configurations. Uses `.standard`
-  ///     today; the widget work (PR #59) will pass a shared suite here.
+  ///   - sharedDataSuite: Shared App Group backing store for server configurations.
+  ///   - sharedDataSuiteName: Persistent domain for the server list.
+  ///   - legacyKeychain: Original credential store for a migrated connection.
   ///   - appLocalSuite: Backing store for temporary-unblock records. `.standard`
-  ///     before and after the widget work.
+  ///     in the app; widgets use a no-write empty store for these records.
   ///   - keychain: Credential storage, keyed by server UUID.
   public init(
     sharedDataSuite: UserDefaults,
+    sharedDataSuiteName: String,
     appLocalSuite: UserDefaults,
-    keychain: any KeychainManaging
+    keychain: any KeychainManaging,
+    legacyKeychain: (any KeychainManaging)? = nil
   ) {
+    self.sharedDataSuiteName = sharedDataSuiteName
     self.sharedDataSuite = sharedDataSuite
     self.appLocalSuite = appLocalSuite
+    self.legacyKeychain = legacyKeychain
     self.keychain = keychain
   }
 
   // MARK: - Server configurations
 
   public func loadServers() -> [ServerConfig] {
-    Defaults[.servers(suite: sharedDataSuite)]
+    (try? persistedServers()) ?? []
   }
 
   public func saveServers(_ servers: [ServerConfig]) {
+    guard (try? persistedServers()) != nil else { return }
     Defaults[.servers(suite: sharedDataSuite)] = servers
+  }
+
+  private func persistedServers() throws -> [ServerConfig] {
+    try Defaults.Keys.PersistedDomain(suite: sharedDataSuite, name: sharedDataSuiteName)
+      .servers(in: sharedDataSuite) ?? []
+  }
+
+  public func removeServer(id: UUID) throws {
+    let remaining = try persistedServers().filter { $0.id != id }
+    let legacyDeletion = Result { try legacyKeychain?.deleteCredential(for: id) }
+    try keychain.deleteCredential(for: id)
+    try legacyDeletion.get()
+
+    Defaults[.servers(suite: sharedDataSuite)] = remaining
+    guard try !persistedServers().contains(where: { $0.id == id }) else {
+      throw PiholeServerMutationError.storageUnavailable
+    }
   }
 
   // MARK: - Credentials
