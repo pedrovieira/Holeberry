@@ -40,12 +40,11 @@ enum TestDefaults {
 @MainActor
 func makeTestStorage(
   appLocalSuite: UserDefaults,
-  sharedData: (name: String, suite: UserDefaults) = TestDefaults.makeNamedSuite(),
+  sharedData: UserDefaults = TestDefaults.makeSuite(),
   keychain: MockKeychainManager = MockKeychainManager()
 ) -> ConcreteAppStorage {
   ConcreteAppStorage(
-    sharedDataSuite: sharedData.suite,
-    sharedDataSuiteName: sharedData.name,
+    sharedDataSuite: sharedData,
     appLocalSuite: appLocalSuite,
     keychain: keychain
   )

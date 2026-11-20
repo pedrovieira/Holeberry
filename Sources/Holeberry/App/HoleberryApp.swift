@@ -49,7 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   )
   private lazy var versionDetector = PiholeVersionDetector()
   private lazy var serverManager: PiholeServerManager = {
-    let writesSharedStore = appStorage.startupStatus == .shared
+    let writesSharedStore = appStorage.status == .shared
     return PiholeServerManager(
       storage: appStorage.storage,
       serviceFactory: serviceFactory,
@@ -98,7 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
-    if appStorage.didActivate {
+    if appStorage.activatedNow {
       WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -159,7 +159,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       discoveryService: discoveryService,
       statusPoller: statusPoller,
       notificationCoordinator: notificationCoordinator,
-      startupStatus: appStorage.startupStatus
+      startupStatus: appStorage.status,
+      startupDetail: appStorage.startupDetail
     )
     self.settingsWindowController = settingsWindowController
 
@@ -226,147 +227,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func makeAppStorageContext() -> AppStorageContext {
-    let legacySuite: UserDefaults = .standard
-    let legacyKeychain = KeychainManager()
-    let validateLegacySource: () throws -> Void = {
-      _ = try SharedStorageMigration.legacyServers(in: legacySuite, suiteName: self.activationSuiteName())
-    }
-    let readActivatedVersion: () throws -> Int = {
-      try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: self.activationSuiteName())
-    }
-
-    // Check completion before opening the shared Keychain.
-    let appGroupIdentifier: String
-    do {
-      appGroupIdentifier = try Bundle.main.sharedAppGroupIdentifier()
-    } catch {
-      logger.error("App Group identifier unavailable: \(error.localizedDescription, privacy: .public)")
-      let selection = AppStorageStartup.select(
-        readActivatedVersion: readActivatedVersion,
-        validateLegacySource: validateLegacySource,
-        resolve: { throw error },
-        readReadiness: { _ in .pending },
-        migrate: { _ in },
-        markActivated: {}
-      )
-      return makeContext(selection: selection, legacySuite: legacySuite, legacyKeychain: legacyKeychain)
-    }
-
-    let selection = AppStorageStartup.select(
-      readActivatedVersion: readActivatedVersion,
-      validateLegacySource: validateLegacySource,
-      resolve: { try UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier) },
-      readReadiness: { sharedSuite in
-        try SharedStorageMigration.readiness(in: sharedSuite, suiteName: appGroupIdentifier)
-      },
-      migrate: { sharedSuite in
-        do {
-          try SharedStorageMigration(
-            legacySuite: legacySuite,
-            legacySuiteName: try activationSuiteName(),
-            sharedSuite: sharedSuite,
-            sharedSuiteName: appGroupIdentifier,
-            legacyKeychain: legacyKeychain,
-            sharedKeychain: try makeSharedKeychain()
-          ).migrate()
-        } catch {
-          logger.error("Shared storage migration failed: \(error.localizedDescription, privacy: .public)")
-          throw error
-        }
-      },
-      markActivated: {
-        try SharedStorageMigration.markActivated(
-          in: legacySuite,
-          suiteName: try activationSuiteName()
-        )
-      }
-    )
-    return makeContext(selection: selection, legacySuite: legacySuite, legacyKeychain: legacyKeychain)
-  }
-
-  private func makeContext(
-    selection: AppStorageStartupSelection,
-    legacySuite: UserDefaults,
-    legacyKeychain: KeychainManager
-  ) -> AppStorageContext {
-    guard let legacySuiteName = try? activationSuiteName() else { return unavailableStorageContext() }
-    switch selection {
-    case .useShared(let sharedSuite, let didActivate):
-      let sharedKeychain: KeychainManager
-      let sharedSuiteName: String
-      do {
-        sharedKeychain = try makeSharedKeychain()
-        sharedSuiteName = try Bundle.main.sharedAppGroupIdentifier()
-      } catch {
-        logger.error(
-          "Shared Keychain unavailable for a completed store: \(error.localizedDescription, privacy: .public)")
-        return unavailableStorageContext()
-      }
-      return AppStorageContext(
-        storage: ConcreteAppStorage(
-          sharedDataSuite: sharedSuite,
-          sharedDataSuiteName: sharedSuiteName,
-          appLocalSuite: .standard,
-          keychain: sharedKeychain,
-          legacyKeychain: legacyKeychain
-        ),
-        didActivate: didActivate,
-        startupStatus: .shared,
-        allowsServerChanges: true
-      )
-    case .useLegacy(let cause):
-      logger.error(
-        "Cutover pending; using legacy storage for this launch: \(cause.localizedDescription, privacy: .public)")
-      return AppStorageContext(
-        storage: ConcreteAppStorage(
-          sharedDataSuite: legacySuite,
-          sharedDataSuiteName: legacySuiteName,
-          appLocalSuite: legacySuite,
-          keychain: legacyKeychain
-        ),
-        didActivate: false,
-        startupStatus: selection.status,
-        allowsServerChanges: selection.allowsServerChanges
-      )
-    case .unavailable(let cause):
-      logger.error("Shared storage unavailable; no-write state: \(cause.localizedDescription, privacy: .public)")
-      return unavailableStorageContext()
-    }
-  }
-
-  private func unavailableStorageContext() -> AppStorageContext {
-    let storage = ConcreteAppStorage(
-      sharedDataSuite: UnavailableDefaults.shared,
-      sharedDataSuiteName: Bundle.appIdentifier,
+    let startup = AppStorageStartup(
+      legacySuite: .standard,
+      legacySuiteName: Bundle.main.bundleIdentifier ?? Bundle.appIdentifier,
       appLocalSuite: .standard,
-      keychain: UnavailableKeychain()
+      legacyKeychain: KeychainManager(),
+      sharedStorage: BundleSharedStorage()
     )
-    return AppStorageContext(
-      storage: storage,
-      didActivate: false,
-      startupStatus: .recovery,
-      allowsServerChanges: false
-    )
-  }
-
-  private func makeSharedKeychain() throws -> KeychainManager {
-    try KeychainManager.shared(
-      accessGroup: Bundle.main.sharedKeychainAccessGroup(), interactive: true)
-  }
-
-  /// The persistent domain behind `UserDefaults.standard`.
-  private func activationSuiteName() throws -> String {
-    guard let identifier = Bundle.main.bundleIdentifier else {
-      throw SharedStorageMigrationError.activationRecordNotPersisted
+    let outcome = startup.start()
+    if let problem = outcome.problem {
+      logger.error("Shared storage setup problem: \(problem.localizedDescription, privacy: .public)")
     }
-    return identifier
+    return AppStorageContext(
+      storage: outcome.storage ?? UnavailableAppStorage(),
+      status: outcome.status,
+      activatedNow: outcome.activatedNow,
+      startupDetail: outcome.problem?.localizedDescription
+    )
   }
 
   private struct AppStorageContext {
     let storage: any AppStorageProviding
-    let didActivate: Bool
-    let startupStatus: AppStorageStartupStatus
-    let allowsServerChanges: Bool
+    let status: AppStorageStartupStatus
+    let activatedNow: Bool
+    let startupDetail: String?
+
+    var allowsServerChanges: Bool { status != .recovery }
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -390,5 +276,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
     return .terminateLater
+  }
+}
+
+/// Resolves the App Group store and shared credential store from this bundle.
+@MainActor
+private struct BundleSharedStorage: SharedStorageProviding {
+  func location() throws -> SharedStorageLocation {
+    let identifier = try Bundle.main.sharedAppGroupIdentifier()
+    return SharedStorageLocation(
+      suite: try UserDefaults.sharedStorageSuite(appGroupIdentifier: identifier),
+      suiteName: identifier
+    )
+  }
+
+  func keychain() throws -> any KeychainManaging {
+    try KeychainManager.shared(
+      accessGroup: Bundle.main.sharedKeychainAccessGroup(),
+      interactive: true
+    )
   }
 }

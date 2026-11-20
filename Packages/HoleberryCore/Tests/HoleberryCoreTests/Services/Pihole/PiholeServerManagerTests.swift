@@ -903,7 +903,6 @@ struct PiholeServerManagerStorageTests {
   private func makeStorage() -> ConcreteAppStorage {
     ConcreteAppStorage(
       sharedDataSuite: sharedDataSuite,
-      sharedDataSuiteName: sharedData.name,
       appLocalSuite: appLocalSuite,
       keychain: keychain
     )

@@ -18,21 +18,41 @@ private final class AppStorageTestError: Error, CustomStringConvertible {
 @MainActor
 @Suite("AppStorage")
 struct AppStorageTests {
-  @Test func malformedServerListCannotBeOverwrittenThroughStorage() throws {
-    let sharedData = TestDefaults.makeNamedSuite()
-    let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
-    let key = Defaults.Keys.servers(suite: sharedData.suite)
-    let original = try #require([ServerConfig].bridge.serialize([server])) + ["not-json"]
-    setRawDefaultsValue(original, for: key)
+  /// Ordinary reads report no connections for a value that cannot be decoded.
+  /// Startup owns the decision to preserve it and block editing.
+  @Test func unreadableSavedListLoadsAsNoServers() {
+    let suite = TestDefaults.makeSuite()
+    let key = Defaults.Keys.servers(suite: suite)
+    setRawDefaultsValue("not-an-array", for: key)
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedData.suite, sharedDataSuiteName: sharedData.name,
+      sharedDataSuite: suite,
       appLocalSuite: TestDefaults.makeSuite(),
       keychain: MockKeychainManager()
     )
 
-    storage.saveServers([server])
+    #expect(storage.loadServers().isEmpty)
+  }
 
-    #expect(rawDefaultsValue(for: key) as? [String] == original)
+  /// Startup never hands out this adapter with editing enabled; it must not
+  /// pretend that settings or credentials are available.
+  @Test func unavailableStorageReportsNothingAndRefusesCredentials() {
+    let storage = UnavailableAppStorage()
+    let id = UUID()
+
+    #expect(storage.loadServers().isEmpty)
+    #expect(storage.loadTemporaryUnblocks(for: id).isEmpty)
+    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+      _ = try storage.readCredential(for: id)
+    }
+    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+      try storage.saveCredential("secret", for: id)
+    }
+    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+      try storage.deleteCredential(for: id)
+    }
+    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+      try storage.removeServer(id: id)
+    }
   }
 
   private func makeConfig(
@@ -62,7 +82,7 @@ struct AppStorageTests {
 
   @Test("loads existing arrays with all fields")
   func loadsExistingArraysWithAllFields() {
-    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
+    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let first = makeConfig(
       label: "Alpha", icon: "star", url: "http://alpha.local/admin", version: .v5)
@@ -91,7 +111,7 @@ struct AppStorageTests {
     Defaults[.tempUnblocks(for: second.id, suite: appLocalSuite)] = records
 
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, sharedDataSuiteName: sharedDataSuiteName,
+      sharedDataSuite: sharedDataSuite,
       appLocalSuite: appLocalSuite,
       keychain: MockKeychainManager()
     )
@@ -112,10 +132,10 @@ struct AppStorageTests {
 
   @Test("save uses existing keys and persists empty arrays")
   func saveUsesExistingKeys() throws {
-    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
+    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, sharedDataSuiteName: sharedDataSuiteName,
+      sharedDataSuite: sharedDataSuite,
       appLocalSuite: appLocalSuite,
       keychain: MockKeychainManager()
     )
@@ -154,10 +174,10 @@ struct AppStorageTests {
 
   @Test("loads read the current backing store")
   func loadsReadCurrentBackingStore() {
-    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
+    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, sharedDataSuiteName: sharedDataSuiteName,
+      sharedDataSuite: sharedDataSuite,
       appLocalSuite: appLocalSuite,
       keychain: MockKeychainManager()
     )
@@ -187,7 +207,7 @@ struct AppStorageTests {
 
   @Test("separates suites and server records")
   func separatesSuitesAndServerRecords() {
-    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
+    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let firstID = UUID()
     let secondID = UUID()
@@ -221,7 +241,7 @@ struct AppStorageTests {
 
     let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, sharedDataSuiteName: sharedDataSuiteName, appLocalSuite: appLocalSuite,
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
       keychain: keychain)
 
     let replacement = [
@@ -269,7 +289,7 @@ struct AppStorageTests {
 
   @Test("server loads read only the shared-data suite", arguments: [true, false])
   func serverLoadsUseOnlySharedDataSuite(intendedStorePopulated: Bool) {
-    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
+    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let intended = [
       makeConfig(label: "Intended", icon: "star", url: "http://intended.local", version: .v5),
@@ -283,7 +303,7 @@ struct AppStorageTests {
       Defaults[.servers(suite: sharedDataSuite)] = intended
     }
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, sharedDataSuiteName: sharedDataSuiteName, appLocalSuite: appLocalSuite,
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
       keychain: MockKeychainManager())
 
     let loaded = storage.loadServers()
@@ -302,7 +322,7 @@ struct AppStorageTests {
 
   @Test("temporary records read only the app-local suite", arguments: [true, false])
   func temporaryUnblocksUseOnlyAppLocalSuite(intendedStorePopulated: Bool) {
-    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
+    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let serverID = UUID()
     let intended = [
@@ -334,7 +354,7 @@ struct AppStorageTests {
       Defaults[.tempUnblocks(for: serverID, suite: appLocalSuite)] = intended
     }
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, sharedDataSuiteName: sharedDataSuiteName, appLocalSuite: appLocalSuite,
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
       keychain: MockKeychainManager())
 
     let loaded = storage.loadTemporaryUnblocks(for: serverID)
@@ -359,8 +379,10 @@ struct AppStorageTests {
     let shared = MockKeychainManager()
     let server = ServerConfig(url: "http://saved.local", version: .v6)
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedData.suite, sharedDataSuiteName: sharedData.name,
-      appLocalSuite: TestDefaults.makeSuite(), keychain: shared, legacyKeychain: legacy
+      sharedDataSuite: sharedData.suite,
+      appLocalSuite: TestDefaults.makeSuite(),
+      keychain: shared,
+      legacyKeychain: legacy
     )
     storage.saveServers([server])
     try legacy.saveCredential("legacy-secret", for: server.id)
@@ -385,7 +407,7 @@ struct AppStorageTests {
     legacy.errorStub = failure
     let sharedData = TestDefaults.makeNamedSuite()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedData.suite, sharedDataSuiteName: sharedData.name,
+      sharedDataSuite: sharedData.suite,
       appLocalSuite: TestDefaults.makeSuite(),
       keychain: shared,
       legacyKeychain: legacy
@@ -399,13 +421,42 @@ struct AppStorageTests {
     #expect(try shared.readCredential(for: id) == nil)
   }
 
+  @Test func activeCredentialDeletionFailurePreservesLegacyCredentialAndConnection() throws {
+    let legacy = MockKeychainManager()
+    let active = MockKeychainManager()
+    let server = ServerConfig(url: "http://saved.local", version: .v6)
+    let failure = AppStorageTestError("active-locked")
+    try legacy.saveCredential("legacy-secret", for: server.id)
+    try active.saveCredential("active-secret", for: server.id)
+    active.deleteErrorStub = failure
+    let sharedData = TestDefaults.makeNamedSuite()
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: sharedData.suite,
+      appLocalSuite: TestDefaults.makeSuite(),
+      keychain: active,
+      legacyKeychain: legacy
+    )
+    storage.saveServers([server])
+
+    let error = #expect(throws: AppStorageTestError.self) {
+      try storage.removeServer(id: server.id)
+    }
+
+    #expect(error === failure)
+    #expect(active.deleteCallCount == 1)
+    #expect(legacy.deleteCallCount == 0)
+    #expect(try active.readCredential(for: server.id) == "active-secret")
+    #expect(try legacy.readCredential(for: server.id) == "legacy-secret")
+    #expect(storage.loadServers().map(\.id) == [server.id])
+  }
+
   @Test("credential reads ignore decoy values in both defaults suites")
   func credentialReadsIgnoreDefaultsDecoys() throws {
-    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
+    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite, sharedDataSuiteName: sharedDataSuiteName, appLocalSuite: appLocalSuite,
+      sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
       keychain: keychain)
     let serverID = UUID()
 
@@ -431,7 +482,7 @@ struct AppStorageTests {
     let appLocal = TestDefaults.makeNamedSuite()
     let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedData.suite, sharedDataSuiteName: sharedData.name, appLocalSuite: appLocal.suite,
+      sharedDataSuite: sharedData.suite, appLocalSuite: appLocal.suite,
       keychain: keychain)
     let serverID = UUID()
     let secret = "super-secret-token"
@@ -480,7 +531,7 @@ struct AppStorageTests {
     keychain.errorStub = original
     let sharedData = TestDefaults.makeNamedSuite()
     let storage = ConcreteAppStorage(
-      sharedDataSuite: sharedData.suite, sharedDataSuiteName: sharedData.name,
+      sharedDataSuite: sharedData.suite,
       appLocalSuite: TestDefaults.makeSuite(),
       keychain: keychain
     )

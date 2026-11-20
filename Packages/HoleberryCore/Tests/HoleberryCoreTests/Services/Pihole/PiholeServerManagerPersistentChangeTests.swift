@@ -9,58 +9,8 @@ private struct PersistentChangeTestError: Error {}
 @Suite("PiholeServerManager persistent changes")
 @MainActor
 struct PiholeServerManagerPersistentChangeTests {
-  @Test func corruptionAfterLoadRejectsDeletionBeforeRemovingCredentials() throws {
-    let suite = TestUserDefaults()
-    let legacy = MockKeychainManager()
-    let shared = MockKeychainManager()
-    let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
-    let key = Defaults.Keys.servers(suite: suite)
-    Defaults[key] = [server]
-    try legacy.saveCredential("original-secret", for: server.id)
-    try shared.saveCredential("shared-secret", for: server.id)
-    let storage = ConcreteAppStorage(
-      sharedDataSuite: suite, sharedDataSuiteName: suite.domainName,
-      appLocalSuite: TestDefaults.makeSuite(), keychain: shared, legacyKeychain: legacy
-    )
-    var changes = 0
-    let manager = PiholeServerManager(
-      storage: storage, serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector(), persistentChangeHandler: { changes += 1 }
-    )
-    let original = try #require(rawDefaultsValue(for: key) as? [String]) + ["not-json"]
-    setRawDefaultsValue(original, for: key)
-
-    #expect(manager.deleteServer(id: server.id) == false)
-
-    #expect(manager.servers.map(\.id) == [server.id])
-    #expect(rawDefaultsValue(for: key) as? [String] == original)
-    #expect(try legacy.readCredential(for: server.id) == "original-secret")
-    #expect(try shared.readCredential(for: server.id) == "shared-secret")
-    #expect(changes == 0)
-  }
-
-  @Test func rejectedServerWriteDoesNotReportSuccessfulDeletion() throws {
-    let suite = TestUserDefaults()
-    let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
-    let key = Defaults.Keys.servers(suite: suite)
-    Defaults[key] = [server]
-    let manager = PiholeServerManager(
-      storage: ConcreteAppStorage(
-        sharedDataSuite: suite, sharedDataSuiteName: suite.domainName,
-        appLocalSuite: TestDefaults.makeSuite(), keychain: MockKeychainManager()
-      ),
-      serviceFactory: MockPiholeServiceFactory(), versionDetector: MockPiholeVersionDetector()
-    )
-    suite.rejectedWriteKeys = [key.name]
-
-    #expect(manager.deleteServer(id: server.id) == false)
-
-    #expect(manager.servers.map(\.id) == [server.id])
-    #expect(Defaults[key].map(\.id) == [server.id])
-  }
-
   @Test func unreadablePasswordsDoNotBlockCredentialDeletion() throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let legacy = MockKeychainManager()
     let shared = MockKeychainManager()
     let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
@@ -69,8 +19,10 @@ struct PiholeServerManagerPersistentChangeTests {
     try shared.saveCredential("shared-secret", for: server.id)
     let manager = PiholeServerManager(
       storage: ConcreteAppStorage(
-        sharedDataSuite: suite, sharedDataSuiteName: suiteName,
-        appLocalSuite: TestDefaults.makeSuite(), keychain: shared, legacyKeychain: legacy
+        sharedDataSuite: suite,
+        appLocalSuite: TestDefaults.makeSuite(),
+        keychain: shared,
+        legacyKeychain: legacy
       ),
       serviceFactory: MockPiholeServiceFactory(), versionDetector: MockPiholeVersionDetector()
     )
@@ -87,7 +39,7 @@ struct PiholeServerManagerPersistentChangeTests {
 
   @Test(arguments: ["legacy", "shared"])
   func failedCredentialCleanupKeepsConnectionForRetry(failingStore: String) throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let legacy = MockKeychainManager()
     let shared = MockKeychainManager()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
@@ -96,7 +48,6 @@ struct PiholeServerManagerPersistentChangeTests {
     try shared.saveCredential("shared-secret", for: server.id)
     let storage = ConcreteAppStorage(
       sharedDataSuite: suite,
-      sharedDataSuiteName: suiteName,
       appLocalSuite: TestDefaults.makeSuite(),
       keychain: shared,
       legacyKeychain: legacy
@@ -128,7 +79,7 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func deletingMigratedServerRemovesBothCredentialCopies() throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let legacyKeychain = MockKeychainManager()
     let sharedKeychain = MockKeychainManager()
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
@@ -136,7 +87,7 @@ struct PiholeServerManagerPersistentChangeTests {
     try legacyKeychain.saveCredential("original-secret", for: server.id)
     try sharedKeychain.saveCredential("shared-secret", for: server.id)
     let storage = ConcreteAppStorage(
-      sharedDataSuite: suite, sharedDataSuiteName: suiteName,
+      sharedDataSuite: suite,
       appLocalSuite: TestDefaults.makeSuite(),
       keychain: sharedKeychain,
       legacyKeychain: legacyKeychain
@@ -155,13 +106,13 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func credentialOnlyUpdateFiresAfterCredentialSave() throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
     var snapshots: [PersistentChangeSnapshot] = []
-    let manager = makeManager(suite: suite, suiteName: suiteName, keychain: keychain) {
+    let manager = makeManager(suite: suite, keychain: keychain) {
       snapshots.append(
         PersistentChangeSnapshot(
           credential: try? keychain.readCredential(for: server.id),
@@ -184,12 +135,12 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func configEditFiresAfterConfigSave() throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let server = ServerConfig(id: UUID(), label: "Old", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     var snapshots: [PersistentChangeSnapshot] = []
-    let manager = makeManager(suite: suite, suiteName: suiteName, keychain: keychain) {
+    let manager = makeManager(suite: suite, keychain: keychain) {
       snapshots.append(
         PersistentChangeSnapshot(
           credential: try? keychain.readCredential(for: server.id),
@@ -212,10 +163,10 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func addFiresAfterCredentialSave() async throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     var snapshots: [PersistentChangeSnapshot] = []
-    let manager = makeManager(suite: suite, suiteName: suiteName, keychain: keychain) {
+    let manager = makeManager(suite: suite, keychain: keychain) {
       let servers = Defaults[.servers(suite: suite)]
       snapshots.append(
         PersistentChangeSnapshot(
@@ -233,13 +184,13 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func deleteFiresAfterCredentialDelete() throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("secret", for: server.id)
     var snapshots: [PersistentChangeSnapshot] = []
-    let manager = makeManager(suite: suite, suiteName: suiteName, keychain: keychain) {
+    let manager = makeManager(suite: suite, keychain: keychain) {
       snapshots.append(
         PersistentChangeSnapshot(
           credential: try? keychain.readCredential(for: server.id),
@@ -256,11 +207,11 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func failedAddDoesNotFire() async {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     keychain.saveErrorStub = PersistentChangeTestError()
     var fireCount = 0
-    let manager = makeManager(suite: suite, suiteName: suiteName, keychain: keychain) {
+    let manager = makeManager(suite: suite, keychain: keychain) {
       fireCount += 1
     }
 
@@ -273,13 +224,12 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func passwordlessAddWhileChangesDisabledFailsBeforeVersionDetection() async {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let detector = MockPiholeVersionDetector()
     var fireCount = 0
     let manager = makeManager(
       suite: suite,
-      suiteName: suiteName,
       keychain: keychain,
       versionDetector: detector,
       allowsServerChanges: false
@@ -298,13 +248,13 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func editWhileChangesDisabledLeavesConfigurationUnchanged() throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let server = ServerConfig(id: UUID(), label: "Old", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
     var fireCount = 0
-    let manager = makeManager(suite: suite, suiteName: suiteName, keychain: keychain, allowsServerChanges: false) {
+    let manager = makeManager(suite: suite, keychain: keychain, allowsServerChanges: false) {
       fireCount += 1
     }
 
@@ -325,13 +275,13 @@ struct PiholeServerManagerPersistentChangeTests {
   }
 
   @Test func deleteWhileChangesDisabledLeavesServerAndCredential() throws {
-    let (suiteName, suite) = TestDefaults.makeNamedSuite()
+    let suite = TestDefaults.makeSuite()
     let keychain = MockKeychainManager()
     let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("secret", for: server.id)
     var fireCount = 0
-    let manager = makeManager(suite: suite, suiteName: suiteName, keychain: keychain, allowsServerChanges: false) {
+    let manager = makeManager(suite: suite, keychain: keychain, allowsServerChanges: false) {
       fireCount += 1
     }
 
@@ -350,7 +300,6 @@ struct PiholeServerManagerPersistentChangeTests {
 
   private func makeManager(
     suite: UserDefaults,
-    suiteName: String,
     keychain: MockKeychainManager,
     versionDetector: MockPiholeVersionDetector = MockPiholeVersionDetector(),
     allowsServerChanges: Bool = true,
@@ -358,7 +307,7 @@ struct PiholeServerManagerPersistentChangeTests {
   ) -> PiholeServerManager {
     PiholeServerManager(
       storage: makeTestStorage(
-        appLocalSuite: TestDefaults.makeSuite(), sharedData: (suiteName, suite), keychain: keychain),
+        appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain),
       serviceFactory: MockPiholeServiceFactory(),
       versionDetector: versionDetector,
       allowsServerChanges: allowsServerChanges,

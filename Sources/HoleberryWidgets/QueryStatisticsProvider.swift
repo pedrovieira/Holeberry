@@ -72,8 +72,9 @@ struct QueryStatisticsProvider: TimelineProvider {
 
     let storage = ConcreteAppStorage(
       sharedDataSuite: suite,
-      sharedDataSuiteName: appGroupIdentifier,
-      appLocalSuite: UnavailableDefaults.shared,
+      // On-demand execution never stores app-local temporary-unblock records;
+      // the widget's own defaults keep any accidental write out of the app.
+      appLocalSuite: .standard,
       keychain: sharedKeychain
     )
     let manager = PiholeServerManager(
@@ -115,7 +116,6 @@ struct QueryStatisticsProvider: TimelineProvider {
 
   @MainActor
   private func isSharedStorageReady(in suite: UserDefaults, suiteName: String) -> Bool {
-    _ = suite.synchronize()
     do {
       return try SharedStorageMigration.readiness(in: suite, suiteName: suiteName) == .ready
     } catch {

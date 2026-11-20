@@ -11,6 +11,7 @@ final class SettingsWindowController: NSWindowController {
   private let statusPoller: ServerStatusPoller
   private let notificationCoordinator: NotificationCoordinator
   private let startupStatus: AppStorageStartupStatus
+  private let startupDetail: String?
   private var hasSetContentView = false
 
   init(
@@ -20,6 +21,7 @@ final class SettingsWindowController: NSWindowController {
     statusPoller: ServerStatusPoller,
     notificationCoordinator: NotificationCoordinator,
     startupStatus: AppStorageStartupStatus,
+    startupDetail: String?,
     defaultsSuite: UserDefaults = .standard
   ) {
     let window = NSWindow(
@@ -35,6 +37,7 @@ final class SettingsWindowController: NSWindowController {
     self.statusPoller = statusPoller
     self.notificationCoordinator = notificationCoordinator
     self.startupStatus = startupStatus
+    self.startupDetail = startupDetail
     super.init(window: window)
     setupWindow()
   }
@@ -69,6 +72,7 @@ final class SettingsWindowController: NSWindowController {
         rootView: SettingsView(
           serverManager: serverManager,
           startupStatus: startupStatus,
+          startupDetail: startupDetail,
           updater: updater,
           defaultsSuite: defaultsSuite,
           discoveryService: discoveryService,
