@@ -110,27 +110,3 @@ public final class KeychainManager: KeychainManaging {
     }
   }
 }
-
-// MARK: - Unavailable Store
-
-public enum UnavailableKeychainError: Error, Equatable {
-  case storageUnavailable
-}
-
-/// Throwing credential seam used when previously activated shared storage
-/// cannot be reopened. It never falls back to legacy or ungrouped items.
-public struct UnavailableKeychain: KeychainManaging {
-  public init() {}
-
-  public func saveCredential(_ credential: String, for serverID: UUID) throws {
-    throw UnavailableKeychainError.storageUnavailable
-  }
-
-  public func readCredential(for serverID: UUID) throws -> String? {
-    throw UnavailableKeychainError.storageUnavailable
-  }
-
-  public func deleteCredential(for serverID: UUID) throws {
-    throw UnavailableKeychainError.storageUnavailable
-  }
-}

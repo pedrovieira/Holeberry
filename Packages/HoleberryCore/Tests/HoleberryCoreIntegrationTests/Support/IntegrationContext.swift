@@ -130,7 +130,6 @@ final class IntegrationContext {
     do {
       let storage = ConcreteAppStorage(
         sharedDataSuite: defaults,
-        sharedDataSuiteName: suiteName,
         appLocalSuite: defaults,
         keychain: IntegrationKeychain()
       )
