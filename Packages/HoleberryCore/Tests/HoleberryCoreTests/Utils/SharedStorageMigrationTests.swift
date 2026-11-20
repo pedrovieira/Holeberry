@@ -622,6 +622,43 @@ struct SharedStorageMigrationTests {
     #expect(harness.legacyKeychain.readCallCount == 0)
   }
 
+  @Test func newerCompletionVersionThrowsWithoutChangingEitherStore() throws {
+    let legacy = TestDefaults.makeNamedSuite()
+    let shared = TestDefaults.makeNamedSuite()
+    let harness = makeHarness(legacy: legacy, shared: shared)
+    let legacyServer = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v5)
+    let sharedServer = ServerConfig(id: UUID(), url: "http://shared.local", version: .v6)
+    let newer = SharedStorageMigration.currentVersion + 1
+    Defaults[.servers(suite: legacy.suite)] = [legacyServer]
+    Defaults[.servers(suite: shared.suite)] = [sharedServer]
+    Defaults[.sharedStorageMigrationVersion(suite: shared.suite)] = newer
+    try harness.legacyKeychain.saveCredential("legacy-secret", for: legacyServer.id)
+    try harness.sharedKeychain.saveCredential("shared-secret", for: sharedServer.id)
+    let legacyDefaultsBefore = legacy.suite.persistentDomain(forName: legacy.name) ?? [:]
+    let sharedDefaultsBefore = shared.suite.persistentDomain(forName: shared.name) ?? [:]
+
+    #expect(throws: SharedStorageReadinessError.unsupportedCompletionVersion(newer)) {
+      try harness.migration.migrate()
+    }
+
+    #expect(
+      NSDictionary(dictionary: legacyDefaultsBefore).isEqual(
+        to:
+          legacy.suite.persistentDomain(forName: legacy.name) ?? [:]))
+    #expect(
+      NSDictionary(dictionary: sharedDefaultsBefore).isEqual(
+        to:
+          shared.suite.persistentDomain(forName: shared.name) ?? [:]))
+    #expect(harness.legacyKeychain.storedCredentials == [legacyServer.id.uuidString: "legacy-secret"])
+    #expect(harness.sharedKeychain.storedCredentials == [sharedServer.id.uuidString: "shared-secret"])
+    #expect(harness.legacyKeychain.saveCallCount == 1)
+    #expect(harness.sharedKeychain.saveCallCount == 1)
+    #expect(harness.legacyKeychain.readCallCount == 0)
+    #expect(harness.sharedKeychain.readCallCount == 0)
+    #expect(harness.legacyKeychain.deleteCallCount == 0)
+    #expect(harness.sharedKeychain.deleteCallCount == 0)
+  }
+
   @Test func activationRecordsCurrentVersionInLegacySuite() throws {
     let (name, suite) = TestDefaults.makeNamedSuite()
     let key = Defaults.Keys.sharedStorageActivatedVersion(suite: suite)

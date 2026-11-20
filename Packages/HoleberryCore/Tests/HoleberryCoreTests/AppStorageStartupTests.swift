@@ -313,6 +313,63 @@ struct AppStorageStartupTests {
       return
     }
     #expect(error as? StartupTestError == .sharedKeychainUnavailable)
+    #expect(harness.activationRecord == SharedStorageMigration.currentVersion)
+
+    harness.sharedStorage.locationError = StartupTestError.sharedLocationUnavailable
+
+    #expect(harness.start().status == .recovery)
+  }
+
+  @Test func readySharedStoreWithUnavailableKeychainDoesNotActivateOrBlockLaterLegacyFallback() {
+    let harness = StartupHarness()
+    let server = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+    Defaults[.servers(suite: harness.sharedSuite)] = [server]
+    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageMigration.currentVersion
+    harness.sharedStorage.keychainError = StartupTestError.sharedKeychainUnavailable
+
+    let first = harness.start()
+
+    guard case .setupFailure(let error) = first else {
+      Issue.record("Expected a setup failure when the ready shared Keychain is unavailable")
+      return
+    }
+    #expect(error as? StartupTestError == .sharedKeychainUnavailable)
+    #expect(harness.activationRecord == 0)
+    let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: harness.legacySuite).name
+    #expect(harness.legacySuite.persistentDomain(forName: harness.legacySuiteName)?[activationKey] == nil)
+
+    harness.sharedStorage.locationError = StartupTestError.sharedLocationUnavailable
+
+    let retry = harness.start()
+
+    guard case .legacy(let storage, _) = retry else {
+      Issue.record("Expected legacy fallback because shared storage was never activated")
+      return
+    }
+    #expect(storage.loadServers().map(\.id) == [server.id])
+  }
+
+  @Test func readySharedStoreWithUnavailableKeychainDoesNotRepairUnreadableActivationRecord() {
+    let harness = StartupHarness()
+    let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: harness.legacySuite).name
+    harness.legacySuite.set("current", forKey: activationKey)
+    Defaults[.servers(suite: harness.sharedSuite)] = []
+    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageMigration.currentVersion
+    harness.sharedStorage.keychainError = StartupTestError.sharedKeychainUnavailable
+
+    let outcome = harness.start()
+
+    guard case .setupFailure(let error) = outcome else {
+      Issue.record("Expected a setup failure when the ready shared Keychain is unavailable")
+      return
+    }
+    #expect(error as? StartupTestError == .sharedKeychainUnavailable)
+    #expect(harness.legacySuite.string(forKey: activationKey) == "current")
+
+    harness.sharedStorage.locationError = StartupTestError.sharedLocationUnavailable
+
+    #expect(harness.start().status == .recovery)
   }
 }
 
@@ -363,30 +420,5 @@ private final class StartupHarness {
       legacyKeychain: legacyKeychain,
       sharedStorage: sharedStorage
     ).start()
-  }
-}
-
-@MainActor
-private final class StubSharedStorage: SharedStorageProviding {
-  let locationValue: SharedStorageLocation
-  let keychainValue: any KeychainManaging
-  var locationError: (any Error)?
-  var keychainError: (any Error)?
-  private(set) var keychainCallCount = 0
-
-  init(location: SharedStorageLocation, keychain: any KeychainManaging) {
-    locationValue = location
-    keychainValue = keychain
-  }
-
-  func location() throws -> SharedStorageLocation {
-    if let locationError { throw locationError }
-    return locationValue
-  }
-
-  func keychain() throws -> any KeychainManaging {
-    keychainCallCount += 1
-    if let keychainError { throw keychainError }
-    return keychainValue
   }
 }

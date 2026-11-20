@@ -135,7 +135,7 @@ public final class SharedStorageMigration {
       guard error is DefaultsValueValidationError else { throw error }
       throw SharedStorageReadinessError.malformedCompletionVersion
     }
-    guard completedVersion >= 0 else {
+    guard completedVersion >= 0, completedVersion <= Self.currentVersion else {
       throw SharedStorageReadinessError.unsupportedCompletionVersion(completedVersion)
     }
     guard completedVersion < Self.currentVersion else { return }

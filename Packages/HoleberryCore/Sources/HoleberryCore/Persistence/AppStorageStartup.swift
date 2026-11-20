@@ -145,8 +145,6 @@ public final class AppStorageStartup {
     case (.ready, .success(let version)) where version > 0:
       return sharedOutcome(location: location, activatedNow: false)
     case (.ready, _):
-      // Verified shared storage repairs a missing or unreadable activation record.
-      SharedStorageMigration.markActivated(in: legacySuite)
       return sharedOutcome(location: location, activatedNow: true)
     case (.pending, .success(0)):
       return completeFirstCopy(location: location)
@@ -201,10 +199,12 @@ public final class AppStorageStartup {
 
   private func sharedOutcome(location: SharedStorageLocation, activatedNow: Bool) -> Outcome {
     do {
-      return .shared(
-        makeStorage(sharedSuite: location.suite, keychain: try sharedStorage.keychain()),
-        activatedNow: activatedNow
-      )
+      let storage = makeStorage(sharedSuite: location.suite, keychain: try sharedStorage.keychain())
+      if activatedNow {
+        // Repair activation only after both shared settings and credentials are available.
+        SharedStorageMigration.markActivated(in: legacySuite)
+      }
+      return .shared(storage, activatedNow: activatedNow)
     } catch {
       return .setupFailure(error)
     }
