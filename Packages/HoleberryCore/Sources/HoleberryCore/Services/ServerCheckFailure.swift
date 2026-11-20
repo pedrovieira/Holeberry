@@ -24,10 +24,9 @@ public enum ServerCheckFailure: Equatable, Sendable {
       return .auth(.sessionLimitReached)
     case .unsupported:
       return .unsupported
-    case .network, .tlsUntrusted, .decoding, .unknown, .invalidDomain, .storageUnavailable:
-      // `.invalidDomain` is caller input and `.storageUnavailable` is local
-      // state, so neither is a server state; a health check never produces
-      // them, and this bucket is a formality.
+    case .network, .tlsUntrusted, .decoding, .unknown, .invalidDomain:
+      // `.invalidDomain` is caller input, not a server state; a health check
+      // never produces it, and this bucket is a formality.
       return .unreachable
     case .server:
       return .unreachable

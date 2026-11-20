@@ -16,7 +16,6 @@ public enum PiholeError: Error, LocalizedError, Equatable {
   case sessionLimitReached
   case unknown(String)
   case unsupported(String)
-  case storageUnavailable
 
   public var errorDescription: String? {
     switch self {
@@ -51,8 +50,6 @@ public enum PiholeError: Error, LocalizedError, Equatable {
       return "Unexpected error: \(description)"
     case .unsupported(let description):
       return description
-    case .storageUnavailable:
-      return "Shared storage is not ready. Quit and reopen Holeberry to retry."
     }
   }
 }

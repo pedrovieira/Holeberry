@@ -329,8 +329,6 @@ extension PiholeError {
       return "unexpected error"
     case .unsupported:
       return "unsupported"
-    case .storageUnavailable:
-      return "storage unavailable"
     }
   }
 }

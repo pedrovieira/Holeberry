@@ -41,16 +41,16 @@ struct AppStorageTests {
 
     #expect(storage.loadServers().isEmpty)
     #expect(storage.loadTemporaryUnblocks(for: id).isEmpty)
-    #expect(throws: PiholeError.storageUnavailable) {
+    #expect(throws: HoleberryError.storageUnavailable) {
       _ = try storage.readCredential(for: id)
     }
-    #expect(throws: PiholeError.storageUnavailable) {
+    #expect(throws: HoleberryError.storageUnavailable) {
       try storage.saveCredential("secret", for: id)
     }
-    #expect(throws: PiholeError.storageUnavailable) {
+    #expect(throws: HoleberryError.storageUnavailable) {
       try storage.deleteCredential(for: id)
     }
-    #expect(throws: PiholeError.storageUnavailable) {
+    #expect(throws: HoleberryError.storageUnavailable) {
       try storage.removeServer(id: id)
     }
   }
