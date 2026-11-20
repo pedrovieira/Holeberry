@@ -42,7 +42,10 @@ public final class ConcreteAppStorage: AppStorageProviding {
 
   /// - Parameters:
   ///   - sharedDataSuite: Shared App Group backing store for server configurations.
-  ///   - sharedDataSuiteName: Persistent domain for the server list.
+  ///   - sharedDataSuiteName: Persistent domain of `sharedDataSuite` (the bundle
+  ///     identifier for `.standard`). `UserDefaults` does not expose this name.
+  ///     Reads need it to exclude registered defaults and other search domains,
+  ///     so a fallback value cannot stand in for the saved server list.
   ///   - legacyKeychain: Original credential store for a migrated connection.
   ///   - appLocalSuite: Backing store for temporary-unblock records. `.standard`
   ///     in the app; widgets use a no-write empty store for these records.

@@ -159,6 +159,10 @@ extension Defaults.Keys {
     try PersistedDomain(suite: key.suite, name: suiteName).strictlyDecodedInt(key)
   }
 
+  /// Snapshot of one persistent domain, excluding registered defaults and other
+  /// search domains. Migration readiness checks the version marker and server
+  /// list against this same dictionary, rather than separate reads that could
+  /// observe different states if the store changes between them.
   struct PersistedDomain {
     private let values: [String: Any]
 
@@ -186,7 +190,12 @@ extension Defaults.Keys {
       return servers
     }
 
-    /// Rejects Boolean or fractional values.
+    /// Reads migration completion and activation versions without numeric coercion.
+    /// Missing means no recorded version; corrupt values must remain errors.
+    /// Treating corruption as zero could allow another import of stale legacy
+    /// data. Accepting a Boolean or fractional number as one could falsely report
+    /// a completed migration. These checks preserve that distinction; they do
+    /// not attempt to repair corrupted settings.
     func strictlyDecodedInt(_ key: Defaults.Key<Int>) throws -> Int? {
       guard let rawValue = values[key.name] else { return nil }
       guard let number = rawValue as? NSNumber, CFGetTypeID(number) == CFNumberGetTypeID() else {
