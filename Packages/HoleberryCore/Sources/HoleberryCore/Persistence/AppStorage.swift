@@ -1,5 +1,6 @@
 import Defaults
 import Foundation
+import OSLog
 
 // MARK: - Protocol
 
@@ -26,8 +27,8 @@ public protocol AppStorageProviding {
 
 /// Thin adapter over the existing typed `Defaults` keys and `KeychainManaging`.
 ///
-/// Server lists come from the persistent domain shared with the widget.
-/// An explicit connection deletion also removes the original migrated password.
+/// Server lists come from the domain shared with the widget. An explicit
+/// connection deletion also removes the original migrated password.
 ///
 /// The two defaults suites are separate dependencies so their locations can move
 /// independently. The app shares server configurations with its widget while
@@ -35,29 +36,22 @@ public protocol AppStorageProviding {
 @MainActor
 public final class ConcreteAppStorage: AppStorageProviding {
   private let sharedDataSuite: UserDefaults
-  private let sharedDataSuiteName: String
   private let appLocalSuite: UserDefaults
   private let keychain: any KeychainManaging
   private let legacyKeychain: (any KeychainManaging)?
 
   /// - Parameters:
-  ///   - sharedDataSuite: Shared App Group backing store for server configurations.
-  ///   - sharedDataSuiteName: Persistent domain of `sharedDataSuite` (the bundle
-  ///     identifier for `.standard`). `UserDefaults` does not expose this name.
-  ///     Reads need it to exclude registered defaults and other search domains,
-  ///     so a fallback value cannot stand in for the saved server list.
-  ///   - legacyKeychain: Original credential store for a migrated connection.
+  ///   - sharedDataSuite: Backing store for server configurations.
   ///   - appLocalSuite: Backing store for temporary-unblock records. `.standard`
-  ///     in the app; widgets use a no-write empty store for these records.
+  ///     in the app; widgets never write these records.
   ///   - keychain: Credential storage, keyed by server UUID.
+  ///   - legacyKeychain: Original credential store for a migrated connection.
   public init(
     sharedDataSuite: UserDefaults,
-    sharedDataSuiteName: String,
     appLocalSuite: UserDefaults,
     keychain: any KeychainManaging,
     legacyKeychain: (any KeychainManaging)? = nil
   ) {
-    self.sharedDataSuiteName = sharedDataSuiteName
     self.sharedDataSuite = sharedDataSuite
     self.appLocalSuite = appLocalSuite
     self.legacyKeychain = legacyKeychain
@@ -66,30 +60,20 @@ public final class ConcreteAppStorage: AppStorageProviding {
 
   // MARK: - Server configurations
 
+  /// An unreadable saved list reads as no connections. Startup reports it
+  /// separately and blocks editing before any save can replace it.
   public func loadServers() -> [ServerConfig] {
-    (try? persistedServers()) ?? []
+    Defaults[.servers(suite: sharedDataSuite)]
   }
 
   public func saveServers(_ servers: [ServerConfig]) {
-    guard (try? persistedServers()) != nil else { return }
     Defaults[.servers(suite: sharedDataSuite)] = servers
   }
 
-  private func persistedServers() throws -> [ServerConfig] {
-    try Defaults.Keys.PersistedDomain(suite: sharedDataSuite, name: sharedDataSuiteName)
-      .servers(in: sharedDataSuite) ?? []
-  }
-
   public func removeServer(id: UUID) throws {
-    let remaining = try persistedServers().filter { $0.id != id }
-    let legacyDeletion = Result { try legacyKeychain?.deleteCredential(for: id) }
     try keychain.deleteCredential(for: id)
-    try legacyDeletion.get()
-
-    Defaults[.servers(suite: sharedDataSuite)] = remaining
-    guard try !persistedServers().contains(where: { $0.id == id }) else {
-      throw PiholeServerMutationError.storageUnavailable
-    }
+    try legacyKeychain?.deleteCredential(for: id)
+    saveServers(loadServers().filter { $0.id != id })
   }
 
   // MARK: - Credentials
@@ -114,5 +98,46 @@ public final class ConcreteAppStorage: AppStorageProviding {
 
   public func saveTemporaryUnblocks(_ records: [TempUnblockRecord], for serverID: UUID) {
     Defaults[.tempUnblocks(for: serverID, suite: appLocalSuite)] = records
+  }
+}
+
+// MARK: - Unavailable Storage
+
+/// Storage for a launch where startup found no usable store.
+///
+/// It reports no connections and refuses every change. Startup blocks editing
+/// in this state, so a refused write signals a defect rather than a user path.
+@MainActor
+public struct UnavailableAppStorage: AppStorageProviding {
+  private let logger = Logger(subsystem: Logger.appSubsystem, category: "storage")
+
+  public init() {}
+
+  public func loadServers() -> [ServerConfig] { [] }
+
+  public func saveServers(_ servers: [ServerConfig]) {
+    logger.error("Refused to save servers: no storage is available for this launch.")
+  }
+
+  public func removeServer(id: UUID) throws {
+    throw PiholeServerMutationError.storageUnavailable
+  }
+
+  public func readCredential(for serverID: UUID) throws -> String? {
+    throw PiholeServerMutationError.storageUnavailable
+  }
+
+  public func saveCredential(_ credential: String, for serverID: UUID) throws {
+    throw PiholeServerMutationError.storageUnavailable
+  }
+
+  public func deleteCredential(for serverID: UUID) throws {
+    throw PiholeServerMutationError.storageUnavailable
+  }
+
+  public func loadTemporaryUnblocks(for serverID: UUID) -> [TempUnblockRecord] { [] }
+
+  public func saveTemporaryUnblocks(_ records: [TempUnblockRecord], for serverID: UUID) {
+    logger.error("Refused to save temporary unblocks: no storage is available for this launch.")
   }
 }

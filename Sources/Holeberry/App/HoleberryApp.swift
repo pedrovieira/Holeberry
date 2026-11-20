@@ -48,7 +48,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private lazy var versionDetector = PiholeVersionDetector()
   private lazy var appStorage: any AppStorageProviding = ConcreteAppStorage(
     sharedDataSuite: .standard,
-    sharedDataSuiteName: Bundle.appIdentifier,
     appLocalSuite: .standard,
     keychain: keychain
   )
