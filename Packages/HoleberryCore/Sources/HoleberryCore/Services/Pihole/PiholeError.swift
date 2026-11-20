@@ -1,16 +1,5 @@
 import Foundation
 
-public enum PiholeServerMutationError: Error, LocalizedError, Equatable {
-  case storageUnavailable
-
-  public var errorDescription: String? {
-    switch self {
-    case .storageUnavailable:
-      return "Shared storage is not ready. Quit and reopen Holeberry to retry."
-    }
-  }
-}
-
 /// Typed errors returned by Pi-hole service operations. Conforms to `LocalizedError` for user-facing messages.
 public enum PiholeError: Error, LocalizedError, Equatable {
   case unauthorized
@@ -27,6 +16,7 @@ public enum PiholeError: Error, LocalizedError, Equatable {
   case sessionLimitReached
   case unknown(String)
   case unsupported(String)
+  case storageUnavailable
 
   public var errorDescription: String? {
     switch self {
@@ -61,6 +51,8 @@ public enum PiholeError: Error, LocalizedError, Equatable {
       return "Unexpected error: \(description)"
     case .unsupported(let description):
       return description
+    case .storageUnavailable:
+      return "Shared storage is not ready. Quit and reopen Holeberry to retry."
     }
   }
 }

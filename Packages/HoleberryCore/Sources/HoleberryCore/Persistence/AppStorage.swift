@@ -120,19 +120,19 @@ public struct UnavailableAppStorage: AppStorageProviding {
   }
 
   public func removeServer(id: UUID) throws {
-    throw PiholeServerMutationError.storageUnavailable
+    throw PiholeError.storageUnavailable
   }
 
   public func readCredential(for serverID: UUID) throws -> String? {
-    throw PiholeServerMutationError.storageUnavailable
+    throw PiholeError.storageUnavailable
   }
 
   public func saveCredential(_ credential: String, for serverID: UUID) throws {
-    throw PiholeServerMutationError.storageUnavailable
+    throw PiholeError.storageUnavailable
   }
 
   public func deleteCredential(for serverID: UUID) throws {
-    throw PiholeServerMutationError.storageUnavailable
+    throw PiholeError.storageUnavailable
   }
 
   public func loadTemporaryUnblocks(for serverID: UUID) -> [TempUnblockRecord] { [] }

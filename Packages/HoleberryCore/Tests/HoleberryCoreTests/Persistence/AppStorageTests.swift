@@ -41,16 +41,16 @@ struct AppStorageTests {
 
     #expect(storage.loadServers().isEmpty)
     #expect(storage.loadTemporaryUnblocks(for: id).isEmpty)
-    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+    #expect(throws: PiholeError.storageUnavailable) {
       _ = try storage.readCredential(for: id)
     }
-    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+    #expect(throws: PiholeError.storageUnavailable) {
       try storage.saveCredential("secret", for: id)
     }
-    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+    #expect(throws: PiholeError.storageUnavailable) {
       try storage.deleteCredential(for: id)
     }
-    #expect(throws: PiholeServerMutationError.storageUnavailable) {
+    #expect(throws: PiholeError.storageUnavailable) {
       try storage.removeServer(id: id)
     }
   }
