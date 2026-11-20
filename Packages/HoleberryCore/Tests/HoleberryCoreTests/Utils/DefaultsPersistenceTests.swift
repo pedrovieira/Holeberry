@@ -67,7 +67,7 @@ struct DefaultsPersistenceTests {
   }
 
   @Test func serversCorruptedData() {
-    let suite = TestDefaults.makeSuite()
+    let (suiteName, suite) = TestDefaults.makeNamedSuite()
     // Can't write corrupted data through Defaults (it encodes properly),
     // so inject bad JSON directly via UserDefaults to test the error path.
     suite.set("<bad json>", forKey: "servers")
@@ -77,6 +77,7 @@ struct DefaultsPersistenceTests {
     let manager = PiholeServerManager(
       storage: ConcreteAppStorage(
         sharedDataSuite: suite,
+        sharedDataSuiteName: suiteName,
         appLocalSuite: suite,
         keychain: MockKeychainManager()
       ),

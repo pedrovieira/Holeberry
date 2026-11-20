@@ -61,6 +61,7 @@ public final class SharedStorageMigration {
   public static let currentVersion = 1
 
   private let legacySuite: UserDefaults
+  private let legacySuiteName: String
   private let sharedSuite: UserDefaults
   private let sharedSuiteName: String
   private let legacyKeychain: any KeychainManaging
@@ -68,12 +69,14 @@ public final class SharedStorageMigration {
 
   public init(
     legacySuite: UserDefaults,
+    legacySuiteName: String,
     sharedSuite: UserDefaults,
     sharedSuiteName: String,
     legacyKeychain: any KeychainManaging,
     sharedKeychain: any KeychainManaging
   ) {
     self.legacySuite = legacySuite
+    self.legacySuiteName = legacySuiteName
     self.sharedSuite = sharedSuite
     self.sharedSuiteName = sharedSuiteName
     self.legacyKeychain = legacyKeychain
@@ -102,9 +105,9 @@ public final class SharedStorageMigration {
     }
 
     do {
-      _ = try domain.strictlyDecodedArray(.servers(suite: suite))
-    } catch DefaultsValueValidationError.missingPersistedValue {
-      throw SharedStorageReadinessError.missingServerConfiguration
+      guard try domain.servers(in: suite) != nil else {
+        throw SharedStorageReadinessError.missingServerConfiguration
+      }
     } catch {
       guard error is DefaultsValueValidationError else { throw error }
       throw SharedStorageReadinessError.malformedServerConfiguration
@@ -165,7 +168,7 @@ public final class SharedStorageMigration {
 
   /// Clear stale credentials before replacing the previous server list.
   private func importLegacyState() throws {
-    let legacyServers = try validatedLegacyServers()
+    let legacyServers = try Self.legacyServers(in: legacySuite, suiteName: legacySuiteName)
     try removeStaleSharedState(legacyIDs: Set(legacyServers.map(\.id)))
     try copyConfiguration(legacyServers)
     for server in legacyServers {
@@ -173,10 +176,10 @@ public final class SharedStorageMigration {
     }
   }
 
-  /// Reject the import if any server fails to decode.
-  private func validatedLegacyServers() throws -> [ServerConfig] {
+  /// Validates the saved list for both import and writable fallback.
+  public static func legacyServers(in suite: UserDefaults, suiteName: String) throws -> [ServerConfig] {
     do {
-      return try Defaults.Keys.strictlyDecodedArray(.servers(suite: legacySuite))
+      return try Defaults.Keys.PersistedDomain(suite: suite, name: suiteName).servers(in: suite) ?? []
     } catch {
       guard error is DefaultsValueValidationError else { throw error }
       throw SharedStorageMigrationError.malformedLegacyConfiguration

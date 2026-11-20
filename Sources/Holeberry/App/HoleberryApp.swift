@@ -228,11 +228,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private func makeAppStorageContext() -> AppStorageContext {
     let legacySuite: UserDefaults = .standard
     let legacyKeychain = KeychainManager()
+    let validateLegacySource: () throws -> Void = {
+      _ = try SharedStorageMigration.legacyServers(in: legacySuite, suiteName: self.activationSuiteName())
+    }
     let readActivatedVersion: () throws -> Int = {
-      try SharedStorageMigration.activatedVersion(
-        in: legacySuite,
-        suiteName: try self.activationSuiteName()
-      )
+      try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: self.activationSuiteName())
     }
 
     // Check completion before opening the shared Keychain.
@@ -243,6 +243,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       logger.error("App Group identifier unavailable: \(error.localizedDescription, privacy: .public)")
       let selection = AppStorageStartup.select(
         readActivatedVersion: readActivatedVersion,
+        validateLegacySource: validateLegacySource,
         resolve: { throw error },
         readReadiness: { _ in .pending },
         migrate: { _ in },
@@ -253,9 +254,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     let selection = AppStorageStartup.select(
       readActivatedVersion: readActivatedVersion,
-      resolve: {
-        try UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier)
-      },
+      validateLegacySource: validateLegacySource,
+      resolve: { try UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier) },
       readReadiness: { sharedSuite in
         try SharedStorageMigration.readiness(in: sharedSuite, suiteName: appGroupIdentifier)
       },
@@ -263,6 +263,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         do {
           try SharedStorageMigration(
             legacySuite: legacySuite,
+            legacySuiteName: try activationSuiteName(),
             sharedSuite: sharedSuite,
             sharedSuiteName: appGroupIdentifier,
             legacyKeychain: legacyKeychain,
@@ -288,11 +289,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     legacySuite: UserDefaults,
     legacyKeychain: KeychainManager
   ) -> AppStorageContext {
+    guard let legacySuiteName = try? activationSuiteName() else { return unavailableStorageContext() }
     switch selection {
     case .useShared(let sharedSuite, let didActivate):
       let sharedKeychain: KeychainManager
+      let sharedSuiteName: String
       do {
         sharedKeychain = try makeSharedKeychain()
+        sharedSuiteName = try Bundle.main.sharedAppGroupIdentifier()
       } catch {
         logger.error(
           "Shared Keychain unavailable for a completed store: \(error.localizedDescription, privacy: .public)")
@@ -301,8 +305,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       return AppStorageContext(
         storage: ConcreteAppStorage(
           sharedDataSuite: sharedSuite,
+          sharedDataSuiteName: sharedSuiteName,
           appLocalSuite: .standard,
-          keychain: sharedKeychain
+          keychain: sharedKeychain,
+          legacyKeychain: legacyKeychain
         ),
         didActivate: didActivate,
         startupStatus: .shared,
@@ -314,6 +320,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       return AppStorageContext(
         storage: ConcreteAppStorage(
           sharedDataSuite: legacySuite,
+          sharedDataSuiteName: legacySuiteName,
           appLocalSuite: legacySuite,
           keychain: legacyKeychain
         ),
@@ -330,6 +337,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private func unavailableStorageContext() -> AppStorageContext {
     let storage = ConcreteAppStorage(
       sharedDataSuite: UnavailableDefaults.shared,
+      sharedDataSuiteName: Bundle.appIdentifier,
       appLocalSuite: .standard,
       keychain: UnavailableKeychain()
     )

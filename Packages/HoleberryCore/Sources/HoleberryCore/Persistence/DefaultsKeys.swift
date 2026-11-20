@@ -144,14 +144,6 @@ enum DefaultsValueValidationError: Error, Equatable {
 
 // Strict reads reject partial arrays and can bypass registered defaults.
 extension Defaults.Keys {
-  /// Throws if any stored element fails to decode.
-  static func strictlyDecodedArray<Element: Defaults.Serializable>(
-    _ key: Defaults.Key<[Element]>
-  ) throws -> [Element] {
-    guard let rawValue = key.suite.object(forKey: key.name) else { return [] }
-    return try decodeStrictArray(rawValue, keyName: key.name)
-  }
-
   /// Requires an explicitly saved array. Readback checks the in-process domain.
   static func strictlyDecodedPersistedArray<Element: Defaults.Serializable>(
     _ key: Defaults.Key<[Element]>,
@@ -181,6 +173,17 @@ extension Defaults.Keys {
         throw DefaultsValueValidationError.missingPersistedValue(key.name)
       }
       return try Defaults.Keys.decodeStrictArray(rawValue, keyName: key.name)
+    }
+
+    /// Missing means a fresh install. A partially decoded list or repeated ID is invalid.
+    func servers(in suite: UserDefaults) throws -> [ServerConfig]? {
+      let key = Defaults.Keys.servers(suite: suite)
+      guard values[key.name] != nil else { return nil }
+      let servers = try strictlyDecodedArray(key)
+      guard Set(servers.map(\.id)).count == servers.count else {
+        throw DefaultsValueValidationError.malformedValue(key.name)
+      }
+      return servers
     }
 
     /// Rejects Boolean or fractional values.

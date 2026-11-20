@@ -188,12 +188,17 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     return await probe.isPasswordless
   }
 
-  public func deleteServer(id: UUID) {
-    guard allowsServerChanges else { return }
+  @discardableResult
+  public func deleteServer(id: UUID) -> Bool {
+    guard allowsServerChanges else { return false }
+    do {
+      try storage.removeServer(id: id)
+    } catch {
+      logger.error("Server removal failed: \(error.localizedDescription, privacy: .public)")
+      return false
+    }
     let hadServer = servers.contains { $0.id == id }
     servers.removeAll { $0.id == id }
-    saveServers()
-    try? storage.deleteCredential(for: id)
     if let service = services.removeValue(forKey: id) {
       Task { await service.logout() }
     }
@@ -201,6 +206,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     if hadServer {
       persistentChangeHandler()
     }
+    return true
   }
 
   // MARK: - Helpers

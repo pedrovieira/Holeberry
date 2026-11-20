@@ -7,6 +7,49 @@ import Testing
 @Suite("AppStorageStartup")
 @MainActor
 struct AppStorageStartupTests {
+  @Test(arguments: ["migration", "resolve", "keychain"])
+  func malformedLegacyListEntersRecoveryWithoutLosingRecords(failure: String) throws {
+    let legacy = TestUserDefaults()
+    let shared = TestUserDefaults()
+    let server = ServerConfig(id: UUID(), label: "Original", url: "http://pihole.local", version: .v6)
+    let key = Defaults.Keys.servers(suite: legacy)
+    Defaults[key] = [server]
+    let original = try #require(rawDefaultsValue(for: key) as? [String]) + ["not-json"]
+    setRawDefaultsValue(original, for: key)
+    let migration = SharedStorageMigration(
+      legacySuite: legacy,
+      legacySuiteName: legacy.domainName,
+      sharedSuite: shared,
+      sharedSuiteName: shared.domainName,
+      legacyKeychain: MockKeychainManager(),
+      sharedKeychain: MockKeychainManager()
+    )
+    var activated = false
+
+    let selection = AppStorageStartup.select(
+      readActivatedVersion: { 0 },
+      validateLegacySource: {
+        _ = try SharedStorageMigration.legacyServers(in: legacy, suiteName: legacy.domainName)
+      },
+      resolve: {
+        if failure == "resolve" { throw AppStorageStartupTestError.resolutionFailed }
+        return shared
+      },
+      readReadiness: { try SharedStorageMigration.readiness(in: $0, suiteName: shared.domainName) },
+      migrate: { _ in
+        if failure == "keychain" { throw AppStorageStartupTestError.migrationFailed }
+        try migration.migrate()
+      },
+      markActivated: { activated = true }
+    )
+
+    #expect(selection.status == .recovery)
+    #expect(selection.allowsServerChanges == false)
+    #expect(activated == false)
+    #expect(rawDefaultsValue(for: key) as? [String] == original)
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: shared)] == 0)
+  }
+
   @Test func pendingStoreMigratesThenUsesSharedAndActivates() {
     let probe = StartupProbe(suite: TestDefaults.makeSuite())
     probe.readiness = .success(.pending)
@@ -229,6 +272,7 @@ struct AppStorageStartupTests {
 
     let migration = SharedStorageMigration(
       legacySuite: legacySuite,
+      legacySuiteName: legacySuite.domainName,
       sharedSuite: sharedSuite,
       sharedSuiteName: sharedSuite.domainName,
       legacyKeychain: legacyKeychain,
@@ -244,6 +288,9 @@ struct AppStorageStartupTests {
             in: legacySuite,
             suiteName: legacySuite.domainName
           )
+        },
+        validateLegacySource: {
+          _ = try SharedStorageMigration.legacyServers(in: legacySuite, suiteName: legacySuite.domainName)
         },
         resolve: { sharedSuite },
         readReadiness: { suite in
@@ -367,6 +414,9 @@ struct AppStorageStartupTests {
       readActivatedVersion: {
         try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuite.domainName)
       },
+      validateLegacySource: {
+        _ = try SharedStorageMigration.legacyServers(in: legacySuite, suiteName: legacySuite.domainName)
+      },
       resolve: { sharedSuite },
       readReadiness: { suite in
         try SharedStorageMigration.readiness(in: suite, suiteName: sharedSuite.domainName)
@@ -470,6 +520,7 @@ private final class StartupProbe {
   func select(readActivatedVersion: () throws -> Int) -> AppStorageStartupSelection {
     AppStorageStartup.select(
       readActivatedVersion: readActivatedVersion,
+      validateLegacySource: {},
       resolve: {
         if let resolveError { throw resolveError }
         return suite

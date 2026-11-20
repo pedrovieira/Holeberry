@@ -72,6 +72,7 @@ struct QueryStatisticsProvider: TimelineProvider {
 
     let storage = ConcreteAppStorage(
       sharedDataSuite: suite,
+      sharedDataSuiteName: appGroupIdentifier,
       appLocalSuite: UnavailableDefaults.shared,
       keychain: sharedKeychain
     )

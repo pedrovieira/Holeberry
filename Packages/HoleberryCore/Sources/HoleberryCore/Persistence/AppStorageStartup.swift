@@ -50,8 +50,11 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
 @MainActor
 public enum AppStorageStartup {
   /// Zero permits a first import. Verified shared storage can repair unreadable activation history.
+  // All six callbacks are startup dependencies; none has a safe default.
+  // swiftlint:disable:next function_parameter_count
   public static func select(
     readActivatedVersion: () throws -> Int,
+    validateLegacySource: () throws -> Void,
     resolve: () throws -> UserDefaults,
     readReadiness: (UserDefaults) throws -> SharedStorageReadiness,
     migrate: (UserDefaults) throws -> Void,
@@ -63,7 +66,8 @@ public enum AppStorageStartup {
     do {
       suite = try resolve()
     } catch {
-      return hasPriorCutover(activation) ? .unavailable(cause: error) : .useLegacy(cause: error)
+      guard !hasPriorCutover(activation) else { return .unavailable(cause: error) }
+      return legacyFallback(cause: error, validateLegacySource: validateLegacySource)
     }
 
     let readiness: SharedStorageReadiness
@@ -81,6 +85,7 @@ public enum AppStorageStartup {
       case .success(0):
         return attemptCutover(
           suite: suite,
+          validateLegacySource: validateLegacySource,
           readReadiness: readReadiness,
           migrate: migrate,
           markActivated: markActivated
@@ -116,6 +121,7 @@ public enum AppStorageStartup {
 
   private static func attemptCutover(
     suite: UserDefaults,
+    validateLegacySource: () throws -> Void,
     readReadiness: (UserDefaults) throws -> SharedStorageReadiness,
     migrate: (UserDefaults) throws -> Void,
     markActivated: () throws -> Void
@@ -130,13 +136,29 @@ public enum AppStorageStartup {
     // Verified completion takes precedence over an import error.
     do {
       guard try readReadiness(suite) == .ready else {
-        return .useLegacy(cause: migrationCause ?? AppStorageStartupError.migrationDidNotComplete)
+        return legacyFallback(
+          cause: migrationCause ?? AppStorageStartupError.migrationDidNotComplete,
+          validateLegacySource: validateLegacySource
+        )
       }
     } catch {
       return .unavailable(cause: error)
     }
 
     return activateShared(suite, markActivated: markActivated)
+  }
+
+  /// Every writable fallback must preserve the complete persisted source list.
+  private static func legacyFallback(
+    cause: any Error,
+    validateLegacySource: () throws -> Void
+  ) -> AppStorageStartupSelection {
+    do {
+      try validateLegacySource()
+      return .useLegacy(cause: cause)
+    } catch {
+      return .unavailable(cause: error)
+    }
   }
 
   private static func activateShared(

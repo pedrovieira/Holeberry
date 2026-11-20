@@ -9,6 +9,7 @@ import SimpleKeychain
 public protocol KeychainManaging: Sendable {
   func saveCredential(_ credential: String, for serverID: UUID) throws
   func readCredential(for serverID: UUID) throws -> String?
+  /// Deletes by account without reading the value. Missing items count as success.
   func deleteCredential(for serverID: UUID) throws
 }
 
@@ -102,7 +103,11 @@ public final class KeychainManager: KeychainManaging {
   }
 
   public func deleteCredential(for serverID: UUID) throws {
-    try keychain.deleteItem(forKey: serverID.uuidString)
+    do {
+      try keychain.deleteItem(forKey: serverID.uuidString)
+    } catch let error as SimpleKeychainError where error.status == errSecItemNotFound {
+      return
+    }
   }
 }
 

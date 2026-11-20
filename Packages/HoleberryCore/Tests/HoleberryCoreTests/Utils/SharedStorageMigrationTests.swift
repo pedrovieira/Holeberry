@@ -9,6 +9,14 @@ private struct SharedStorageTestError: Error, Equatable {}
 @Suite("KeychainManager options")
 @MainActor
 struct KeychainManagerOptionsTests {
+  @Test func deletingMissingCredentialIsIdempotent() throws {
+    let keychain = KeychainManager(service: "me.holeberry.tests.\(UUID().uuidString)", interactive: false)
+    let id = UUID()
+
+    try keychain.deleteCredential(for: id)
+    try keychain.deleteCredential(for: id)
+  }
+
   @Test func defaultInitializationPreservesLegacyConfiguration() {
     let keychain = KeychainManager()
 
@@ -127,6 +135,17 @@ struct DefaultsTargetVerificationTests {
 @Suite("Shared storage readiness")
 @MainActor
 struct SharedStorageReadinessTests {
+  @Test func completedStoreWithDuplicateServerIDsRequiresRecovery() {
+    let (name, suite) = TestDefaults.makeNamedSuite()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server, server]
+    Defaults[.sharedStorageMigrationVersion(suite: suite)] = SharedStorageMigration.currentVersion
+
+    #expect(throws: SharedStorageReadinessError.malformedServerConfiguration) {
+      try SharedStorageMigration.readiness(in: suite, suiteName: name)
+    }
+  }
+
   @Test func readyStorageReadsOnePersistentDomainSnapshot() throws {
     let suite = TestUserDefaults()
     Defaults[.sharedStorageMigrationVersion(suite: suite)] = SharedStorageMigration.currentVersion
@@ -206,6 +225,55 @@ struct SharedStorageReadinessTests {
 @Suite("SharedStorageMigration")
 @MainActor
 struct SharedStorageMigrationTests {
+  @Test func launchArgumentCannotReplacePersistedLegacyServers() throws {
+    let legacy = TestDefaults.makeNamedSuite()
+    let harness = makeHarness(legacy: legacy)
+    let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
+    let key = Defaults.Keys.servers(suite: legacy.suite)
+    Defaults[key] = [server]
+    let arguments = legacy.suite.volatileDomain(forName: UserDefaults.argumentDomain)
+    defer { legacy.suite.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain) }
+    legacy.suite.setVolatileDomain([key.name: [String]()], forName: UserDefaults.argumentDomain)
+    #expect(legacy.suite.object(forKey: key.name) as? [String] == [])
+
+    try harness.migration.migrate()
+
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: harness.sharedSuite,
+      sharedDataSuiteName: harness.sharedSuiteName,
+      appLocalSuite: legacy.suite,
+      keychain: harness.sharedKeychain
+    )
+    #expect(storage.loadServers().map(\.id) == [server.id])
+    let added = ServerConfig(id: UUID(), url: "http://added.local", version: .v6)
+    storage.saveServers(storage.loadServers() + [added])
+    let saved = try Defaults.Keys.strictlyDecodedPersistedArray(
+      .servers(suite: harness.sharedSuite), suiteName: harness.sharedSuiteName)
+    #expect(saved.map(\.id) == [server.id, added.id])
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+    let persisted = try Defaults.Keys.strictlyDecodedPersistedArray(key, suiteName: legacy.name)
+    #expect(persisted.map(\.id) == [server.id])
+  }
+
+  @Test func duplicateLegacyServerIDsRejectImportWithoutChangingEitherStore() throws {
+    let harness = makeHarness()
+    let first = ServerConfig(id: UUID(), url: "http://first.local", version: .v6)
+    let duplicate = ServerConfig(id: first.id, url: "http://second.local", version: .v5)
+    Defaults[.servers(suite: harness.legacySuite)] = [first, duplicate]
+    try harness.legacyKeychain.saveCredential("legacy-secret", for: first.id)
+
+    #expect(throws: SharedStorageMigrationError.malformedLegacyConfiguration) {
+      try harness.migration.migrate()
+    }
+
+    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.url) == ["http://first.local", "http://second.local"])
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
+    #expect(try harness.legacyKeychain.readCredential(for: first.id) == "legacy-secret")
+    #expect(try harness.sharedKeychain.readCredential(for: first.id) == nil)
+  }
+
   @Test func copiesEveryServerConfigField() throws {
     let harness = makeHarness()
     let first = ServerConfig(
@@ -320,6 +388,7 @@ struct SharedStorageMigrationTests {
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
     #expect(harness.legacyKeychain.readCallCount == 0)
+    #expect(harness.sharedKeychain.storedCredentials.isEmpty)
 
     let late = ServerConfig(id: UUID(), url: "http://late.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [late]
@@ -855,19 +924,20 @@ struct SharedStorageMigrationTests {
   }
 
   private func makeHarness(
-    legacySuite: UserDefaults = TestDefaults.makeSuite(),
+    legacy: (name: String, suite: UserDefaults) = TestDefaults.makeNamedSuite(),
     shared: (name: String, suite: UserDefaults) = TestDefaults.makeNamedSuite()
   ) -> Harness {
     let legacyKeychain = MockKeychainManager()
     let sharedKeychain = MockKeychainManager()
     return Harness(
-      legacySuite: legacySuite,
+      legacySuite: legacy.suite,
       sharedSuite: shared.suite,
       sharedSuiteName: shared.name,
       legacyKeychain: legacyKeychain,
       sharedKeychain: sharedKeychain,
       migration: SharedStorageMigration(
-        legacySuite: legacySuite,
+        legacySuite: legacy.suite,
+        legacySuiteName: legacy.name,
         sharedSuite: shared.suite,
         sharedSuiteName: shared.name,
         legacyKeychain: legacyKeychain,

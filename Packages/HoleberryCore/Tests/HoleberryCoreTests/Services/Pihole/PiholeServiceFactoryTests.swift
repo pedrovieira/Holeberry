@@ -97,7 +97,7 @@ struct PiholeServiceFactoryTests {
     let mockAuthFactory = MockAuthSessionFactory()
     mockAuthFactory.stubbedProvider = MockAuthSessionProvider()
     let factory = ConcretePiholeServiceFactory(authSessionFactory: mockAuthFactory)
-    let sharedDataSuite = TestDefaults.makeSuite()
+    let (sharedDataSuiteName, sharedDataSuite) = TestDefaults.makeNamedSuite()
     let appLocalSuite = TestDefaults.makeSuite()
     let config = ServerConfig(label: "Test", url: "http://restore.local", version: version)
     // Configurations use a different suite from temporary records.
@@ -118,7 +118,7 @@ struct PiholeServiceFactoryTests {
     )
     Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)] = [record]
     let storage = makeTestStorage(
-      appLocalSuite: appLocalSuite, sharedDataSuite: sharedDataSuite)
+      appLocalSuite: appLocalSuite, sharedData: (sharedDataSuiteName, sharedDataSuite))
 
     let service = try factory.buildService(
       config: config, credential: "api-token", session: session, storage: storage,
