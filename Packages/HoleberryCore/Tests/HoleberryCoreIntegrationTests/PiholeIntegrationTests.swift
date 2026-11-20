@@ -553,7 +553,6 @@ struct PiholeIntegrationTests {
       session: session,
       storage: ConcreteAppStorage(
         sharedDataSuite: defaults,
-        sharedDataSuiteName: suiteName,
         appLocalSuite: defaults,
         keychain: IntegrationKeychain()
       ),

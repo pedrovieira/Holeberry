@@ -19,9 +19,6 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
   /// multi-server migration.
   var saveErrorsByServerID: [UUID: any Error] = [:]
 
-  /// One-shot override for `readCredential`, used to simulate readback mismatches.
-  var readResultOverride: Result<String?, any Error>?
-
   private(set) var saveCallCount = 0
   private(set) var readCallCount = 0
   private(set) var deleteCallCount = 0
@@ -45,10 +42,6 @@ final class MockKeychainManager: KeychainManaging, @unchecked Sendable {
   func readCredential(for serverID: UUID) throws -> String? {
     readCallCount += 1
     lastReadServerID = serverID
-    if let readResultOverride {
-      self.readResultOverride = nil
-      return try readResultOverride.get()
-    }
     if let readErrorStub { throw readErrorStub }
     if let errorStub { throw errorStub }
     return storedCredentials[serverID.uuidString]
