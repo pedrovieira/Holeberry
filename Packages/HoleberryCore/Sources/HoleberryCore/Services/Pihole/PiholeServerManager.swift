@@ -113,22 +113,17 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   ) {
     guard allowsServerChanges, let idx = servers.firstIndex(where: { $0.id == id }) else { return }
 
+    // nil keeps the credential; "" clears it. Explicit values always trigger an edit.
+    // Avoid keychain reads and Unicode-normalized string comparisons.
     if let existingService = services[id] {
       let urlChanged = url != existingService.url
-      let credentialChanged: Bool
-      if let credential {
-        // nil = no change; "" = clear (password-less).
-        credentialChanged = (try? storage.readCredential(for: id)) != credential
-      } else {
-        credentialChanged = false
-      }
 
       if let label { existingService.label = label }
       servers[idx].icon = icon
       existingService.url = url
       if let version { existingService.version = version }
 
-      if urlChanged || credentialChanged {
+      if urlChanged || credential != nil {
         reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
     } else {
@@ -138,13 +133,14 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if let version { servers[idx].version = version }
     }
 
+    var credentialPersisted = false
     if let credential {
-      // "" = clear (password-less), value = replace.
-      if credential.isEmpty {
-        try? storage.deleteCredential(for: id)
-      } else {
-        try? storage.saveCredential(credential, for: id)
-      }
+      credentialPersisted = persistCredentialChange(credential, for: id)
+    }
+
+    if credentialPersisted {
+      // Invalidate fetches started before this credential write.
+      servers[idx].connectionRevision = UUID()
     }
 
     syncConfigs()
@@ -210,6 +206,20 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   // MARK: - Helpers
+
+  /// Saves or clears the credential; returns false on failure.
+  private func persistCredentialChange(_ credential: String, for id: UUID) -> Bool {
+    do {
+      if credential.isEmpty {
+        try storage.deleteCredential(for: id)
+      } else {
+        try storage.saveCredential(credential, for: id)
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
 
   private func reconnectExistingService(
     _ existingService: any PiholeServiceProviding,
@@ -589,7 +599,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
           label: svc.label,
           icon: config.icon,
           url: svc.url,
-          version: svc.version
+          version: svc.version,
+          connectionRevision: config.connectionRevision
         )
       }
       return config

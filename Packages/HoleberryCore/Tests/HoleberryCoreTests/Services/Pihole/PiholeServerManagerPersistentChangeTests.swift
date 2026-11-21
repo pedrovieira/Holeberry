@@ -293,6 +293,371 @@ struct PiholeServerManagerPersistentChangeTests {
     #expect(fireCount == 0)
   }
 
+  @Test func credentialOnlyEditAdvancesTheConnectionRevisionBeforeTheCallback() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("old-secret", for: server.id)
+    let oldConfigs = Defaults[.servers(suite: suite)]
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    var snapshots: [PersistentChangeSnapshot] = []
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector(),
+      persistentChangeHandler: {
+        snapshots.append(
+          PersistentChangeSnapshot(
+            credential: try? keychain.readCredential(for: server.id),
+            servers: Defaults[.servers(suite: suite)]
+          )
+        )
+      }
+    )
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: "new-secret"
+    )
+
+    let persisted = try #require(snapshots.first?.servers.first)
+    let previous = try #require(oldConfigs.first)
+    #expect(snapshots.first?.credential == "new-secret")
+    #expect(persisted.connectionRevision != nil)
+    #expect(persisted.connectionRevision != previous.connectionRevision)
+    #expect(!previous.hasSameConnection(as: persisted))
+    #expect(manager.servers.first?.connectionRevision == persisted.connectionRevision)
+  }
+
+  @Test func credentialOnlyEditRejectsABatchThatFailedWithTheOldCredential() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("rejected-secret", for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+    // Simulate an authentication failure from before the credential edit.
+    let inFlightConfigs = storage.loadServers()
+    let staleResults: [UUID: Result<QuerySummary, PiholeError>] = [
+      server.id: .failure(.invalidCredentials)
+    ]
+    let checkedAt = Date(timeIntervalSince1970: 1_000)
+    let staleBatch = QueryStatisticsSnapshot(
+      scope: .all,
+      setupRequired: false,
+      observations: ServerQueryObservation.make(
+        servers: inFlightConfigs,
+        results: staleResults,
+        checkedAt: checkedAt
+      )
+    )
+    #expect(staleBatch.availability(at: checkedAt) == .noneAvailable)
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: "accepted-secret"
+    )
+
+    let current = storage.loadServers()
+    // Match the widget's post-fetch connection check.
+    let acceptsStaleBatch = current.elementsEqual(inFlightConfigs, by: { $0.hasSameConnection(as: $1) })
+    #expect(!acceptsStaleBatch)
+    #expect(try keychain.readCredential(for: server.id) == "accepted-secret")
+  }
+
+  @Test func clearingTheCredentialAdvancesTheConnectionRevision() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("old-secret", for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: ""
+    )
+
+    let persisted = try #require(storage.loadServers().first)
+    #expect(try keychain.readCredential(for: server.id) == nil)
+    #expect(persisted.connectionRevision != nil)
+    #expect(!server.hasSameConnection(as: persisted))
+  }
+
+  @Test func metadataOnlyEditKeepsTheConnectionRevision() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let revision = UUID()
+    let server = ServerConfig(
+      id: UUID(), label: "Old", url: "http://pihole.local", version: .v6, connectionRevision: revision)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("secret", for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+
+    manager.updateServer(
+      id: server.id,
+      label: "New",
+      icon: "house",
+      url: server.url,
+      credential: nil
+    )
+
+    let persisted = try #require(storage.loadServers().first)
+    #expect(persisted.label == "New")
+    #expect(persisted.connectionRevision == revision)
+    #expect(server.hasSameConnection(as: persisted))
+  }
+
+  @Test func failedCredentialSaveKeepsTheConnectionRevisionAndStoredCredential() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let revision = UUID()
+    let server = ServerConfig(
+      id: UUID(), label: "Home", url: "http://pihole.local", version: .v6, connectionRevision: revision)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("old-secret", for: server.id)
+    keychain.saveErrorStub = PersistentChangeTestError()
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: "new-secret"
+    )
+
+    let persisted = try #require(storage.loadServers().first)
+    #expect(persisted.connectionRevision == revision)
+    #expect(manager.servers.first?.connectionRevision == revision)
+    #expect(try keychain.readCredential(for: server.id) == "old-secret")
+  }
+
+  @Test func clearingCredentialAdvancesRevisionWhenTheStoredReadFails() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("old-secret", for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+    let inFlightConfigs = storage.loadServers()
+    // Deletion can succeed even when reading the credential fails.
+    keychain.readErrorStub = PersistentChangeTestError()
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: ""
+    )
+
+    let persisted = try #require(storage.loadServers().first)
+    #expect(keychain.storedCredentials[server.id.uuidString] == nil)
+    #expect(persisted.connectionRevision != nil)
+    #expect(!inFlightConfigs[0].hasSameConnection(as: persisted))
+    let acceptsStaleBatch = [persisted].elementsEqual(inFlightConfigs, by: { $0.hasSameConnection(as: $1) })
+    #expect(!acceptsStaleBatch)
+  }
+
+  @Test func metadataOnlyEditDoesNotReadTheCredential() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), label: "Old", url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("old-secret", for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+    let readsAfterInitialization = keychain.readCredentialCallCount
+
+    manager.updateServer(
+      id: server.id,
+      label: "New",
+      icon: "house",
+      url: server.url,
+      credential: nil
+    )
+
+    #expect(keychain.readCredentialCallCount == readsAfterInitialization)
+    #expect(storage.loadServers().first?.label == "New")
+    #expect(keychain.storedCredentials[server.id.uuidString] == "old-secret")
+  }
+
+  @Test func byteDistinctCredentialReplacementAdvancesRevisionAndRebuildsWithExactBytes() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let factory = MockPiholeServiceFactory()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    // Canonically equal strings with different UTF-8 bytes, as a keychain can hold.
+    let precomposed = "caf\u{00E9}"
+    let decomposed = "cafe\u{0301}"
+    #expect(precomposed == decomposed)
+    #expect(!Array(precomposed.utf8).elementsEqual(decomposed.utf8))
+    try keychain.saveCredential(precomposed, for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector()
+    )
+    let inFlightConfigs = storage.loadServers()
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: decomposed
+    )
+
+    let persisted = try #require(storage.loadServers().first)
+    let rebuiltCredential = try #require(factory.buildServiceLastCredential)
+    let storedCredential = try #require(keychain.storedCredentials[server.id.uuidString])
+    #expect(Array(rebuiltCredential.utf8).elementsEqual(decomposed.utf8))
+    #expect(Array(storedCredential.utf8).elementsEqual(decomposed.utf8))
+    #expect(persisted.connectionRevision != nil)
+    #expect(!inFlightConfigs[0].hasSameConnection(as: persisted))
+  }
+
+  @Test func sameCredentialSaveStillAdvancesTheConnectionRevision() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("same-secret", for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+    let previousRevision = storage.loadServers().first?.connectionRevision
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: "same-secret"
+    )
+
+    let persisted = try #require(storage.loadServers().first)
+    #expect(persisted.connectionRevision != previousRevision)
+    #expect(persisted.connectionRevision != nil)
+    #expect(keychain.storedCredentials[server.id.uuidString] == "same-secret")
+  }
+
+  @Test func failedCredentialDeleteKeepsTheConnectionRevision() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let revision = UUID()
+    let server = ServerConfig(
+      id: UUID(), url: "http://pihole.local", version: .v6, connectionRevision: revision)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("old-secret", for: server.id)
+    keychain.deleteErrorStub = PersistentChangeTestError()
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: ""
+    )
+
+    let persisted = try #require(storage.loadServers().first)
+    #expect(persisted.connectionRevision == revision)
+    #expect(manager.servers.first?.connectionRevision == revision)
+    #expect(keychain.storedCredentials[server.id.uuidString] == "old-secret")
+  }
+
+  @Test func reloadAndVersionSyncPreserveTheConnectionRevision() throws {
+    let suite = TestDefaults.makeSuite()
+    let keychain = MockKeychainManager()
+    let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: suite)] = [server]
+    try keychain.saveCredential("old-secret", for: server.id)
+    let storage = makeTestStorage(
+      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector()
+    )
+    manager.updateServer(
+      id: server.id,
+      label: server.label,
+      icon: server.icon,
+      url: server.url,
+      credential: "new-secret"
+    )
+    let revision = try #require(storage.loadServers().first?.connectionRevision)
+
+    manager.reloadServers()
+    #expect(manager.servers.first?.connectionRevision == revision)
+
+    manager.updateServerVersion(id: server.id, version: .v5)
+    let persisted = try #require(storage.loadServers().first)
+    #expect(persisted.connectionRevision == revision)
+    #expect(persisted.version == .v5)
+  }
+
   private struct PersistentChangeSnapshot {
     let credential: String?
     let servers: [ServerConfig]

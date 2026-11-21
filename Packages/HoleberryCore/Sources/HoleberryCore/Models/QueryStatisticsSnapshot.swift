@@ -1,11 +1,7 @@
 import Foundation
 
-/// One scoped query-summary batch shared by every query-statistics widget.
-///
-/// The snapshot stores only source state: the scope it was fetched for, whether
-/// setup is still required, and one observation per in-scope server. Combined
-/// counts, the batch check time, and availability are derived, so no duplicate
-/// totals or rendering date are retained. WidgetKit types stay out of Core.
+/// Scoped query results shared by widgets.
+/// Counts, check time, and availability are derived from source observations.
 public struct QueryStatisticsSnapshot: Equatable, Sendable {
   /// The age at which availability stops describing the last check.
   public static let availabilityExpiration: TimeInterval = 60 * 60
@@ -30,32 +26,24 @@ public struct QueryStatisticsSnapshot: Equatable, Sendable {
     observations.map(\.server)
   }
 
-  /// Joint counts from the servers that succeeded in this batch.
-  ///
-  /// Setup-required snapshots expose no data claim. Failed, missing, and
-  /// unchecked observations contribute nothing.
+  /// Aggregates successful observations; returns nil during setup.
   public var summary: QuerySummary? {
     guard !setupRequired else { return nil }
     return ServerQueryObservation.aggregate(observations)
   }
 
-  /// Completion time of this batch, including an all-failure batch.
-  ///
-  /// Setup-required snapshots expose no data claim. Nil before any check.
+  /// Latest check time, including failures; nil before a check or during setup.
   public var lastCheckedAt: Date? {
     guard !setupRequired else { return nil }
     return observations.compactMap(\.checkedAt).max()
   }
 
-  /// Availability for a widget rendered at `date`.
-  ///
-  /// The result is derived from the batch outcomes until exactly
-  /// ``availabilityExpiration`` seconds after the check; after that it is
-  /// `notChecked`. Counts and observation times are left untouched, so a delayed
-  /// render keeps the last successful values with their original fetch time.
+  /// Availability from the check time until ``availabilityExpiration`` seconds later.
+  /// Outside that interval, returns `notChecked` without changing counts or fetch times.
   public func availability(at date: Date) -> QueryStatisticsAvailability {
     guard !setupRequired,
       let lastCheckedAt,
+      date >= lastCheckedAt,
       date.timeIntervalSince(lastCheckedAt) < Self.availabilityExpiration
     else {
       return .notChecked
@@ -75,8 +63,7 @@ public struct QueryStatisticsSnapshot: Equatable, Sendable {
       scoped = observations.filter { $0.server.id == id }
     }
 
-    // A duplicate UUID describes one server, so the first observation supplies
-    // its configuration, state, and timestamp.
+    // The first occurrence supplies the configuration, result, and timestamp.
     var seenServerIDs: Set<UUID> = []
     return scoped.filter { seenServerIDs.insert($0.server.id).inserted }
   }

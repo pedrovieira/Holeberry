@@ -246,6 +246,46 @@ struct QueryStatisticsSnapshotTests {
     #expect(snapshot.lastCheckedAt == firstCheck)
   }
 
+  @Test func futureRenderDatesAreNotFresh() throws {
+    let server = makeServer()
+    let success = makeSnapshot(
+      servers: [server],
+      results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
+    )
+    let failure = makeSnapshot(
+      servers: [server],
+      results: [server.id: .failure(.network("down"))]
+    )
+    let beforeTheCheck = firstCheck.addingTimeInterval(-1)
+
+    #expect(success.availability(at: beforeTheCheck) == .notChecked)
+    #expect(failure.availability(at: beforeTheCheck) == .notChecked)
+    #expect(try #require(success.summary).totalQueries == 10)
+    #expect(success.lastCheckedAt == firstCheck)
+  }
+
+  @Test func availabilityBoundariesStartAtTheCheckTime() {
+    let server = makeServer()
+    let success = makeSnapshot(
+      servers: [server],
+      results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
+    )
+    let failure = makeSnapshot(
+      servers: [server],
+      results: [server.id: .failure(.network("down"))]
+    )
+
+    #expect(success.availability(at: firstCheck.addingTimeInterval(-1)) == .notChecked)
+    #expect(success.availability(at: firstCheck) == .allAvailable)
+    #expect(success.availability(at: firstCheck.addingTimeInterval(3_599)) == .allAvailable)
+    #expect(success.availability(at: firstCheck.addingTimeInterval(3_600)) == .notChecked)
+
+    #expect(failure.availability(at: firstCheck.addingTimeInterval(-1)) == .notChecked)
+    #expect(failure.availability(at: firstCheck) == .noneAvailable)
+    #expect(failure.availability(at: firstCheck.addingTimeInterval(3_599)) == .noneAvailable)
+    #expect(failure.availability(at: firstCheck.addingTimeInterval(3_600)) == .notChecked)
+  }
+
   private func makeServer(
     url: String = "http://pihole.local",
     version: ServerVersion = .v6

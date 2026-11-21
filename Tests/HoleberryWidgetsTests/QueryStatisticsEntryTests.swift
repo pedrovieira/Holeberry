@@ -237,6 +237,20 @@ struct QueryStatisticsEntryTests {
     #expect(entry.lastCheckedAt == checkedAt)
   }
 
+  @Test func futureRenderDatesAreNotFresh() throws {
+    let server = makeServer()
+    let base = snapshot(
+      servers: [server],
+      results: [server.id: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))]
+    )
+    let entry = QueryStatisticsEntry(date: checkedAt.addingTimeInterval(-1), base: base)
+
+    #expect(entry.availability == .notChecked)
+    #expect(entry.content == .statistics)
+    #expect(entry.lastCheckedAt == checkedAt)
+    #expect(try #require(entry.summary).totalQueries == 10)
+  }
+
   @Test func placeholderShowsSetupAndStatisticsPreviews() throws {
     let placeholder = QueryStatisticsEntry.placeholder(now: checkedAt)
     #expect(placeholder.content == .statistics)
@@ -324,8 +338,7 @@ struct QueryStatisticsEntryTests {
   }
 }
 
-/// Test-only second widget entry: proves a widget can add its own payload and
-/// still receive the shared display and freshness behavior.
+/// Test-only extra payload using the shared entry defaults.
 private struct FutureHistoryTestEntry: ServerWidgetEntry {
   let date: Date
   let base: QueryStatisticsSnapshot

@@ -19,25 +19,30 @@ public struct ServerConfig: Codable, Identifiable, Equatable, Sendable {
   public var icon: String?
   public var url: String
   public var version: ServerVersion
+  /// Non-secret credential revision used to reject stale fetches.
+  /// Nil in configurations saved before revisions were added.
+  public var connectionRevision: UUID?
 
   public init(
     id: UUID = UUID(),
     label: String? = nil,
     icon: String? = nil,
     url: String,
-    version: ServerVersion
+    version: ServerVersion,
+    connectionRevision: UUID? = nil
   ) {
     self.id = id
     self.label = label
     self.icon = icon
     self.url = url
     self.version = version
+    self.connectionRevision = connectionRevision
   }
 
-  /// Compares the connection configuration, excluding display metadata.
-  /// Use this when deciding whether a fetch still applies after a server edit.
+  /// Compares connection settings and credential revision, ignoring display metadata.
   public func hasSameConnection(as other: ServerConfig) -> Bool {
     id == other.id && url == other.url && version == other.version
+      && connectionRevision == other.connectionRevision
   }
 
   public static func == (lhs: ServerConfig, rhs: ServerConfig) -> Bool {

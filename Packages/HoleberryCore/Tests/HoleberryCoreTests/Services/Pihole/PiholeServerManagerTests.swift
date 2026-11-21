@@ -247,16 +247,24 @@ struct PiholeServerManagerCRUDTests {
     #expect(storage.credentials[id] == "new-password")
   }
 
-  @Test("update server with same credential does not rebuild")
-  func updateServerWithSameCredentialDoesNotRebuild() {
+  @Test("update server with the same credential still rebuilds and invalidates the connection")
+  func updateServerWithSameCredentialRebuildsAndInvalidates() {
     let manager = makeManagerWithLoadedService()
     guard let id = manager.servers.first?.id else {
       Issue.record("No server")
       return
     }
     let buildsBefore = mockServiceFactory.buildServiceCallCount
+    let revisionBefore = manager.servers.first?.connectionRevision
+    #expect(buildsBefore == 1, "loadServers built the service")
+
     manager.updateServer(id: id, label: "Test", url: "http://test.com", credential: "old-password")
-    #expect(mockServiceFactory.buildServiceCallCount == buildsBefore)
+
+    #expect(
+      mockServiceFactory.buildServiceCallCount == buildsBefore + 1,
+      "an explicit credential is an edit even when the strings compare equal")
+    #expect(manager.servers.first?.connectionRevision != revisionBefore)
+    #expect(storage.credentials[id] == "old-password")
   }
 
   @Test("update server with empty credential clears the stored credential")
@@ -380,8 +388,7 @@ struct PiholeServerManagerCRUDTests {
 
   @Test("update keeps configuration changes when the credential save fails")
   func updateCredentialSaveFailureRemainsBestEffort() {
-    // Forward the configuration label like the real factory does, so a rebuild
-    // does not blank it while this test checks best-effort persistence.
+    // Preserve the label during rebuilds, matching the real factory.
     mockServiceFactory.buildServiceHandler = { config in
       MockPiholeService(id: config.id, label: config.label, url: config.url, version: config.version)
     }
@@ -491,8 +498,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    // Login succeeds (session established server-side), then the status probe
-    // fails — the probe session must still be logged out.
+    // A failed status probe must still log out the successful login.
     let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     probe.checkStatusStub = .failure(PiholeError.network("blip"))
     mockServiceFactory.buildServiceStub = probe
@@ -664,8 +670,7 @@ struct PiholeServerManagerOperationsTests {
     )
   }
 
-  /// A manager with two configured servers, answered by `mockService1` and
-  /// `mockService2`.
+  /// Creates a manager backed by both mock services.
   private func makeManagerWithTwoServers() -> PiholeServerManager {
     storage.servers = [
       ServerConfig(id: mockService1.id, label: "Server A", url: "http://a.local", version: .v6),
@@ -912,8 +917,7 @@ struct PiholeServerManagerStorageTests {
     PiholeServerManager(storage: storage, serviceFactory: factory, versionDetector: detector)
   }
 
-  /// Mirrors the real factory's habit of carrying the configuration label into
-  /// the built service, so `syncConfigs` does not blank fields the test seeds.
+  /// Preserves labels during sync, matching the real factory.
   private func forwardConfigFields() {
     factory.buildServiceHandler = { config in
       MockPiholeService(id: config.id, label: config.label, url: config.url, version: config.version)
