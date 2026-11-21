@@ -45,8 +45,10 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
 ///
 /// Two markers keep separate jobs: the completion marker in the shared store says
 /// what the widget may read; the app-local activation record says whether shared
-/// storage replaced legacy storage. Once activation is recorded, shared storage is
-/// authoritative and missing or unreadable shared data never re-imports legacy data.
+/// storage replaced legacy storage. With activation zero, completed copies are
+/// refreshed from legacy storage, which may have accepted fallback edits. Once
+/// activation is recorded, shared storage is authoritative and missing or unreadable
+/// shared data never re-imports legacy data.
 @MainActor
 public final class AppStorageStartup {
   public enum Outcome {
@@ -142,12 +144,12 @@ public final class AppStorageStartup {
     }
 
     switch (readiness, activation) {
+    case (_, .success(0)):
+      return completeFirstCopy(location: location)
     case (.ready, .success(let version)) where version > 0:
       return sharedOutcome(location: location, activatedNow: false)
     case (.ready, _):
       return sharedOutcome(location: location, activatedNow: true)
-    case (.pending, .success(0)):
-      return completeFirstCopy(location: location)
     case (.pending, .success):
       return .setupFailure(AppStorageStartupError.completedStoreMarkerMissing)
     case (.pending, .failure(let error)):
@@ -155,8 +157,8 @@ public final class AppStorageStartup {
     }
   }
 
-  /// An unfinished first copy falls back to legacy storage; a recorded cutover
-  /// blocks the fallback so stale legacy data cannot reappear.
+  /// Refreshes the copy before activation. A failed import uses validated legacy
+  /// storage; a recorded cutover never enters this path.
   private func completeFirstCopy(location: SharedStorageLocation) -> Outcome {
     let sharedKeychain: any KeychainManaging
     do {
@@ -174,17 +176,15 @@ public final class AppStorageStartup {
       sharedKeychain: sharedKeychain
     )
 
-    var copyFailure: (any Error)?
     do {
-      try migration.migrate()
+      try migration.refreshBeforeActivation()
     } catch {
-      copyFailure = error
+      return legacyOutcome(cause: error)
     }
 
-    // Verified completion takes precedence over an import error.
     do {
       guard try SharedStorageMigration.readiness(in: location.suite, suiteName: location.suiteName) == .ready else {
-        return legacyOutcome(cause: copyFailure ?? AppStorageStartupError.migrationDidNotComplete)
+        return legacyOutcome(cause: AppStorageStartupError.migrationDidNotComplete)
       }
     } catch {
       return .setupFailure(error)

@@ -125,6 +125,18 @@ public final class SharedStorageMigration {
     Defaults[.sharedStorageActivatedVersion(suite: legacySuite)] = currentVersion
   }
 
+  /// Refreshes a compatible shared copy from the still-authoritative legacy store.
+  /// Startup must verify activation version zero before calling this method.
+  func refreshBeforeActivation() throws {
+    // Validate both stores before resetting the completion marker.
+    _ = try Self.legacyServers(in: legacySuite, suiteName: legacySuiteName)
+    _ = try Self.readiness(in: sharedSuite, suiteName: sharedSuiteName)
+    // A completed copy may predate edits made during legacy fallback. Withdraw
+    // readiness before any changes, then publish completion after a fresh import.
+    Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = 0
+    try migrate()
+  }
+
   /// Copies legacy settings, then publishes the completion marker last.
   public func migrate() throws {
     let markerKey = Defaults.Keys.sharedStorageMigrationVersion(suite: sharedSuite)

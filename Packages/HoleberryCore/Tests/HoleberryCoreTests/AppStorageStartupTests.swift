@@ -65,6 +65,142 @@ struct AppStorageStartupTests {
 
   // MARK: - Retry after an interrupted copy
 
+  @Test func legacyEditsDuringFallbackRefreshCompletedCopyBeforeActivation() throws {
+    let harness = StartupHarness()
+    let original = ServerConfig(id: UUID(), label: "Old", url: "http://old.local", version: .v5)
+    let removed = ServerConfig(id: UUID(), url: "http://removed.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [original, removed]
+    try harness.legacyKeychain.saveCredential("old-secret", for: original.id)
+    try harness.legacyKeychain.saveCredential("removed-secret", for: removed.id)
+    try harness.completeCopyWithoutActivation()
+    harness.sharedStorage.locationError = StartupTestError.sharedLocationUnavailable
+
+    let fallback = try #require(harness.start().storage)
+    try fallback.removeServer(id: removed.id)
+    let edited = ServerConfig(id: original.id, label: "Updated", url: "https://updated.local", version: .v6)
+    let added = ServerConfig(id: UUID(), url: "http://added.local", version: .v6)
+    fallback.saveServers([edited, added])
+    try fallback.saveCredential("updated-secret", for: edited.id)
+    try fallback.saveCredential("added-secret", for: added.id)
+    harness.sharedStorage.locationError = nil
+
+    let outcome = harness.start()
+
+    guard case .shared(let storage, let activatedNow) = outcome else {
+      Issue.record("Expected the completed copy to refresh before activation")
+      return
+    }
+    #expect(activatedNow)
+    let servers = storage.loadServers()
+    try #require(servers.count == 2)
+    #expect(servers.map(\.id) == [edited.id, added.id])
+    #expect(servers[0].label == "Updated")
+    #expect(servers[0].url == "https://updated.local")
+    #expect(servers[0].version == .v6)
+    #expect(try storage.readCredential(for: edited.id) == "updated-secret")
+    #expect(try storage.readCredential(for: added.id) == "added-secret")
+    #expect(try harness.sharedKeychain.readCredential(for: removed.id) == nil)
+    #expect(harness.activationRecord == SharedStorageMigration.currentVersion)
+  }
+
+  @Test func legacyCredentialRemovalDuringFallbackClearsCompletedSharedCopy() throws {
+    let harness = StartupHarness()
+    let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+    try harness.legacyKeychain.saveCredential("old-secret", for: server.id)
+    try harness.completeCopyWithoutActivation()
+    harness.sharedStorage.locationError = StartupTestError.sharedLocationUnavailable
+
+    let fallback = try #require(harness.start().storage)
+    try fallback.deleteCredential(for: server.id)
+    harness.sharedStorage.locationError = nil
+
+    let outcome = harness.start()
+
+    #expect(outcome.status == .shared)
+    let storage = try #require(outcome.storage)
+    #expect(storage.loadServers().map(\.id) == [server.id])
+    #expect(try storage.readCredential(for: server.id) == nil)
+  }
+
+  @Test func failedRefreshLeavesCompletedCopyPendingAndRetriesLatestLegacyState() throws {
+    let harness = StartupHarness()
+    let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+    try harness.legacyKeychain.saveCredential("old-secret", for: server.id)
+    try harness.completeCopyWithoutActivation()
+    try harness.legacyKeychain.saveCredential("updated-secret", for: server.id)
+    harness.sharedKeychain.saveErrorStub = StartupTestError.credentialCopyFailed
+
+    let outcome = harness.start()
+
+    guard case .legacy(let storage, let cause) = outcome else {
+      Issue.record("Expected validated legacy fallback after the refresh failed")
+      return
+    }
+    #expect(cause as? StartupTestError == .credentialCopyFailed)
+    #expect(harness.sharedMarker == 0)
+    #expect(harness.activationRecord == 0)
+    #expect(
+      try SharedStorageMigration.readiness(in: harness.sharedSuite, suiteName: harness.sharedSuiteName) == .pending)
+    #expect(try storage.readCredential(for: server.id) == "updated-secret")
+
+    try storage.saveCredential("latest-secret", for: server.id)
+    harness.sharedKeychain.saveErrorStub = nil
+    let retry = harness.start()
+
+    #expect(retry.status == .shared)
+    let refreshed = try #require(retry.storage)
+    #expect(try refreshed.readCredential(for: server.id) == "latest-secret")
+    #expect(harness.activationRecord == SharedStorageMigration.currentVersion)
+    #expect(harness.sharedMarker == SharedStorageMigration.currentVersion)
+  }
+
+  @Test func unreadableLegacyDoesNotActivateOrInvalidateCompletedSharedCopy() throws {
+    let harness = StartupHarness()
+    let server = ServerConfig(id: UUID(), url: "http://saved.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [server]
+    try harness.legacyKeychain.saveCredential("saved-secret", for: server.id)
+    try harness.completeCopyWithoutActivation()
+    setRawDefaultsValue("not-an-array", for: Defaults.Keys.servers(suite: harness.legacySuite))
+
+    let outcome = harness.start()
+
+    guard case .setupFailure(let error) = outcome else {
+      Issue.record("Expected invalid legacy data to block activation of an older shared copy")
+      return
+    }
+    #expect(error as? SharedStorageMigrationError == .malformedLegacyConfiguration)
+    #expect(harness.activationRecord == 0)
+    #expect(harness.sharedMarker == SharedStorageMigration.currentVersion)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [server.id])
+    #expect(try harness.sharedKeychain.readCredential(for: server.id) == "saved-secret")
+  }
+
+  @Test(arguments: [false, true])
+  func unsupportedSharedVersionDoesNotRefreshLegacy(newer: Bool) {
+    let version = newer ? SharedStorageMigration.currentVersion + 1 : -1
+    let harness = StartupHarness()
+    let legacy = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v5)
+    let shared = ServerConfig(id: UUID(), url: "http://shared.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = [legacy]
+    Defaults[.servers(suite: harness.sharedSuite)] = [shared]
+    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = version
+
+    let outcome = harness.start()
+
+    guard case .setupFailure(let error) = outcome else {
+      Issue.record("Expected unsupported shared storage to block migration")
+      return
+    }
+    #expect(error as? SharedStorageReadinessError == .unsupportedCompletionVersion(version))
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [shared.id])
+    #expect(harness.sharedMarker == version)
+    #expect(harness.activationRecord == 0)
+    #expect(harness.legacyKeychain.readCallCount == 0)
+    #expect(harness.sharedStorage.keychainCallCount == 0)
+  }
+
   @Test func interruptedCopyKeepsLegacyStorageAndRetriesSafely() throws {
     let harness = StartupHarness()
     let server = ServerConfig(id: UUID(), label: "Home", url: "http://home.local", version: .v6)
@@ -213,6 +349,8 @@ struct AppStorageStartupTests {
 
   @Test func unreadableActivationWithReadySharedStoreRepairsRecord() {
     let harness = StartupHarness()
+    let legacy = ServerConfig(id: UUID(), url: "http://legacy.local", version: .v5)
+    Defaults[.servers(suite: harness.legacySuite)] = [legacy]
     harness.legacySuite.set(
       "current",
       forKey: Defaults.Keys.sharedStorageActivatedVersion(suite: harness.legacySuite).name
@@ -222,11 +360,13 @@ struct AppStorageStartupTests {
 
     let outcome = harness.start()
 
-    guard case .shared(_, let activatedNow) = outcome else {
+    guard case .shared(let storage, let activatedNow) = outcome else {
       Issue.record("Expected verified shared storage to win")
       return
     }
     #expect(activatedNow)
+    #expect(storage.loadServers().isEmpty)
+    #expect(harness.legacyKeychain.readCallCount == 0)
     #expect(harness.activationRecord == SharedStorageMigration.currentVersion)
   }
 
@@ -330,11 +470,13 @@ struct AppStorageStartupTests {
 
     let first = harness.start()
 
-    guard case .setupFailure(let error) = first else {
-      Issue.record("Expected a setup failure when the ready shared Keychain is unavailable")
+    guard case .legacy(let legacyStorage, let error) = first else {
+      Issue.record("Expected validated legacy storage before shared storage was activated")
       return
     }
     #expect(error as? StartupTestError == .sharedKeychainUnavailable)
+    #expect(legacyStorage.loadServers().map(\.id) == [server.id])
+    #expect(harness.sharedMarker == SharedStorageMigration.currentVersion)
     #expect(harness.activationRecord == 0)
     let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: harness.legacySuite).name
     #expect(harness.legacySuite.persistentDomain(forName: harness.legacySuiteName)?[activationKey] == nil)
@@ -410,6 +552,18 @@ private final class StartupHarness {
 
   var activationRecord: Int {
     Defaults[.sharedStorageActivatedVersion(suite: legacySuite)]
+  }
+
+  /// Models an interrupted launch after publishing completion but before activation.
+  func completeCopyWithoutActivation() throws {
+    try SharedStorageMigration(
+      legacySuite: legacySuite,
+      legacySuiteName: legacySuiteName,
+      sharedSuite: sharedSuite,
+      sharedSuiteName: sharedSuiteName,
+      legacyKeychain: legacyKeychain,
+      sharedKeychain: sharedKeychain
+    ).migrate()
   }
 
   func start() -> AppStorageStartup.Outcome {
