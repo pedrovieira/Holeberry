@@ -184,14 +184,4 @@ enum MenuItemFactory {
 
     return result
   }
-
-  // MARK: - Timestamp
-
-  /// Returns a relative time string for the elapsed interval since the given date.
-  /// Examples: "10 sec. ago", "2 min. ago", "1 hour ago", "1 day ago".
-  static func relativeTimestamp(since date: Date) -> String {
-    date.formatted(
-      .relative(presentation: .numeric, unitsStyle: .abbreviated)
-    )
-  }
 }
