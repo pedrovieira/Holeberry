@@ -404,8 +404,8 @@ struct PiholeServerManagerCRUDTests {
     #expect(manager.servers.first?.label == "Renamed")
   }
 
-  @Test("delete persists the removal when the credential delete fails")
-  func deleteCredentialFailureRemainsBestEffort() {
+  @Test("delete keeps the connection when credential cleanup fails")
+  func deleteCredentialFailureKeepsConnectionForRetry() {
     let manager = makeManagerWithLoadedService()
     guard let id = manager.servers.first?.id else {
       Issue.record("No server")
@@ -420,11 +420,11 @@ struct PiholeServerManagerCRUDTests {
     storage.temporaryUnblocks[id] = [record]
     storage.deleteCredentialStub = .failure(PiholeError.unknown("keychain unavailable"))
 
-    manager.deleteServer(id: id)
+    #expect(manager.deleteServer(id: id) == false)
 
     #expect(storage.deleteCredentialCallCount > 0)
-    #expect(manager.servers.isEmpty)
-    #expect(storage.servers.isEmpty, "the configuration removal still persists")
+    #expect(manager.servers.map(\.id) == [id])
+    #expect(storage.servers.map(\.id) == [id], "the UUID stays saved for cleanup retry")
     #expect(
       storage.credentials[id] == "old-password",
       "a failed credential delete keeps the stored credential")

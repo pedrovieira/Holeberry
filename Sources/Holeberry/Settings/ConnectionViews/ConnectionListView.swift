@@ -7,6 +7,7 @@ struct ConnectionListView: View {
   @ObservedObject var statusPoller: ServerStatusPoller
   @State private var sheetMode: SheetMode?
   @State private var showDeleteConfirmation = false
+  @State private var showDeleteError = false
   @State private var serverToDelete: ServerConfig?
 
   private var filteredInstances: [PiholeDiscoveryService.DiscoveredInstance] {
@@ -152,11 +153,16 @@ struct ConnectionListView: View {
     .alert("Delete Connection", isPresented: $showDeleteConfirmation, presenting: serverToDelete) { server in
       Button("Cancel", role: .cancel) { serverToDelete = nil }
       Button("Delete", role: .destructive) {
-        serverManager.deleteServer(id: server.id)
+        showDeleteError = !serverManager.deleteServer(id: server.id)
         serverToDelete = nil
       }
     } message: { server in
       Text("Delete '\(server.label ?? server.url)'? This will disconnect it from the menu bar.")
+    }
+    .alert("Could Not Delete Connection", isPresented: $showDeleteError) {
+      Button("OK", role: .cancel) {}
+    } message: {
+      Text("The connection or its saved password could not be removed. The connection is still listed.")
     }
 
     // --- Lifecycle ---
