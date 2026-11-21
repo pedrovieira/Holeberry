@@ -36,7 +36,7 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
     case .completedStoreMarkerMissing:
       return "Shared storage was activated on an earlier launch but reports no completion marker."
     case .migrationDidNotComplete:
-      return "The first copy to shared storage did not finish."
+      return "The copy to shared storage did not finish."
     }
   }
 }
@@ -45,14 +45,16 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
 ///
 /// Two markers keep separate jobs: the completion marker in the shared store says
 /// what the widget may read; the app-local activation record says whether shared
-/// storage replaced legacy storage. Once activation is recorded, shared storage is
-/// authoritative and missing or unreadable shared data never re-imports legacy data.
+/// storage replaced legacy storage. With activation zero, completed copies are
+/// refreshed from legacy storage, which may have accepted fallback edits. Once
+/// activation is recorded, shared storage is authoritative and missing or unreadable
+/// shared data never re-imports legacy data.
 @MainActor
 public final class AppStorageStartup {
   public enum Outcome {
     /// Shared storage is ready and authoritative.
     case shared(ConcreteAppStorage, activatedNow: Bool)
-    /// The first copy is still pending. Legacy storage serves this launch.
+    /// Shared storage is not activated. Legacy storage serves this launch.
     case legacy(ConcreteAppStorage, cause: any Error)
     /// No store passed validation. Settings are not available for this launch.
     case setupFailure(any Error)
@@ -142,14 +144,12 @@ public final class AppStorageStartup {
     }
 
     switch (readiness, activation) {
+    case (_, .success(0)):
+      return refreshAndActivate(location: location)
     case (.ready, .success(let version)) where version > 0:
       return sharedOutcome(location: location, activatedNow: false)
     case (.ready, _):
-      // Verified shared storage repairs a missing or unreadable activation record.
-      SharedStorageMigration.markActivated(in: legacySuite)
       return sharedOutcome(location: location, activatedNow: true)
-    case (.pending, .success(0)):
-      return completeFirstCopy(location: location)
     case (.pending, .success):
       return .setupFailure(AppStorageStartupError.completedStoreMarkerMissing)
     case (.pending, .failure(let error)):
@@ -157,9 +157,9 @@ public final class AppStorageStartup {
     }
   }
 
-  /// An unfinished first copy falls back to legacy storage; a recorded cutover
-  /// blocks the fallback so stale legacy data cannot reappear.
-  private func completeFirstCopy(location: SharedStorageLocation) -> Outcome {
+  /// Refreshes the copy before activation. A failed import uses validated legacy
+  /// storage; a recorded cutover never enters this path.
+  private func refreshAndActivate(location: SharedStorageLocation) -> Outcome {
     let sharedKeychain: any KeychainManaging
     do {
       sharedKeychain = try sharedStorage.keychain()
@@ -176,17 +176,15 @@ public final class AppStorageStartup {
       sharedKeychain: sharedKeychain
     )
 
-    var copyFailure: (any Error)?
     do {
-      try migration.migrate()
+      try migration.refreshBeforeActivation()
     } catch {
-      copyFailure = error
+      return legacyOutcome(cause: error)
     }
 
-    // Verified completion takes precedence over an import error.
     do {
       guard try SharedStorageMigration.readiness(in: location.suite, suiteName: location.suiteName) == .ready else {
-        return legacyOutcome(cause: copyFailure ?? AppStorageStartupError.migrationDidNotComplete)
+        return legacyOutcome(cause: AppStorageStartupError.migrationDidNotComplete)
       }
     } catch {
       return .setupFailure(error)
@@ -201,10 +199,12 @@ public final class AppStorageStartup {
 
   private func sharedOutcome(location: SharedStorageLocation, activatedNow: Bool) -> Outcome {
     do {
-      return .shared(
-        makeStorage(sharedSuite: location.suite, keychain: try sharedStorage.keychain()),
-        activatedNow: activatedNow
-      )
+      let storage = makeStorage(sharedSuite: location.suite, keychain: try sharedStorage.keychain())
+      if activatedNow {
+        // Repair activation only after both shared settings and credentials are available.
+        SharedStorageMigration.markActivated(in: legacySuite)
+      }
+      return .shared(storage, activatedNow: activatedNow)
     } catch {
       return .setupFailure(error)
     }

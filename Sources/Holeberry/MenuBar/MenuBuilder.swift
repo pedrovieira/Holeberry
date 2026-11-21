@@ -462,8 +462,9 @@ struct MenuBuilder {
   /// "a few moments ago" until the next poll lands; "at most " only for
   /// several servers, never alongside "a few moments ago".
   private func gravityRelativeText(maxAge: Date, showAtMost: Bool) -> String {
-    let isMomentsAgo = Date().timeIntervalSince(maxAge) < RelativeAgeFormatter.momentsThreshold
-    let relative = RelativeAgeFormatter(style: .standardWithMoments).string(since: maxAge)
+    let now = Date()
+    let isMomentsAgo = now.timeIntervalSince(maxAge) < RelativeAgeFormatter.momentsThreshold
+    let relative = RelativeAgeFormatter(style: .standardWithMoments).string(since: maxAge, relativeTo: now)
     let prefix = isMomentsAgo ? "" : (showAtMost ? "at most " : "")
     return "\(prefix)\(relative)"
   }

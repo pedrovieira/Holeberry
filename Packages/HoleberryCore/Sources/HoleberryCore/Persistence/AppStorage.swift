@@ -71,8 +71,8 @@ public final class ConcreteAppStorage: AppStorageProviding {
   }
 
   public func removeServer(id: UUID) throws {
-    try keychain.deleteCredential(for: id)
     try legacyKeychain?.deleteCredential(for: id)
+    try keychain.deleteCredential(for: id)
     saveServers(loadServers().filter { $0.id != id })
   }
 
@@ -120,19 +120,19 @@ public struct UnavailableAppStorage: AppStorageProviding {
   }
 
   public func removeServer(id: UUID) throws {
-    throw PiholeServerMutationError.storageUnavailable
+    throw HoleberryError.storageUnavailable
   }
 
   public func readCredential(for serverID: UUID) throws -> String? {
-    throw PiholeServerMutationError.storageUnavailable
+    throw HoleberryError.storageUnavailable
   }
 
   public func saveCredential(_ credential: String, for serverID: UUID) throws {
-    throw PiholeServerMutationError.storageUnavailable
+    throw HoleberryError.storageUnavailable
   }
 
   public func deleteCredential(for serverID: UUID) throws {
-    throw PiholeServerMutationError.storageUnavailable
+    throw HoleberryError.storageUnavailable
   }
 
   public func loadTemporaryUnblocks(for serverID: UUID) -> [TempUnblockRecord] { [] }

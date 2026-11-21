@@ -36,9 +36,6 @@ targets:
   Holeberry:
     type: application
     platform: macOS
-    scheme:
-      testTargets:
-        - HoleberryWidgetsTests
     sources:
       - path: Sources/Holeberry
       # Compiled into the app target so Xcode can preview the widget view.
@@ -159,3 +156,23 @@ targets:
         SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
     dependencies:
       - package: HoleberryCore
+
+# Generate a shared Holeberry scheme for Xcode and command-line builds.
+schemes:
+  Holeberry:
+    build:
+      targets:
+        Holeberry: all
+    test:
+      config: Debug
+      targets:
+        - name: HoleberryWidgetsTests
+          parallelizable: false
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
