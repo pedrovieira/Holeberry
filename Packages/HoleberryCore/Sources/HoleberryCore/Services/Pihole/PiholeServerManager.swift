@@ -59,7 +59,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   public func addServer(label: String?, icon: String? = nil, url: String, credential: String) async throws {
     guard allowsServerChanges else {
-      throw PiholeServerMutationError.storageUnavailable
+      throw HoleberryError.storageUnavailable
     }
 
     guard servers.count < Self.maxServers else {

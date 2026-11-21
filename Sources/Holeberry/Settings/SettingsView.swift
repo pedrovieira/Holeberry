@@ -49,7 +49,6 @@ struct SettingsView: View {
   let statusPoller: ServerStatusPoller
   let notificationCoordinator: NotificationCoordinator
   let startupStatus: AppStorageStartupStatus
-  let startupDetail: String?
 
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "settings")
 
@@ -59,7 +58,6 @@ struct SettingsView: View {
     serverManager: PiholeServerManager,
     initialTab: SettingsTab = .servers,
     startupStatus: AppStorageStartupStatus,
-    startupDetail: String? = nil,
     updater: SPUUpdater? = nil,
     defaultsSuite: UserDefaults = .standard,
     discoveryService: PiholeDiscoveryService,
@@ -68,7 +66,6 @@ struct SettingsView: View {
   ) {
     self.serverManager = serverManager
     self.startupStatus = startupStatus
-    self.startupDetail = startupDetail
     self.updater = updater
     self.discoveryService = discoveryService
     self.statusPoller = statusPoller
@@ -113,7 +110,7 @@ struct SettingsView: View {
             )
           }
           if startupStatus != .shared {
-            StorageSetupNotice(status: startupStatus, detail: startupDetail)
+            StorageSetupNotice(status: startupStatus)
           }
         }
         .formStyle(.grouped)
@@ -473,20 +470,14 @@ struct SettingsView: View {
 
 private struct StorageSetupNotice: View {
   let status: AppStorageStartupStatus
-  let detail: String?
 
   private var message: String {
     switch status {
     case .legacy:
-      return "Widget setup is pending. Quit and reopen Holeberry to retry."
+      return "Widgets are unavailable. Quit and reopen Holeberry to retry."
     case .recovery, .shared:
-      return "Connections could not be loaded because shared storage is unavailable."
+      return "Connections could not be loaded. Quit and reopen Holeberry to retry."
     }
-  }
-
-  private var guidance: String? {
-    guard status == .recovery else { return nil }
-    return "Quit and reopen Holeberry to retry. If the problem persists, contact support."
   }
 
   var body: some View {
@@ -495,18 +486,6 @@ private struct StorageSetupNotice: View {
         .font(.system(size: 12))
         .foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
-      if let detail, !detail.isEmpty {
-        Text(detail)
-          .font(.system(size: 11))
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      if let guidance {
-        Text(guidance)
-          .font(.system(size: 11))
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
       Button("Quit Holeberry") {
         NSApp.terminate(nil)
       }

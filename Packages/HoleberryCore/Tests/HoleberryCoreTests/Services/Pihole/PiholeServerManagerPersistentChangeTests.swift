@@ -237,7 +237,7 @@ struct PiholeServerManagerPersistentChangeTests {
       fireCount += 1
     }
 
-    await #expect(throws: PiholeServerMutationError.storageUnavailable) {
+    await #expect(throws: HoleberryError.storageUnavailable) {
       try await manager.addServer(label: "Home", url: "http://pihole.local", credential: "")
     }
 

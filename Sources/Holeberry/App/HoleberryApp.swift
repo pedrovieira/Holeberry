@@ -159,8 +159,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       discoveryService: discoveryService,
       statusPoller: statusPoller,
       notificationCoordinator: notificationCoordinator,
-      startupStatus: appStorage.status,
-      startupDetail: appStorage.startupDetail
+      startupStatus: appStorage.status
     )
     self.settingsWindowController = settingsWindowController
 
@@ -241,8 +240,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     return AppStorageContext(
       storage: outcome.storage ?? UnavailableAppStorage(),
       status: outcome.status,
-      activatedNow: outcome.activatedNow,
-      startupDetail: outcome.problem?.localizedDescription
+      activatedNow: outcome.activatedNow
     )
   }
 
@@ -250,7 +248,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let storage: any AppStorageProviding
     let status: AppStorageStartupStatus
     let activatedNow: Bool
-    let startupDetail: String?
 
     var allowsServerChanges: Bool { status != .recovery }
   }
