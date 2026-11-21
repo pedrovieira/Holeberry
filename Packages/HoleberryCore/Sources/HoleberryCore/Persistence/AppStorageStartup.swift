@@ -36,7 +36,7 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
     case .completedStoreMarkerMissing:
       return "Shared storage was activated on an earlier launch but reports no completion marker."
     case .migrationDidNotComplete:
-      return "The first copy to shared storage did not finish."
+      return "The copy to shared storage did not finish."
     }
   }
 }
@@ -54,7 +54,7 @@ public final class AppStorageStartup {
   public enum Outcome {
     /// Shared storage is ready and authoritative.
     case shared(ConcreteAppStorage, activatedNow: Bool)
-    /// The first copy is still pending. Legacy storage serves this launch.
+    /// Shared storage is not activated. Legacy storage serves this launch.
     case legacy(ConcreteAppStorage, cause: any Error)
     /// No store passed validation. Settings are not available for this launch.
     case setupFailure(any Error)
@@ -145,7 +145,7 @@ public final class AppStorageStartup {
 
     switch (readiness, activation) {
     case (_, .success(0)):
-      return completeFirstCopy(location: location)
+      return refreshAndActivate(location: location)
     case (.ready, .success(let version)) where version > 0:
       return sharedOutcome(location: location, activatedNow: false)
     case (.ready, _):
@@ -159,7 +159,7 @@ public final class AppStorageStartup {
 
   /// Refreshes the copy before activation. A failed import uses validated legacy
   /// storage; a recorded cutover never enters this path.
-  private func completeFirstCopy(location: SharedStorageLocation) -> Outcome {
+  private func refreshAndActivate(location: SharedStorageLocation) -> Outcome {
     let sharedKeychain: any KeychainManaging
     do {
       sharedKeychain = try sharedStorage.keychain()
