@@ -37,11 +37,13 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
 
   @ViewBuilder
   private func content(scale: CGFloat) -> some View {
-    switch entry.presentation.content {
-    case .statistics(let statistics):
+    switch entry.content {
+    case .statistics:
       VStack(alignment: .leading, spacing: 0) {
         header(scale: scale)
-        statisticsContent(statistics, scale: scale)
+        if let summary = entry.summary {
+          statisticsContent(summary, scale: scale)
+        }
       }
       .padding(.horizontal, Self.contentInset * scale)
       .padding(.top, Self.contentInset * scale)
@@ -66,8 +68,8 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       Circle()
         .fill(healthColor)
         .frame(width: 10 * scale, height: 10 * scale)
-      if entry.presentation.availability != .noneAvailable {
-        Text(entry.presentation.statusText)
+      if entry.availability != .noneAvailable {
+        Text(entry.statusText)
           .font(.system(size: 8.5 * scale, weight: .semibold))
           .foregroundStyle(.primary)
           .lineLimit(1)
@@ -86,8 +88,8 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   }
 
   @ViewBuilder
-  private func statisticsContent(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
-    hero(statistics, scale: scale)
+  private func statisticsContent(_ summary: QuerySummary, scale: CGFloat) -> some View {
+    hero(summary, scale: scale)
     Text("block rate")
       .font(.system(size: 10 * scale, weight: .semibold))
       .foregroundStyle(.secondary)
@@ -95,15 +97,15 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       .padding(.top, -1 * scale)
     horizontalSeparator(scale: scale)
       .padding(.top, Self.dividerSpacing * scale)
-    metrics(statistics, scale: scale)
+    metrics(summary, scale: scale)
       .padding(.top, Self.dividerSpacing * scale)
     Spacer(minLength: 6 * scale)
-    footer(statistics, scale: scale)
+    footer(scale: scale)
   }
 
-  private func hero(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
+  private func hero(_ summary: QuerySummary, scale: CGFloat) -> some View {
     HStack(alignment: .firstTextBaseline, spacing: 0) {
-      Text(statistics.blockedPercentage, format: .number.precision(.fractionLength(1)))
+      Text(summary.blockedPercentage, format: .number.precision(.fractionLength(1)))
         .font(.system(size: 42 * scale, weight: .bold))
         .foregroundStyle(.primary)
         .tracking(-1 * scale)
@@ -116,10 +118,10 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     }
   }
 
-  private func metrics(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
+  private func metrics(_ summary: QuerySummary, scale: CGFloat) -> some View {
     HStack(alignment: .center, spacing: 0) {
       metricColumn(
-        value: statistics.totalQueries,
+        value: summary.totalQueries,
         caption: "Queries",
         color: .primary,
         scale: scale
@@ -131,7 +133,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
         .frame(width: 0.5 * scale, height: 20 * scale)
 
       metricColumn(
-        value: statistics.totalBlocked,
+        value: summary.totalBlocked,
         caption: "Blocked",
         color: Self.blockedBlue,
         scale: scale
@@ -167,12 +169,15 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       .frame(height: 0.5 * scale)
   }
 
-  private func footer(_ statistics: QueryStatistics, scale: CGFloat) -> some View {
-    Text(verbatim: WidgetFooter.text(observedAt: statistics.observedAt, renderedAt: entry.date))
-      .font(.system(size: 9 * scale, weight: .medium))
-      .foregroundStyle(.secondary)
-      .lineLimit(1)
-      .multilineTextAlignment(.leading)
+  @ViewBuilder
+  private func footer(scale: CGFloat) -> some View {
+    if let lastCheckedAt = entry.lastCheckedAt {
+      Text(verbatim: WidgetFooter.text(observedAt: lastCheckedAt, renderedAt: entry.date))
+        .font(.system(size: 9 * scale, weight: .medium))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .multilineTextAlignment(.leading)
+    }
   }
 
   private func guidance(_ text: String, scale: CGFloat) -> some View {
@@ -198,7 +203,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   }
 
   private var healthColor: Color {
-    switch entry.presentation.availability {
+    switch entry.availability {
     case .allAvailable: return ServerStatusColor.healthy.color
     case .someAvailable: return ServerStatusColor.partial.color
     case .noneAvailable: return ServerStatusColor.offline.color
@@ -207,31 +212,33 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   }
 
   private var showsHeader: Bool {
-    switch entry.presentation.content {
+    switch entry.content {
     case .setupRequired, .noServers: return false
     case .statistics, .unavailable: return true
     }
   }
 
   private var hasHealthyServer: Bool {
-    entry.presentation.availability == .allAvailable || entry.presentation.availability == .someAvailable
+    entry.availability == .allAvailable || entry.availability == .someAvailable
   }
 
   private var accessibilityText: String {
-    var parts: [String] = showsHeader ? [entry.presentation.statusText] : []
+    var parts: [String] = showsHeader ? [entry.statusText] : []
     if hasHealthyServer {
       parts.append("24 hours")
     }
-    if let statistics = entry.presentation.statistics {
-      let percentage = statistics.blockedPercentage.formatted(
+    if let summary = entry.summary, entry.content == .statistics {
+      let percentage = summary.blockedPercentage.formatted(
         .number.precision(.fractionLength(1))
       )
       parts.append("\(percentage) percent block rate")
-      parts.append("\(statistics.totalQueries.formatted(.number)) queries")
-      parts.append("\(statistics.totalBlocked.formatted(.number)) blocked")
-      parts.append(Self.updatedText(for: statistics.observedAt))
+      parts.append("\(summary.totalQueries.formatted(.number)) queries")
+      parts.append("\(summary.totalBlocked.formatted(.number)) blocked")
+      if let lastCheckedAt = entry.lastCheckedAt {
+        parts.append(Self.updatedText(for: lastCheckedAt))
+      }
     } else {
-      switch entry.presentation.content {
+      switch entry.content {
       case .setupRequired:
         parts.append("Open Holeberry to finish setup")
       case .noServers:

@@ -17,7 +17,7 @@ struct QueryStatisticsProvider: TimelineProvider {
   }
 
   func placeholder(in context: Context) -> QueryStatisticsEntry {
-    .placeholder()
+    .placeholder(scope: scope)
   }
 
   func getSnapshot(
@@ -25,7 +25,7 @@ struct QueryStatisticsProvider: TimelineProvider {
     completion: @escaping @Sendable (QueryStatisticsEntry) -> Void
   ) {
     if context.isPreview {
-      completion(.placeholder())
+      completion(.placeholder(scope: scope))
       return
     }
 
@@ -64,10 +64,10 @@ struct QueryStatisticsProvider: TimelineProvider {
       Self.logger.error(
         "Widget shared storage setup failed: \(error.localizedDescription, privacy: .public)"
       )
-      return .setupRequired(now: now)
+      return .setupRequired(now: now, scope: scope)
     }
     guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
-      return .setupRequired(now: now)
+      return .setupRequired(now: now, scope: scope)
     }
 
     let storage = ConcreteAppStorage(
@@ -99,7 +99,7 @@ struct QueryStatisticsProvider: TimelineProvider {
 
     // Migration readiness can change during the fetch.
     guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
-      return .setupRequired(now: now)
+      return .setupRequired(now: now, scope: scope)
     }
 
     let current = scopedServers(storage.loadServers())
@@ -175,14 +175,23 @@ struct QueryStatisticsProvider: TimelineProvider {
   }
 
   private func noMatchingServerEntry(now: Date) -> QueryStatisticsEntry {
-    let summary = QueryStatisticsFetchResult(servers: [], results: [:], checkedAt: nil)
-    return QueryStatisticsEntry(date: now, setupRequired: false, summary: summary)
+    QueryStatisticsEntry(
+      date: now,
+      base: QueryStatisticsSnapshot(scope: scope, setupRequired: false, observations: [])
+    )
   }
 
   @MainActor
   private func changedConfigurationEntry(servers: [ServerConfig]) -> QueryStatisticsEntry {
-    let summary = QueryStatisticsFetchResult(servers: servers, results: [:], checkedAt: nil)
-    return QueryStatisticsEntry(date: Date(), setupRequired: false, summary: summary)
+    QueryStatisticsEntry(
+      date: Date(),
+      base: QueryStatisticsSnapshot(
+        scope: scope,
+        setupRequired: false,
+        // A configuration change invalidates the fetch, so no old result survives it.
+        observations: ServerQueryObservation.make(servers: servers, results: [:], checkedAt: nil)
+      )
+    )
   }
 
   @MainActor
@@ -191,12 +200,18 @@ struct QueryStatisticsProvider: TimelineProvider {
     results: [UUID: Result<QuerySummary, PiholeError>],
     observedAt: Date
   ) -> QueryStatisticsEntry {
-    let summary = QueryStatisticsFetchResult(
-      servers: servers,
-      results: results,
-      checkedAt: observedAt
+    QueryStatisticsEntry(
+      date: observedAt,
+      base: QueryStatisticsSnapshot(
+        scope: scope,
+        setupRequired: false,
+        observations: ServerQueryObservation.make(
+          servers: servers,
+          results: results,
+          checkedAt: observedAt
+        )
+      )
     )
-    return QueryStatisticsEntry(date: observedAt, setupRequired: false, summary: summary)
   }
 
   private func makeTimeline(
@@ -204,21 +219,15 @@ struct QueryStatisticsProvider: TimelineProvider {
     now: Date
   ) -> Timeline<QueryStatisticsEntry> {
     let nextFetch = now.addingTimeInterval(15 * 60)
-    let currentEntry = QueryStatisticsEntry(
-      date: now,
-      setupRequired: entry.setupRequired,
-      summary: entry.summary
-    )
+    // Entries that only advance the footer keep the batch snapshot, so the
+    // counts and the footer's update age come from the same fetch.
+    let currentEntry = QueryStatisticsEntry(date: now, base: entry.base)
     let footerDates = WidgetFooter.entryDates(
-      observedAt: entry.presentation.lastCheckedAt,
+      observedAt: entry.lastCheckedAt,
       now: now
     )
     let footerEntries = footerDates.map { date in
-      QueryStatisticsEntry(
-        date: date,
-        setupRequired: entry.setupRequired,
-        summary: entry.summary
-      )
+      QueryStatisticsEntry(date: date, base: entry.base)
     }
 
     return Timeline(

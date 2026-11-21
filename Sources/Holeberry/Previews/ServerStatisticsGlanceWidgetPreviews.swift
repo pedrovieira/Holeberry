@@ -47,70 +47,71 @@ private enum WidgetPreviewData {
   static func partial(now: Date = .now) -> QueryStatisticsEntry {
     let first = ServerConfig(id: UUID(), url: "https://first.example", version: .v6)
     let second = ServerConfig(id: UUID(), url: "https://second.example", version: .v6)
-    return QueryStatisticsEntry(
-      date: now,
-      setupRequired: false,
-      summary: QueryStatisticsFetchResult(
-        servers: [first, second],
-        results: [
-          first.id: .success(QuerySummary(totalQueries: 100, totalBlocked: 10)),
-          second.id: .failure(.network("preview"))
-        ],
-        checkedAt: now
-      )
+    return entry(
+      now: now,
+      servers: [first, second],
+      results: [
+        first.id: .success(QuerySummary(totalQueries: 100, totalBlocked: 10)),
+        second.id: .failure(.network("preview"))
+      ]
     )
   }
 
   static func allOffline(now: Date = .now) -> QueryStatisticsEntry {
     let first = ServerConfig(id: UUID(), url: "https://first.example", version: .v6)
     let second = ServerConfig(id: UUID(), url: "https://second.example", version: .v6)
-    return QueryStatisticsEntry(
-      date: now,
-      setupRequired: false,
-      summary: QueryStatisticsFetchResult(
-        servers: [first, second],
-        results: [
-          first.id: .failure(.network("preview")),
-          second.id: .failure(.network("preview"))
-        ],
-        checkedAt: now
-      )
+    return entry(
+      now: now,
+      servers: [first, second],
+      results: [
+        first.id: .failure(.network("preview")),
+        second.id: .failure(.network("preview"))
+      ]
     )
   }
 
   static func noServers(now: Date = .now) -> QueryStatisticsEntry {
     QueryStatisticsEntry(
       date: now,
-      setupRequired: false,
-      summary: QueryStatisticsFetchResult(servers: [], results: [:], checkedAt: now)
+      base: QueryStatisticsSnapshot(scope: .all, setupRequired: false, observations: [])
     )
   }
 
   static func zero(now: Date = .now) -> QueryStatisticsEntry {
     let server = ServerConfig(id: UUID(), url: "https://zero.example", version: .v6)
-    return QueryStatisticsEntry(
-      date: now,
-      setupRequired: false,
-      summary: QueryStatisticsFetchResult(
-        servers: [server],
-        results: [server.id: .success(QuerySummary(totalQueries: 0, totalBlocked: 0))],
-        checkedAt: now
-      )
+    return entry(
+      now: now,
+      servers: [server],
+      results: [server.id: .success(QuerySummary(totalQueries: 0, totalBlocked: 0))]
     )
   }
 
   static func stale(now: Date = .now) -> QueryStatisticsEntry {
     let server = ServerConfig(id: UUID(), url: "https://stale.example", version: .v6)
-    let observedAt = now.addingTimeInterval(-2 * 60 * 60)
-    return QueryStatisticsEntry(
+    return entry(
+      now: now,
+      checkedAt: now.addingTimeInterval(-2 * 60 * 60),
+      servers: [server],
+      results: [server.id: .success(QuerySummary(totalQueries: 50_000, totalBlocked: 5_000))]
+    )
+  }
+
+  private static func entry(
+    now: Date,
+    checkedAt: Date? = nil,
+    servers: [ServerConfig],
+    results: [UUID: Result<QuerySummary, PiholeError>]
+  ) -> QueryStatisticsEntry {
+    QueryStatisticsEntry(
       date: now,
-      setupRequired: false,
-      summary: QueryStatisticsFetchResult(
-        servers: [server],
-        results: [
-          server.id: .success(QuerySummary(totalQueries: 50_000, totalBlocked: 5_000))
-        ],
-        checkedAt: observedAt
+      base: QueryStatisticsSnapshot(
+        scope: .all,
+        setupRequired: false,
+        observations: ServerQueryObservation.make(
+          servers: servers,
+          results: results,
+          checkedAt: checkedAt ?? now
+        )
       )
     )
   }

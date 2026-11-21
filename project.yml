@@ -43,7 +43,8 @@ targets:
       # The HOLEBERRY_APP_TARGET flag excludes the Widget configuration there.
       - path: Sources/HoleberryWidgets/ServerStatisticsGlanceWidget.swift
       - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
-      - path: Sources/HoleberryWidgets/WidgetPresentation.swift
+      - path: Sources/HoleberryWidgets/ServerWidgetEntry.swift
+      - path: Sources/HoleberryWidgets/WidgetFooter.swift
     info:
       path: Sources/Holeberry/Support/Info.plist
       properties:
@@ -148,8 +149,10 @@ targets:
     platform: macOS
     sources:
       - path: Tests/HoleberryWidgetsTests
-      # Test the same presentation source without hosting the widget extension.
-      - path: Sources/HoleberryWidgets/WidgetPresentation.swift
+      # Test the same entry, contract, and footer sources without hosting the widget extension.
+      - path: Sources/HoleberryWidgets/ServerWidgetEntry.swift
+      - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
+      - path: Sources/HoleberryWidgets/WidgetFooter.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
