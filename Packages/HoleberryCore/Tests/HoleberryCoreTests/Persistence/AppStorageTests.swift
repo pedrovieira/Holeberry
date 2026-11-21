@@ -397,14 +397,14 @@ struct AppStorageTests {
     #expect(storage.loadServers().isEmpty)
   }
 
-  @Test func legacyCleanupFailureStillDeletesTheActiveCredential() throws {
+  @Test func legacyCleanupFailurePreservesActiveCredentialAndConnection() throws {
     let legacy = MockKeychainManager()
     let shared = MockKeychainManager()
-    let id = UUID()
-    try legacy.saveCredential("original-secret", for: id)
-    try shared.saveCredential("active-secret", for: id)
+    let server = ServerConfig(url: "http://saved.local", version: .v6)
+    try legacy.saveCredential("original-secret", for: server.id)
+    try shared.saveCredential("active-secret", for: server.id)
     let failure = AppStorageTestError("legacy-locked")
-    legacy.errorStub = failure
+    legacy.deleteErrorStub = failure
     let sharedData = TestDefaults.makeNamedSuite()
     let storage = ConcreteAppStorage(
       sharedDataSuite: sharedData.suite,
@@ -412,16 +412,26 @@ struct AppStorageTests {
       keychain: shared,
       legacyKeychain: legacy
     )
+    storage.saveServers([server])
 
     let error = #expect(throws: AppStorageTestError.self) {
-      try storage.removeServer(id: id)
+      try storage.removeServer(id: server.id)
     }
 
     #expect(error === failure)
-    #expect(try shared.readCredential(for: id) == nil)
+    #expect(try storage.readCredential(for: server.id) == "active-secret")
+    #expect(try legacy.readCredential(for: server.id) == "original-secret")
+    #expect(storage.loadServers().map(\.id) == [server.id])
+
+    legacy.deleteErrorStub = nil
+    try storage.removeServer(id: server.id)
+
+    #expect(try shared.readCredential(for: server.id) == nil)
+    #expect(try legacy.readCredential(for: server.id) == nil)
+    #expect(storage.loadServers().isEmpty)
   }
 
-  @Test func activeCredentialDeletionFailurePreservesLegacyCredentialAndConnection() throws {
+  @Test func activeCredentialDeletionFailurePreservesActiveCredentialAndConnection() throws {
     let legacy = MockKeychainManager()
     let active = MockKeychainManager()
     let server = ServerConfig(url: "http://saved.local", version: .v6)
@@ -444,10 +454,16 @@ struct AppStorageTests {
 
     #expect(error === failure)
     #expect(active.deleteCallCount == 1)
-    #expect(legacy.deleteCallCount == 0)
+    #expect(legacy.deleteCallCount == 1)
     #expect(try active.readCredential(for: server.id) == "active-secret")
-    #expect(try legacy.readCredential(for: server.id) == "legacy-secret")
+    #expect(try legacy.readCredential(for: server.id) == nil)
     #expect(storage.loadServers().map(\.id) == [server.id])
+
+    active.deleteErrorStub = nil
+    try storage.removeServer(id: server.id)
+
+    #expect(try active.readCredential(for: server.id) == nil)
+    #expect(storage.loadServers().isEmpty)
   }
 
   @Test("credential reads ignore decoy values in both defaults suites")
