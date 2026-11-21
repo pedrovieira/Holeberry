@@ -71,8 +71,8 @@ public final class ConcreteAppStorage: AppStorageProviding {
   }
 
   public func removeServer(id: UUID) throws {
-    try keychain.deleteCredential(for: id)
     try legacyKeychain?.deleteCredential(for: id)
+    try keychain.deleteCredential(for: id)
     saveServers(loadServers().filter { $0.id != id })
   }
 

@@ -282,7 +282,7 @@ struct SharedStorageMigrationTests {
     try harness.migration.migrate()
 
     let shared = Defaults[.servers(suite: harness.sharedSuite)]
-    #expect(shared.count == 2)
+    try #require(shared.count == 2)
     #expect(shared[0].id == first.id)
     #expect(shared[0].label == "Primary")
     #expect(shared[0].icon == "house")
@@ -370,6 +370,46 @@ struct SharedStorageMigrationTests {
     #expect(try harness.legacyKeychain.readCredential(for: server.id) == nil)
     #expect(
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+  }
+
+  @Test(arguments: [false, true])
+  func cleanupDeletesUnreadableSharedCredential(passwordless: Bool) throws {
+    let harness = makeHarness()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = passwordless ? [server] : []
+    Defaults[.servers(suite: harness.sharedSuite)] = [server]
+    try harness.sharedKeychain.saveCredential("stale-secret", for: server.id)
+    harness.sharedKeychain.readErrorStub = URLError(.cannotDecodeContentData)
+
+    try harness.migration.migrate()
+
+    #expect(harness.sharedKeychain.storedCredentials[server.id.uuidString] == nil)
+    #expect(harness.sharedKeychain.readCallCount == 0)
+    #expect(harness.sharedKeychain.deleteCallCount == 1)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == (passwordless ? [server.id] : []))
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageMigration.currentVersion)
+  }
+
+  @Test(arguments: [false, true])
+  func cleanupDeletionFailureKeepsMigrationPending(passwordless: Bool) throws {
+    let harness = makeHarness()
+    let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
+    Defaults[.servers(suite: harness.legacySuite)] = passwordless ? [server] : []
+    Defaults[.servers(suite: harness.sharedSuite)] = [server]
+    try harness.sharedKeychain.saveCredential("stale-secret", for: server.id)
+    harness.sharedKeychain.readErrorStub = URLError(.cannotDecodeContentData)
+    harness.sharedKeychain.deleteErrorStub = SharedStorageTestError()
+
+    #expect(throws: SharedStorageTestError.self) {
+      try harness.migration.migrate()
+    }
+
+    #expect(harness.sharedKeychain.storedCredentials[server.id.uuidString] == "stale-secret")
+    #expect(harness.sharedKeychain.readCallCount == 0)
+    #expect(harness.sharedKeychain.deleteCallCount == 1)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [server.id])
+    #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
   }
 
   @Test func emptyConfigurationCompletesAndNeverResurrectsLaterLegacyServers() throws {
@@ -549,7 +589,7 @@ struct SharedStorageMigrationTests {
     try harness.migration.migrate()
 
     let shared = Defaults[.servers(suite: harness.sharedSuite)]
-    #expect(shared.count == 1)
+    try #require(shared.count == 1)
     #expect(shared[0].id == kept.id)
     #expect(shared[0].url == "http://kept.local")
     #expect(Defaults[.tempUnblocks(for: removed.id, suite: harness.sharedSuite)] == [staleRecord])
@@ -614,7 +654,7 @@ struct SharedStorageMigrationTests {
     try harness.migration.migrate()
 
     let current = Defaults[.servers(suite: harness.sharedSuite)]
-    #expect(current.count == 1)
+    try #require(current.count == 1)
     #expect(current[0].id == shared.id)
     #expect(current[0].url == "http://shared.local")
     #expect(current[0].version == .v6)

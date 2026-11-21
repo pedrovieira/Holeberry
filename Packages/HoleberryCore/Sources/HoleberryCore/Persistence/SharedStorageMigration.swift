@@ -191,7 +191,6 @@ public final class SharedStorageMigration {
   }
 
   private func removeSharedCredentialIfPresent(for serverID: UUID) throws {
-    guard try sharedKeychain.readCredential(for: serverID) != nil else { return }
     try sharedKeychain.deleteCredential(for: serverID)
   }
 }
