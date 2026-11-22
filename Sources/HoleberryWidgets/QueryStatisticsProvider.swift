@@ -20,7 +20,7 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
 
   func snapshot(for configuration: Intent, in context: Context) async -> QueryStatisticsEntry {
     if context.isPreview {
-      return ServerStatisticsSelection.previewEntry(for: configuration.server)
+      return .preview(for: configuration.server)
     }
     return await loadEntry(now: Date(), scope: configuration.server.scope)
   }
@@ -74,7 +74,7 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     )
     let snapshot = scopedServers(manager.servers, scope: scope)
     guard !snapshot.isEmpty else {
-      return noMatchingServerEntry(now: now, scope: scope)
+      return .empty(now: now, scope: scope)
     }
 
     let results = await manager.getQuerySummary(scope: scope)
@@ -160,13 +160,6 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     case .invalidDomain, .unknown, .unsupported:
       return "other"
     }
-  }
-
-  /// An explicit server scope with no matching saved server stays empty, so the
-  /// entry reports that the server is gone. An empty aggregate scope means no
-  /// servers are saved.
-  private func noMatchingServerEntry(now: Date, scope: ServerScope) -> QueryStatisticsEntry {
-    .empty(now: now, scope: scope)
   }
 
   @MainActor

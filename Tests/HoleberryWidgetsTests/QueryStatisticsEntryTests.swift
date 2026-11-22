@@ -269,37 +269,34 @@ struct QueryStatisticsEntryTests {
     #expect(setup.base.observations.isEmpty)
   }
 
-  @Test func additionalEntryReceivesSharedDisplayBehavior() throws {
+  @Test func entryDisplaysItsSnapshot() throws {
     let server = makeServer()
     let base = snapshot(
       servers: [server],
       results: [server.id: .success(QuerySummary(totalQueries: 400, totalBlocked: 100))]
     )
-    let entry = FutureHistoryTestEntry(date: checkedAt.addingTimeInterval(60), base: base, historyNote: "7 buckets")
+    let entry = QueryStatisticsEntry(date: checkedAt.addingTimeInterval(60), base: base)
 
-    let shared = sharedPresentation(of: entry)
-
-    #expect(shared.content == .statistics)
-    #expect(shared.statusText == "All servers online")
-    #expect(shared.availability == .allAvailable)
-    #expect(shared.lastCheckedAt == checkedAt)
-    #expect(try #require(shared.summary).blockedPercentage == 25)
-    #expect(entry.historyNote == "7 buckets")
+    #expect(entry.content == .statistics)
+    #expect(entry.statusText == "All servers online")
+    #expect(entry.availability == .allAvailable)
+    #expect(entry.lastCheckedAt == checkedAt)
+    #expect(try #require(entry.summary).blockedPercentage == 25)
   }
 
-  @Test func additionalEntrySharesFreshnessRulesForLaterRenderDates() {
+  @Test func entryFreshnessUsesItsRenderDate() {
     let server = makeServer()
     let base = snapshot(
       servers: [server],
       results: [server.id: .success(QuerySummary(totalQueries: 40, totalBlocked: 4))]
     )
-    let fresh = FutureHistoryTestEntry(date: checkedAt.addingTimeInterval(3_599), base: base, historyNote: "fresh")
-    let expired = FutureHistoryTestEntry(date: checkedAt.addingTimeInterval(3_600), base: base, historyNote: "expired")
+    let fresh = QueryStatisticsEntry(date: checkedAt.addingTimeInterval(3_599), base: base)
+    let expired = QueryStatisticsEntry(date: checkedAt.addingTimeInterval(3_600), base: base)
 
-    #expect(sharedPresentation(of: fresh).availability == .allAvailable)
-    #expect(sharedPresentation(of: expired).availability == .notChecked)
-    #expect(sharedPresentation(of: expired).content == .statistics)
-    #expect(sharedPresentation(of: expired).lastCheckedAt == checkedAt)
+    #expect(fresh.availability == .allAvailable)
+    #expect(expired.availability == .notChecked)
+    #expect(expired.content == .statistics)
+    #expect(expired.lastCheckedAt == checkedAt)
   }
 
   // MARK: - Individual server scope
@@ -497,21 +494,4 @@ struct QueryStatisticsEntryTests {
       )
     )
   }
-
-  private func sharedPresentation<E: ServerWidgetEntry>(of entry: E) -> (
-    content: ServerWidgetContent,
-    statusText: String,
-    summary: QuerySummary?,
-    lastCheckedAt: Date?,
-    availability: QueryStatisticsAvailability
-  ) {
-    (entry.content, entry.statusText, entry.summary, entry.lastCheckedAt, entry.availability)
-  }
-}
-
-/// Test-only extra payload using the shared entry defaults.
-private struct FutureHistoryTestEntry: ServerWidgetEntry {
-  let date: Date
-  let base: QueryStatisticsSnapshot
-  let historyNote: String
 }

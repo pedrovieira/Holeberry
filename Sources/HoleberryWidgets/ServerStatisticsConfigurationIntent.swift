@@ -40,10 +40,15 @@ struct ServerStatisticsServerEntity: AppEntity, Hashable {
 
   static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Pi-hole server")
   static let defaultQuery = ServerStatisticsServerQuery()
+  static let allServersIdentifier = "all"
+
+  private static let unreadableServerID = UUID(
+    uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  )
 
   /// The default choice, used when a widget has no explicit configuration.
   static let allServers = ServerStatisticsServerEntity(
-    id: ServerStatisticsSelection.allServersIdentifier,
+    id: allServersIdentifier,
     name: "All servers",
     detail: nil,
     resolution: .aggregate
@@ -58,7 +63,8 @@ struct ServerStatisticsServerEntity: AppEntity, Hashable {
   let resolution: Resolution
 
   var scope: ServerScope {
-    ServerStatisticsSelection.scope(for: id)
+    guard id != Self.allServersIdentifier else { return .all }
+    return .server(UUID(uuidString: id) ?? Self.unreadableServerID)
   }
 
   var displayRepresentation: DisplayRepresentation {
@@ -71,14 +77,18 @@ struct ServerStatisticsServerEntity: AppEntity, Hashable {
 
 /// Lists saved servers from shared storage without network or Keychain access.
 struct ServerStatisticsServerQuery: EntityQuery {
+  func defaultResult() async -> ServerStatisticsServerEntity? {
+    .allServers
+  }
+
   func entities(for identifiers: [String]) async throws -> [ServerStatisticsServerEntity] {
-    let saved = await Self.savedMetadata()
+    let saved = await Self.savedServers()
     return identifiers.map { Self.entity(for: $0, saved: saved) }
   }
 
   func suggestedEntities() async throws -> [ServerStatisticsServerEntity] {
-    let saved = await Self.savedMetadata()
-    return [.allServers] + (saved ?? []).map(Self.entity(for:))
+    let saved = await Self.savedServers()
+    return [.allServers] + Self.choices(for: saved ?? [])
   }
 
   /// Preserves every explicit identifier, including one whose server is gone.
@@ -87,15 +97,15 @@ struct ServerStatisticsServerQuery: EntityQuery {
   /// name, because a saved server may legitimately be named "Server removed".
   static func entity(
     for identifier: String,
-    saved: [SavedServerMetadata]?
+    saved: [ServerConfig]?
   ) -> ServerStatisticsServerEntity {
-    guard identifier != ServerStatisticsSelection.allServersIdentifier else {
+    guard identifier != ServerStatisticsServerEntity.allServersIdentifier else {
       return .allServers
     }
-    if let metadata = saved?.first(where: {
-      $0.id.uuidString.caseInsensitiveCompare(identifier) == .orderedSame
+    if let entity = choices(for: saved ?? []).first(where: {
+      $0.id.caseInsensitiveCompare(identifier) == .orderedSame
     }) {
-      return entity(for: metadata)
+      return entity
     }
     guard saved != nil else {
       return ServerStatisticsServerEntity(
@@ -113,24 +123,67 @@ struct ServerStatisticsServerQuery: EntityQuery {
     )
   }
 
-  private static func entity(for metadata: SavedServerMetadata) -> ServerStatisticsServerEntity {
-    ServerStatisticsServerEntity(
-      id: metadata.id.uuidString,
-      name: metadata.name,
-      detail: metadata.detail,
-      resolution: .saved
-    )
+  /// Maps saved configurations directly to picker choices, disambiguating names.
+  static func choices(for servers: [ServerConfig]) -> [ServerStatisticsServerEntity] {
+    let groups = Dictionary(grouping: servers, by: \.displayName)
+    return servers.map { server in
+      let duplicates = groups[server.displayName] ?? []
+      return ServerStatisticsServerEntity(
+        id: server.id.uuidString,
+        name: server.displayName,
+        detail: duplicates.count > 1 ? locator(for: server, among: duplicates) : nil,
+        resolution: .saved
+      )
+    }
   }
 
-  /// Reads picker metadata only when shared storage is ready.
-  private static func savedMetadata() async -> [SavedServerMetadata]? {
-    await MainActor.run {
-      guard let appGroupIdentifier = try? Bundle.main.sharedAppGroupIdentifier(),
-        let suite = try? UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier)
-      else {
-        return nil
-      }
-      return SavedServerCatalog.metadata(in: suite, suiteName: appGroupIdentifier)
+  private static func locator(for server: ServerConfig, among duplicates: [ServerConfig]) -> String {
+    let hosts = duplicates.compactMap(\.hostname)
+    if let host = server.hostname,
+      hosts.count == duplicates.count,
+      Set(hosts).count == duplicates.count
+    {
+      return host
+    }
+    return server.url
+  }
+
+  @MainActor
+  private static func savedServers() -> [ServerConfig]? {
+    guard let appGroupIdentifier = try? Bundle.main.sharedAppGroupIdentifier(),
+      let suite = try? UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier),
+      (try? SharedStorageMigration.readiness(in: suite, suiteName: appGroupIdentifier)) == .ready,
+      let keychainAccessGroup = try? Bundle.main.sharedKeychainAccessGroup(),
+      let keychain = try? KeychainManager.shared(accessGroup: keychainAccessGroup, interactive: false)
+    else {
+      return nil
+    }
+    let storage = ConcreteAppStorage(
+      sharedDataSuite: suite,
+      appLocalSuite: .standard,
+      keychain: keychain
+    )
+    return storage.loadServers()
+  }
+}
+
+// Keep App Intents preview construction in the widget target; the app compiles
+// the entry separately to host SwiftUI previews without App Intents adapters.
+extension QueryStatisticsEntry {
+  /// Samples resolved choices; missing or unavailable choices show guidance.
+  static func preview(
+    for selection: ServerStatisticsServerEntity,
+    now: Date = Date()
+  ) -> QueryStatisticsEntry {
+    switch selection.resolution {
+    case .aggregate:
+      return .placeholder(now: now)
+    case .saved:
+      return .placeholder(now: now, scope: selection.scope, serverName: selection.name)
+    case .missing:
+      return .empty(now: now, scope: selection.scope)
+    case .unavailable:
+      return .setupRequired(now: now, scope: selection.scope)
     }
   }
 }

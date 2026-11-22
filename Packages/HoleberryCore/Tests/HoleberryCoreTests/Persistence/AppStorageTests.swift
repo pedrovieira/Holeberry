@@ -302,11 +302,16 @@ struct AppStorageTests {
     if intendedStorePopulated {
       Defaults[.servers(suite: sharedDataSuite)] = intended
     }
+    let keychain = MockKeychainManager()
     let storage = ConcreteAppStorage(
       sharedDataSuite: sharedDataSuite, appLocalSuite: appLocalSuite,
-      keychain: MockKeychainManager())
+      keychain: keychain)
 
     let loaded = storage.loadServers()
+
+    #expect(keychain.readCredentialCallCount == 0)
+    #expect(keychain.saveCredentialCallCount == 0)
+    #expect(keychain.deleteCredentialCallCount == 0)
 
     if intendedStorePopulated {
       #expect(loaded.count == intended.count)
