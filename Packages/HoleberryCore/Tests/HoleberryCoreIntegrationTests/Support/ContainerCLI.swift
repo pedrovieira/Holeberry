@@ -163,27 +163,56 @@ struct ContainerCLI {
     }
   }
 
-  /// Reads live v6 API sessions through Pi-hole's own CLI. The CLI creates and
-  /// removes its own observer session; exclude it from the returned IDs.
+  /// Reads live v6 API sessions with an independent admin observer.
+  /// Excludes the observer's own session from the returned IDs.
   func activeAPISessionIDs(_ service: ContainerService) async throws -> Set<Int> {
-    let output = try await run(service, "pihole", "api", "auth/sessions")
+    let output = try await runAdminAPI(service, method: "GET", path: "auth/sessions")
     let response = try JSONDecoder().decode(APISessionsResponse.self, from: Data(output.utf8))
     return Set(response.sessions.filter { $0.valid && !$0.currentSession }.map(\.id))
   }
 
-  /// Revokes one app session using an independent CLI-authenticated session.
-  /// The CLI wrapper only supports GET, so use its auth helpers for this DELETE.
+  /// Revokes one app session using an independent admin session.
   func revokeAPISession(_ id: Int, on service: ContainerService) async throws -> String {
+    try await runAdminAPI(
+      service,
+      method: "DELETE",
+      path: "auth/session/\(id)",
+      arguments: ["--output", "/dev/null", "--write-out", "%{http_code}"]
+    )
+  }
+
+  /// FTL 6.9 restricts session management to admin authentication. Use the
+  /// container's fixture password instead of Pi-hole's restricted CLI password.
+  private func runAdminAPI(
+    _ service: ContainerService,
+    method: String,
+    path: String,
+    arguments: [String] = []
+  ) async throws -> String {
     let script = """
-      set -e
-      . /opt/pihole/api.sh
-      LoginAPI
-      trap 'LogoutAPI' EXIT
-      curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
-        --request DELETE "${API_URL}auth/session/$1" --header "sid: ${SID}" \
-        --output /dev/null --write-out '%{http_code}'
+      set -eu
+      api_url='http://127.0.0.1/api/'
+      api_curl() {
+        curl --fail --silent --show-error --connect-timeout 5 --max-time 15 "$@"
+      }
+      payload=$(jq -n --arg password "$FTLCONF_webserver_api_password" '{password: $password}')
+      auth=$(api_curl --request POST "${api_url}auth" \
+        --header 'Content-Type: application/json' --data "$payload")
+      sid=$(printf '%s' "$auth" | jq --exit-status --raw-output \
+        '.session | select(.valid == true) | .sid // ""')
+      trap 'if [ -n "$sid" ]; then
+        api_curl --request DELETE "${api_url}auth" --header "sid: $sid" --output /dev/null
+      fi' EXIT
+      method=$1
+      path=$2
+      shift 2
+      api_curl --request "$method" "${api_url}${path}" --header "sid: $sid" "$@"
       """
-    return try await run(service, "sh", "-c", script, "holeberry-revoke-session", String(id))
+    return try await run(
+      service,
+      arguments: ["sh", "-c", script, "holeberry-admin-api", method, path]
+        + arguments
+    )
   }
 
   /// Reads the initialized v5 web password, which is also the legacy API token.
