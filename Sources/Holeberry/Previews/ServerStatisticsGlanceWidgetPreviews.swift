@@ -13,6 +13,18 @@ import SwiftUI
     .widgetPreviewFrame(.systemSmall)
 }
 
+#Preview("Healthy · Light") {
+  ServerStatisticsGlanceWidgetEntryView(entry: .placeholder())
+    .widgetPreviewFrame(.systemSmall)
+    .preferredColorScheme(.light)
+}
+
+#Preview("Healthy · Dark") {
+  ServerStatisticsGlanceWidgetEntryView(entry: .placeholder())
+    .widgetPreviewFrame(.systemSmall)
+    .preferredColorScheme(.dark)
+}
+
 #Preview("Partial") {
   ServerStatisticsGlanceWidgetEntryView(entry: WidgetPreviewData.partial())
     .widgetPreviewFrame(.systemSmall)

@@ -45,6 +45,7 @@ targets:
       - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
       - path: Sources/HoleberryWidgets/ServerWidgetEntry.swift
       - path: Sources/HoleberryWidgets/WidgetFooter.swift
+      - path: Sources/HoleberryWidgets/WidgetBrandColor.swift
     info:
       path: Sources/Holeberry/Support/Info.plist
       properties:

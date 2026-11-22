@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import HoleberryCore
 import SwiftUI
@@ -15,12 +14,6 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   private static let dividerSpacing: CGFloat = 5
   private static let middleGap: CGFloat = 8
   private static let unavailableText = "Statistics unavailable"
-  private static let blockedBlue = Color(
-    .sRGB,
-    red: 108.0 / 255.0,
-    green: 182.0 / 255.0,
-    blue: 255.0 / 255.0
-  )
 
   var body: some View {
     GeometryReader { proxy in
@@ -28,7 +21,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       content(scale: scale)
     }
     .containerBackground(for: .widget) {
-      Color(nsColor: .windowBackgroundColor)
+      WidgetBrandColor.tileGradient(for: colorScheme)
     }
     .widgetURL(AppDeepLink.settingsURL)
     .accessibilityElement(children: .combine)
@@ -71,7 +64,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       if entry.availability != .noneAvailable {
         Text(entry.statusText)
           .font(.system(size: 8.5 * scale, weight: .semibold))
-          .foregroundStyle(.primary)
+          .foregroundStyle(brand(.primaryText))
           .lineLimit(1)
           .minimumScaleFactor(0.75)
       }
@@ -79,7 +72,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       if hasHealthyServer {
         Text("24h")
           .font(.system(size: 9 * scale, weight: .semibold))
-          .foregroundStyle(.secondary)
+          .foregroundStyle(brand(.secondaryText))
           .lineLimit(1)
           .fixedSize()
       }
@@ -92,7 +85,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     hero(summary, scale: scale)
     Text("block rate")
       .font(.system(size: 10 * scale, weight: .semibold))
-      .foregroundStyle(.secondary)
+      .foregroundStyle(brand(.secondaryText))
       .lineLimit(1)
       .padding(.top, -1 * scale)
     horizontalSeparator(scale: scale)
@@ -107,13 +100,13 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     HStack(alignment: .firstTextBaseline, spacing: 0) {
       Text(summary.blockedPercentage, format: .number.precision(.fractionLength(1)))
         .font(.system(size: 42 * scale, weight: .bold))
-        .foregroundStyle(.primary)
+        .foregroundStyle(brand(.primaryText))
         .tracking(-1 * scale)
         .lineLimit(1)
         .minimumScaleFactor(0.85)
       Text(verbatim: "%")
         .font(.system(size: 21 * scale, weight: .bold))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(brand(.secondaryText))
         .lineLimit(1)
     }
   }
@@ -123,19 +116,19 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       metricColumn(
         value: summary.totalQueries,
         caption: "Queries",
-        color: .primary,
+        color: brand(.primaryText),
         scale: scale
       )
       .frame(maxWidth: .infinity, alignment: .leading)
 
       Rectangle()
-        .fill(Color(nsColor: .separatorColor))
+        .fill(brand(.divider))
         .frame(width: 0.5 * scale, height: 20 * scale)
 
       metricColumn(
         value: summary.totalBlocked,
         caption: "Blocked",
-        color: Self.blockedBlue,
+        color: brand(.blocked),
         scale: scale
       )
       .padding(.leading, Self.middleGap * scale)
@@ -157,14 +150,14 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
         .minimumScaleFactor(0.8)
       Text(caption)
         .font(.system(size: 10 * scale, weight: .semibold))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(brand(.secondaryText))
         .lineLimit(1)
     }
   }
 
   private func horizontalSeparator(scale: CGFloat) -> some View {
     Rectangle()
-      .fill(Color(nsColor: .separatorColor))
+      .fill(brand(.divider))
       .frame(maxWidth: .infinity)
       .frame(height: 0.5 * scale)
   }
@@ -174,7 +167,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     if let lastCheckedAt = entry.lastCheckedAt {
       Text(verbatim: WidgetFooter.text(observedAt: lastCheckedAt, renderedAt: entry.date))
         .font(.system(size: 9 * scale, weight: .medium))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(brand(.secondaryText))
         .lineLimit(1)
         .multilineTextAlignment(.leading)
     }
@@ -189,7 +182,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
         .accessibilityHidden(true)
       Text(text)
         .font(.system(size: 10 * scale, weight: .medium))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(brand(.secondaryText))
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -200,6 +193,10 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   private static func updatedText(for date: Date) -> String {
     let components = Calendar.autoupdatingCurrent.dateComponents([.hour, .minute], from: date)
     return String(format: "Updated %02dh%02d", components.hour ?? 0, components.minute ?? 0)
+  }
+
+  private func brand(_ color: WidgetBrandColor) -> Color {
+    color.color(for: colorScheme)
   }
 
   private var healthColor: Color {

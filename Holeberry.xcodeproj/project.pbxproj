@@ -43,6 +43,7 @@
 		6B9DF7F3654C57449284F5AD /* NSMenuItem+ImageVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1E78AE878782CEF84BCDDC /* NSMenuItem+ImageVisibility.swift */; };
 		72DB55EC587DB2D0138B1973 /* GravityMenuState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20482EB03BF1E6DB675BAB53 /* GravityMenuState.swift */; };
 		748D9FF8F9EA7A8A103FF4FC /* WidgetFooterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C857BB5A568987D6B39725BE /* WidgetFooterTests.swift */; };
+		76135CA06E7958A0B0519D20 /* WidgetBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A8620B511064905E980A54 /* WidgetBrandColor.swift */; };
 		7C4713ED3667F5102E08E08C /* QueryStatisticsEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73C1DD2D5D51C6C26651DC46 /* QueryStatisticsEntry.swift */; };
 		7C6421C3B5701B89BF25A698 /* ServerStatisticsGlanceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40115D5D9DB4D8E0F67E5E1 /* ServerStatisticsGlanceWidget.swift */; };
 		7DA5900D82219DF58FEA6D1E /* HoleberryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A87D2A6D35D41214BA09A19 /* HoleberryApp.swift */; };
@@ -65,6 +66,7 @@
 		BE5F58DFA3CCF2FCB181CF91 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48A2E625686DBB46B548D0E /* SettingsView.swift */; };
 		C02BDEB33D979927C512A11D /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C5AC4DB4B8DF8726F84AF3 /* MenuActions.swift */; };
 		C7D34F00B3B96F867B5519DE /* GravityUpdateCadence+DisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206F54A71206D5BD72DD7A27 /* GravityUpdateCadence+DisplayName.swift */; };
+		C95BD61F686EF252A9FCE528 /* WidgetBrandColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A8620B511064905E980A54 /* WidgetBrandColor.swift */; };
 		CABB8EFDEDBEEE947F960F23 /* ConnectionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4DC950A8CF67B445DB8EEF /* ConnectionListView.swift */; };
 		CD040B18D5CF4518731EC852 /* UnblockCurrentTabDurationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551FABC4599F4CB44319D9FD /* UnblockCurrentTabDurationPicker.swift */; };
 		D8E3C678109A99C500F416AE /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F937B463F6A990098878357C /* KeyboardShortcuts */; };
@@ -135,6 +137,7 @@
 		73C1DD2D5D51C6C26651DC46 /* QueryStatisticsEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryStatisticsEntry.swift; sourceTree = "<group>"; };
 		740E0351B8319723BD1DD852 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		7AEB1E24FAB6994146131D4F /* MainStatusBarMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainStatusBarMenu.swift; sourceTree = "<group>"; };
+		87A8620B511064905E980A54 /* WidgetBrandColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBrandColor.swift; sourceTree = "<group>"; };
 		8A5D9D07B8EC02852147638F /* Holeberry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Holeberry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AEAE3D3AF6DF75263144C73 /* ShortcutNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutNames.swift; sourceTree = "<group>"; };
 		8F0BD1910C21E7C1A0AAE6EB /* SoftwareUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareUpdater.swift; sourceTree = "<group>"; };
@@ -217,6 +220,7 @@
 				5242561DD056E260419CA202 /* QueryStatisticsProvider.swift */,
 				B40115D5D9DB4D8E0F67E5E1 /* ServerStatisticsGlanceWidget.swift */,
 				5672C87D3D6B09301EC1CA9E /* ServerWidgetEntry.swift */,
+				87A8620B511064905E980A54 /* WidgetBrandColor.swift */,
 				23DBD4F04060C32512761B32 /* WidgetFooter.swift */,
 				2040FD53C3B6176AED036BDA /* Support */,
 			);
@@ -651,6 +655,7 @@
 				B8FA893A2D0FBB7B34774E2A /* UnblockEndedNotifier.swift in Sources */,
 				E1825AD709DE0478FE83D631 /* UserNotificationKind.swift in Sources */,
 				A3FC457FE23284E6A21E022E /* VisualEffectView.swift in Sources */,
+				76135CA06E7958A0B0519D20 /* WidgetBrandColor.swift in Sources */,
 				071D582CCC0769990DE87861 /* WidgetFooter.swift in Sources */,
 				0EEB884E988E0605DB4B6EBA /* WidgetPreviewSize.swift in Sources */,
 			);
@@ -665,6 +670,7 @@
 				249954947F589744BC9B0C01 /* QueryStatisticsProvider.swift in Sources */,
 				AA4AB7A9A64993EF06573057 /* ServerStatisticsGlanceWidget.swift in Sources */,
 				6163AFB05B9AA456A05D66E8 /* ServerWidgetEntry.swift in Sources */,
+				C95BD61F686EF252A9FCE528 /* WidgetBrandColor.swift in Sources */,
 				5760693C787A68EFDB207230 /* WidgetFooter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
