@@ -9,6 +9,23 @@ permissions:
   contents: read
 
 jobs:
+  scripts-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+      - name: Run ShellCheck
+        run: find scripts/ci -type f -name '*.sh' -exec shellcheck {} +
+      - name: Install Ruff
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ruff"
+          "$RUNNER_TEMP/ruff/bin/python" -m pip install --disable-pip-version-check ruff==0.17.6
+      - name: Run Ruff
+        run: '"$RUNNER_TEMP/ruff/bin/ruff" check --no-cache --output-format=github scripts/ci'
+
   test:
     runs-on: xcode-27
     steps:
