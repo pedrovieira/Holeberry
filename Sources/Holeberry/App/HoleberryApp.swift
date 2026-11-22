@@ -5,6 +5,7 @@ import HoleberryCore
 import OSLog
 import Sparkle
 import SwiftUI
+import WidgetKit
 
 @main
 struct HoleberryApp: App {
@@ -37,25 +38,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // Sparkle references its user-driver delegate weakly; keep it alive here.
   private var gentleUpdateReminderDelegate: GentleUpdateReminderDelegate?
   private var settingsWindowController: SettingsWindowController?
+  private var pendingOpenSettingsFromWidget = false
 
   // MARK: - Composition Root (lazy var dependency graph)
 
-  private lazy var keychain = KeychainManager()
+  private lazy var appStorage = makeAppStorageContext()
   private lazy var authFactory = ConcreteAuthSessionFactory()
   private lazy var serviceFactory = ConcretePiholeServiceFactory(
     authSessionFactory: authFactory
   )
   private lazy var versionDetector = PiholeVersionDetector()
-  private lazy var appStorage: any AppStorageProviding = ConcreteAppStorage(
-    sharedDataSuite: .standard,
-    appLocalSuite: .standard,
-    keychain: keychain
-  )
-  private lazy var serverManager = PiholeServerManager(
-    storage: appStorage,
-    serviceFactory: serviceFactory,
-    versionDetector: versionDetector
-  )
+  private lazy var serverManager: PiholeServerManager = {
+    let writesSharedStore = appStorage.status == .shared
+    return PiholeServerManager(
+      storage: appStorage.storage,
+      serviceFactory: serviceFactory,
+      versionDetector: versionDetector,
+      allowsServerChanges: appStorage.allowsServerChanges
+    ) {
+      guard writesSharedStore else { return }
+      WidgetCenter.shared.reloadAllTimelines()
+    }
+  }()
   private lazy var localIPResolver = LocalIPAddressResolver()
   private lazy var dnsServerResolver = EffectiveDNSServerResolver()
   private lazy var pollScheduler = TaskPollScheduler()
@@ -93,6 +97,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // swiftlint:disable:next function_body_length
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
+
+    if appStorage.activatedNow {
+      WidgetCenter.shared.reloadAllTimelines()
+    }
 
     let notificationCoordinator = NotificationCoordinator(
       defaultsSuite: .standard,
@@ -150,9 +158,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       updater: updaterController.updater,
       discoveryService: discoveryService,
       statusPoller: statusPoller,
-      notificationCoordinator: notificationCoordinator
+      notificationCoordinator: notificationCoordinator,
+      startupStatus: appStorage.status
     )
     self.settingsWindowController = settingsWindowController
+
+    if pendingOpenSettingsFromWidget {
+      pendingOpenSettingsFromWidget = false
+      settingsWindowController.showWindow()
+    }
 
     statusPoller.startPolling()
 
@@ -200,6 +214,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     notificationCoordinator?.requestAuthorizationIfNeeded()
   }
 
+  /// A deliberate widget click opens the settings window instead of the hidden
+  /// WindowGroup used to keep the SwiftUI app alive.
+  func application(_ application: NSApplication, open urls: [URL]) {
+    guard urls.contains(where: AppDeepLink.isSettingsURL) else { return }
+    if let settingsWindowController {
+      settingsWindowController.showWindow()
+    } else {
+      pendingOpenSettingsFromWidget = true
+    }
+  }
+
+  private func makeAppStorageContext() -> AppStorageContext {
+    let startup = AppStorageStartup(
+      legacySuite: .standard,
+      legacySuiteName: Bundle.main.bundleIdentifier ?? Bundle.appIdentifier,
+      appLocalSuite: .standard,
+      legacyKeychain: KeychainManager(),
+      sharedStorage: BundleSharedStorage()
+    )
+    let outcome = startup.start()
+    if let problem = outcome.problem {
+      logger.error("Shared storage setup problem: \(problem.localizedDescription, privacy: .public)")
+    }
+    return AppStorageContext(
+      storage: outcome.storage ?? UnavailableAppStorage(),
+      status: outcome.status,
+      activatedNow: outcome.activatedNow
+    )
+  }
+
+  private struct AppStorageContext {
+    let storage: any AppStorageProviding
+    let status: AppStorageStartupStatus
+    let activatedNow: Bool
+
+    var allowsServerChanges: Bool { status != .recovery }
+  }
+
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     Task {
       do {
@@ -221,5 +273,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
     return .terminateLater
+  }
+}
+
+/// Resolves the App Group store and shared credential store from this bundle.
+@MainActor
+private struct BundleSharedStorage: SharedStorageProviding {
+  func location() throws -> SharedStorageLocation {
+    let identifier = try Bundle.main.sharedAppGroupIdentifier()
+    return SharedStorageLocation(
+      suite: try UserDefaults.sharedStorageSuite(appGroupIdentifier: identifier),
+      suiteName: identifier
+    )
+  }
+
+  func keychain() throws -> any KeychainManaging {
+    try KeychainManager.shared(
+      accessGroup: Bundle.main.sharedKeychainAccessGroup(),
+      interactive: true
+    )
   }
 }

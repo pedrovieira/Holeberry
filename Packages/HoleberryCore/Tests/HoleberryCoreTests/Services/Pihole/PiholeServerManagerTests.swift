@@ -242,21 +242,33 @@ struct PiholeServerManagerCRUDTests {
     let buildsBefore = mockServiceFactory.buildServiceCallCount
     #expect(buildsBefore == 1, "loadServers built the service")
 
-    manager.updateServer(id: id, label: "Test", url: "http://test.com", credential: "new-password")
+    mockServiceFactory.buildServiceHandler = { config in
+      #expect(storage.credentials[id] == "new-password", "persist before building the live service")
+      return MockPiholeService(id: config.id, label: config.label, url: config.url, version: config.version)
+    }
+    #expect(manager.updateServer(id: id, label: "Test", url: "http://test.com", credential: "new-password"))
     #expect(mockServiceFactory.buildServiceCallCount == buildsBefore + 1, "credential change must rebuild")
     #expect(storage.credentials[id] == "new-password")
   }
 
-  @Test("update server with same credential does not rebuild")
-  func updateServerWithSameCredentialDoesNotRebuild() {
+  @Test("update server with the same credential still rebuilds and invalidates the connection")
+  func updateServerWithSameCredentialRebuildsAndInvalidates() {
     let manager = makeManagerWithLoadedService()
     guard let id = manager.servers.first?.id else {
       Issue.record("No server")
       return
     }
     let buildsBefore = mockServiceFactory.buildServiceCallCount
+    let revisionBefore = manager.servers.first?.connectionRevision
+    #expect(buildsBefore == 1, "loadServers built the service")
+
     manager.updateServer(id: id, label: "Test", url: "http://test.com", credential: "old-password")
-    #expect(mockServiceFactory.buildServiceCallCount == buildsBefore)
+
+    #expect(
+      mockServiceFactory.buildServiceCallCount == buildsBefore + 1,
+      "an explicit credential is an edit even when the strings compare equal")
+    #expect(manager.servers.first?.connectionRevision != revisionBefore)
+    #expect(storage.credentials[id] == "old-password")
   }
 
   @Test("update server with empty credential clears the stored credential")
@@ -378,34 +390,81 @@ struct PiholeServerManagerCRUDTests {
     #expect(mockServiceFactory.buildServiceLastCredential == "fresh-password")
   }
 
-  @Test("update keeps configuration changes when the credential save fails")
-  func updateCredentialSaveFailureRemainsBestEffort() {
-    // Forward the configuration label like the real factory does, so a rebuild
-    // does not blank it while this test checks best-effort persistence.
-    mockServiceFactory.buildServiceHandler = { config in
-      MockPiholeService(id: config.id, label: config.label, url: config.url, version: config.version)
-    }
-    let manager = makeManagerWithLoadedService()
-    guard let id = manager.servers.first?.id else {
-      Issue.record("No server")
-      return
-    }
-    storage.saveCredentialStub = .failure(PiholeError.unknown("keychain unavailable"))
+  @Test("failed credential writes keep the live connection and publish no changes", arguments: ["replacement", ""])
+  func failedCredentialWriteKeepsLiveConnection(credential: String) async throws {
+    let revision = UUID()
+    let config = ServerConfig(
+      label: "Original", icon: "house", url: "http://test.com", version: .v6, connectionRevision: revision)
+    storage.servers = [config]
+    storage.credentials[config.id] = "old-password"
+    let original = MockPiholeService(id: config.id, label: config.label, url: config.url, version: config.version)
+    mockServiceFactory.buildServiceStub = original
+    var changes = 0
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: mockServiceFactory,
+      versionDetector: mockVersionDetector,
+      executionMode: .onDemand,
+      persistentChangeHandler: { changes += 1 }
+    )
+    mockServiceFactory.buildServiceStub = nil
+    let failure = PiholeError.unknown("keychain unavailable")
+    storage.saveCredentialStub = .failure(failure)
+    storage.deleteCredentialStub = .failure(failure)
 
-    manager.updateServer(
-      id: id, label: "Renamed", icon: "moon", url: "http://test.com", credential: "replacement")
+    let updated = manager.updateServer(
+      id: config.id, label: "Renamed", icon: "moon", url: "http://changed.com", credential: credential, version: .v5)
+    await settle()
 
-    #expect(storage.saveCredentialCallCount > 0)
-    #expect(storage.servers.first?.label == "Renamed", "the configuration change still persists")
-    #expect(storage.servers.first?.icon == "moon")
-    #expect(
-      storage.credentials[id] == "old-password",
-      "a failed credential save keeps the previous credential")
-    #expect(manager.servers.first?.label == "Renamed")
+    #expect(!updated)
+
+    #expect(storage.credentials[config.id] == "old-password")
+    #expect(storage.saveServersCallCount == 0)
+    #expect(storage.servers.first?.label == config.label)
+    #expect(storage.servers.first?.icon == config.icon)
+    #expect(storage.servers.first?.hasSameConnection(as: config) == true)
+    #expect(manager.servers.first?.label == config.label)
+    #expect(manager.servers.first?.icon == config.icon)
+    #expect(manager.servers.first?.hasSameConnection(as: config) == true)
+    #expect(mockServiceFactory.buildServiceCallCount == 1)
+    #expect(original.logoutCallCount == 0)
+    #expect(changes == 0)
+    _ = await manager.checkServer(id: config.id)
+    #expect(original.checkStatusCallCount == 1)
   }
 
-  @Test("delete persists the removal when the credential delete fails")
-  func deleteCredentialFailureRemainsBestEffort() {
+  @Test("failed credential writes also reject edits without a live service", arguments: ["replacement", ""])
+  func failedCredentialWriteWithoutLiveService(credential: String) {
+    let config = ServerConfig(label: "Original", url: "http://test.com", version: .v6, connectionRevision: UUID())
+    storage.credentials[config.id] = "old-password"
+    var changes = 0
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: mockServiceFactory,
+      versionDetector: mockVersionDetector,
+      persistentChangeHandler: { changes += 1 }
+    )
+    manager.servers = [config]
+    storage.servers = [config]
+    let failure = PiholeError.unknown("keychain unavailable")
+    storage.saveCredentialStub = .failure(failure)
+    storage.deleteCredentialStub = .failure(failure)
+
+    let updated = manager.updateServer(
+      id: config.id, label: "Renamed", url: "http://changed.com", credential: credential)
+
+    #expect(!updated)
+    #expect(storage.credentials[config.id] == "old-password")
+    #expect(storage.saveServersCallCount == 0)
+    #expect(storage.servers.first?.label == config.label)
+    #expect(manager.servers.first?.label == config.label)
+    #expect(manager.servers.first?.hasSameConnection(as: config) == true)
+    #expect(mockServiceFactory.buildServiceCallCount == 0)
+    #expect(changes == 0)
+  }
+
+  @Test("delete keeps the connection when credential cleanup fails")
+  func deleteCredentialFailureKeepsConnectionForRetry() {
     let manager = makeManagerWithLoadedService()
     guard let id = manager.servers.first?.id else {
       Issue.record("No server")
@@ -420,11 +479,11 @@ struct PiholeServerManagerCRUDTests {
     storage.temporaryUnblocks[id] = [record]
     storage.deleteCredentialStub = .failure(PiholeError.unknown("keychain unavailable"))
 
-    manager.deleteServer(id: id)
+    #expect(manager.deleteServer(id: id) == false)
 
     #expect(storage.deleteCredentialCallCount > 0)
-    #expect(manager.servers.isEmpty)
-    #expect(storage.servers.isEmpty, "the configuration removal still persists")
+    #expect(manager.servers.map(\.id) == [id])
+    #expect(storage.servers.map(\.id) == [id], "the UUID stays saved for cleanup retry")
     #expect(
       storage.credentials[id] == "old-password",
       "a failed credential delete keeps the stored credential")
@@ -491,8 +550,7 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    // Login succeeds (session established server-side), then the status probe
-    // fails — the probe session must still be logged out.
+    // A failed status probe must still log out the successful login.
     let probe = MockPiholeService(id: id, url: "http://test.com", version: .v6)
     probe.checkStatusStub = .failure(PiholeError.network("blip"))
     mockServiceFactory.buildServiceStub = probe
@@ -664,8 +722,7 @@ struct PiholeServerManagerOperationsTests {
     )
   }
 
-  /// A manager with two configured servers, answered by `mockService1` and
-  /// `mockService2`.
+  /// Creates a manager backed by both mock services.
   private func makeManagerWithTwoServers() -> PiholeServerManager {
     storage.servers = [
       ServerConfig(id: mockService1.id, label: "Server A", url: "http://a.local", version: .v6),
@@ -912,8 +969,7 @@ struct PiholeServerManagerStorageTests {
     PiholeServerManager(storage: storage, serviceFactory: factory, versionDetector: detector)
   }
 
-  /// Mirrors the real factory's habit of carrying the configuration label into
-  /// the built service, so `syncConfigs` does not blank fields the test seeds.
+  /// Preserves labels during sync, matching the real factory.
   private func forwardConfigFields() {
     factory.buildServiceHandler = { config in
       MockPiholeService(id: config.id, label: config.label, url: config.url, version: config.version)

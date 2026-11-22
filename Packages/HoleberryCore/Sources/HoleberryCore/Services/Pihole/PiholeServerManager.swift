@@ -13,7 +13,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
   private let executionMode: ServiceExecutionMode
+  private let allowsServerChanges: Bool
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
+  /// Called after a persisted server or credential change.
+  private let persistentChangeHandler: () -> Void
   private var services: [UUID: any PiholeServiceProviding] = [:]
   private struct UnblockKey: Hashable {
     let serverID: UUID
@@ -25,12 +28,16 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     storage: any AppStorageProviding,
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
-    executionMode: ServiceExecutionMode = .application
+    executionMode: ServiceExecutionMode = .application,
+    allowsServerChanges: Bool = true,
+    persistentChangeHandler: @escaping () -> Void = {}
   ) {
     self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
     self.executionMode = executionMode
+    self.allowsServerChanges = allowsServerChanges
+    self.persistentChangeHandler = persistentChangeHandler
     self.servers = []
     loadServers()
   }
@@ -51,6 +58,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Server CRUD
 
   public func addServer(label: String?, icon: String? = nil, url: String, credential: String) async throws {
+    guard allowsServerChanges else {
+      throw HoleberryError.storageUnavailable
+    }
+
     guard servers.count < Self.maxServers else {
       throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
@@ -89,8 +100,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     saveServers()
 
     logger.info("Added server: \(config.label ?? config.url, privacy: .public)")
+    persistentChangeHandler()
   }
 
+  /// Returns false without changing the connection if credential persistence fails or edits are unavailable.
+  @discardableResult
   public func updateServer(
     id: UUID,
     label: String?,
@@ -98,25 +112,24 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     url: String,
     credential: String?,
     version: ServerVersion? = nil
-  ) {
-    guard let idx = servers.firstIndex(where: { $0.id == id }) else { return }
+  ) -> Bool {
+    guard allowsServerChanges, let idx = servers.firstIndex(where: { $0.id == id }) else { return false }
 
+    if let credential, !persistCredentialChange(credential, for: id) {
+      return false
+    }
+
+    // nil keeps the credential; "" clears it. Explicit values always trigger an edit.
+    // Avoid keychain reads and Unicode-normalized string comparisons.
     if let existingService = services[id] {
       let urlChanged = url != existingService.url
-      let credentialChanged: Bool
-      if let credential {
-        // nil = no change; "" = clear (password-less).
-        credentialChanged = (try? storage.readCredential(for: id)) != credential
-      } else {
-        credentialChanged = false
-      }
 
       if let label { existingService.label = label }
       servers[idx].icon = icon
       existingService.url = url
       if let version { existingService.version = version }
 
-      if urlChanged || credentialChanged {
+      if urlChanged || credential != nil {
         reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
     } else {
@@ -126,18 +139,16 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if let version { servers[idx].version = version }
     }
 
-    if let credential {
-      // "" = clear (password-less), value = replace.
-      if credential.isEmpty {
-        try? storage.deleteCredential(for: id)
-      } else {
-        try? storage.saveCredential(credential, for: id)
-      }
+    if credential != nil {
+      // Invalidate fetches started before this credential write.
+      servers[idx].connectionRevision = UUID()
     }
 
     syncConfigs()
     saveServers()
     logger.info("Updated server: \(label ?? url, privacy: .public)")
+    persistentChangeHandler()
+    return true
   }
 
   /// Validates a new credential against the server without persisting anything.
@@ -175,17 +186,42 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     return await probe.isPasswordless
   }
 
-  public func deleteServer(id: UUID) {
+  @discardableResult
+  public func deleteServer(id: UUID) -> Bool {
+    guard allowsServerChanges else { return false }
+    do {
+      try storage.removeServer(id: id)
+    } catch {
+      logger.error("Server removal failed: \(error.localizedDescription, privacy: .public)")
+      return false
+    }
+    let hadServer = servers.contains { $0.id == id }
     servers.removeAll { $0.id == id }
-    saveServers()
-    try? storage.deleteCredential(for: id)
     if let service = services.removeValue(forKey: id) {
       Task { await service.logout() }
     }
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
+    if hadServer {
+      persistentChangeHandler()
+    }
+    return true
   }
 
   // MARK: - Helpers
+
+  /// Saves or clears the credential; returns false on failure.
+  private func persistCredentialChange(_ credential: String, for id: UUID) -> Bool {
+    do {
+      if credential.isEmpty {
+        try storage.deleteCredential(for: id)
+      } else {
+        try storage.saveCredential(credential, for: id)
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
 
   private func reconnectExistingService(
     _ existingService: any PiholeServiceProviding,
@@ -334,9 +370,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func updateServerVersion(id: UUID, version: ServerVersion) {
+    guard allowsServerChanges else { return }
     services[id]?.version = version
     syncConfigs()
     saveServers()
+    persistentChangeHandler()
   }
 
   // MARK: - Session Management
@@ -563,7 +601,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
           label: svc.label,
           icon: config.icon,
           url: svc.url,
-          version: svc.version
+          version: svc.version,
+          connectionRevision: config.connectionRevision
         )
       }
       return config
