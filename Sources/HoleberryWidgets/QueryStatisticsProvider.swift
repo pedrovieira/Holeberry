@@ -83,7 +83,8 @@ struct QueryStatisticsProvider: TimelineProvider {
         authSessionFactory: ConcreteAuthSessionFactory()
       ),
       versionDetector: PiholeVersionDetector(),
-      executionMode: .onDemand
+      executionMode: .onDemand,
+      allowsServerChanges: false
     )
     let snapshot = scopedServers(manager.servers)
     guard !snapshot.isEmpty else {
