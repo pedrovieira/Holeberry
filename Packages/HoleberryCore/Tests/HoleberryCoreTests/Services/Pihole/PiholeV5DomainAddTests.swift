@@ -58,7 +58,7 @@ struct PiholeV5DomainAddTests {
     let service = makeService()
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite,
+      service: service, storage: makeTestStorage(appLocalSuite: suite),
       sleep: { _ in
         Issue.record("An unconfirmed add must not start an expiry timer")
       })

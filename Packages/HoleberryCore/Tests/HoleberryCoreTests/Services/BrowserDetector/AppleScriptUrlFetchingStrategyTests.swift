@@ -37,6 +37,7 @@ private enum AppleScriptStrategyCase: Sendable {
 }
 
 private let testCases: [AppleScriptStrategyCase] = [
+  .chromium(.chromium),
   .chromium(.chrome),
   .chromium(.edgeCanary),
   .chromium(.brave),

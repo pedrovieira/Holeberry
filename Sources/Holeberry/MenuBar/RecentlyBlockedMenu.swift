@@ -75,7 +75,7 @@ final class RecentlyBlockedMenu: NSMenu, NSMenuDelegate {
     ]
     result.append(NSAttributedString(string: entry.domain, attributes: domainAttr))
 
-    let timestamp = MenuItemFactory.relativeTimestamp(since: entry.timestamp)
+    let timestamp = RelativeAgeFormatter().string(since: entry.timestamp)
     let hitSuffix = entry.count == 1 ? "1 hit" : "\(entry.count) hits"
     let timeAttr: [NSAttributedString.Key: Any] = [
       .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),

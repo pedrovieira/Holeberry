@@ -1,5 +1,4 @@
 import Combine
-import Defaults
 import Foundation
 import OSLog
 
@@ -10,11 +9,14 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private static let maxServers = 2
   @Published public var servers: [ServerConfig] = []
   public var serversPublisher: Published<[ServerConfig]>.Publisher { $servers }
-  private let keychain: any KeychainManaging
+  private let storage: any AppStorageProviding
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
-  private let suite: UserDefaults
+  private let executionMode: ServiceExecutionMode
+  private let allowsServerChanges: Bool
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
+  /// Called after a persisted server or credential change.
+  private let persistentChangeHandler: () -> Void
   private var services: [UUID: any PiholeServiceProviding] = [:]
   private struct UnblockKey: Hashable {
     let serverID: UUID
@@ -23,15 +25,19 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private var inProgressUnblocks: Set<UnblockKey> = []
 
   public init(
-    keychain: any KeychainManaging,
+    storage: any AppStorageProviding,
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
-    suite: UserDefaults = .standard
+    executionMode: ServiceExecutionMode = .application,
+    allowsServerChanges: Bool = true,
+    persistentChangeHandler: @escaping () -> Void = {}
   ) {
-    self.keychain = keychain
+    self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
-    self.suite = suite
+    self.executionMode = executionMode
+    self.allowsServerChanges = allowsServerChanges
+    self.persistentChangeHandler = persistentChangeHandler
     self.servers = []
     loadServers()
   }
@@ -52,6 +58,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Server CRUD
 
   public func addServer(label: String?, icon: String? = nil, url: String, credential: String) async throws {
+    guard allowsServerChanges else {
+      throw HoleberryError.storageUnavailable
+    }
+
     guard servers.count < Self.maxServers else {
       throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
     }
@@ -73,15 +83,16 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: credential,
       session: session,
-      suite: suite
+      storage: storage,
+      executionMode: executionMode
     )
 
     try await service.login()
 
     if await service.isPasswordless || credential.isEmpty {
-      try? keychain.deleteCredential(for: config.id)
+      try? storage.deleteCredential(for: config.id)
     } else {
-      try keychain.saveCredential(credential, for: config.id)
+      try storage.saveCredential(credential, for: config.id)
     }
 
     servers.append(config)
@@ -89,8 +100,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     saveServers()
 
     logger.info("Added server: \(config.label ?? config.url, privacy: .public)")
+    persistentChangeHandler()
   }
 
+  /// Returns false without changing the connection if credential persistence fails or edits are unavailable.
+  @discardableResult
   public func updateServer(
     id: UUID,
     label: String?,
@@ -98,25 +112,24 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     url: String,
     credential: String?,
     version: ServerVersion? = nil
-  ) {
-    guard let idx = servers.firstIndex(where: { $0.id == id }) else { return }
+  ) -> Bool {
+    guard allowsServerChanges, let idx = servers.firstIndex(where: { $0.id == id }) else { return false }
 
+    if let credential, !persistCredentialChange(credential, for: id) {
+      return false
+    }
+
+    // nil keeps the credential; "" clears it. Explicit values always trigger an edit.
+    // Avoid keychain reads and Unicode-normalized string comparisons.
     if let existingService = services[id] {
       let urlChanged = url != existingService.url
-      let credentialChanged: Bool
-      if let credential {
-        // nil = no change; "" = clear (password-less).
-        credentialChanged = (try? keychain.readCredential(for: id)) != credential
-      } else {
-        credentialChanged = false
-      }
 
       if let label { existingService.label = label }
       servers[idx].icon = icon
       existingService.url = url
       if let version { existingService.version = version }
 
-      if urlChanged || credentialChanged {
+      if urlChanged || credential != nil {
         reconnectExistingService(existingService, id: id, url: url, credential: credential)
       }
     } else {
@@ -126,18 +139,16 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if let version { servers[idx].version = version }
     }
 
-    if let credential {
-      // "" = clear (password-less), value = replace.
-      if credential.isEmpty {
-        try? keychain.deleteCredential(for: id)
-      } else {
-        try? keychain.saveCredential(credential, for: id)
-      }
+    if credential != nil {
+      // Invalidate fetches started before this credential write.
+      servers[idx].connectionRevision = UUID()
     }
 
     syncConfigs()
     saveServers()
     logger.info("Updated server: \(label ?? url, privacy: .public)")
+    persistentChangeHandler()
+    return true
   }
 
   /// Validates a new credential against the server without persisting anything.
@@ -161,7 +172,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: credential,
       session: session,
-      suite: suite
+      storage: storage,
+      executionMode: executionMode
     )
     do {
       try await probe.login()
@@ -174,17 +186,42 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     return await probe.isPasswordless
   }
 
-  public func deleteServer(id: UUID) {
+  @discardableResult
+  public func deleteServer(id: UUID) -> Bool {
+    guard allowsServerChanges else { return false }
+    do {
+      try storage.removeServer(id: id)
+    } catch {
+      logger.error("Server removal failed: \(error.localizedDescription, privacy: .public)")
+      return false
+    }
+    let hadServer = servers.contains { $0.id == id }
     servers.removeAll { $0.id == id }
-    saveServers()
-    try? keychain.deleteCredential(for: id)
     if let service = services.removeValue(forKey: id) {
       Task { await service.logout() }
     }
     logger.info("Deleted server: \(id.uuidString, privacy: .public)")
+    if hadServer {
+      persistentChangeHandler()
+    }
+    return true
   }
 
   // MARK: - Helpers
+
+  /// Saves or clears the credential; returns false on failure.
+  private func persistCredentialChange(_ credential: String, for id: UUID) -> Bool {
+    do {
+      if credential.isEmpty {
+        try storage.deleteCredential(for: id)
+      } else {
+        try storage.saveCredential(credential, for: id)
+      }
+      return true
+    } catch {
+      return false
+    }
+  }
 
   private func reconnectExistingService(
     _ existingService: any PiholeServiceProviding,
@@ -192,7 +229,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     url: String,
     credential: String?
   ) {
-    let currentCredential = credential ?? (try? keychain.readCredential(for: id)) ?? ""
+    let currentCredential = credential ?? (try? storage.readCredential(for: id)) ?? ""
     let config = ServerConfig(
       id: id,
       label: existingService.label,
@@ -206,7 +243,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       config: config,
       credential: currentCredential,
       session: session,
-      suite: suite
+      storage: storage,
+      executionMode: executionMode
     ) {
       services[id] = rebuilt
     }
@@ -231,27 +269,37 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
   // MARK: - Status & Blocking
 
-  /// Returns blocking status for all servers. Each entry carries the typed
+  /// Returns blocking status for the selected servers. Each entry carries the typed
   /// error when that server's check failed (after its own retries).
-  public func getBlockingStatus() async -> [UUID: Result<BlockingStatus, PiholeError>] {
-    let configs = servers
-    let svcs = services
-    return await withTaskGroup(of: (UUID, Result<BlockingStatus, PiholeError>).self) { group in
-      for config in configs {
-        let svc = svcs[config.id]
-        let id = config.id
+  public func getBlockingStatus(scope: ServerScope) async -> [UUID: Result<BlockingStatus, PiholeError>] {
+    await performOnServers(scope: scope) { try await $0.checkStatus() }
+  }
+
+  /// Snapshots targets before awaiting, preserving failures for missing selected servers.
+  private func performOnServers<Value: Sendable>(
+    scope: ServerScope,
+    operation: @escaping @MainActor @Sendable (any PiholeServiceProviding) async throws -> Value
+  ) async -> [UUID: Result<Value, PiholeError>] {
+    let configuredIDs = Set(servers.map(\.id))
+    let ids: [UUID]
+    switch scope {
+    case .all: ids = servers.map(\.id)
+    case .server(let id): ids = [id]
+    }
+    let clients = services
+    return await withTaskGroup(of: (UUID, Result<Value, PiholeError>).self) { group in
+      for id in ids {
+        let client = configuredIDs.contains(id) ? clients[id] : nil
         group.addTask {
-          guard let svc else { return (id, .failure(PiholeError.unknown("Server not found"))) }
+          guard let client else { return (id, .failure(.unknown("Server not found"))) }
           do {
-            let status = try await svc.checkStatus()
-            return (id, .success(status))
+            return (id, .success(try await operation(client)))
           } catch {
-            let piholeError = error as? PiholeError ?? PiholeError.unknown(error.localizedDescription)
-            return (id, .failure(piholeError))
+            return (id, .failure(error as? PiholeError ?? .unknown(error.localizedDescription)))
           }
         }
       }
-      var results: [UUID: Result<BlockingStatus, PiholeError>] = [:]
+      var results: [UUID: Result<Value, PiholeError>] = [:]
       for await (id, result) in group {
         results[id] = result
       }
@@ -290,7 +338,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func hasStoredCredential(id: UUID) -> Bool {
-    (try? keychain.readCredential(for: id)) != nil
+    (try? storage.readCredential(for: id)) != nil
   }
 
   /// Toggle blocking on all servers. Returns per-server success/failure.
@@ -322,9 +370,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   public func updateServerVersion(id: UUID, version: ServerVersion) {
+    guard allowsServerChanges else { return }
     services[id]?.version = version
     syncConfigs()
     saveServers()
+    persistentChangeHandler()
   }
 
   // MARK: - Session Management
@@ -464,30 +514,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     return deduped
   }
 
-  /// Returns query summaries for all servers. Each entry is `nil` if that server was unreachable.
-  public func getQuerySummary() async -> [UUID: QuerySummary?] {
-    let configs = servers
-    let svcs = services
-    return await withTaskGroup(of: (UUID, QuerySummary?).self) { group in
-      for config in configs {
-        let svc = svcs[config.id]
-        let id = config.id
-        group.addTask {
-          do {
-            guard let svc else { return (id, nil) }
-            let summary = try await svc.getQuerySummary()
-            return (id, summary)
-          } catch {
-            return (id, nil)
-          }
-        }
-      }
-      var results: [UUID: QuerySummary?] = [:]
-      for await (id, summary) in group {
-        results[id] = summary
-      }
-      return results
-    }
+  /// Returns independent summary results for the selected servers.
+  public func getQuerySummary(scope: ServerScope) async -> [UUID: Result<QuerySummary, PiholeError>] {
+    await performOnServers(scope: scope) { try await $0.getQuerySummary() }
   }
 
   /// Triggers a gravity update on all servers; unsupported ones are skipped.
@@ -556,7 +585,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   // MARK: - Persistence
 
   private func loadServers() {
-    let configs: [ServerConfig] = Defaults[.servers(suite: suite)]
+    let configs: [ServerConfig] = storage.loadServers()
     logger.debug("loadServers: found \(configs.count) configs")
 
     if configs.isEmpty {
@@ -569,14 +598,15 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       // Build the service even without a stored credential (using an empty
       // one): the health check then fails as an auth error and the UI can
       // offer a "Re-authenticate" affordance instead of "unreachable".
-      let credential = (try? keychain.readCredential(for: config.id)) ?? ""
+      let credential = (try? storage.readCredential(for: config.id)) ?? ""
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)
       if let rebuilt = try? serviceFactory.buildService(
         config: config,
         credential: credential,
         session: session,
-        suite: suite
+        storage: storage,
+        executionMode: executionMode
       ) {
         services[config.id] = rebuilt
       }
@@ -586,13 +616,15 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
 
     // Warm up sessions so first concurrent requests don't trigger
     // the actor-reentrancy race in acquireSession().
-    for (_, service) in services {
-      Task { try? await service.login() }
+    if executionMode == .application {
+      for (_, service) in services {
+        Task { try? await service.login() }
+      }
     }
   }
 
   private func saveServers() {
-    Defaults[.servers(suite: suite)] = servers
+    storage.saveServers(servers)
   }
 
   private func syncConfigs() {
@@ -603,7 +635,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
           label: svc.label,
           icon: config.icon,
           url: svc.url,
-          version: svc.version
+          version: svc.version,
+          connectionRevision: config.connectionRevision
         )
       }
       return config

@@ -34,6 +34,7 @@ DerivedData/
 # Swift Package Manager
 .build/
 build/
+Packages/HoleberryCore/.swiftpm/xcode/
 
 # CocoaPods
 Pods/

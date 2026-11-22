@@ -96,8 +96,7 @@ public final class ServerStatusPoller: ObservableObject {
         guard let self else { return }
 
         let structuralChange =
-          newServers.count != self.servers.count
-          || zip(self.servers, newServers).contains { $0.id != $1.id || $0.url != $1.url || $0.version != $1.version }
+          !newServers.elementsEqual(self.servers) { $0.hasSameConnection(as: $1) }
 
         let newIDs = Set(newServers.map(\.id))
         self.connectionStatuses = self.connectionStatuses.filter { newIDs.contains($0.key) }
@@ -242,9 +241,9 @@ public final class ServerStatusPoller: ObservableObject {
     await fetchBlockingStatuses()
 
     // Get query summaries from all servers in parallel
-    let summaryResults = await manager.getQuerySummary()
-    for (id, summary) in summaryResults {
-      if let summary {
+    let summaryResults = await manager.getQuerySummary(scope: .all)
+    for (id, result) in summaryResults {
+      if case .success(let summary) = result {
         querySummaries[id] = summary
       } else {
         querySummaries.removeValue(forKey: id)
@@ -303,7 +302,7 @@ public final class ServerStatusPoller: ObservableObject {
         if case .disabled = status { return id }
         return nil
       })
-    let blockingResults = await manager.getBlockingStatus()
+    let blockingResults = await manager.getBlockingStatus(scope: .all)
     // A manual toggle landed mid-fetch: its local reflection is authoritative,
     // and applying the stale results could misreport a manual re-enable as an
     // automatic one.

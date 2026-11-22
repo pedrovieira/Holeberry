@@ -2,6 +2,8 @@ import Defaults
 import Foundation
 import Testing
 
+@testable import HoleberryCore
+
 /// Shared JSON encoder/decoder instances for tests.
 /// Using a single instance avoids re-creating these lightweight but commonly-used objects.
 enum TestJSON {
@@ -18,12 +20,42 @@ enum TestJSON {
 /// Each call returns a unique, pre-cleaned suite so parallel tests don't interfere.
 enum TestDefaults {
   static func makeSuite() -> UserDefaults {
+    makeNamedSuite().suite
+  }
+
+  /// Same isolated suite, with the domain name kept so tests can snapshot the
+  /// exact persistent domain instead of the merged search list.
+  static func makeNamedSuite() -> (name: String, suite: UserDefaults) {
     let name = "com.holeberry.tests.\(UUID().uuidString)"
     guard let suite = UserDefaults(suiteName: name) else {
       fatalError("Failed to create test UserDefaults suite")
     }
-    return suite
+    return (name, suite)
   }
+}
+
+/// Creates the production storage adapter over isolated defaults suites and a
+/// mock Keychain, so behavioral tests exercise persistence end to end without
+/// touching real storage.
+@MainActor
+func makeTestStorage(
+  appLocalSuite: UserDefaults,
+  sharedData: UserDefaults = TestDefaults.makeSuite(),
+  keychain: MockKeychainManager = MockKeychainManager()
+) -> ConcreteAppStorage {
+  ConcreteAppStorage(
+    sharedDataSuite: sharedData,
+    appLocalSuite: appLocalSuite,
+    keychain: keychain
+  )
+}
+
+/// Identity comparison for `any` storage references: the protocol is not
+/// class-bound, so `===` cannot take the values directly.
+@MainActor
+func isSameStorageInstance(_ lhs: (any AppStorageProviding)?, _ rhs: any AppStorageProviding) -> Bool {
+  guard let lhs else { return false }
+  return (lhs as AnyObject) === (rhs as AnyObject)
 }
 
 /// Awaits until `condition` returns true, yielding the main actor between checks.

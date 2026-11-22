@@ -69,7 +69,7 @@ public final class LiveGravityUpdater: GravityUpdating {
     guard !serverIDs.isEmpty else { return [:] }
 
     // Fresh before-snapshot
-    let beforeSummaries = await manager.getQuerySummary()
+    let beforeSummaries = (await manager.getQuerySummary(scope: .all)).compactMapValues { try? $0.get() }
 
     isUpdating = true
     defer { isUpdating = false }
@@ -98,7 +98,7 @@ public final class LiveGravityUpdater: GravityUpdating {
     }
 
     // Re-fetch summaries so outcomes compare against post-run data.
-    var afterSummaries = await manager.getQuerySummary()
+    var afterSummaries = (await manager.getQuerySummary(scope: .all)).compactMapValues { try? $0.get() }
 
     // FTL can lag; re-check once after a short delay when movement isn't confirmed.
     if needsGravityRecheck(
@@ -107,11 +107,9 @@ public final class LiveGravityUpdater: GravityUpdating {
       afterSummaries: afterSummaries
     ) {
       try? await sleep(Self.gravityVerificationDelay)
-      let refreshed = await manager.getQuerySummary()
+      let refreshed = (await manager.getQuerySummary(scope: .all)).compactMapValues { try? $0.get() }
       for (id, summary) in refreshed {
-        if let summary {
-          afterSummaries[id] = summary
-        }
+        afterSummaries[id] = summary
       }
     }
 
@@ -129,20 +127,19 @@ public final class LiveGravityUpdater: GravityUpdating {
   /// Maps results to outcomes, recording app-observed completion times.
   private func computeGravityOutcomes(
     results: [UUID: Result<Void, PiholeError>],
-    beforeSummaries: [UUID: QuerySummary?],
-    afterSummaries: [UUID: QuerySummary?]
+    beforeSummaries: [UUID: QuerySummary],
+    afterSummaries: [UUID: QuerySummary]
   ) -> [UUID: GravityUpdateOutcome] {
     var outcomes: [UUID: GravityUpdateOutcome] = [:]
     for (id, result) in results {
       switch result {
       case .success:
-        // The manager stores fetch failures as [id: nil]; either way the
-        // summary is unavailable, so the run can't be confirmed.
-        guard let after = afterSummaries[id].flatMap({ $0 }) else {
+        // A failed or missing summary cannot confirm the run.
+        guard let after = afterSummaries[id] else {
           outcomes[id] = .failed(.network("Could not verify gravity update. Check the Pi-hole web interface"))
           continue
         }
-        let beforeValue = beforeSummaries[id]?.flatMap { $0.gravityLastUpdated }
+        let beforeValue = beforeSummaries[id]?.gravityLastUpdated
         let afterValue = after.gravityLastUpdated
         if beforeValue != afterValue {
           outcomes[id] = .succeeded
@@ -160,13 +157,13 @@ public final class LiveGravityUpdater: GravityUpdating {
   /// Whether a successful trigger's timestamp movement still needs re-verifying.
   private func needsGravityRecheck(
     results: [UUID: Result<Void, PiholeError>],
-    beforeSummaries: [UUID: QuerySummary?],
-    afterSummaries: [UUID: QuerySummary?]
+    beforeSummaries: [UUID: QuerySummary],
+    afterSummaries: [UUID: QuerySummary]
   ) -> Bool {
     results.contains { id, result in
       guard case .success = result else { return false }
-      let before = beforeSummaries[id]?.flatMap { $0.gravityLastUpdated }
-      let after = afterSummaries[id]?.flatMap { $0.gravityLastUpdated }
+      let before = beforeSummaries[id]?.gravityLastUpdated
+      let after = afterSummaries[id]?.gravityLastUpdated
       return after == nil || after == before
     }
   }

@@ -33,6 +33,25 @@ struct ServerConfigTests {
     #expect(server1 == server2)  // equal by id
   }
 
+  @Test func connectionComparisonIncludesIDURLAndVersion() {
+    let id = UUID()
+    let server = ServerConfig(id: id, url: "http://pihole.local", version: .v6)
+
+    #expect(server.hasSameConnection(as: server))
+    #expect(!server.hasSameConnection(as: ServerConfig(url: server.url, version: .v6)))
+    #expect(!server.hasSameConnection(as: ServerConfig(id: id, url: "http://other.local", version: .v6)))
+    #expect(!server.hasSameConnection(as: ServerConfig(id: id, url: server.url, version: .v5)))
+  }
+
+  @Test func connectionComparisonIgnoresLabelAndIcon() {
+    let server = ServerConfig(label: "Home", icon: "house", url: "http://pihole.local", version: .v6)
+    var renamed = server
+    renamed.label = "Office"
+    renamed.icon = "building"
+
+    #expect(server.hasSameConnection(as: renamed))
+  }
+
   @Test func codableRoundTrip() throws {
     let server = ServerConfig(label: "Test", url: "http://test.com:8080", version: .v6)
     let data = try TestJSON.encoder.encode(server)
@@ -49,5 +68,62 @@ struct ServerConfigTests {
     let decoded = try TestJSON.decoder.decode(ServerConfig.self, from: data)
     #expect(decoded.label == nil)
     #expect(decoded.version == .v5)
+  }
+
+  @Test func connectionComparisonIncludesCredentialRevision() {
+    let id = UUID()
+    let revision = UUID()
+    let unrevisioned = ServerConfig(id: id, url: "http://pihole.local", version: .v6)
+    let revised = ServerConfig(
+      id: id,
+      url: "http://pihole.local",
+      version: .v6,
+      connectionRevision: revision
+    )
+    let otherRevision = ServerConfig(
+      id: id,
+      url: "http://pihole.local",
+      version: .v6,
+      connectionRevision: UUID()
+    )
+
+    #expect(!unrevisioned.hasSameConnection(as: revised))
+    #expect(!revised.hasSameConnection(as: unrevisioned))
+    #expect(!revised.hasSameConnection(as: otherRevision))
+    #expect(revised.hasSameConnection(as: revised))
+    #expect(unrevisioned == revised)  // equality stays by id
+  }
+
+  @Test func connectionRevisionDefaultsToNil() {
+    #expect(ServerConfig(url: "http://pihole.local", version: .v6).connectionRevision == nil)
+  }
+
+  @Test func legacyJSONWithoutConnectionRevisionDecodes() throws {
+    let id = UUID()
+    let json = """
+      {"id":"\(id.uuidString)","label":"Home","url":"http://pihole.local","version":"v6"}
+      """
+    let decoded = try TestJSON.decoder.decode(ServerConfig.self, from: Data(json.utf8))
+
+    #expect(decoded.id == id)
+    #expect(decoded.label == "Home")
+    #expect(decoded.connectionRevision == nil)
+    #expect(
+      decoded.hasSameConnection(as: ServerConfig(id: id, url: "http://pihole.local", version: .v6)))
+  }
+
+  @Test func codablePreservesConnectionRevision() throws {
+    let revision = UUID()
+    let server = ServerConfig(
+      label: "Home",
+      url: "http://pihole.local",
+      version: .v6,
+      connectionRevision: revision
+    )
+    let data = try TestJSON.encoder.encode(server)
+    let decoded = try TestJSON.decoder.decode(ServerConfig.self, from: data)
+
+    #expect(decoded.connectionRevision == revision)
+    #expect(server.hasSameConnection(as: decoded))
   }
 }

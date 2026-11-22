@@ -1,4 +1,3 @@
-import Defaults
 import Foundation
 import OSLog
 
@@ -31,7 +30,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   // A present key holds the domain across network awaits, with FIFO waiters.
   private var domainWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
   private let backoffIntervals: [TimeInterval]
-  private let defaultsSuite: UserDefaults
+  private let storage: any AppStorageProviding
   private let notificationCenter: NotificationCenter
   private let retrySleep: @Sendable (Duration) async throws -> Void
   private let sleep: (TimeInterval) async throws -> Void
@@ -40,24 +39,27 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   public init(
     service: any PiholeAPIProviding,
     backoffIntervals: [TimeInterval] = [10, 30, 120, 600],
-    defaultsSuite: UserDefaults = .standard,
+    storage: any AppStorageProviding,
     notificationCenter: NotificationCenter = .default,
     retrySleep: @escaping @Sendable (Duration) async throws -> Void = {
       try await ContinuousClock().sleep(for: $0)
     },
-    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) }
+    sleep: @escaping (TimeInterval) async throws -> Void = { try await sleepForSeconds($0) },
+    executionMode: ServiceExecutionMode = .application
   ) {
     self.wrapped = service
     self.backoffIntervals = backoffIntervals
-    self.defaultsSuite = defaultsSuite
+    self.storage = storage
     self.notificationCenter = notificationCenter
     self.retrySleep = retrySleep
     self.sleep = sleep
-    self.activeRecords = restoreFromDefaults()
-    saveRecords()
-    if !activeRecords.isEmpty {
-      let records = activeRecords
-      Task { await reconcileWithServer(records) }
+    if executionMode == .application {
+      self.activeRecords = restoreFromStorage()
+      saveRecords()
+      if !activeRecords.isEmpty {
+        let records = activeRecords
+        Task { await reconcileWithServer(records) }
+      }
     }
   }
 
@@ -242,8 +244,8 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
 
   // MARK: - Persistence
 
-  private func restoreFromDefaults() -> [TempUnblockRecord] {
-    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)].map { record in
+  private func restoreFromStorage() -> [TempUnblockRecord] {
+    storage.loadTemporaryUnblocks(for: wrapped.id).map { record in
       TempUnblockRecord(
         domain: PiholeDomain.identity(record.domain),
         uuid: record.uuid,
@@ -256,7 +258,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   private func saveRecords() {
-    Defaults[.tempUnblocks(for: wrapped.id, suite: defaultsSuite)] = activeRecords
+    storage.saveTemporaryUnblocks(activeRecords, for: wrapped.id)
   }
 
   // MARK: - Init-time reconciliation

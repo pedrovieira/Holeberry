@@ -61,6 +61,16 @@ swift-format lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
 - Isolated defaults via `TestDefaults.makeSuite()`; async helpers `waitUntil` / `settle` (`Tests/.../Utils/TestHelpers.swift`).
 - Run: `cd Packages/HoleberryCore && swift test`. There is no app-target test bundle.
 
+### Integration tests
+
+Run from the repository root with macOS 14+, Swift 6, `just`, and a running Docker-compatible runtime with the Docker CLI and Compose available:
+
+1. Run `just integration-up` to start the disposable Pi-hole v5, v6, and password-less v6 containers, wait for HTTP readiness, and seed the gravity fixture.
+2. Run `just integration-test` to execute the integration suite. The recipe sets `HOLEBERRY_INTEGRATION=1` to opt in and `TZ=UTC` for v5 timestamps; plain `swift test` skips these tests.
+3. After the run, use `just integration-down` to remove the integration project's containers, network, and volumes.
+
+For port requirements, endpoint overrides, coverage, and troubleshooting details, read the [integration test guide](Packages/HoleberryCore/Tests/HoleberryCoreIntegrationTests/README.md). These tests run locally; CI does not run them yet.
+
 ## Contribution process
 
 - PRs target `main`. Open an issue first for substantial work (per README).

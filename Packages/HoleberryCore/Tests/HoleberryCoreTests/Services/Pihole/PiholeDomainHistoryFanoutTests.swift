@@ -13,8 +13,8 @@ struct PiholeDomainHistoryFanoutTests {
     let factory = MockPiholeServiceFactory()
     factory.buildServiceHandler = { config in services.first { $0.id == config.id }! }
     return PiholeServerManager(
-      keychain: MockKeychainManager(), serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector(), suite: suite)
+      storage: makeTestStorage(appLocalSuite: suite, sharedData: suite), serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector())
   }
 
   @Test func mixedReadsKeepEveryCandidateAndServer() async throws {

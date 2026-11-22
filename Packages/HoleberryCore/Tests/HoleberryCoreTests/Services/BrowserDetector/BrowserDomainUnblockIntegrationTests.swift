@@ -34,7 +34,7 @@ struct BrowserDomainUnblockIntegrationTests {
     let rawServices = [MockPiholeAPI(version: .v6), MockPiholeAPI(version: .v5)]
     let services = rawServices.map { raw in
       TemporaryUnblockPiholeServiceDecorator(
-        service: raw, defaultsSuite: suite, retrySleep: { _ in },
+        service: raw, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
         sleep: { _ in try await Task.sleep(for: .seconds(60)) })
     }
     let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -80,7 +80,7 @@ struct BrowserDomainUnblockIntegrationTests {
     let raw = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, defaultsSuite: suite, retrySleep: { _ in },
+      service: raw, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: { _ in try await Task.sleep(for: .seconds(60)) })
     let otherService = MockPiholeService()
     let manager = makeManager(service: service, suite: suite, otherService: otherService)
@@ -122,7 +122,7 @@ struct BrowserDomainUnblockIntegrationTests {
     let raw = MockPiholeAPI()
     let suite = TestDefaults.makeSuite()
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, defaultsSuite: suite, retrySleep: { _ in },
+      service: raw, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
       sleep: { _ in try await Task.sleep(for: .seconds(60)) })
     let manager = makeManager(service: service, suite: suite)
     let resolver = MockLocalIPAddressResolver()
@@ -151,7 +151,7 @@ struct BrowserDomainUnblockIntegrationTests {
     let factory = MockPiholeServiceFactory()
     factory.buildServiceHandler = { config in services.first { $0.id == config.id }! }
     return PiholeServerManager(
-      keychain: MockKeychainManager(), serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector(), suite: suite)
+      storage: makeTestStorage(appLocalSuite: suite, sharedData: suite), serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector())
   }
 }

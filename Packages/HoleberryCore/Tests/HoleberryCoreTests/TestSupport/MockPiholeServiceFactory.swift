@@ -11,17 +11,24 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
   /// Optional per-config handler; takes precedence over `buildServiceStub`.
   var buildServiceHandler: ((ServerConfig) -> (any PiholeServiceProviding))?
   var buildServiceError: (any Error)?
+  private(set) var buildServiceExecutionModes: [ServiceExecutionMode] = []
   private(set) var buildServiceCallCount = 0
   private(set) var buildServiceLastConfig: ServerConfig?
+  private(set) var buildServiceLastCredential: String?
+  private(set) var buildServiceLastStorage: (any AppStorageProviding)?
 
   func buildService(
     config: ServerConfig,
     credential: String,
     session: any HTTPRequestable,
-    suite: UserDefaults
+    storage: any AppStorageProviding,
+    executionMode: ServiceExecutionMode
   ) throws -> any PiholeServiceProviding {
     buildServiceCallCount += 1
+    buildServiceExecutionModes.append(executionMode)
     buildServiceLastConfig = config
+    buildServiceLastCredential = credential
+    buildServiceLastStorage = storage
     if let buildServiceError {
       throw buildServiceError
     }

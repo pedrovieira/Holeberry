@@ -1,3 +1,4 @@
+import CoreFoundation
 import Defaults
 import Foundation
 
@@ -105,5 +106,85 @@ extension Defaults.Keys {
     suite: UserDefaults = .standard
   ) -> Defaults.Key<Date?> {
     Defaults.Key<Date?>("gravityUpdateNextDue", default: nil, suite: suite)
+  }
+
+  /// Verified App Group migration version. Zero means pending.
+  public static func sharedStorageMigrationVersion(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageMigrationVersion", default: 0, suite: suite)
+  }
+
+  /// App-local record of prior shared storage activation.
+  public static func sharedStorageActivatedVersion(
+    suite: UserDefaults = .standard
+  ) -> Defaults.Key<Int> {
+    Defaults.Key<Int>("sharedStorageActivatedVersion", default: 0, suite: suite)
+  }
+}
+
+public enum DefaultsSuiteError: Error, Equatable {
+  case unavailableGroupSuite(String)
+}
+
+extension UserDefaults {
+  /// Opens the registered App Group suite. Never falls back to `.standard`.
+  public static func sharedStorageSuite(appGroupIdentifier: String) throws -> UserDefaults {
+    guard let suite = UserDefaults(suiteName: appGroupIdentifier) else {
+      throw DefaultsSuiteError.unavailableGroupSuite(appGroupIdentifier)
+    }
+    return suite
+  }
+}
+
+// MARK: - Startup and Migration Validation
+//
+// Raw persistent-domain reads stay in this file with the other defaults keys.
+// Only startup and migration decisions use these checks; ordinary storage
+// reads and writes must not opt into them.
+
+/// A raw saved value that cannot stand in for the typed value a startup or
+/// migration decision needs.
+enum DefaultsValueValidationError: Error, Equatable {
+  case malformedValue(String)
+}
+
+/// Strict reads for startup and migration decisions only.
+///
+/// Values come from one persistent domain, so registered defaults and the
+/// argument domain cannot stand in for saved data.
+enum PersistedStartupValue {
+  /// Missing means nothing was saved. A partially decoded list or a repeated identifier is invalid.
+  static func servers(in suite: UserDefaults, suiteName: String) throws -> [ServerConfig]? {
+    let key = Defaults.Keys.servers(suite: suite)
+    guard let rawValue = suite.persistentDomain(forName: suiteName)?[key.name] else { return nil }
+    guard
+      let serialized = rawValue as? [ServerConfig.Serializable],
+      let servers = [ServerConfig].bridge.deserialize(serialized),
+      servers.count == serialized.count,
+      Set(servers.map(\.id)).count == servers.count
+    else {
+      throw DefaultsValueValidationError.malformedValue(key.name)
+    }
+    return servers
+  }
+
+  /// Missing means no recorded version. A Boolean or floating-point number cannot
+  /// become a version: accepting one could falsely report a completed migration,
+  /// and treating corruption as zero could allow another import of stale legacy data.
+  static func version(_ key: Defaults.Key<Int>, suiteName: String) throws -> Int? {
+    guard let rawValue = key.suite.persistentDomain(forName: suiteName)?[key.name] else { return nil }
+    guard
+      let number = rawValue as? NSNumber,
+      CFGetTypeID(number) == CFNumberGetTypeID(),
+      !CFNumberIsFloatType(number)
+    else {
+      throw DefaultsValueValidationError.malformedValue(key.name)
+    }
+    let value = number.intValue
+    guard number.doubleValue == Double(value) else {
+      throw DefaultsValueValidationError.malformedValue(key.name)
+    }
+    return value
   }
 }

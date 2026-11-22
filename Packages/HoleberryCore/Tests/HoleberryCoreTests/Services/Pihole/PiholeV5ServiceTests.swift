@@ -385,7 +385,8 @@ final class PiholeV5ServiceTests {
     ]
     let service = makeService()
     let suite = TestDefaults.makeSuite()
-    let decorator = TemporaryUnblockPiholeServiceDecorator(service: service, defaultsSuite: suite, sleep: { _ in })
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: service, storage: makeTestStorage(appLocalSuite: suite), sleep: { _ in })
 
     await #expect(throws: PiholeError.server(200, "database is locked")) {
       try await decorator.unblockDomain("example.com", duration: 60)
@@ -414,7 +415,7 @@ final class PiholeV5ServiceTests {
     let suite = TestDefaults.makeSuite()
     var releaseRetry = false
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, defaultsSuite: suite,
+      service: service, storage: makeTestStorage(appLocalSuite: suite),
       sleep: { duration in
         if duration < 10 { return }
         await waitUntil { releaseRetry }
@@ -498,11 +499,11 @@ final class PiholeV5ServiceTests {
     await #expect {
       try await makeService().getDomains(from: .deny)
     } throws: { error in
-      guard case PiholeError.decoding = error else {
+      guard case PiholeError.decoding(let message) = error else {
         Issue.record("Expected decoding error, got \(error)")
         return false
       }
-      return true
+      return message.hasPrefix("Domain list black: ")
     }
   }
 
