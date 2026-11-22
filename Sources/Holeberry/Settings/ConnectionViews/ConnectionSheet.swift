@@ -371,7 +371,7 @@ struct ConnectionSheet: View {
         label.isEmpty
         ? server.label.map { String($0.prefix(Self.labelMaxLength)) }
         : String(label.prefix(Self.labelMaxLength))
-      serverManager.updateServer(
+      let updated = serverManager.updateServer(
         id: server.id,
         label: serverLabel,
         icon: iconName.isEmpty ? nil : iconName,
@@ -379,7 +379,7 @@ struct ConnectionSheet: View {
         // Password-less server discards any typed credential.
         credential: isPasswordless ? "" : credential
       )
-      onDismiss()
+      finishUpdate(updated)
     } catch is CancellationError {
       isCreating = false
     } catch _ as TimeoutError {
@@ -441,7 +441,7 @@ struct ConnectionSheet: View {
       }
     } else {
       guard case .edit(let server) = mode else { return }
-      serverManager.updateServer(
+      let updated = serverManager.updateServer(
         id: server.id,
         label: trimmedLabel,
         icon: iconName.isEmpty ? nil : iconName,
@@ -449,7 +449,17 @@ struct ConnectionSheet: View {
         // nil = keep stored credential; a typed value replaces it.
         credential: credential.isEmpty ? nil : credential
       )
+      finishUpdate(updated)
+    }
+  }
+
+  private func finishUpdate(_ succeeded: Bool) {
+    if succeeded {
       onDismiss()
+    } else {
+      createError = "Update failed. Could not save the server changes. Try again."
+      triggerShake()
+      isCreating = false
     }
   }
 }

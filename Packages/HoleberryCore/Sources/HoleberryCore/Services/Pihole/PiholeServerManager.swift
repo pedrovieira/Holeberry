@@ -103,6 +103,8 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     persistentChangeHandler()
   }
 
+  /// Returns false without changing the connection if credential persistence fails or edits are unavailable.
+  @discardableResult
   public func updateServer(
     id: UUID,
     label: String?,
@@ -110,8 +112,12 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     url: String,
     credential: String?,
     version: ServerVersion? = nil
-  ) {
-    guard allowsServerChanges, let idx = servers.firstIndex(where: { $0.id == id }) else { return }
+  ) -> Bool {
+    guard allowsServerChanges, let idx = servers.firstIndex(where: { $0.id == id }) else { return false }
+
+    if let credential, !persistCredentialChange(credential, for: id) {
+      return false
+    }
 
     // nil keeps the credential; "" clears it. Explicit values always trigger an edit.
     // Avoid keychain reads and Unicode-normalized string comparisons.
@@ -133,12 +139,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if let version { servers[idx].version = version }
     }
 
-    var credentialPersisted = false
-    if let credential {
-      credentialPersisted = persistCredentialChange(credential, for: id)
-    }
-
-    if credentialPersisted {
+    if credential != nil {
       // Invalidate fetches started before this credential write.
       servers[idx].connectionRevision = UUID()
     }
@@ -147,6 +148,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     saveServers()
     logger.info("Updated server: \(label ?? url, privacy: .public)")
     persistentChangeHandler()
+    return true
   }
 
   /// Validates a new credential against the server without persisting anything.
