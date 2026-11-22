@@ -63,7 +63,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
         .frame(width: 10 * scale, height: 10 * scale)
       if entry.availability != .noneAvailable {
         Text(entry.statusText)
-          .font(.system(size: 8.5 * scale, weight: .semibold))
+          .font(.system(size: 9 * scale, weight: .semibold))
           .foregroundStyle(brand(.primaryText))
           .lineLimit(1)
           .minimumScaleFactor(0.75)
