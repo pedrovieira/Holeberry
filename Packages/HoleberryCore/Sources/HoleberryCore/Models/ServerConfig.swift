@@ -44,13 +44,7 @@ public struct ServerConfig: Codable, Identifiable, Equatable, Sendable {
     if let label, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       return label
     }
-    return hostname ?? url
-  }
-
-  /// The URL hostname when the saved URL has a nonempty one.
-  public var hostname: String? {
-    guard let host = URLComponents(string: url)?.host, !host.isEmpty else { return nil }
-    return host
+    return url.hostname ?? url
   }
 
   /// Compares connection settings and credential revision, ignoring display metadata.

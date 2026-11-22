@@ -146,8 +146,8 @@ struct ServerStatisticsServerQuery: EntityQuery {
   }
 
   private static func locator(for server: ServerConfig, among duplicates: [ServerConfig]) -> String {
-    let hosts = duplicates.compactMap(\.hostname)
-    if let host = server.hostname,
+    let hosts = duplicates.compactMap(\.url.hostname)
+    if let host = server.url.hostname,
       hosts.count == duplicates.count,
       Set(hosts).count == duplicates.count
     {
