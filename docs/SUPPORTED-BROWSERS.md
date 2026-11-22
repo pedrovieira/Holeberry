@@ -30,8 +30,8 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 | Arc | `company.thebrowser.Browser` |
 | Dia | `company.thebrowser.dia` |
 | Ardia | `com.ardia.browser` |
-| Yab | `dev.serafim.fast` |
-| Yab Dev | `dev.serafim.fast.dev` |
+| Yab (regular tabs only) | `dev.serafim.fast` |
+| Yab Dev (regular tabs only) | `dev.serafim.fast.dev` |
 | Opera | `com.operasoftware.Opera` |
 | Opera Next | `com.operasoftware.OperaNext` |
 | Opera Developer | `com.operasoftware.OperaDeveloper` |
@@ -46,6 +46,8 @@ Holeberry can read the domain from your current browser tab and unblock it. This
 | Helium | `net.imput.helium` |
 
 Chromium and Ungoogled Chromium both use the application name `Chromium` and the same bundle ID. Holeberry detects both through one browser entry and uses the same AppleScript strategy.
+
+Yab and Yab Dev hide private tabs from AppleScript, so Holeberry cannot read their URLs. Use a regular window for browser-tab unblocking.
 
 ## Gecko (Firefox family)
 
