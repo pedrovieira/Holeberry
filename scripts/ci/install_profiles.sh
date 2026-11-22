@@ -12,7 +12,9 @@ if [ -z "${HOLEBERRY_TEAM_ID:-}" ]; then
   exit 1
 fi
 
-INSTALL_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+# Test seam: tests point this at a sandbox directory. Production keeps the
+# default per-user location, which the workflow cleanup also assumes.
+INSTALL_DIR="${HOLEBERRY_PROFILE_INSTALL_DIR:-$HOME/Library/MobileDevice/Provisioning Profiles}"
 MANIFEST="$RUNNER_TEMP/holeberry-installed-profiles.txt"
 PROFILE_TEMP_DIR="$(mktemp -d "$RUNNER_TEMP/holeberry-profiles.XXXXXX")"
 chmod 700 "$PROFILE_TEMP_DIR"

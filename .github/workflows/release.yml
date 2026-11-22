@@ -256,8 +256,17 @@ jobs:
           # Search within this dependency only and fail if its layout changes
           # to contain zero or multiple tools.
           SPARKLE_ARTIFACTS="$PWD/build/SourcePackages/artifacts/sparkle"
+          # Capture first, then check find's status: a partial traversal must
+          # never be read as a complete search.
+          if ! TOOLS_OUTPUT="$(find "$SPARKLE_ARTIFACTS" -type f -name generate_appcast)"; then
+            echo "::error::Searching $SPARKLE_ARTIFACTS for generate_appcast failed; refusing to continue"
+            exit 1
+          fi
           TOOLS=()
-          while IFS= read -r tool; do TOOLS+=("$tool"); done < <(find "$SPARKLE_ARTIFACTS" -type f -name generate_appcast)
+          while IFS= read -r tool; do
+            [ -n "$tool" ] || continue
+            TOOLS+=("$tool")
+          done <<< "$TOOLS_OUTPUT"
           if [ "${#TOOLS[@]}" -ne 1 ] || [ ! -x "${TOOLS[0]}" ]; then
             echo "::error::Expected one executable generate_appcast in $SPARKLE_ARTIFACTS"
             exit 1
@@ -310,15 +319,61 @@ jobs:
           DMG_PATH: ${{ steps.dmg.outputs.dmg_path }}
         run: |
           set -euo pipefail
-          if IS_DRAFT="$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')"; then
-            if [ "$IS_DRAFT" != true ]; then
+          # Draft-aware, complete lookup: the listing includes drafts for
+          # callers with push access (this job has contents: write). `gh release
+          # view` is draft-aware too, but its nonzero exit cannot tell "no
+          # release" from an auth, network, or server error, so a failed lookup
+          # must never be read as absence.
+          #
+          # Keep this inline: the checkout has already moved to main, so a helper
+          # file added by this PR may not exist there yet.
+          #
+          # Verified with gh 2.105.0: --paginate applies --jq per page and can
+          # print earlier pages together with a later page's error body before
+          # exiting nonzero, so only the exit status may be trusted. --slurp is
+          # not an option: gh rejects it together with --jq, and a failed page
+          # still emits partial output.
+          if ! RELEASE_LIST="$(gh api --paginate \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | [(.tag_name | @json), (.draft | tostring)] | @tsv')"; then
+            echo "::error::Could not list releases; refusing to create or modify a release for $GITHUB_REF_NAME"
+            exit 1
+          fi
+          # Classify only rows that match the tag through its JSON encoding, so
+          # the ref name never becomes shell or jq syntax. Malformed rows and
+          # ambiguous matches fail closed instead of falling through to create.
+          if ! ACTION="$(printf '%s\n' "$RELEASE_LIST" | awk -F'\t' -v want="\"$GITHUB_REF_NAME\"" '
+            NF == 0 { next }
+            NF != 2 || ($2 != "true" && $2 != "false") { exit 1 }
+            $1 != want { next }
+            $2 == "false" { published = 1; next }
+            { drafts++ }
+            END {
+              if (published) print "published"
+              else if (drafts == 1) print "draft"
+              else if (drafts > 1) print "ambiguous"
+              else print "missing"
+            }')"; then
+            echo "::error::Unexpected release listing for $GITHUB_REF_NAME; refusing to create or modify a release"
+            exit 1
+          fi
+          case "$ACTION" in
+            draft) gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber ;;
+            missing) gh release create "$GITHUB_REF_NAME" "$DMG_PATH" --draft --generate-notes --verify-tag ;;
+            published)
               echo "::error::Release $GITHUB_REF_NAME is already published; bump the version instead"
               exit 1
-            fi
-            gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" "$DMG_PATH" --draft --generate-notes --verify-tag
-          fi
+              ;;
+            ambiguous)
+              echo "::error::Multiple releases match $GITHUB_REF_NAME; refusing to guess which one to update"
+              exit 1
+              ;;
+            *)
+              echo "::error::Unclassified release lookup result for $GITHUB_REF_NAME"
+              exit 1
+              ;;
+          esac
 
       # Pre-publish gate: prove the asset users will eventually download is
       # byte-identical (and still stapled) before publish approval is even
