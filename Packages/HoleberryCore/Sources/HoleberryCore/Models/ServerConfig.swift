@@ -39,6 +39,20 @@ public struct ServerConfig: Codable, Identifiable, Equatable, Sendable {
     self.connectionRevision = connectionRevision
   }
 
+  /// The saved label when nonblank, otherwise the hostname, otherwise the URL.
+  public var displayName: String {
+    if let label, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      return label
+    }
+    return hostname ?? url
+  }
+
+  /// The URL hostname when the saved URL has a nonempty one.
+  public var hostname: String? {
+    guard let host = URLComponents(string: url)?.host, !host.isEmpty else { return nil }
+    return host
+  }
+
   /// Compares connection settings and credential revision, ignoring display metadata.
   public func hasSameConnection(as other: ServerConfig) -> Bool {
     id == other.id && url == other.url && version == other.version

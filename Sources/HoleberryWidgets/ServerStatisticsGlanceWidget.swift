@@ -25,7 +25,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     }
     .widgetURL(AppDeepLink.settingsURL)
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(accessibilityText)
+    .accessibilityLabel(entry.accessibilityText)
   }
 
   @ViewBuilder
@@ -46,6 +46,8 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       guidance("Open Holeberry to finish setup", scale: scale)
     case .noServers:
       guidance("Add a server in Holeberry", scale: scale)
+    case .serverRemoved:
+      removedServerGuidance(scale: scale)
     case .unavailable:
       guidance(Self.unavailableText, scale: scale)
         .overlay(alignment: .topLeading) {
@@ -61,7 +63,7 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       Circle()
         .fill(healthColor)
         .frame(width: 10 * scale, height: 10 * scale)
-      if entry.availability != .noneAvailable {
+      if entry.isScopedToServer || entry.availability != .noneAvailable {
         Text(entry.statusText)
           .font(.system(size: 9 * scale, weight: .semibold))
           .foregroundStyle(brand(.primaryText))
@@ -173,25 +175,42 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   }
 
   private func guidance(_ text: String, scale: CGFloat) -> some View {
+    guidance(scale: scale) {
+      Text(text)
+        .font(.system(size: 10 * scale, weight: .medium))
+        .foregroundStyle(brand(.secondaryText))
+    }
+  }
+
+  private func removedServerGuidance(scale: CGFloat) -> some View {
+    guidance(scale: scale) {
+      VStack(spacing: 2 * scale) {
+        Text("Server removed")
+          .font(.system(size: 10 * scale, weight: .semibold))
+          .foregroundStyle(brand(.primaryText))
+        Text("Edit widget to choose another server")
+          .font(.system(size: 9 * scale, weight: .medium))
+          .foregroundStyle(brand(.secondaryText))
+      }
+    }
+  }
+
+  private func guidance<Content: View>(
+    scale: CGFloat,
+    @ViewBuilder content: () -> Content
+  ) -> some View {
     VStack(spacing: 12 * scale) {
       Image("holeberry-logo")
         .resizable()
         .scaledToFit()
         .frame(width: 40 * scale, height: 40 * scale)
         .accessibilityHidden(true)
-      Text(text)
-        .font(.system(size: 10 * scale, weight: .medium))
-        .foregroundStyle(brand(.secondaryText))
+      content()
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
     }
     .padding(.horizontal, Self.contentInset * scale)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-  }
-
-  private static func updatedText(for date: Date) -> String {
-    let components = Calendar.autoupdatingCurrent.dateComponents([.hour, .minute], from: date)
-    return String(format: "Updated %02dh%02d", components.hour ?? 0, components.minute ?? 0)
   }
 
   private func brand(_ color: WidgetBrandColor) -> Color {
@@ -207,45 +226,8 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     }
   }
 
-  private var showsHeader: Bool {
-    switch entry.content {
-    case .setupRequired, .noServers: return false
-    case .statistics, .unavailable: return true
-    }
-  }
-
   private var hasHealthyServer: Bool {
     entry.availability == .allAvailable || entry.availability == .someAvailable
-  }
-
-  private var accessibilityText: String {
-    var parts: [String] = showsHeader ? [entry.statusText] : []
-    if hasHealthyServer {
-      parts.append("24 hours")
-    }
-    if let summary = entry.summary, entry.content == .statistics {
-      let percentage = summary.blockedPercentage.formatted(
-        .number.precision(.fractionLength(1))
-      )
-      parts.append("\(percentage) percent block rate")
-      parts.append("\(summary.totalQueries.formatted(.number)) queries")
-      parts.append("\(summary.totalBlocked.formatted(.number)) blocked")
-      if let lastCheckedAt = entry.lastCheckedAt {
-        parts.append(Self.updatedText(for: lastCheckedAt))
-      }
-    } else {
-      switch entry.content {
-      case .setupRequired:
-        parts.append("Open Holeberry to finish setup")
-      case .noServers:
-        parts.append("Add a server in Holeberry")
-      case .unavailable:
-        parts.append(Self.unavailableText)
-      case .statistics:
-        break
-      }
-    }
-    return parts.joined(separator: ". ")
   }
 }
 
@@ -258,11 +240,14 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
     let kind = "AllServersWidget"
 
     var body: some WidgetConfiguration {
-      StaticConfiguration(kind: kind, provider: QueryStatisticsProvider(scope: .all)) { entry in
+      AppIntentConfiguration(
+        kind: kind,
+        provider: QueryStatisticsProvider()
+      ) { entry in
         ServerStatisticsGlanceWidgetEntryView(entry: entry)
       }
-      .configurationDisplayName("All servers")
-      .description("Block rate and query totals for all Pi-hole servers.")
+      .configurationDisplayName("Query statistics")
+      .description("Block rate and query totals for all Pi-hole servers or one selected server.")
       .supportedFamilies([.systemSmall])
       .contentMarginsDisabled()
     }

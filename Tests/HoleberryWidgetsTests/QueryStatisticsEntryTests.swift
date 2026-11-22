@@ -302,11 +302,182 @@ struct QueryStatisticsEntryTests {
     #expect(sharedPresentation(of: expired).lastCheckedAt == checkedAt)
   }
 
+  // MARK: - Individual server scope
+
+  @Test func individualSelectionShowsOnlyThatServersTotals() throws {
+    let first = makeServer(label: "First", url: "http://first.local")
+    let second = makeServer(label: "Second", url: "http://second.local")
+    let entry = QueryStatisticsEntry(
+      date: checkedAt.addingTimeInterval(10),
+      base: snapshot(
+        servers: [first, second],
+        results: [
+          first.id: .success(QuerySummary(totalQueries: 1_000, totalBlocked: 500)),
+          second.id: .success(QuerySummary(totalQueries: 40, totalBlocked: 4))
+        ],
+        scope: .server(second.id)
+      )
+    )
+
+    #expect(entry.content == .statistics)
+    #expect(entry.isScopedToServer)
+    #expect(entry.statusText == "Second")
+    #expect(entry.availability == .allAvailable)
+    let summary = try #require(entry.summary)
+    #expect(summary.totalQueries == 40)
+    #expect(summary.totalBlocked == 4)
+    #expect(summary.blockedPercentage == 10)
+  }
+
+  @Test func individualSelectionKeepsTheUUIDAcrossRenameAndReorder() throws {
+    let selectedID = UUID()
+    let before = makeServer(id: selectedID, label: "Old name", url: "http://selected.local")
+    let other = makeServer(label: "Other", url: "http://other.local")
+    let renamed = makeServer(id: selectedID, label: "New name", url: "http://selected.local")
+
+    let firstEntry = QueryStatisticsEntry(
+      date: checkedAt,
+      base: snapshot(
+        servers: [before, other],
+        results: [selectedID: .success(QuerySummary(totalQueries: 10, totalBlocked: 1))],
+        scope: .server(selectedID)
+      )
+    )
+    let secondEntry = QueryStatisticsEntry(
+      date: checkedAt,
+      base: snapshot(
+        servers: [other, renamed],
+        results: [
+          selectedID: .success(QuerySummary(totalQueries: 10, totalBlocked: 1)),
+          other.id: .success(QuerySummary(totalQueries: 90_000, totalBlocked: 80_000))
+        ],
+        scope: .server(selectedID)
+      )
+    )
+
+    #expect(before == renamed)
+    #expect(firstEntry.statusText == "Old name")
+    #expect(secondEntry.statusText == "New name")
+    #expect(try #require(secondEntry.summary).totalQueries == 10)
+    #expect(try #require(secondEntry.summary).totalBlocked == 1)
+  }
+
+  @Test func removedSelectionNeverFallsBackToAggregate() {
+    let saved = makeServer(label: "Kitchen")
+    let removedID = UUID()
+    let entry = QueryStatisticsEntry(
+      date: checkedAt,
+      base: QueryStatisticsSnapshot(
+        scope: .server(removedID),
+        setupRequired: false,
+        observations: ServerQueryObservation.make(
+          servers: [saved],
+          results: [saved.id: .success(QuerySummary(totalQueries: 500, totalBlocked: 100))],
+          checkedAt: checkedAt
+        )
+      )
+    )
+
+    #expect(entry.content == .serverRemoved)
+    #expect(entry.statusText == "Server removed")
+    #expect(entry.summary == nil)
+    #expect(entry.base.observations.isEmpty)
+    #expect(entry.accessibilityText == "Server removed. Edit widget to choose another server")
+  }
+
+  @Test func setupRequiredTakesPrecedenceOverARemovedSelection() {
+    let entry = QueryStatisticsEntry(
+      date: checkedAt,
+      base: QueryStatisticsSnapshot(scope: .server(UUID()), setupRequired: true, observations: [])
+    )
+
+    #expect(entry.content == .setupRequired)
+    #expect(entry.accessibilityText == "Open Holeberry to finish setup")
+  }
+
+  @Test func individualFailureKeepsTheNameAndUnavailableState() {
+    let selected = makeServer(label: "Kitchen", url: "http://kitchen.local")
+    let other = makeServer(label: "Office", url: "http://office.local")
+    let entry = QueryStatisticsEntry(
+      date: checkedAt.addingTimeInterval(10),
+      base: snapshot(
+        servers: [selected, other],
+        results: [
+          selected.id: .failure(.network("down")),
+          other.id: .success(QuerySummary(totalQueries: 9_000, totalBlocked: 8_000))
+        ],
+        scope: .server(selected.id)
+      )
+    )
+
+    #expect(entry.content == .unavailable)
+    #expect(entry.statusText == "Kitchen")
+    #expect(entry.availability == .noneAvailable)
+    #expect(entry.summary == nil)
+    #expect(entry.accessibilityText == "Kitchen. Unavailable. Statistics unavailable")
+  }
+
+  @Test func individualExpiredSuccessReportsAvailabilityNotChecked() throws {
+    let server = makeServer(label: "Kitchen")
+    let base = snapshot(
+      servers: [server],
+      results: [server.id: .success(QuerySummary(totalQueries: 200, totalBlocked: 50))],
+      scope: .server(server.id)
+    )
+    let entry = QueryStatisticsEntry(date: checkedAt.addingTimeInterval(3_600), base: base)
+
+    #expect(entry.content == .statistics)
+    #expect(entry.availability == .notChecked)
+    #expect(entry.statusText == "Kitchen")
+    #expect(entry.availabilityAccessibilityText == "Availability not checked")
+    #expect(entry.accessibilityText.contains("Kitchen. Availability not checked"))
+    #expect(try #require(entry.summary).totalQueries == 200)
+  }
+
+  @Test func individualStatisticsAccessibilityIncludesNameAvailabilityAndCounts() throws {
+    let server = makeServer(label: "Kitchen")
+    let entry = QueryStatisticsEntry(
+      date: checkedAt.addingTimeInterval(10),
+      base: snapshot(
+        servers: [server],
+        results: [server.id: .success(QuerySummary(totalQueries: 200, totalBlocked: 50))],
+        scope: .server(server.id)
+      )
+    )
+    let summary = try #require(entry.summary)
+    let percentage = summary.blockedPercentage.formatted(
+      .number.precision(.fractionLength(1))
+    )
+
+    #expect(entry.accessibilityText.hasPrefix("Kitchen. Available. 24 hours. "))
+    #expect(entry.accessibilityText.contains("\(percentage) percent block rate"))
+    #expect(entry.accessibilityText.contains("\(summary.totalQueries.formatted(.number)) queries"))
+    #expect(entry.accessibilityText.contains("\(summary.totalBlocked.formatted(.number)) blocked"))
+  }
+
+  @Test func aggregateAccessibilityKeepsTheExistingCopy() throws {
+    let server = makeServer(label: "Kitchen")
+    let entry = QueryStatisticsEntry(
+      date: checkedAt.addingTimeInterval(10),
+      base: snapshot(
+        servers: [server],
+        results: [server.id: .success(QuerySummary(totalQueries: 200, totalBlocked: 50))]
+      )
+    )
+
+    #expect(entry.isScopedToServer == false)
+    #expect(entry.selectedServerName == nil)
+    #expect(entry.accessibilityText.hasPrefix("All servers online. 24 hours. "))
+    #expect(entry.accessibilityText.contains("percent block rate"))
+  }
+
   private func makeServer(
+    id: UUID = UUID(),
+    label: String? = nil,
     url: String = "http://pihole.local",
     version: ServerVersion = .v6
   ) -> ServerConfig {
-    ServerConfig(id: UUID(), url: url, version: version)
+    ServerConfig(id: id, label: label, url: url, version: version)
   }
 
   private func snapshot(

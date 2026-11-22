@@ -153,6 +153,8 @@ targets:
       # Test the same entry, contract, and footer sources without hosting the widget extension.
       - path: Sources/HoleberryWidgets/ServerWidgetEntry.swift
       - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
+      - path: Sources/HoleberryWidgets/ServerStatisticsSelection.swift
+      - path: Sources/HoleberryWidgets/ServerStatisticsConfigurationIntent.swift
       - path: Sources/HoleberryWidgets/WidgetFooter.swift
     settings:
       base:

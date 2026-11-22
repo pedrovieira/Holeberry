@@ -3,49 +3,35 @@ import HoleberryCore
 import OSLog
 import WidgetKit
 
-/// Fetches live query summaries for one configured scope.
+/// Fetches live query summaries for the widget's configured scope.
 ///
-/// The current All servers widget uses `.all`; a future per-server widget can
-/// pass `.server(id)`.
-struct QueryStatisticsProvider: TimelineProvider {
+/// The configuration supplies `.all` or one saved server UUID. Every loading,
+/// placeholder, and timeline path uses that scope, so a widget instance never
+/// renders another instance's selection.
+struct QueryStatisticsProvider: AppIntentTimelineProvider {
+  typealias Intent = ServerStatisticsConfigurationIntent
+  typealias Entry = QueryStatisticsEntry
+
   private static let logger = Logger(subsystem: Logger.appSubsystem, category: "Widget")
 
-  private let scope: ServerScope
-
-  init(scope: ServerScope) {
-    self.scope = scope
-  }
-
   func placeholder(in context: Context) -> QueryStatisticsEntry {
-    .placeholder(scope: scope)
+    .placeholder()
   }
 
-  func getSnapshot(
-    in context: Context,
-    completion: @escaping @Sendable (QueryStatisticsEntry) -> Void
-  ) {
+  func snapshot(for configuration: Intent, in context: Context) async -> QueryStatisticsEntry {
     if context.isPreview {
-      completion(.placeholder(scope: scope))
-      return
+      return ServerStatisticsSelection.previewEntry(for: configuration.server)
     }
-
-    Task { @MainActor in
-      completion(await loadEntry(now: Date()))
-    }
+    return await loadEntry(now: Date(), scope: configuration.server.scope)
   }
 
-  func getTimeline(
-    in context: Context,
-    completion: @escaping @Sendable (Timeline<QueryStatisticsEntry>) -> Void
-  ) {
-    Task { @MainActor in
-      let entry = await loadEntry(now: Date())
-      completion(makeTimeline(from: entry, now: Date()))
-    }
+  func timeline(for configuration: Intent, in context: Context) async -> Timeline<QueryStatisticsEntry> {
+    let entry = await loadEntry(now: Date(), scope: configuration.server.scope)
+    return makeTimeline(from: entry, now: Date())
   }
 
   @MainActor
-  private func loadEntry(now: Date) async -> QueryStatisticsEntry {
+  private func loadEntry(now: Date, scope: ServerScope) async -> QueryStatisticsEntry {
     let appGroupIdentifier: String
     let keychainAccessGroup: String
     let suite: UserDefaults
@@ -86,9 +72,9 @@ struct QueryStatisticsProvider: TimelineProvider {
       executionMode: .onDemand,
       allowsServerChanges: false
     )
-    let snapshot = scopedServers(manager.servers)
+    let snapshot = scopedServers(manager.servers, scope: scope)
     guard !snapshot.isEmpty else {
-      return noMatchingServerEntry(now: now)
+      return noMatchingServerEntry(now: now, scope: scope)
     }
 
     let results = await manager.getQuerySummary(scope: scope)
@@ -103,15 +89,16 @@ struct QueryStatisticsProvider: TimelineProvider {
       return .setupRequired(now: now, scope: scope)
     }
 
-    let current = scopedServers(storage.loadServers())
+    let current = scopedServers(storage.loadServers(), scope: scope)
     guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {
-      return changedConfigurationEntry(servers: current)
+      return changedConfigurationEntry(servers: current, scope: scope)
     }
 
     return completedEntry(
       servers: snapshot,
       results: results,
-      observedAt: observedAt
+      observedAt: observedAt,
+      scope: scope
     )
   }
 
@@ -125,7 +112,7 @@ struct QueryStatisticsProvider: TimelineProvider {
     }
   }
 
-  private func scopedServers(_ servers: [ServerConfig]) -> [ServerConfig] {
+  private func scopedServers(_ servers: [ServerConfig], scope: ServerScope) -> [ServerConfig] {
     switch scope {
     case .all:
       return servers
@@ -175,15 +162,15 @@ struct QueryStatisticsProvider: TimelineProvider {
     }
   }
 
-  private func noMatchingServerEntry(now: Date) -> QueryStatisticsEntry {
-    QueryStatisticsEntry(
-      date: now,
-      base: QueryStatisticsSnapshot(scope: scope, setupRequired: false, observations: [])
-    )
+  /// An explicit server scope with no matching saved server stays empty, so the
+  /// entry reports that the server is gone. An empty aggregate scope means no
+  /// servers are saved.
+  private func noMatchingServerEntry(now: Date, scope: ServerScope) -> QueryStatisticsEntry {
+    .empty(now: now, scope: scope)
   }
 
   @MainActor
-  private func changedConfigurationEntry(servers: [ServerConfig]) -> QueryStatisticsEntry {
+  private func changedConfigurationEntry(servers: [ServerConfig], scope: ServerScope) -> QueryStatisticsEntry {
     QueryStatisticsEntry(
       date: Date(),
       base: QueryStatisticsSnapshot(
@@ -199,7 +186,8 @@ struct QueryStatisticsProvider: TimelineProvider {
   private func completedEntry(
     servers: [ServerConfig],
     results: [UUID: Result<QuerySummary, PiholeError>],
-    observedAt: Date
+    observedAt: Date,
+    scope: ServerScope
   ) -> QueryStatisticsEntry {
     QueryStatisticsEntry(
       date: observedAt,

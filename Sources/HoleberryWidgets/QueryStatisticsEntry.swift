@@ -11,9 +11,14 @@ struct QueryStatisticsEntry: ServerWidgetEntry {
   let date: Date
   let base: QueryStatisticsSnapshot
 
-  static func placeholder(now: Date = Date(), scope: ServerScope = .all) -> QueryStatisticsEntry {
+  static func placeholder(
+    now: Date = Date(),
+    scope: ServerScope = .all,
+    serverName: String? = nil
+  ) -> QueryStatisticsEntry {
     let server = ServerConfig(
       id: placeholderServerID(for: scope),
+      label: serverName,
       url: "https://example.invalid",
       version: .v6
     )
@@ -36,6 +41,14 @@ struct QueryStatisticsEntry: ServerWidgetEntry {
     QueryStatisticsEntry(
       date: now,
       base: QueryStatisticsSnapshot(scope: scope, setupRequired: true, observations: [])
+    )
+  }
+
+  /// An entry with no observations: no saved servers, or a removed selection.
+  static func empty(now: Date = Date(), scope: ServerScope = .all) -> QueryStatisticsEntry {
+    QueryStatisticsEntry(
+      date: now,
+      base: QueryStatisticsSnapshot(scope: scope, setupRequired: false, observations: [])
     )
   }
 
