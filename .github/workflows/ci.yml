@@ -10,13 +10,11 @@ permissions:
 
 jobs:
   scripts-lint:
-    runs-on: ubuntu-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
       - name: Install ShellCheck
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes shellcheck
+        run: brew install shellcheck
       - name: Run ShellCheck
         run: find scripts/ci -type f -name '*.sh' -exec shellcheck {} +
       - name: Install Ruff
