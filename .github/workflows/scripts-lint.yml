@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - 'scripts/**'
+      - '.github/workflows/scripts-lint.yml'
   push:
     branches: [main]
     paths:
       - 'scripts/**'
+      - '.github/workflows/scripts-lint.yml'
 
 permissions:
   contents: read
