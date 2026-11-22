@@ -21,7 +21,7 @@ services:
     restart: "no"
 
   pihole-v6:
-    image: pihole/pihole:2026.10.0
+    image: pihole/pihole:2026.11.0
     environment:
       TZ: UTC
       FTLCONF_webserver_api_password: holeberry-integration
@@ -38,7 +38,7 @@ services:
     restart: "no"
 
   pihole-v6-open:
-    image: pihole/pihole:2026.10.0
+    image: pihole/pihole:2026.11.0
     environment:
       TZ: UTC
       # An empty string (not an omitted key) makes v6 password-less.
