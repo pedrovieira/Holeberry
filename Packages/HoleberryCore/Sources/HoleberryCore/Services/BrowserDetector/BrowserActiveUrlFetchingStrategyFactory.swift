@@ -42,12 +42,21 @@ public struct BrowserActiveUrlFetchingStrategyFactory: UrlFetchingStrategyFactor
         supportDirName: "Waterfox",
         category: "waterfox-sessionstore"
       )
+    case .floorp:
+      return GeckoSessionStoreUrlFetchingStrategy(
+        browser: browser,
+        supportDirName: "Floorp",
+        category: "floorp-sessionstore"
+      )
 
-    // Chromium-based browsers share the active-tab AppleScript command.
+    // Browsers whose scripting dictionary defines the Chromium active-tab command.
+    // Yab is hybrid (WebKit and Chromium) but uses the same expression for both engines.
     case .chromium,
       .edge, .edgeBeta, .edgeDev, .edgeCanary,
       .brave, .braveBeta, .braveNightly,
       .arc, .dia,
+      .ardia,
+      .yab, .yabDev,
       .opera, .operaNext, .operaDeveloper, .operaGX, .operaNeon, .operaAir,
       .comet,
       .yandex,

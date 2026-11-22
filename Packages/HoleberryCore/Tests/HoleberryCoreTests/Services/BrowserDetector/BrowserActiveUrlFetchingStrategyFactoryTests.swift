@@ -45,6 +45,13 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
     #expect(strategy is GeckoSessionStoreUrlFetchingStrategy)
   }
 
+  @Test("Floorp uses GeckoSessionStoreUrlFetchingStrategy")
+  func floorpStrategy() {
+    let strategy = factory.strategy(for: .floorp)
+    #expect(strategy is GeckoSessionStoreUrlFetchingStrategy)
+    #expect(strategy.browser == .floorp)
+  }
+
   @Test("Every browser is paired with a strategy built for that browser")
   func strategyIsBuiltForItsBrowser() {
     for browser in Browser.allCases {
@@ -54,7 +61,7 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
 
   @Test("New Chromium browsers use ChromiumUrlFetchingStrategy")
   func newChromiumBrowsersStrategy() {
-    for browser in [Browser.dia, .comet, .yandex, .ecosia, .operaGX, .operaNeon, .operaAir] {
+    for browser in [Browser.dia, .comet, .yandex, .ecosia, .operaGX, .operaNeon, .operaAir, .yab, .yabDev] {
       let strategy = factory.strategy(for: browser)
       #expect(strategy is ChromiumUrlFetchingStrategy)
     }
@@ -70,6 +77,13 @@ struct BrowserActiveUrlFetchingStrategyFactoryTests {
   func arcStrategy() {
     let strategy = factory.strategy(for: .arc)
     #expect(strategy is ChromiumUrlFetchingStrategy)
+  }
+
+  @Test("Ardia uses ChromiumUrlFetchingStrategy")
+  func ardiaStrategy() {
+    let strategy = factory.strategy(for: .ardia)
+    #expect(strategy is ChromiumUrlFetchingStrategy)
+    #expect(strategy.browser == .ardia)
   }
 
   @Test("Factory supports every browser case without crashing")
