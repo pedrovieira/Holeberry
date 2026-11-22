@@ -97,15 +97,14 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   }
 
   private func hero(_ summary: QuerySummary, scale: CGFloat) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 0) {
+    HStack(alignment: .firstTextBaseline, spacing: 1 * scale) {
       Text(summary.blockedPercentage, format: .number.precision(.fractionLength(1)))
-        .font(.system(size: 42 * scale, weight: .bold))
+        .font(.system(size: 42 * scale, weight: .regular))
         .foregroundStyle(brand(.primaryText))
-        .tracking(-1 * scale)
         .lineLimit(1)
         .minimumScaleFactor(0.85)
       Text(verbatim: "%")
-        .font(.system(size: 21 * scale, weight: .bold))
+        .font(.system(size: 20 * scale, weight: .regular))
         .foregroundStyle(brand(.secondaryText))
         .lineLimit(1)
     }
@@ -144,12 +143,12 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
   ) -> some View {
     VStack(alignment: .leading, spacing: 1 * scale) {
       Text(value, format: .number.notation(.compactName).precision(.fractionLength(0...1)))
-        .font(.system(size: 13.5 * scale, weight: .bold))
+        .font(.system(size: 13.5 * scale, weight: .medium))
         .foregroundStyle(color)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
       Text(caption)
-        .font(.system(size: 10 * scale, weight: .semibold))
+        .font(.system(size: 10 * scale, weight: .regular))
         .foregroundStyle(brand(.secondaryText))
         .lineLimit(1)
     }
