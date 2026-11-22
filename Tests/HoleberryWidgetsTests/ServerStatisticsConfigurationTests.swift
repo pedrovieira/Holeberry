@@ -63,6 +63,13 @@ struct ServerStatisticsConfigurationTests {
     #expect(ServerStatisticsServerEntity.allServers.displayRepresentation.title.key == "All servers")
   }
 
+  @Test func pickerWithoutSavedServersHasOnlyTheAggregateSection() async throws {
+    let suggestions = try await ServerStatisticsServerQuery().suggestedEntities()
+
+    #expect(suggestions.sections.count == 1)
+    #expect(suggestions.items == [.allServers])
+  }
+
   @Test func namesUseTheLabelThenHostnameThenURL() {
     let servers = [
       ServerConfig(label: "Kitchen", url: "https://kitchen.example", version: .v6),

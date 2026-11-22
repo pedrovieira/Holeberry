@@ -86,9 +86,17 @@ struct ServerStatisticsServerQuery: EntityQuery {
     return identifiers.map { Self.entity(for: $0, saved: saved) }
   }
 
-  func suggestedEntities() async throws -> [ServerStatisticsServerEntity] {
-    let saved = await Self.savedServers()
-    return [.allServers] + Self.choices(for: saved ?? [])
+  func suggestedEntities() async throws -> IntentItemCollection<ServerStatisticsServerEntity> {
+    let servers = await Self.savedServers() ?? []
+    var sections = [
+      IntentItemSection<ServerStatisticsServerEntity> {
+        ServerStatisticsServerEntity.allServers
+      }
+    ]
+    if !servers.isEmpty {
+      sections.append(IntentItemSection("Individual servers", items: Self.choices(for: servers)))
+    }
+    return IntentItemCollection(sections: sections)
   }
 
   /// Preserves every explicit identifier, including one whose server is gone.

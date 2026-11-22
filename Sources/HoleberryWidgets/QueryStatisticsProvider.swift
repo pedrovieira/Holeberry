@@ -95,7 +95,7 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     }
 
     return completedEntry(
-      servers: snapshot,
+      servers: current,
       results: results,
       observedAt: observedAt,
       scope: scope
