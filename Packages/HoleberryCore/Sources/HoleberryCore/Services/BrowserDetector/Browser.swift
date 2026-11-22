@@ -25,6 +25,11 @@ public enum Browser: String, CaseIterable, Sendable {
   // Arc
   case arc = "company.thebrowser.Browser"
   case dia = "company.thebrowser.dia"
+  // Ardia
+  case ardia = "com.ardia.browser"
+  // Yab (WebKit and, on Apple silicon, Chromium)
+  case yab = "dev.serafim.fast"
+  case yabDev = "dev.serafim.fast.dev"
   // Opera
   case opera = "com.operasoftware.Opera"
   case operaNext = "com.operasoftware.OperaNext"
@@ -51,6 +56,8 @@ public enum Browser: String, CaseIterable, Sendable {
   case zen = "app.zen-browser.zen"
   // Waterfox
   case waterfox = "net.waterfox.waterfox"
+  // Floorp
+  case floorp = "app.floorp.Floorp"
 
   public var bundleID: String { rawValue }
 
@@ -74,6 +81,9 @@ public enum Browser: String, CaseIterable, Sendable {
     case .braveNightly: return "Brave Browser Nightly"
     case .arc: return "Arc"
     case .dia: return "Dia"
+    case .ardia: return "Ardia"
+    case .yab: return "Yab"
+    case .yabDev: return "Yab Dev"
     case .opera: return "Opera"
     case .operaNext: return "Opera Next"
     case .operaDeveloper: return "Opera Developer"
@@ -91,6 +101,7 @@ public enum Browser: String, CaseIterable, Sendable {
     case .firefoxNightly: return "Firefox Nightly"
     case .zen: return "Zen Browser"
     case .waterfox: return "Waterfox"
+    case .floorp: return "Floorp"
     }
   }
 }

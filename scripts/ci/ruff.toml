@@ -1,0 +1,9 @@
+target-version = "py39"
+
+[lint]
+# Start with correctness checks for imports, names, syntax, and common bugs.
+select = ["E4", "E7", "E9", "F", "B"]
+
+[lint.per-file-ignores]
+# The tests add the parent script directory to sys.path before importing it.
+"tests/test_release.py" = ["E402"]
