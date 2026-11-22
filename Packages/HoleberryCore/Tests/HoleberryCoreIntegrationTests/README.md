@@ -72,8 +72,8 @@ v6, for 18 cases in total.
 | Scenario | Prerequisites | Assertions |
 | --- | --- | --- |
 | `detection` | `dig example.com` for query-log data | Version detection, enabled blocking, positive summary count, wrong credential cannot add a domain; the password-less lane asserts `isPasswordless` instead |
-| `logout` (v6 only) | CLI: `pihole api auth/sessions` | Login creates one app session; logout removes it and preserves existing sessions. Password-less v6 creates no session. The CLI's own observer session is excluded. |
-| `revoked v6 session recovers automatically` (authenticated v6 only) | Revoke the app session through an independent CLI-authenticated `DELETE /api/auth/session/{id}` | The same service recovers without an explicit login, creates one replacement session, preserves pre-existing sessions and reuses the replacement on the next request |
+| `logout` (v6 only) | Container-local admin observer: `GET /api/auth/sessions` | Login creates one app session; logout removes it and preserves existing sessions. Password-less v6 creates no session. The observer's own session is excluded. |
+| `revoked v6 session recovers automatically` (authenticated v6 only) | Revoke the app session through an independent admin-authenticated `DELETE /api/auth/session/{id}` | The same service recovers without an explicit login, creates one replacement session, preserves pre-existing sessions and reuses the replacement on the next request |
 | `domains` | CLI: allow, deny, IDN and regex entries | Exact lists contain the seeded entries; regex stays out of them; add with comment, duplicate add, delete twice; the CLI lists agree after add and delete |
 | `blocking` | CLI deny entries | DNS oracle: a denied domain resolves to `0.0.0.0` while blocking is enabled, stops doing so while disabled, and does so again after enable and after a 10-second timed disable |
 | `managed unblock` | CLI deny for `unblock.holeberry.test`; Compose maps it to `192.0.2.123` locally | DNS changes from blocked to the exact local IP during a 20-second allowance, then back to blocked after expiry; the ownership comment and local record exist, then disappear with the allowance; a pre-existing allowance keeps its comment |
@@ -102,11 +102,13 @@ temporarily allows it. It requires that exact IP while allowed, so an empty DNS
 answer or an upstream failure cannot count as a successful unblock. Re-run
 `just integration-up` after changing Compose so existing containers get this entry.
 
-Session recovery uses Pi-hole's CLI authentication helpers to revoke only the
-session created by the test. The independent observer logs out even if the
-DELETE fails. FTL can reuse numeric session IDs, so the test verifies absence
-after revocation and one replacement after recovery rather than requiring a
-different numeric ID.
+Session inspection and revocation use container-local `curl` requests authenticated
+with the container's fixture admin password. FTL 6.9 returns HTTP 403 for these
+operations when authenticated with Pi-hole's CLI password. The independent observer
+logs out even if a request fails, and HTTP failures are reported before JSON decoding.
+The password-less lane needs no observer session. FTL can reuse numeric session IDs,
+so the test verifies absence after revocation and one replacement after recovery
+rather than requiring a different numeric ID.
 
 To prove that the v6 API actually rebuilds gravity, the test removes only
 `gravity.holeberry.test` from the compiled `gravity` table and verifies its
