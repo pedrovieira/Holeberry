@@ -36,6 +36,9 @@
         <string>com.brave.Browser.nightly</string>
         <string>company.thebrowser.Browser</string>
         <string>company.thebrowser.dia</string>
+        <string>com.ardia.browser</string>
+        <string>dev.serafim.fast</string>
+        <string>dev.serafim.fast.dev</string>
         <string>com.operasoftware.Opera</string>
         <string>com.operasoftware.OperaNext</string>
         <string>com.operasoftware.OperaDeveloper</string>
@@ -55,6 +58,7 @@
         <string>/Library/Application Support/Firefox/</string>
         <string>/Library/Application Support/zen/</string>
         <string>/Library/Application Support/Waterfox/</string>
+        <string>/Library/Application Support/Floorp/</string>
     </array>
 
     <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
