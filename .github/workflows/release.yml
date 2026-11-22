@@ -46,61 +46,43 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
-      - name: Parse Sparkle version from Package.resolved
-        id: sparkle-version
-        run: |
-          SPARKLE_VERSION=$(python3 -c "
-          import json
-          with open('Holeberry.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') as f:
-              data = json.load(f)
-          for pin in data.get('pins', data.get('object', {}).get('pins', [])):
-              if pin.get('package', pin.get('identity', '')).lower() == 'sparkle':
-                  print(pin.get('state', {}).get('version', pin.get('state', {}).get('branch', '')))
-                  break
-          ")
-          echo "version=$SPARKLE_VERSION" >> "$GITHUB_OUTPUT"
-
       - name: Install XcodeGen
         run: |
           brew update
           brew install xcodegen
           xcodegen --version
 
-      - name: Import signing certificate
+      - name: Check signing certificate secret
         env:
           HOLEBERRY_CERT_P12: ${{ secrets.HOLEBERRY_CERT_P12 }}
-          HOLEBERRY_CERT_P12_PASSWORD: ${{ secrets.HOLEBERRY_CERT_P12_PASSWORD }}
         run: |
           set -euo pipefail
-          # Fail closed: a release without a signing certificate must never be
-          # published (an unnotarized build would be pushed to Sparkle users
-          # as make_latest). Tag pushes always have repo secrets available.
           if [ -z "$HOLEBERRY_CERT_P12" ]; then
             echo "::error::HOLEBERRY_CERT_P12 secret is not set — cannot produce a signed build; refusing to release"
             exit 1
           fi
-          KEYCHAIN=build.keychain-db
-          KEYCHAIN_PASSWORD=$(uuidgen)
-          echo "$HOLEBERRY_CERT_P12" | base64 --decode > /tmp/holeberry-cert.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security import /tmp/holeberry-cert.p12 \
-            -P "$HOLEBERRY_CERT_P12_PASSWORD" \
-            -A -f pkcs12 -k "$KEYCHAIN" \
-            -T /usr/bin/codesign -T /usr/bin/security
-          rm -f /tmp/holeberry-cert.p12
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          # Fail fast: a certificate-only p12 imports fine but leaves no signing
-          # identity — the release would otherwise die later with a cryptic
-          # SecItemCopyMatching error at the first codesign.
-          if security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -q "0 valid identities"; then
-            echo "::error::HOLEBERRY_CERT_P12 contains no private key — re-export the p12 from Keychain Access (My Certificates) with the private key included"
+          # The import action has no post-step. Keep its decoded p12 in a
+          # known private directory so our always() cleanup can remove it.
+          mkdir -m 700 "$RUNNER_TEMP/holeberry-certs"
+
+      - name: Import signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        env:
+          TMPDIR: ${{ runner.temp }}/holeberry-certs
+        with:
+          keychain: holeberry-signing
+          p12-file-base64: ${{ secrets.HOLEBERRY_CERT_P12 }}
+          p12-password: ${{ secrets.HOLEBERRY_CERT_P12_PASSWORD }}
+
+      - name: Verify signing identity
+        run: |
+          set -euo pipefail
+          # Scope to the imported keychain; unrelated runner identities must
+          # not hide a certificate-only p12. Also fail if security itself fails.
+          if ! security find-identity -v -p codesigning holeberry-signing.keychain | grep -E '^[[:space:]]*[1-9][0-9]* valid identities found$'; then
+            echo "::error::HOLEBERRY_CERT_P12 has no valid signing identity — export the certificate with its private key included"
             exit 1
           fi
-          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
-          echo "::notice::Signing certificate imported into $KEYCHAIN"
 
       - name: Install Developer ID provisioning profiles
         id: profiles
@@ -108,137 +90,7 @@ jobs:
           HOLEBERRY_APP_PROFILE: ${{ secrets.HOLEBERRY_APP_PROFILE }}
           HOLEBERRY_WIDGET_PROFILE: ${{ secrets.HOLEBERRY_WIDGET_PROFILE }}
           HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          umask 077
-          if [ -z "${HOLEBERRY_APP_PROFILE:-}" ] || [ -z "${HOLEBERRY_WIDGET_PROFILE:-}" ]; then
-            echo "::error::HOLEBERRY_APP_PROFILE and HOLEBERRY_WIDGET_PROFILE secrets are not set — cannot sign the app and widget; refusing to release"
-            exit 1
-          fi
-          if [ -z "${HOLEBERRY_TEAM_ID:-}" ]; then
-            echo "::error::HOLEBERRY_TEAM_ID secret is not set — cannot select profiles; refusing to release"
-            exit 1
-          fi
-
-          INSTALL_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-          MANIFEST="$RUNNER_TEMP/holeberry-installed-profiles.txt"
-          PROFILE_TEMP_DIR="$(mktemp -d "$RUNNER_TEMP/holeberry-profiles.XXXXXX")"
-          chmod 700 "$PROFILE_TEMP_DIR"
-          trap 'rm -rf "$PROFILE_TEMP_DIR"' EXIT
-          UUID_PATTERN='^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$'
-          PROFILE_UUID=""
-
-          mkdir -p "$INSTALL_DIR"
-          : > "$MANIFEST"
-
-          install_profile() {
-            local encoded="$1"
-            local label="$2"
-            local temp_profile="$PROFILE_TEMP_DIR/$label.provisionprofile"
-            local temp_plist="$PROFILE_TEMP_DIR/$label.plist"
-            local installed
-
-            printf '%s' "$encoded" | base64 --decode > "$temp_profile"
-            chmod 600 "$temp_profile"
-            security cms -D -i "$temp_profile" > "$temp_plist"
-            if ! PROFILE_UUID="$(python3 - "$temp_plist" "$label" "$HOLEBERRY_TEAM_ID" <<'PY'
-          import datetime
-          import plistlib
-          import sys
-
-          path, role, team = sys.argv[1:4]
-          bundle_ids = {
-              "app": "me.pedrovieira.holeberry",
-              "widget": "me.pedrovieira.holeberry.widgets",
-          }
-          app_group = "group.me.pedrovieira.holeberry"
-          keychain_group = f"{team}.me.pedrovieira.holeberry.shared"
-
-
-          def fail(message):
-              print(f"::error::{role} profile: {message}", file=sys.stderr)
-              raise SystemExit(1)
-
-
-          def authorized(value, patterns):
-              return isinstance(patterns, list) and any(
-                  isinstance(pattern, str)
-                  and (
-                      pattern == "*"
-                      or pattern == value
-                      or (pattern.endswith("*") and value.startswith(pattern[:-1]))
-                  )
-                  for pattern in patterns
-              )
-
-
-          try:
-              with open(path, "rb") as handle:
-                  profile = plistlib.load(handle)
-          except Exception:
-              fail("profile is not a decodable plist")
-
-          uuid = profile.get("UUID")
-          if not isinstance(uuid, str):
-              fail("profile UUID is missing")
-
-          entitlements = profile.get("Entitlements")
-          if not isinstance(entitlements, dict):
-              fail("profile Entitlements are missing")
-
-          bundle_id = bundle_ids.get(role)
-          if bundle_id is None:
-              fail("unknown target role")
-
-          if entitlements.get("com.apple.application-identifier") != f"{team}.{bundle_id}":
-              fail("application identifier does not match the target")
-          if not authorized(app_group, entitlements.get("com.apple.security.application-groups")):
-              fail("registered App Group is not authorized")
-          if not authorized(keychain_group, entitlements.get("keychain-access-groups")):
-              fail("shared Keychain group is not authorized")
-
-          expiration = profile.get("ExpirationDate")
-          if not isinstance(expiration, datetime.datetime):
-              fail("ExpirationDate is missing")
-          if expiration.tzinfo is None:
-              expiration = expiration.replace(tzinfo=datetime.timezone.utc)
-          if expiration <= datetime.datetime.now(datetime.timezone.utc):
-              fail("profile is expired")
-
-          print(uuid)
-          PY
-            )"; then
-              echo "::error::$label profile failed the authorization preflight checks"
-              return 1
-            fi
-            if [[ ! "$PROFILE_UUID" =~ $UUID_PATTERN ]]; then
-              echo "::error::$label profile has a missing or unsafe UUID"
-              return 1
-            fi
-
-            installed="$INSTALL_DIR/$PROFILE_UUID.provisionprofile"
-            if [ -e "$installed" ]; then
-              if ! cmp -s "$temp_profile" "$installed"; then
-                echo "::error::$label profile UUID $PROFILE_UUID already exists with different contents; refusing to overwrite"
-                return 1
-              fi
-              echo "::notice::$label profile $PROFILE_UUID is already installed with identical contents; reusing it"
-            else
-              cp "$temp_profile" "$installed"
-              printf '%s\n' "$installed" >> "$MANIFEST"
-              chmod 600 "$installed"
-              echo "::notice::Installed $label profile $PROFILE_UUID"
-            fi
-          }
-
-          install_profile "$HOLEBERRY_APP_PROFILE" "app"
-          APP_UUID="$PROFILE_UUID"
-          install_profile "$HOLEBERRY_WIDGET_PROFILE" "widget"
-          WIDGET_UUID="$PROFILE_UUID"
-
-          echo "app_uuid=$APP_UUID" >> "$GITHUB_OUTPUT"
-          echo "widget_uuid=$WIDGET_UUID" >> "$GITHUB_OUTPUT"
-          echo "::notice::Using app profile $APP_UUID and widget profile $WIDGET_UUID"
+        run: bash scripts/ci/install_profiles.sh
 
       - name: Prepare notarization credentials
         env:
@@ -331,151 +183,7 @@ jobs:
       - name: Assert signed app/widget metadata and entitlements
         env:
           HOLEBERRY_TEAM_ID: ${{ secrets.HOLEBERRY_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          python3 - "build/Build/Products/Release/Holeberry.app" "$HOLEBERRY_TEAM_ID" <<'PY'
-          import datetime
-          import plistlib
-          import subprocess
-          import sys
-          from pathlib import Path
-
-          app_path = Path(sys.argv[1])
-          team = sys.argv[2]
-          widget_path = app_path / "Contents/PlugIns/HoleberryWidgets.appex"
-          app_group = "group.me.pedrovieira.holeberry"
-          keychain_group = f"{team}.me.pedrovieira.holeberry.shared"
-          roles = {
-              "app": (app_path, "me.pedrovieira.holeberry"),
-              "widget": (widget_path, "me.pedrovieira.holeberry.widgets"),
-          }
-
-
-          def fail(role, message):
-              print(f"::error::{role}: {message}", file=sys.stderr)
-              raise SystemExit(1)
-
-
-          def authorized(value, patterns):
-              return isinstance(patterns, list) and any(
-                  isinstance(pattern, str)
-                  and (
-                      pattern == "*"
-                      or pattern == value
-                      or (pattern.endswith("*") and value.startswith(pattern[:-1]))
-                  )
-                  for pattern in patterns
-              )
-
-
-          def load_plist_command(command, role, label):
-              result = subprocess.run(command, capture_output=True)
-              if result.returncode != 0:
-                  fail(role, f"cannot read {label}")
-              try:
-                  value = plistlib.loads(result.stdout)
-              except Exception:
-                  fail(role, f"{label} is not a valid plist")
-              if not isinstance(value, dict):
-                  fail(role, f"{label} is not a dictionary")
-              return value
-
-
-          versions = {}
-          for role, (bundle_path, bundle_id) in roles.items():
-              profile_path = bundle_path / "Contents/embedded.provisionprofile"
-              if not profile_path.is_file():
-                  fail(role, "embedded provisioning profile is missing")
-              profile = load_plist_command(
-                  ["security", "cms", "-D", "-i", str(profile_path)],
-                  role,
-                  "embedded profile",
-              )
-              profile_entitlements = profile.get("Entitlements")
-              if not isinstance(profile_entitlements, dict):
-                  fail(role, "profile Entitlements are missing")
-              expected_app_id = f"{team}.{bundle_id}"
-              profile_teams = profile.get("TeamIdentifier")
-              if not isinstance(profile_teams, list) or team not in profile_teams:
-                  fail(role, "profile team does not match")
-              if profile_entitlements.get("com.apple.application-identifier") != expected_app_id:
-                  fail(role, "profile application identifier does not match")
-              if not authorized(
-                  app_group,
-                  profile_entitlements.get("com.apple.security.application-groups"),
-              ):
-                  fail(role, "profile does not authorize the registered App Group")
-              if not authorized(
-                  keychain_group,
-                  profile_entitlements.get("keychain-access-groups"),
-              ):
-                  fail(role, "profile does not authorize the shared Keychain group")
-              expiration = profile.get("ExpirationDate")
-              if not isinstance(expiration, datetime.datetime):
-                  fail(role, "profile expiration date is missing")
-              if expiration.tzinfo is None:
-                  expiration = expiration.replace(tzinfo=datetime.timezone.utc)
-              if expiration <= datetime.datetime.now(datetime.timezone.utc):
-                  fail(role, "profile is expired")
-
-              actual = load_plist_command(
-                  [
-                      "codesign",
-                      "-d",
-                      "--entitlements",
-                      "-",
-                      "--xml",
-                      str(bundle_path),
-                  ],
-                  role,
-                  "signed entitlements",
-              )
-              if actual.get("com.apple.application-identifier") != expected_app_id:
-                  fail(role, "signed application identifier does not match")
-              if app_group not in actual.get("com.apple.security.application-groups", []):
-                  fail(role, "signed App Group is missing")
-              if keychain_group not in actual.get("keychain-access-groups", []):
-                  fail(role, "signed concrete Keychain group is missing")
-              for key in ("get-task-allow", "com.apple.security.get-task-allow"):
-                  if key in actual:
-                      fail(role, "signed entitlements contain a debug entitlement")
-              if role == "widget":
-                  if actual.get("com.apple.security.app-sandbox") is not True:
-                      fail(role, "widget sandbox entitlement is missing")
-                  if actual.get("com.apple.security.network.client") is not True:
-                      fail(role, "widget network entitlement is missing")
-
-              info_path = bundle_path / "Contents/Info.plist"
-              try:
-                  with open(info_path, "rb") as handle:
-                      info = plistlib.load(handle)
-              except Exception:
-                  fail(role, "built Info.plist is not readable")
-              if info.get("CFBundleIdentifier") != bundle_id:
-                  fail(role, "built bundle identifier does not match")
-              if info.get("HoleberryAppGroupIdentifier") != app_group:
-                  fail(role, "built App Group marker is incorrect")
-              if info.get("HoleberryKeychainAccessGroup") != keychain_group:
-                  fail(role, "built Keychain marker is not the expected concrete team-prefixed value")
-              marketing = info.get("CFBundleShortVersionString")
-              build = info.get("CFBundleVersion")
-              if (
-                  not isinstance(marketing, str)
-                  or not marketing
-                  or not isinstance(build, str)
-                  or not build
-              ):
-                  fail(role, "built version metadata is missing")
-              versions[role] = (marketing, build)
-
-          if versions["app"] != versions["widget"]:
-              print("::error::app and widget built versions do not match", file=sys.stderr)
-              raise SystemExit(1)
-          print(
-              f"::notice::Signed app/widget metadata valid "
-              f"(version {versions['app'][0]} build {versions['app'][1]})"
-          )
-          PY
+        run: python3 scripts/ci/check_signed_bundle.py "build/Build/Products/Release/Holeberry.app" "$HOLEBERRY_TEAM_ID"
 
       - name: Verify release tag matches app version
         run: |
@@ -506,37 +214,7 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-          APP_PATH="build/Build/Products/Release/Holeberry.app"
-          # Fail fast on a bad signature before spending minutes in the notary queue
-          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-          # notarytool requires a container format (.zip/.pkg/.dmg) and rejects a
-          # bare .app; zip the app, then staple the ticket onto the bundle itself.
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" /tmp/holeberry-app.zip
-          # notarytool exits 0 even when Apple's verdict is "Invalid", so check
-          # the status ourselves and print Apple's log on rejection.
-          SUBMIT_OUTPUT="$(xcrun notarytool submit /tmp/holeberry-app.zip \
-            --key /tmp/holeberry-apple-api-key.p8 \
-            --key-id "$APPLE_API_KEY_ID" \
-            --issuer "$APPLE_API_ISSUER_ID" \
-            --wait \
-            --timeout 30m 2>&1 || true)"
-          echo "$SUBMIT_OUTPUT"
-          if ! echo "$SUBMIT_OUTPUT" | grep -q "status: Accepted"; then
-            SUBMISSION_ID="$(echo "$SUBMIT_OUTPUT" | sed -n 's/.*id: \([0-9a-f-]\{36\}\).*/\1/p' | head -1)"
-            if [ -n "$SUBMISSION_ID" ]; then
-              echo "::error::Notarization rejected — Apple's log:"
-              xcrun notarytool log "$SUBMISSION_ID" \
-                --key /tmp/holeberry-apple-api-key.p8 \
-                --key-id "$APPLE_API_KEY_ID" \
-                --issuer "$APPLE_API_ISSUER_ID" || true
-            fi
-            exit 1
-          fi
-          # Staple before packaging so the ticket is embedded in the DMG
-          xcrun stapler staple "$APP_PATH"
-          xcrun stapler validate "$APP_PATH"
+        run: bash scripts/ci/notarize.sh "build/Build/Products/Release/Holeberry.app"
 
       - name: Create DMG
         id: dmg
@@ -564,62 +242,27 @@ jobs:
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
           set -euo pipefail
-          SUBMIT_OUTPUT="$(xcrun notarytool submit "${{ steps.dmg.outputs.dmg_path }}" \
-            --key /tmp/holeberry-apple-api-key.p8 \
-            --key-id "$APPLE_API_KEY_ID" \
-            --issuer "$APPLE_API_ISSUER_ID" \
-            --wait \
-            --timeout 30m 2>&1 || true)"
-          echo "$SUBMIT_OUTPUT"
-          if ! echo "$SUBMIT_OUTPUT" | grep -q "status: Accepted"; then
-            SUBMISSION_ID="$(echo "$SUBMIT_OUTPUT" | sed -n 's/.*id: \([0-9a-f-]\{36\}\).*/\1/p' | head -1)"
-            if [ -n "$SUBMISSION_ID" ]; then
-              echo "::error::DMG notarization rejected — Apple's log:"
-              xcrun notarytool log "$SUBMISSION_ID" \
-                --key /tmp/holeberry-apple-api-key.p8 \
-                --key-id "$APPLE_API_KEY_ID" \
-                --issuer "$APPLE_API_ISSUER_ID" || true
-            fi
-            exit 1
-          fi
-          xcrun stapler staple "${{ steps.dmg.outputs.dmg_path }}"
-          xcrun stapler validate "${{ steps.dmg.outputs.dmg_path }}"
+          bash scripts/ci/notarize.sh "${{ steps.dmg.outputs.dmg_path }}"
           # Stapling modifies the DMG, so the checksum (and the appcast
           # edSignature over it) is computed only now, after the ticket lands.
           DMG_SHA256=$(shasum -a 256 "${{ steps.dmg.outputs.dmg_path }}" | cut -d' ' -f1)
           echo "dmg_sha256=$DMG_SHA256" >> "$GITHUB_OUTPUT"
           echo "::notice::DMG sha256: $DMG_SHA256"
 
-      - name: Clone Sparkle (matching pinned version)
+      - name: Locate packaged generate_appcast
         run: |
           set -euo pipefail
-          VERSION="${{ steps.sparkle-version.outputs.version }}"
-          REPO="https://github.com/sparkle-project/Sparkle"
-
-          SPARKLE_TAG=""
-          for candidate in "$VERSION" "v$VERSION"; do
-            if git ls-remote --exit-code --tags "$REPO" "refs/tags/$candidate" >/dev/null 2>&1; then
-              SPARKLE_TAG="$candidate"
-              break
-            fi
-          done
-
-          if [[ -z "$SPARKLE_TAG" ]]; then
-            echo "::error::Could not find Sparkle tag for version $VERSION"
+          # Use the binary shipped with the Sparkle artifact Xcode resolved.
+          # Search within this dependency only and fail if its layout changes
+          # to contain zero or multiple tools.
+          SPARKLE_ARTIFACTS="$PWD/build/SourcePackages/artifacts/sparkle"
+          TOOLS=()
+          while IFS= read -r tool; do TOOLS+=("$tool"); done < <(find "$SPARKLE_ARTIFACTS" -type f -name generate_appcast)
+          if [ "${#TOOLS[@]}" -ne 1 ] || [ ! -x "${TOOLS[0]}" ]; then
+            echo "::error::Expected one executable generate_appcast in $SPARKLE_ARTIFACTS"
             exit 1
           fi
-
-          git clone --depth 1 --branch "$SPARKLE_TAG" --single-branch "$REPO" /tmp/sparkle-src
-          echo "sparkle_tag=$SPARKLE_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Build generate_appcast
-        run: |
-          xcodebuild -project /tmp/sparkle-src/Sparkle.xcodeproj \
-            -scheme generate_appcast \
-            -configuration Release \
-            -derivedDataPath /tmp/sparkle-derived \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          echo "GENERATE_APPCAST=${TOOLS[0]}" >> "$GITHUB_ENV"
 
       - name: Switch to latest main
         run: |
@@ -639,7 +282,7 @@ jobs:
           # Merges into the existing feed at -o: older entries are kept,
           # same-version entries are replaced.
           printf '%s' "$PRIVATE_SPARKLE_KEY" | \
-            /tmp/sparkle-derived/Build/Products/Release/generate_appcast \
+            "$GENERATE_APPCAST" \
               --ed-key-file - \
               --download-url-prefix "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/" \
               -o Updates/appcast.xml \
@@ -659,19 +302,23 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Draft only: nothing is public until the gated `publish` job flips it.
-      # draft: true must stay UNCONDITIONAL — softprops/action-gh-release
-      # publishes an existing draft when the input is omitted on a re-run
-      # (see its README: "omit it to publish after upload").
-      # make_latest is intentionally absent: drafts cannot be set as latest.
-      - name: Create draft GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ${{ steps.dmg.outputs.dmg_path }}
-          # GitHub generates notes server-side (PRs + contributors); no local
-          # tag math, so it survives rewritten tags.
-          generate_release_notes: true
-          draft: true
+      # Draft only, including re-runs. Never replace assets on a published
+      # release; those require a new version. Only publish sets latest.
+      - name: Create or update draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DMG_PATH: ${{ steps.dmg.outputs.dmg_path }}
+        run: |
+          set -euo pipefail
+          if IS_DRAFT="$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')"; then
+            if [ "$IS_DRAFT" != true ]; then
+              echo "::error::Release $GITHUB_REF_NAME is already published; bump the version instead"
+              exit 1
+            fi
+            gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$DMG_PATH" --draft --generate-notes --verify-tag
+          fi
 
       # Pre-publish gate: prove the asset users will eventually download is
       # byte-identical (and still stapled) before publish approval is even
@@ -738,8 +385,9 @@ jobs:
             rm -f "$MANIFEST" || STATUS=$?
           fi
           rm -rf "$RUNNER_TEMP"/holeberry-profiles.* || STATUS=$?
-          rm -f /tmp/holeberry-cert.p12 /tmp/holeberry-apple-api-key.p8 /tmp/holeberry-app.zip || STATUS=$?
-          security delete-keychain build.keychain-db 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/holeberry-certs" || STATUS=$?
+          rm -f /tmp/holeberry-apple-api-key.p8 || STATUS=$?
+          security delete-keychain holeberry-signing.keychain 2>/dev/null || true
           if [ "$STATUS" -ne 0 ]; then
             echo "::error::Signing material cleanup failed (exit $STATUS) after attempting to remove the certificate, API key, and keychain"
             exit "$STATUS"
