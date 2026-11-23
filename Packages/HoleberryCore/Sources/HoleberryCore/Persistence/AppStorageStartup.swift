@@ -130,25 +130,34 @@ public final class AppStorageStartup {
     self.legacySuiteName = legacySuiteName
     self.appLocalSuite = appLocalSuite
     self.legacyKeychain = legacyKeychain
-    self.sharedStorage = sharedStorage ?? BundleSharedStorage(interactive: policy == .application)
+    self.sharedStorage =
+      sharedStorage
+      ?? (policy == .application ? BundleSharedStorage.app : BundleSharedStorage.widget)
   }
 
   /// Revalidates the store on every call. Shared-only consumers can call again after suspended work.
   public func start() -> Outcome {
-    let activation: Result<Int, any Error>?
-    if policy == .application {
-      activation = Result {
-        try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuiteName)
-      }
-    } else {
-      activation = nil
+    switch policy {
+    case .application:
+      return startApplication()
+    case .sharedOnly:
+      return startSharedOnly()
+    }
+  }
+
+  /// May migrate legacy data, record activation, and use validated legacy fallback.
+  private func startApplication() -> Outcome {
+    let activation: Result<Int, any Error> = Result {
+      try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuiteName)
     }
 
     let location: SharedStorageLocation
     do {
       location = try sharedStorage.location()
     } catch {
-      guard let activation, !hasPriorCutover(activation) else { return .setupFailure(error) }
+      // An unreadable activation record counts as a prior cutover, so shared
+      // storage never silently yields to legacy storage after it was activated.
+      guard !hasPriorCutover(activation) else { return .setupFailure(error) }
       return legacyOutcome(cause: error)
     }
 
@@ -157,12 +166,6 @@ public final class AppStorageStartup {
       readiness = try SharedStorageMigration.readiness(in: location.suite, suiteName: location.suiteName)
     } catch {
       return .setupFailure(error)
-    }
-
-    guard let activation else {
-      return readiness == .ready
-        ? sharedOutcome(location: location, activatedNow: false)
-        : .setupFailure(AppStorageStartupError.migrationDidNotComplete)
     }
 
     switch (readiness, activation) {
@@ -177,6 +180,28 @@ public final class AppStorageStartup {
     case (.pending, .failure(let error)):
       return .setupFailure(error)
     }
+  }
+
+  /// Opens only completed shared storage: no migration, no activation record, no legacy access.
+  private func startSharedOnly() -> Outcome {
+    let location: SharedStorageLocation
+    do {
+      location = try sharedStorage.location()
+    } catch {
+      return .setupFailure(error)
+    }
+
+    let readiness: SharedStorageReadiness
+    do {
+      readiness = try SharedStorageMigration.readiness(in: location.suite, suiteName: location.suiteName)
+    } catch {
+      return .setupFailure(error)
+    }
+
+    guard readiness == .ready else {
+      return .setupFailure(AppStorageStartupError.migrationDidNotComplete)
+    }
+    return sharedOutcome(location: location, activatedNow: false)
   }
 
   /// Refreshes the copy before activation. A failed import uses validated legacy
