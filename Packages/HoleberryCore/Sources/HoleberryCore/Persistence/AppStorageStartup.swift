@@ -135,16 +135,20 @@ public final class AppStorageStartup {
 
   /// Revalidates the store on every call. Shared-only consumers can call again after suspended work.
   public func start() -> Outcome {
-    let activation = Result {
-      guard policy == .application else { return 0 }
-      return try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuiteName)
+    let activation: Result<Int, any Error>?
+    if policy == .application {
+      activation = Result {
+        try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuiteName)
+      }
+    } else {
+      activation = nil
     }
 
     let location: SharedStorageLocation
     do {
       location = try sharedStorage.location()
     } catch {
-      guard policy == .application, !hasPriorCutover(activation) else { return .setupFailure(error) }
+      guard let activation, !hasPriorCutover(activation) else { return .setupFailure(error) }
       return legacyOutcome(cause: error)
     }
 
@@ -155,7 +159,7 @@ public final class AppStorageStartup {
       return .setupFailure(error)
     }
 
-    if policy == .sharedOnly {
+    guard let activation else {
       return readiness == .ready
         ? sharedOutcome(location: location, activatedNow: false)
         : .setupFailure(AppStorageStartupError.migrationDidNotComplete)
