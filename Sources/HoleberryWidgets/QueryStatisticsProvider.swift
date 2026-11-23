@@ -32,37 +32,14 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
 
   @MainActor
   private func loadEntry(now: Date, scope: ServerScope) async -> QueryStatisticsEntry {
-    let appGroupIdentifier: String
-    let keychainAccessGroup: String
-    let suite: UserDefaults
-    let sharedKeychain: KeychainManager
-    do {
-      appGroupIdentifier = try Bundle.main.sharedAppGroupIdentifier()
-      keychainAccessGroup = try Bundle.main.sharedKeychainAccessGroup()
-      suite = try UserDefaults.sharedStorageSuite(
-        appGroupIdentifier: appGroupIdentifier
-      )
-      sharedKeychain = try KeychainManager.shared(
-        accessGroup: keychainAccessGroup,
-        interactive: false
-      )
-    } catch {
-      Self.logger.error(
-        "Widget shared storage setup failed: \(error.localizedDescription, privacy: .public)"
-      )
+    let startup = AppStorageStartup(policy: .sharedOnly)
+    let outcome = startup.start()
+    guard let storage = outcome.storage else {
+      if let problem = outcome.problem {
+        Self.logger.error("Widget shared storage setup failed: \(problem.localizedDescription, privacy: .public)")
+      }
       return .setupRequired(now: now, scope: scope)
     }
-    guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
-      return .setupRequired(now: now, scope: scope)
-    }
-
-    let storage = ConcreteAppStorage(
-      sharedDataSuite: suite,
-      // On-demand execution never stores app-local temporary-unblock records;
-      // the widget's own defaults keep any accidental write out of the app.
-      appLocalSuite: .standard,
-      keychain: sharedKeychain
-    )
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: ConcretePiholeServiceFactory(
@@ -81,15 +58,20 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     // Stamp the response before awaiting logout: cleanup latency must not make
     // an older overlapping response look newer to the widget timeline.
     let observedAt = Date()
-    logSummaryFailures(results, credentialService: sharedKeychain.service)
+    logSummaryFailures(results)
     await manager.logoutAll()
 
     // Migration readiness can change during the fetch.
-    guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
+    let refreshed = startup.start()
+    guard let currentStorage = refreshed.storage else {
+      if let problem = refreshed.problem {
+        Self.logger.error(
+          "Widget shared storage revalidation failed: \(problem.localizedDescription, privacy: .public)"
+        )
+      }
       return .setupRequired(now: now, scope: scope)
     }
-
-    let current = scopedServers(storage.loadServers(), scope: scope)
+    let current = scopedServers(currentStorage.loadServers(), scope: scope)
     guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {
       return changedConfigurationEntry(servers: current, scope: scope)
     }
@@ -102,16 +84,6 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     )
   }
 
-  @MainActor
-  private func isSharedStorageReady(in suite: UserDefaults, suiteName: String) -> Bool {
-    do {
-      return try SharedStorageMigration.readiness(in: suite, suiteName: suiteName) == .ready
-    } catch {
-      Self.logger.error("Widget shared storage readiness failed: \(error.localizedDescription, privacy: .public)")
-      return false
-    }
-  }
-
   private func scopedServers(_ servers: [ServerConfig], scope: ServerScope) -> [ServerConfig] {
     switch scope {
     case .all:
@@ -122,12 +94,9 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     }
   }
 
-  /// Logs the coarse failure categories and the service used for credentials.
+  /// Logs the coarse failure categories.
   /// Never logs credentials, response bodies, server URLs, or server UUIDs.
-  private func logSummaryFailures(
-    _ results: [UUID: Result<QuerySummary, PiholeError>],
-    credentialService: String
-  ) {
+  private func logSummaryFailures(_ results: [UUID: Result<QuerySummary, PiholeError>]) {
     let failures = results.values.compactMap { result -> PiholeError? in
       guard case .failure(let error) = result else { return nil }
       return error
@@ -135,9 +104,7 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     guard !failures.isEmpty else { return }
 
     let categories = Set(failures.map(Self.failureCategory)).sorted().joined(separator: ",")
-    let message =
-      "Summary fetch failed: failures=\(failures.count) categories=\(categories) "
-      + "credentialService=\(credentialService)"
+    let message = "Summary fetch failed: failures=\(failures.count) categories=\(categories)"
     Self.logger.error("\(message, privacy: .public)")
   }
 

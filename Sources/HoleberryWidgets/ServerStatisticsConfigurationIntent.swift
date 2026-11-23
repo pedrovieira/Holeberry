@@ -158,20 +158,7 @@ struct ServerStatisticsServerQuery: EntityQuery {
 
   @MainActor
   private static func savedServers() -> [ServerConfig]? {
-    guard let appGroupIdentifier = try? Bundle.main.sharedAppGroupIdentifier(),
-      let suite = try? UserDefaults.sharedStorageSuite(appGroupIdentifier: appGroupIdentifier),
-      (try? SharedStorageMigration.readiness(in: suite, suiteName: appGroupIdentifier)) == .ready,
-      let keychainAccessGroup = try? Bundle.main.sharedKeychainAccessGroup(),
-      let keychain = try? KeychainManager.shared(accessGroup: keychainAccessGroup, interactive: false)
-    else {
-      return nil
-    }
-    let storage = ConcreteAppStorage(
-      sharedDataSuite: suite,
-      appLocalSuite: .standard,
-      keychain: keychain
-    )
-    return storage.loadServers()
+    AppStorageStartup(policy: .sharedOnly).start().storage?.loadServers()
   }
 }
 

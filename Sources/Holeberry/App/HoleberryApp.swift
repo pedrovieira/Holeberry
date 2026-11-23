@@ -42,7 +42,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   // MARK: - Composition Root (lazy var dependency graph)
 
-  private lazy var appStorage = makeAppStorageContext()
+  private lazy var appStorage = makeAppStorage()
   private lazy var authFactory = ConcreteAuthSessionFactory()
   private lazy var serviceFactory = ConcretePiholeServiceFactory(
     authSessionFactory: authFactory
@@ -51,10 +51,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private lazy var serverManager: PiholeServerManager = {
     let writesSharedStore = appStorage.status == .shared
     return PiholeServerManager(
-      storage: appStorage.storage,
+      storage: appStorage.storage ?? UnavailableAppStorage(),
       serviceFactory: serviceFactory,
       versionDetector: versionDetector,
-      allowsServerChanges: appStorage.allowsServerChanges
+      allowsServerChanges: appStorage.status != .recovery
     ) {
       guard writesSharedStore else { return }
       WidgetCenter.shared.reloadAllTimelines()
@@ -225,31 +225,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  private func makeAppStorageContext() -> AppStorageContext {
-    let startup = AppStorageStartup(
-      legacySuite: .standard,
-      legacySuiteName: Bundle.main.bundleIdentifier ?? Bundle.appIdentifier,
-      appLocalSuite: .standard,
-      legacyKeychain: KeychainManager(),
-      sharedStorage: BundleSharedStorage()
-    )
-    let outcome = startup.start()
+  private func makeAppStorage() -> AppStorageStartup.Outcome {
+    let outcome = AppStorageStartup(policy: .application).start()
     if let problem = outcome.problem {
       logger.error("Shared storage setup problem: \(problem.localizedDescription, privacy: .public)")
     }
-    return AppStorageContext(
-      storage: outcome.storage ?? UnavailableAppStorage(),
-      status: outcome.status,
-      activatedNow: outcome.activatedNow
-    )
-  }
-
-  private struct AppStorageContext {
-    let storage: any AppStorageProviding
-    let status: AppStorageStartupStatus
-    let activatedNow: Bool
-
-    var allowsServerChanges: Bool { status != .recovery }
+    return outcome
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -273,24 +254,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
     return .terminateLater
-  }
-}
-
-/// Resolves the App Group store and shared credential store from this bundle.
-@MainActor
-private struct BundleSharedStorage: SharedStorageProviding {
-  func location() throws -> SharedStorageLocation {
-    let identifier = try Bundle.main.sharedAppGroupIdentifier()
-    return SharedStorageLocation(
-      suite: try UserDefaults.sharedStorageSuite(appGroupIdentifier: identifier),
-      suiteName: identifier
-    )
-  }
-
-  func keychain() throws -> any KeychainManaging {
-    try KeychainManager.shared(
-      accessGroup: Bundle.main.sharedKeychainAccessGroup(),
-      interactive: true
-    )
   }
 }

@@ -41,7 +41,7 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
   }
 }
 
-/// Chooses the storage for one launch and runs the one-time move to shared storage.
+/// Chooses settings storage for the app or a shared-storage consumer.
 ///
 /// Two markers keep separate jobs: the completion marker in the shared store says
 /// what the widget may read; the app-local activation record says whether shared
@@ -51,6 +51,13 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
 /// shared data never re-imports legacy data.
 @MainActor
 public final class AppStorageStartup {
+  public enum Policy {
+    /// May migrate legacy data, record activation, and use validated legacy fallback.
+    case application
+    /// Opens only completed shared storage, without migration or legacy access.
+    case sharedOnly
+  }
+
   public enum Outcome {
     /// Shared storage is ready and authoritative.
     case shared(ConcreteAppStorage, activatedNow: Bool)
@@ -103,6 +110,7 @@ public final class AppStorageStartup {
     }
   }
 
+  private let policy: Policy
   private let legacySuite: UserDefaults
   private let legacySuiteName: String
   private let appLocalSuite: UserDefaults
@@ -110,29 +118,33 @@ public final class AppStorageStartup {
   private let sharedStorage: any SharedStorageProviding
 
   public init(
-    legacySuite: UserDefaults,
-    legacySuiteName: String,
-    appLocalSuite: UserDefaults,
-    legacyKeychain: any KeychainManaging,
-    sharedStorage: any SharedStorageProviding
+    policy: Policy,
+    legacySuite: UserDefaults = .standard,
+    legacySuiteName: String = Bundle.main.bundleIdentifier ?? Bundle.appIdentifier,
+    appLocalSuite: UserDefaults = .standard,
+    legacyKeychain: any KeychainManaging = KeychainManager(),
+    sharedStorage: (any SharedStorageProviding)? = nil
   ) {
+    self.policy = policy
     self.legacySuite = legacySuite
     self.legacySuiteName = legacySuiteName
     self.appLocalSuite = appLocalSuite
     self.legacyKeychain = legacyKeychain
-    self.sharedStorage = sharedStorage
+    self.sharedStorage = sharedStorage ?? BundleSharedStorage(interactive: policy == .application)
   }
 
+  /// Revalidates the store on every call. Shared-only consumers can call again after suspended work.
   public func start() -> Outcome {
     let activation = Result {
-      try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuiteName)
+      guard policy == .application else { return 0 }
+      return try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuiteName)
     }
 
     let location: SharedStorageLocation
     do {
       location = try sharedStorage.location()
     } catch {
-      guard !hasPriorCutover(activation) else { return .setupFailure(error) }
+      guard policy == .application, !hasPriorCutover(activation) else { return .setupFailure(error) }
       return legacyOutcome(cause: error)
     }
 
@@ -141,6 +153,12 @@ public final class AppStorageStartup {
       readiness = try SharedStorageMigration.readiness(in: location.suite, suiteName: location.suiteName)
     } catch {
       return .setupFailure(error)
+    }
+
+    if policy == .sharedOnly {
+      return readiness == .ready
+        ? sharedOutcome(location: location, activatedNow: false)
+        : .setupFailure(AppStorageStartupError.migrationDidNotComplete)
     }
 
     switch (readiness, activation) {
@@ -231,7 +249,7 @@ public final class AppStorageStartup {
       sharedDataSuite: sharedSuite,
       appLocalSuite: appLocalSuite,
       keychain: keychain,
-      legacyKeychain: legacyKeychain
+      legacyKeychain: policy == .application ? legacyKeychain : nil
     )
   }
 
