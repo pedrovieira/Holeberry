@@ -385,7 +385,7 @@ final class PiholeV5ServiceTests {
     let service = makeService()
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, storage: makeTestStorage(appLocalSuite: suite), sleep: { _ in })
+      service: service, storage: makeTestTempUnblockStore(suite: suite), sleep: { _ in })
 
     await #expect(throws: PiholeError.server(200, "database is locked")) {
       try await decorator.unblockDomain("example.com", duration: 60)
@@ -414,7 +414,7 @@ final class PiholeV5ServiceTests {
     let suite = TestDefaults.makeSuite()
     var releaseRetry = false
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: service, storage: makeTestStorage(appLocalSuite: suite),
+      service: service, storage: makeTestTempUnblockStore(suite: suite),
       sleep: { duration in
         if duration < 10 { return }
         await waitUntil { releaseRetry }

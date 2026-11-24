@@ -27,6 +27,7 @@ class MockPiholeAPI: PiholeAPIProviding {
   private(set) var getRecentBlockedCallCount = 0
 
   var getQuerySummaryStub: Result<QuerySummary, any Error> = .success(QuerySummary(totalQueries: 0, totalBlocked: 0))
+  var getQuerySummaryHandler: (() async throws -> QuerySummary)?
   private(set) var getQuerySummaryCallCount = 0
 
   var updateGravityStub: Result<Void, any Error> = .success(())
@@ -62,6 +63,7 @@ class MockPiholeAPI: PiholeAPIProviding {
   var getDomainLastDomain: String?
   var getDomainLastList: DomainListType?
 
+  var logoutHandler: (() async -> Void)?
   private(set) var logoutCallCount = 0
 
   init(id: UUID = UUID(), label: String? = nil, url: String = "http://test.local", version: ServerVersion = .v6) {
@@ -90,6 +92,7 @@ class MockPiholeAPI: PiholeAPIProviding {
 
   func getQuerySummary() async throws -> QuerySummary {
     getQuerySummaryCallCount += 1
+    if let getQuerySummaryHandler { return try await getQuerySummaryHandler() }
     return try getQuerySummaryStub.get()
   }
 
@@ -149,5 +152,6 @@ class MockPiholeAPI: PiholeAPIProviding {
 
   func logout() async {
     logoutCallCount += 1
+    await logoutHandler?()
   }
 }

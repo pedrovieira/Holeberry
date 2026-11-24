@@ -547,7 +547,7 @@ final class PiholeV6ServiceTests {
       }
     ]
     let service: any PiholeAPIProviding = TemporaryUnblockPiholeServiceDecorator(
-      service: makeService(), storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite())
+      service: makeService(), storage: makeTestTempUnblockStore(suite: TestDefaults.makeSuite())
     )
     let entry = try #require(try await service.getDomain("example.com", from: list))
     #expect(entry.domain == "example.com")

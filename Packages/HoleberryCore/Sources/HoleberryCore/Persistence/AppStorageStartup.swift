@@ -41,21 +41,20 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
   }
 }
 
-/// Chooses the storage for one launch and runs the one-time move to shared storage.
+/// Chooses the storage for one launch.
 ///
-/// Two markers keep separate jobs: the completion marker in the shared store says
-/// what the widget may read; the app-local activation record says whether shared
-/// storage replaced legacy storage. With activation zero, completed copies are
-/// refreshed from legacy storage, which may have accepted fallback edits. Once
-/// activation is recorded, shared storage is authoritative and missing or unreadable
-/// shared data never re-imports legacy data.
+/// Migration belongs to `StorageLegacyMigrator`; this type only calls the injected
+/// migration once, maps its result to the existing outcome surface, and builds
+/// legacy fallback when the migrator reports that activation was zero and the
+/// copy did not complete. It never copies data, writes activation, or opens the
+/// shared store for a second activation decision.
 @MainActor
 public final class AppStorageStartup {
   public enum Outcome {
     /// Shared storage is ready and authoritative.
-    case shared(ConcreteAppStorage, activatedNow: Bool)
+    case shared(any ConnectionStoring, activatedNow: Bool)
     /// Shared storage is not activated. Legacy storage serves this launch.
-    case legacy(ConcreteAppStorage, cause: any Error)
+    case legacy(any ConnectionStoring, cause: any Error)
     /// No store passed validation. Settings are not available for this launch.
     case setupFailure(any Error)
 
@@ -70,7 +69,7 @@ public final class AppStorageStartup {
       }
     }
 
-    public var storage: (any AppStorageProviding)? {
+    public var storage: (any ConnectionStoring)? {
       switch self {
       case .shared(let storage, _):
         return storage
@@ -103,145 +102,61 @@ public final class AppStorageStartup {
     }
   }
 
+  private let migrator: any StorageLegacyMigrating
   private let legacySuite: UserDefaults
   private let legacySuiteName: String
-  private let appLocalSuite: UserDefaults
   private let legacyKeychain: any KeychainManaging
-  private let sharedStorage: any SharedStorageProviding
 
   public init(
+    migrator: any StorageLegacyMigrating,
     legacySuite: UserDefaults,
     legacySuiteName: String,
-    appLocalSuite: UserDefaults,
-    legacyKeychain: any KeychainManaging,
-    sharedStorage: any SharedStorageProviding
+    legacyKeychain: any KeychainManaging
   ) {
+    self.migrator = migrator
     self.legacySuite = legacySuite
     self.legacySuiteName = legacySuiteName
-    self.appLocalSuite = appLocalSuite
     self.legacyKeychain = legacyKeychain
-    self.sharedStorage = sharedStorage
   }
 
   public func start() -> Outcome {
-    let activation = Result {
-      try SharedStorageMigration.activatedVersion(in: legacySuite, suiteName: legacySuiteName)
-    }
-
-    let location: SharedStorageLocation
+    let result: StorageLegacyMigrationResult
     do {
-      location = try sharedStorage.location()
-    } catch {
-      guard !hasPriorCutover(activation) else { return .setupFailure(error) }
-      return legacyOutcome(cause: error)
-    }
-
-    let readiness: SharedStorageReadiness
-    do {
-      readiness = try SharedStorageMigration.readiness(in: location.suite, suiteName: location.suiteName)
-    } catch {
-      return .setupFailure(error)
-    }
-
-    switch (readiness, activation) {
-    case (_, .success(0)):
-      return refreshAndActivate(location: location)
-    case (.ready, .success(let version)) where version > 0:
-      return sharedOutcome(location: location, activatedNow: false)
-    case (.ready, _):
-      return sharedOutcome(location: location, activatedNow: true)
-    case (.pending, .success):
-      return .setupFailure(AppStorageStartupError.completedStoreMarkerMissing)
-    case (.pending, .failure(let error)):
-      return .setupFailure(error)
-    }
-  }
-
-  /// Refreshes the copy before activation. A failed import uses validated legacy
-  /// storage; a recorded cutover never enters this path.
-  private func refreshAndActivate(location: SharedStorageLocation) -> Outcome {
-    let sharedKeychain: any KeychainManaging
-    do {
-      sharedKeychain = try sharedStorage.keychain()
-    } catch {
-      return legacyOutcome(cause: error)
-    }
-
-    let migration = SharedStorageMigration(
-      legacySuite: legacySuite,
-      legacySuiteName: legacySuiteName,
-      sharedSuite: location.suite,
-      sharedSuiteName: location.suiteName,
-      legacyKeychain: legacyKeychain,
-      sharedKeychain: sharedKeychain
-    )
-
-    do {
-      try migration.refreshBeforeActivation()
-    } catch {
-      return legacyOutcome(cause: error)
-    }
-
-    do {
-      guard try SharedStorageMigration.readiness(in: location.suite, suiteName: location.suiteName) == .ready else {
-        return legacyOutcome(cause: AppStorageStartupError.migrationDidNotComplete)
+      result = try migrator.runIfNeeded()
+    } catch let failure as StorageLegacyMigrationFailure {
+      // Only an established zero activation permits fallback. Everything else
+      // recovers with the original cause, never a wrapper.
+      switch failure {
+      case .beforeActivation(let cause):
+        return legacyOutcome(cause: cause)
+      case .recoveryRequired(let cause):
+        return .setupFailure(cause)
       }
     } catch {
       return .setupFailure(error)
     }
 
-    SharedStorageMigration.markActivated(in: legacySuite)
-    return .shared(
-      makeStorage(sharedSuite: location.suite, keychain: sharedKeychain),
-      activatedNow: true
-    )
-  }
-
-  private func sharedOutcome(location: SharedStorageLocation, activatedNow: Bool) -> Outcome {
-    do {
-      let storage = makeStorage(sharedSuite: location.suite, keychain: try sharedStorage.keychain())
-      if activatedNow {
-        // Repair activation only after both shared settings and credentials are available.
-        SharedStorageMigration.markActivated(in: legacySuite)
-      }
-      return .shared(storage, activatedNow: activatedNow)
-    } catch {
-      return .setupFailure(error)
+    switch result {
+    case .alreadyActive(let storage):
+      return .shared(storage, activatedNow: false)
+    case .activatedNow(let storage):
+      return .shared(storage, activatedNow: true)
     }
   }
 
+  /// Validates the current legacy list strictly. A malformed list never becomes
+  /// writable storage; a genuinely absent list is a valid fresh install.
   private func legacyOutcome(cause: any Error) -> Outcome {
     do {
-      _ = try SharedStorageMigration.legacyServers(in: legacySuite, suiteName: legacySuiteName)
+      _ = try StorageLegacyStore.servers(in: legacySuite, suiteName: legacySuiteName)
     } catch {
       return .setupFailure(error)
     }
+    // Legacy fallback is writable: the legacy keychain is the active store, so a
+    // connection deletion touches that one keychain only.
     return .legacy(
-      ConcreteAppStorage(
-        sharedDataSuite: legacySuite,
-        appLocalSuite: appLocalSuite,
-        keychain: legacyKeychain
-      ),
+      ConcreteConnectionStore(suite: legacySuite, keychain: legacyKeychain),
       cause: cause
     )
-  }
-
-  private func makeStorage(sharedSuite: UserDefaults, keychain: any KeychainManaging) -> ConcreteAppStorage {
-    ConcreteAppStorage(
-      sharedDataSuite: sharedSuite,
-      appLocalSuite: appLocalSuite,
-      keychain: keychain,
-      legacyKeychain: legacyKeychain
-    )
-  }
-
-  /// Unreadable history blocks legacy import.
-  private func hasPriorCutover(_ activation: Result<Int, any Error>) -> Bool {
-    switch activation {
-    case .success(let version):
-      return version > 0
-    case .failure:
-      return true
-    }
   }
 }

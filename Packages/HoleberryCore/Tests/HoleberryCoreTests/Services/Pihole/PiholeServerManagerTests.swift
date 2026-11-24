@@ -7,7 +7,7 @@ import Testing
 @MainActor
 @Suite("PiholeServerManager CRUD")
 struct PiholeServerManagerCRUDTests {
-  private let storage = MockAppStorage()
+  private let storage = MockConnectionStore()
   private let mockServiceFactory = MockPiholeServiceFactory()
   private let mockVersionDetector = MockPiholeVersionDetector()
 
@@ -179,13 +179,14 @@ struct PiholeServerManagerCRUDTests {
       "an unreadable credential still yields a service so the UI can offer re-authentication")
   }
 
-  @Test("loadServers forwards the injected storage instance")
-  func loadServersForwardsStorage() {
+  @Test("manager construction reads the injected connection store")
+  func loadServersReadsInjectedStore() {
     storage.servers = [ServerConfig(label: "Test", url: "http://test.com", version: .v6)]
 
-    _ = makeManager()
+    let manager = makeManager()
 
-    #expect(isSameStorageInstance(mockServiceFactory.buildServiceLastStorage, storage))
+    #expect(manager.servers.map(\.id) == storage.servers.map(\.id))
+    #expect(storage.loadServersCallCount == 1)
   }
 
   @Test("checkServer reports missingCredential when no credential is stored")
@@ -339,43 +340,37 @@ struct PiholeServerManagerCRUDTests {
     #expect(storage.servers.first?.id == config.id)
   }
 
-  @Test("addServer forwards the same storage instance to the factory")
-  func addServerForwardsStorage() async throws {
+  @Test("addServer persists the credential and configuration through the injected store")
+  func addServerPersistsThroughStore() async throws {
     let manager = makeManager()
 
     try await manager.addServer(label: "Test", url: "http://test.com", credential: "secret")
 
-    #expect(isSameStorageInstance(mockServiceFactory.buildServiceLastStorage, storage))
     #expect(mockServiceFactory.buildServiceLastCredential == "secret")
     #expect(storage.servers.count == 1)
   }
 
-  @Test("delete server keeps other storage categories intact")
-  func deleteServerKeepsTemporaryRecords() {
+  @Test("delete server keeps other connections intact")
+  func deleteServerKeepsOtherConnections() {
     let manager = makeManager()
     let server = ServerConfig(label: "Test", url: "http://test.com", version: .v6)
-    manager.servers = [server]
+    let other = ServerConfig(label: "Other", url: "http://other.com", version: .v5)
+    manager.servers = [server, other]
+    storage.servers = [server, other]
     storage.credentials[server.id] = "secret"
-    let record = TempUnblockRecord(
-      domain: "kept.example",
-      uuid: "kept-token",
-      startDateUTC: Date(timeIntervalSince1970: 1_700_006_000),
-      durationSeconds: 600
-    )
-    storage.temporaryUnblocks[server.id] = [record]
+    storage.credentials[other.id] = "other-secret"
 
     manager.deleteServer(id: server.id)
 
-    #expect(storage.servers.isEmpty)
+    #expect(storage.servers.map(\.id) == [other.id])
     #expect(storage.credentials[server.id] == nil)
     #expect(
-      storage.temporaryUnblocks[server.id]?.map(\.uuid) == ["kept-token"],
-      "deleting a configuration must not delete temporary-unblock records"
-    )
+      storage.credentials[other.id] == "other-secret",
+      "deleting a configuration must not delete another connection's credential")
   }
 
-  @Test("verifyCredential forwards the same storage instance")
-  func verifyCredentialForwardsStorage() async throws {
+  @Test("verifyCredential forwards the replacement credential")
+  func verifyCredentialForwardsCredential() async throws {
     let manager = makeManagerWithLoadedService()
     guard let id = manager.servers.first?.id else {
       Issue.record("No server")
@@ -386,7 +381,6 @@ struct PiholeServerManagerCRUDTests {
 
     _ = try await manager.verifyCredential(id: id, credential: "fresh-password")
 
-    #expect(isSameStorageInstance(mockServiceFactory.buildServiceLastStorage, storage))
     #expect(mockServiceFactory.buildServiceLastCredential == "fresh-password")
   }
 
@@ -404,7 +398,6 @@ struct PiholeServerManagerCRUDTests {
       storage: storage,
       serviceFactory: mockServiceFactory,
       versionDetector: mockVersionDetector,
-      executionMode: .onDemand,
       persistentChangeHandler: { changes += 1 }
     )
     mockServiceFactory.buildServiceStub = nil
@@ -470,13 +463,6 @@ struct PiholeServerManagerCRUDTests {
       Issue.record("No server")
       return
     }
-    let record = TempUnblockRecord(
-      domain: "survivor.example",
-      uuid: "survivor-token",
-      startDateUTC: Date(timeIntervalSince1970: 1_700_008_000),
-      durationSeconds: 900
-    )
-    storage.temporaryUnblocks[id] = [record]
     storage.deleteCredentialStub = .failure(PiholeError.unknown("keychain unavailable"))
 
     #expect(manager.deleteServer(id: id) == false)
@@ -487,9 +473,6 @@ struct PiholeServerManagerCRUDTests {
     #expect(
       storage.credentials[id] == "old-password",
       "a failed credential delete keeps the stored credential")
-    #expect(
-      storage.temporaryUnblocks[id]?.map(\.uuid) == ["survivor-token"],
-      "temporary-unblock records are untouched")
   }
 
   @Test("verifyCredential succeeds and logs out the probe service")
@@ -664,30 +647,9 @@ struct PiholeServerManagerCRUDTests {
     #expect(manager.displayLabel(for: UUID()) == nil)
   }
 
-  // MARK: - On-demand reads
+  // MARK: - Authentication warm-up
 
-  @Test("Manager construction and reload do not log in; requested reads still work")
-  func noWarmup() async throws {
-    let service = MockPiholeService()
-    storage.servers = [ServerConfig(id: service.id, url: service.url, version: service.version)]
-    let factory = MockPiholeServiceFactory()
-    factory.buildServiceStub = service
-    let manager = PiholeServerManager(
-      storage: storage, serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector(), executionMode: .onDemand
-    )
-    manager.reloadServers()
-    await settle()
-    #expect(service.loginCallCount == 0)
-    #expect(factory.buildServiceExecutionModes == [.onDemand, .onDemand])
-    let status = await manager.getBlockingStatus(scope: .server(service.id))
-    #expect(try status[service.id]?.get() == .enabled)
-    #expect(service.checkStatusCallCount == 1)
-    await manager.logoutAll()
-    #expect(service.logoutCallCount == 1)
-  }
-
-  @Test("The existing application default still warms sessions")
+  @Test("Manager construction warms sessions for the app")
   func applicationDefault() async {
     let service = MockPiholeService()
     storage.servers = [ServerConfig(id: service.id, url: service.url, version: service.version)]
@@ -698,7 +660,6 @@ struct PiholeServerManagerCRUDTests {
       versionDetector: MockPiholeVersionDetector()
     )
     await waitUntil { service.loginCallCount == 1 }
-    #expect(factory.buildServiceExecutionModes == [.application])
     await manager.logoutAll()
   }
 
@@ -712,7 +673,7 @@ struct PiholeServerManagerOperationsTests {
   private let mockService2 = MockPiholeService(
     id: UUID(), label: "Server B", url: "http://b.local", version: .v6)
   private let mockServiceFactory = MockPiholeServiceFactory()
-  private let storage = MockAppStorage()
+  private let storage = MockConnectionStore()
 
   private func makeManager() -> PiholeServerManager {
     PiholeServerManager(
@@ -955,17 +916,12 @@ struct PiholeServerManagerStorageTests {
   private let detector = MockPiholeVersionDetector()
   private let sharedData = TestDefaults.makeNamedSuite()
   private var sharedDataSuite: UserDefaults { sharedData.suite }
-  private let appLocalSuite = TestDefaults.makeSuite()
 
-  private func makeStorage() -> ConcreteAppStorage {
-    ConcreteAppStorage(
-      sharedDataSuite: sharedDataSuite,
-      appLocalSuite: appLocalSuite,
-      keychain: keychain
-    )
+  private func makeStorage() -> ConcreteConnectionStore {
+    ConcreteConnectionStore(suite: sharedDataSuite, keychain: keychain)
   }
 
-  private func makeManager(_ storage: any AppStorageProviding) -> PiholeServerManager {
+  private func makeManager(_ storage: any ConnectionStoring) -> PiholeServerManager {
     PiholeServerManager(storage: storage, serviceFactory: factory, versionDetector: detector)
   }
 
@@ -995,7 +951,6 @@ struct PiholeServerManagerStorageTests {
     #expect(forwarded.url == "http://first.local")
     #expect(forwarded.version == .v5)
     #expect(factory.buildServiceLastCredential == "first-secret")
-    #expect(isSameStorageInstance(factory.buildServiceLastStorage, storage))
 
     // Another process replaces the stored configuration while the app runs.
     let second = ServerConfig(
@@ -1016,7 +971,6 @@ struct PiholeServerManagerStorageTests {
     #expect(reloadedForwarded.url == "http://second.local:8443")
     #expect(reloadedForwarded.version == .v6)
     #expect(factory.buildServiceLastCredential == "second-secret")
-    #expect(isSameStorageInstance(factory.buildServiceLastStorage, storage))
   }
 
   @Test("update and save preserve icons and order across reloads")
@@ -1038,7 +992,6 @@ struct PiholeServerManagerStorageTests {
       factory.buildServiceCallCount == buildsBefore + 1,
       "a URL change reconnects through the same storage")
     #expect(factory.buildServiceLastCredential == "b-secret", "nil means no credential change")
-    #expect(isSameStorageInstance(factory.buildServiceLastStorage, storage))
 
     #expect(manager.servers.map(\.id) == [first.id, second.id], "update keeps the stored order")
     #expect(manager.servers.first?.icon == "star", "the untouched server keeps its icon")

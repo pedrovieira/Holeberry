@@ -20,6 +20,8 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
 
   /// Tracks how many times `invalidateAndCancel` was called.
   private(set) var invalidateAndCancelCallCount = 0
+  /// Runs when the session is invalidated, for ordering assertions.
+  var invalidateAndCancelHandler: (() -> Void)?
 
   private let lock = NSLock()
 
@@ -55,5 +57,6 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
     lock.lock()
     invalidateAndCancelCallCount += 1
     lock.unlock()
+    invalidateAndCancelHandler?()
   }
 }

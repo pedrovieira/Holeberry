@@ -9,10 +9,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private static let maxServers = 2
   @Published public var servers: [ServerConfig] = []
   public var serversPublisher: Published<[ServerConfig]>.Publisher { $servers }
-  private let storage: any AppStorageProviding
+  private let storage: any ConnectionStoring
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
-  private let executionMode: ServiceExecutionMode
   private let allowsServerChanges: Bool
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
   /// Called after a persisted server or credential change.
@@ -25,17 +24,15 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private var inProgressUnblocks: Set<UnblockKey> = []
 
   public init(
-    storage: any AppStorageProviding,
+    storage: any ConnectionStoring,
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
-    executionMode: ServiceExecutionMode = .application,
     allowsServerChanges: Bool = true,
     persistentChangeHandler: @escaping () -> Void = {}
   ) {
     self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
-    self.executionMode = executionMode
     self.allowsServerChanges = allowsServerChanges
     self.persistentChangeHandler = persistentChangeHandler
     self.servers = []
@@ -82,9 +79,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     let service = try serviceFactory.buildService(
       config: config,
       credential: credential,
-      session: session,
-      storage: storage,
-      executionMode: executionMode
+      session: session
     )
 
     try await service.login()
@@ -171,9 +166,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     let probe = try serviceFactory.buildService(
       config: config,
       credential: credential,
-      session: session,
-      storage: storage,
-      executionMode: executionMode
+      session: session
     )
     do {
       try await probe.login()
@@ -242,9 +235,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     if let rebuilt = try? serviceFactory.buildService(
       config: config,
       credential: currentCredential,
-      session: session,
-      storage: storage,
-      executionMode: executionMode
+      session: session
     ) {
       services[id] = rebuilt
     }
@@ -570,9 +561,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       if let rebuilt = try? serviceFactory.buildService(
         config: config,
         credential: credential,
-        session: session,
-        storage: storage,
-        executionMode: executionMode
+        session: session
       ) {
         services[config.id] = rebuilt
       }
@@ -581,11 +570,10 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     syncConfigs()
 
     // Warm up sessions so first concurrent requests don't trigger
-    // the actor-reentrancy race in acquireSession().
-    if executionMode == .application {
-      for (_, service) in services {
-        Task { try? await service.login() }
-      }
+    // the actor-reentrancy race in acquireSession(). This manager serves the app
+    // only; read-only on-demand callers use `OnDemandQueryStatisticsClient`.
+    for (_, service) in services {
+      Task { try? await service.login() }
     }
   }
 

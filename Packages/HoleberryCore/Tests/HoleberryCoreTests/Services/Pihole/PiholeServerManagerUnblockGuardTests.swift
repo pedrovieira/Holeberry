@@ -7,7 +7,7 @@ import Testing
 @MainActor
 @Suite("PiholeServerManager in-progress unblocks")
 struct PiholeServerManagerUnblockGuardTests {
-  private let storage = MockAppStorage()
+  private let storage = MockConnectionStore()
 
   private func makeManager(
     services: [any PiholeServiceProviding]
@@ -180,7 +180,7 @@ struct PiholeServerManagerUnblockGuardTests {
       raw.addDomainStubQueue = [.failure(PiholeError.network("response lost")), .success(.added)]
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: suite),
+      service: raw, storage: makeTestTempUnblockStore(suite: suite),
       retrySleep: { _ in try await backoff.wait() },
       sleep: { _ in try await expiry.wait() })
     let managed = MockPiholeService(id: raw.id)
@@ -238,7 +238,7 @@ struct PiholeServerManagerUnblockGuardTests {
     defer { expiry.cancel() }
     let decorators = rawServices.map { raw in
       TemporaryUnblockPiholeServiceDecorator(
-        service: raw, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
+        service: raw, storage: makeTestTempUnblockStore(suite: suite), retrySleep: { _ in },
         sleep: { _ in try await expiry.wait() })
     }
     let managed = zip(rawServices, decorators).map { raw, decorator in
