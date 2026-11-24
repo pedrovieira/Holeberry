@@ -5,8 +5,9 @@ import Foundation
 /// Configurable mock implementing `TempUnblockStoring` with in-memory backing
 /// state and call tracking.
 ///
-/// Nothing here touches real defaults. Tests use it to prove that an on-demand
-/// service never loads, saves, or reconciles temporary-unblock records.
+/// Application decorator tests use it to observe restore and persist calls.
+/// On-demand construction intentionally receives no store, so it is never
+/// passed there.
 @MainActor
 final class MockTempUnblockStore: TempUnblockStoring {
   var temporaryUnblocks: [UUID: [TempUnblockRecord]] = [:]

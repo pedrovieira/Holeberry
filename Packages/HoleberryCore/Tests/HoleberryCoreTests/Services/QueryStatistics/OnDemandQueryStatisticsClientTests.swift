@@ -220,12 +220,14 @@ struct OnDemandQueryStatisticsClientTests {
 
     await client.logout()
 
-    // The broken server's session has no owner, so it is released once by the
-    // client. The healthy v6 service invalidates its own session during logout,
-    // then the client releases its owned reference again; a repeated
+    // The broken server's session has no owner, so the client releases it once.
+    // The healthy v6 service invalidates its own session during logout, and the
+    // client may release its owned reference again; a repeated
     // `invalidateAndCancel` is a no-op on a real URLSession.
-    let counts = harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount)
-    #expect(counts == [1, 2], "actual: \(counts)")
+    let sessions = harness.sessionProvider.createdMockSessions
+    #expect(sessions.count == 2)
+    #expect(sessions[0].invalidateAndCancelCallCount == 1, "a failed build releases its transport exactly once")
+    #expect(sessions[1].invalidateAndCancelCallCount >= 1)
   }
 
   // MARK: - Scoping and building

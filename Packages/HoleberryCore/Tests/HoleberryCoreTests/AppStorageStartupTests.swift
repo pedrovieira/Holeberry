@@ -650,7 +650,10 @@ struct AppStorageStartupMigrationMappingTests {
       return
     }
     #expect(!activatedNow)
-    #expect((storage as AnyObject) === harness.writer)
+    // Hoisted out of #expect: Apple Swift 6.4.0 aborts in SILGen when the
+    // macro's autoclosure carries an existential-to-AnyObject conversion thunk.
+    let deliversWriter = (storage as AnyObject) === harness.writer
+    #expect(deliversWriter)
     #expect(outcome.status == .shared)
     #expect(harness.migrator.runIfNeededCallCount == 1)
   }
@@ -667,7 +670,8 @@ struct AppStorageStartupMigrationMappingTests {
     }
     #expect(activatedNow)
     #expect(outcome.activatedNow)
-    #expect((storage as AnyObject) === harness.writer)
+    let deliversWriter = (storage as AnyObject) === harness.writer
+    #expect(deliversWriter)
     #expect(harness.migrator.runIfNeededCallCount == 1)
   }
 

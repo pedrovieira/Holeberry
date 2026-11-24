@@ -254,6 +254,10 @@ struct SharedStorageReaderTests {
     #expect(throws: SharedStorageReadinessError.unsupportedCompletionVersion(future)) {
       try harness.reader.openServerReader()
     }
+    #expect(throws: SharedStorageReadinessError.unsupportedCompletionVersion(future)) {
+      try harness.reader.openConnectionReader()
+    }
+    #expect(harness.sharedStorage.keychainCallCount == 0)
   }
 
   @Test func malformedCompletionMarkerBlocksEveryOpen() {
@@ -264,6 +268,10 @@ struct SharedStorageReaderTests {
     #expect(throws: SharedStorageReadinessError.malformedCompletionVersion) {
       try harness.reader.openServerReader()
     }
+    #expect(throws: SharedStorageReadinessError.malformedCompletionVersion) {
+      try harness.reader.openConnectionReader()
+    }
+    #expect(harness.sharedStorage.keychainCallCount == 0)
   }
 
   /// The migration decision stays pending while the reader refuses to publish data.

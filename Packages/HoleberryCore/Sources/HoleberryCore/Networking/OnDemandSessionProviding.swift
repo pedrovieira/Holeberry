@@ -6,6 +6,10 @@ import Foundation
 /// policy in Core and still be tested without a network.
 @MainActor
 public protocol OnDemandSessionProviding {
+  /// Creates a transport owned by the caller, who must invalidate it after use.
+  /// The client invalidates a transport immediately when service construction
+  /// fails, and after service logout otherwise.
+  ///
   /// - Parameter trustedHosts: Configured hosts whose self-signed certificate
   ///   may be accepted. Other hosts use default TLS handling.
   func makeSession(trustedHosts: Set<String>) -> any HTTPRequestable
@@ -14,7 +18,8 @@ public protocol OnDemandSessionProviding {
 /// One short-lived session that trusts self-signed certificates for configured hosts.
 ///
 /// This is the transport the widget uses: ephemeral configuration, no shared
-/// cookie or cache state between fetches.
+/// cookie or cache state between fetches. `URLSession` keeps its delegate alive
+/// until the session is invalidated, so the caller owns invalidation.
 @MainActor
 public struct EphemeralOnDemandSessionProvider: OnDemandSessionProviding {
   public init() {}

@@ -51,12 +51,20 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
 
   // MARK: - unblockDomain (temporary)
 
-  @Test("Temporary unblock adds with a tracking comment")
+  @Test("Temporary unblock adds with a tracking comment and persists the record")
   func unblockDomainAddsTrackingComment() async throws {
     let mock = MockPiholeAPI()
     mock.addDomainStub = .success(.added)
-    let suite = TestDefaults.makeSuite()
-    let decorator = makeParkingDecorator(service: mock, suite: suite)
+    let store = MockTempUnblockStore()
+    // Park real-world durations so the record survives the test.
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock,
+      storage: store,
+      retrySleep: { _ in },
+      sleep: { duration in
+        if duration < 10 { return }
+        try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
+      })
 
     try await decorator.unblockDomain("doubleclick.net", duration: 300)
 
@@ -67,7 +75,12 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
       mock.addDomainLastComment?.hasPrefix("via holeberryapp.com / ") ?? false,
       "Comment should have holeberryapp prefix"
     )
-    #expect(Defaults[.tempUnblocks(for: mock.id, suite: suite)].count == 1)
+    #expect(store.loadTemporaryUnblocksCallCount == 1, "init restores from the injected store")
+    #expect(
+      store.saveTemporaryUnblocksCallCount >= 2,
+      "init saves the restored list, then the new record is persisted")
+    #expect(store.saveTemporaryUnblocksLastArgs?.serverID == mock.id)
+    #expect(store.saveTemporaryUnblocksLastArgs?.records.map(\.domain) == ["doubleclick.net"])
   }
 
   // MARK: - unblockDomain (permanent)
@@ -655,24 +668,16 @@ struct TemporaryUnblockPiholeServiceDecoratorTests {
     #expect(mock.getDomainCallCount == 1, "Expiry checks whether the entry still exists")
   }
 
-  @Test("On-demand construction leaves saved domain records untouched and starts no reconciliation")
-  func recordsUntouched() async throws {
-    let suite = TestDefaults.makeSuite()
+  @Test("On-demand construction starts no reconciliation and passes calls through")
+  func onDemandStartsNoReconciliationAndPassesThrough() async throws {
     let raw = MockPiholeService()
-    let store = makeTestTempUnblockStore(suite: suite)
-    let record = TempUnblockRecord(
-      domain: "EXAMPLE.COM", uuid: "existing-record", startDateUTC: .distantPast, durationSeconds: 1
-    )
-    store.saveTemporaryUnblocks([record], for: raw.id)
-    // On-demand construction supplies no local store at all, so nothing is
-    // restored, saved, or reconciled on behalf of the app-local records.
+    // On-demand construction supplies no local store at all, so there is
+    // nothing to restore, save, or reconcile.
     let service = TemporaryUnblockPiholeServiceDecorator(service: raw, storage: nil)
     await settle()
-    #expect(store.loadTemporaryUnblocks(for: raw.id) == [record])
     #expect(raw.getDomainsCallCount == 0)
     #expect(raw.deleteDomainCallCount == 0)
     #expect(try await service.checkStatus() == .enabled)
-    #expect(store.loadTemporaryUnblocks(for: raw.id) == [record])
   }
 
 }

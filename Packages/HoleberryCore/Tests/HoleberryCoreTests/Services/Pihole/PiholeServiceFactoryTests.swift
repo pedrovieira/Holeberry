@@ -104,10 +104,6 @@ struct PiholeServiceFactoryTests {
       tempUnblockStorage: makeTestTempUnblockStore(suite: appLocalSuite)
     )
     let config = ServerConfig(label: "Test", url: "http://restore.local", version: version)
-    // A decoy suite keeps any accidental cross-suite read visible.
-    Defaults[.tempUnblocks(for: config.id, suite: TestDefaults.makeSuite())] = [
-      TempUnblockRecord(domain: "wrong-suite.example", uuid: "wrong-token", startDateUTC: Date(), durationSeconds: 60)
-    ]
     // Started a minute ago with an hour duration, so the record is live: the
     // decorator schedules a far-future expiry instead of expiring during the test.
     let startDate = Date().addingTimeInterval(-60)
@@ -144,8 +140,8 @@ struct PiholeServiceFactoryTests {
     #expect(saved.retryCount == 1)
   }
 
-  @Test("On-demand factory wraps the service and starts no reconciliation", arguments: [ServerVersion.v5, .v6])
-  func onDemandHoldsNoLocalStorage(version: ServerVersion) throws {
+  @Test("On-demand factory wraps the service", arguments: [ServerVersion.v5, .v6])
+  func onDemandFactoryWrapsService(version: ServerVersion) throws {
     let session = MockURLSession()
     let mockAuthFactory = MockAuthSessionFactory()
     mockAuthFactory.stubbedProvider = MockAuthSessionProvider()

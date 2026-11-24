@@ -51,9 +51,16 @@ struct ConnectionStoreTests {
   }
 
   private func makeConfig(
-    id: UUID = UUID(), label: String? = nil, icon: String? = nil, url: String, version: ServerVersion
+    id: UUID = UUID(),
+    label: String? = nil,
+    icon: String? = nil,
+    url: String,
+    version: ServerVersion,
+    connectionRevision: UUID? = nil
   ) -> ServerConfig {
-    ServerConfig(id: id, label: label, icon: icon, url: url, version: version)
+    ServerConfig(
+      id: id, label: label, icon: icon, url: url, version: version,
+      connectionRevision: connectionRevision)
   }
 
   private func expectConfigEquals(_ actual: ServerConfig, _ expected: ServerConfig) {
@@ -62,6 +69,7 @@ struct ConnectionStoreTests {
     #expect(actual.icon == expected.icon)
     #expect(actual.url == expected.url)
     #expect(actual.version == expected.version)
+    #expect(actual.connectionRevision == expected.connectionRevision)
   }
 
   // MARK: - Compatibility
@@ -72,7 +80,8 @@ struct ConnectionStoreTests {
     let first = makeConfig(
       label: "Alpha", icon: "star", url: "http://alpha.local/admin", version: .v5)
     let second = makeConfig(
-      label: "Beta", icon: "bolt", url: "https://beta.local:8443", version: .v6)
+      label: "Beta", icon: "bolt", url: "https://beta.local:8443", version: .v6,
+      connectionRevision: UUID())
     Defaults[.servers(suite: sharedDataSuite)] = [first, second]
 
     let storage = makeTestConnectionStore(sharedData: sharedDataSuite)
@@ -87,7 +96,9 @@ struct ConnectionStoreTests {
   func saveUsesExistingKeys() {
     let sharedDataSuite = TestDefaults.makeSuite()
     let storage = makeTestConnectionStore(sharedData: sharedDataSuite)
-    let first = makeConfig(label: "First", icon: "star", url: "http://first.local", version: .v5)
+    let first = makeConfig(
+      label: "First", icon: "star", url: "http://first.local", version: .v5,
+      connectionRevision: UUID())
     let second = makeConfig(label: nil, icon: nil, url: "http://second.local", version: .v6)
 
     storage.saveServers([first, second])
