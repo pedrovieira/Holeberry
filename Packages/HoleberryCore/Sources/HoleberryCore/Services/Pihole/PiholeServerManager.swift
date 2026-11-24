@@ -63,7 +63,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
 
     guard servers.count < Self.maxServers else {
-      throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
+      throw HoleberryError.maxServersReached(max: Self.maxServers)
     }
 
     guard let serverURL = URL(string: url) else {
