@@ -594,7 +594,7 @@ private final class StartupHarness {
       sharedSuiteName: sharedSuiteName,
       legacyKeychain: legacyKeychain,
       sharedKeychain: sharedKeychain
-    ).migrate()
+    ).refreshBeforeActivation()
   }
 
   func start() -> AppStorageStartup.Outcome {
@@ -688,7 +688,10 @@ struct AppStorageStartupMigrationMappingTests {
       Issue.record("Expected validated legacy fallback")
       return
     }
-    #expect((problem as AnyObject) === cause)
+    // Hoisted out of #expect for the same Apple Swift 6.4.0 SILGen abort as
+    // the writer comparisons above.
+    let problemIsCause = (problem as AnyObject) === cause
+    #expect(problemIsCause)
     #expect(storage.loadServers().map(\.id) == [server.id])
     #expect(try storage.readCredential(for: server.id) == "legacy-secret")
     #expect(outcome.status == .legacy)
@@ -726,7 +729,8 @@ struct AppStorageStartupMigrationMappingTests {
       Issue.record("Expected recovery")
       return
     }
-    #expect((error as AnyObject) === cause)
+    let errorIsCause = (error as AnyObject) === cause
+    #expect(errorIsCause)
     #expect(outcome.status == .recovery)
     #expect(outcome.storage == nil)
     #expect(harness.migrator.runIfNeededCallCount == 1)
@@ -745,7 +749,8 @@ struct AppStorageStartupMigrationMappingTests {
       Issue.record("Expected recovery for an unexpected error")
       return
     }
-    #expect((error as AnyObject) === cause)
+    let errorIsCause = (error as AnyObject) === cause
+    #expect(errorIsCause)
     #expect(outcome.storage == nil)
     #expect(harness.migrator.runIfNeededCallCount == 1)
   }

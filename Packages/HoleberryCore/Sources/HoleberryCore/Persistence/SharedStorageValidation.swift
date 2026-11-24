@@ -2,7 +2,7 @@ import Defaults
 import Foundation
 
 /// How much of the shared copy a consumer may read.
-public enum SharedStorageReadiness: Equatable {
+enum SharedStorageReadiness: Equatable {
   case pending
   case ready
 }

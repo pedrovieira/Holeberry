@@ -17,6 +17,20 @@ public enum StorageLegacyMigrationFailure: Error {
   case recoveryRequired(cause: any Error)
 }
 
+public enum AppStorageStartupError: Error, Equatable, LocalizedError {
+  case completedStoreMarkerMissing
+  case migrationDidNotComplete
+
+  public var errorDescription: String? {
+    switch self {
+    case .completedStoreMarkerMissing:
+      return "Shared storage was activated on an earlier launch but reports no completion marker."
+    case .migrationDidNotComplete:
+      return "The copy to shared storage did not finish."
+    }
+  }
+}
+
 /// The app-only migration seam. The widget never runs or references this.
 @MainActor
 public protocol StorageLegacyMigrating {
@@ -66,38 +80,44 @@ public struct StorageLegacyMigrator: StorageLegacyMigrating {
     }
   }
 
-  /// Positive activation: open the existing copy. No legacy server or credential
-  /// read happens; activation history was already read.
-  private func prepareAlreadyActive() throws -> StorageLegacyMigrationResult {
-    let location = try openSharedLocation()
+  /// Prepares the writer for an existing completed shared copy.
+  ///
+  /// Every failure is recovery: positive or unreadable activation history
+  /// forbids legacy fallback. A pending copy reports the supplied cause; other
+  /// failures report their own original cause.
+  private func prepareExistingSharedStore(pendingCause: any Error) throws -> any ConnectionStoring {
+    let location: SharedStorageLocation
     let readiness: SharedStorageReadiness
     do {
+      location = try shared.location()
       readiness = try SharedStorageValidation.readiness(in: location.suite, suiteName: location.suiteName)
     } catch {
       throw StorageLegacyMigrationFailure.recoveryRequired(cause: error)
     }
     guard readiness == .ready else {
-      throw StorageLegacyMigrationFailure.recoveryRequired(cause: AppStorageStartupError.completedStoreMarkerMissing)
+      throw StorageLegacyMigrationFailure.recoveryRequired(cause: pendingCause)
     }
-    let keychain = try resolveSharedKeychainForRecovery()
-    return .alreadyActive(makeStore(location: location, keychain: keychain))
+    let keychain: any KeychainManaging
+    do {
+      keychain = try shared.keychain()
+    } catch {
+      throw StorageLegacyMigrationFailure.recoveryRequired(cause: error)
+    }
+    return makeStore(location: location, keychain: keychain)
   }
 
-  /// Unreadable activation: open the existing copy and repair the record.
+  /// Positive activation: prepare the existing copy. No legacy server or
+  /// credential read happens; activation history was already read.
+  private func prepareAlreadyActive() throws -> StorageLegacyMigrationResult {
+    let store = try prepareExistingSharedStore(
+      pendingCause: AppStorageStartupError.completedStoreMarkerMissing)
+    return .alreadyActive(store)
+  }
+
+  /// Unreadable activation: prepare the existing copy and repair the record.
   /// The repair happens only after the copy and its keychain resolve.
   private func repairUnreadableHistory(cause activationError: any Error) throws -> StorageLegacyMigrationResult {
-    let location = try openSharedLocation()
-    let readiness: SharedStorageReadiness
-    do {
-      readiness = try SharedStorageValidation.readiness(in: location.suite, suiteName: location.suiteName)
-    } catch {
-      throw StorageLegacyMigrationFailure.recoveryRequired(cause: error)
-    }
-    guard readiness == .ready else {
-      throw StorageLegacyMigrationFailure.recoveryRequired(cause: activationError)
-    }
-    let keychain = try resolveSharedKeychainForRecovery()
-    let store = makeStore(location: location, keychain: keychain)
+    let store = try prepareExistingSharedStore(pendingCause: activationError)
     StorageLegacyStore.markActivated(in: legacySuite)
     return .activatedNow(store)
   }
@@ -155,24 +175,6 @@ public struct StorageLegacyMigrator: StorageLegacyMigrating {
     let store = makeStore(location: location, keychain: keychain)
     StorageLegacyStore.markActivated(in: legacySuite)
     return .activatedNow(store)
-  }
-
-  private func openSharedLocation() throws -> SharedStorageLocation {
-    do {
-      return try shared.location()
-    } catch {
-      throw StorageLegacyMigrationFailure.recoveryRequired(cause: error)
-    }
-  }
-
-  /// Resolves the shared keychain for a prior cutover. A failure is recovery:
-  /// activation history is positive or unreadable, so fallback is never allowed.
-  private func resolveSharedKeychainForRecovery() throws -> any KeychainManaging {
-    do {
-      return try shared.keychain()
-    } catch {
-      throw StorageLegacyMigrationFailure.recoveryRequired(cause: error)
-    }
   }
 
   private func makeStore(

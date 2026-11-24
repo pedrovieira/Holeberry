@@ -6,6 +6,18 @@ import Testing
 
 private struct SharedStorageTestError: Error, Equatable {}
 
+/// A legacy domain that changes between snapshots, so a second decode would copy
+/// a different list than the one that was validated.
+private final class SequencedLegacyDomain: UserDefaults {
+  var domains: [[String: Any]] = []
+  private(set) var persistentDomainCallCount = 0
+
+  override func persistentDomain(forName domainName: String) -> [String: Any]? {
+    persistentDomainCallCount += 1
+    return domains[min(persistentDomainCallCount - 1, domains.count - 1)]
+  }
+}
+
 @Suite("KeychainManager options")
 @MainActor
 struct KeychainManagerOptionsTests {
@@ -225,7 +237,7 @@ struct SharedStorageMigrationTests {
     legacy.suite.setVolatileDomain([key.name: [String]()], forName: UserDefaults.argumentDomain)
     #expect(legacy.suite.object(forKey: key.name) as? [String] == [])
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     // Migration must read the persistent domain, not the argument domain.
     #expect(
@@ -253,7 +265,7 @@ struct SharedStorageMigrationTests {
     try harness.legacyKeychain.saveCredential("legacy-secret", for: first.id)
 
     #expect(throws: SharedStorageMigrationError.malformedLegacyConfiguration) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.url) == ["http://first.local", "http://second.local"])
@@ -275,7 +287,7 @@ struct SharedStorageMigrationTests {
     let second = ServerConfig(id: UUID(), url: "http://backup.local", version: .v5)
     Defaults[.servers(suite: harness.legacySuite)] = [first, second]
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     let shared = Defaults[.servers(suite: harness.sharedSuite)]
     try #require(shared.count == 2)
@@ -328,7 +340,7 @@ struct SharedStorageMigrationTests {
     Defaults[.tempUnblocks(for: first.id, suite: harness.legacySuite)] = firstRecords
     Defaults[.tempUnblocks(for: second.id, suite: harness.legacySuite)] = secondRecords
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(
       harness.sharedSuite.persistentDomain(forName: harness.sharedSuiteName)?[
@@ -346,7 +358,7 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(try harness.sharedKeychain.readCredential(for: server.id) == "legacy-secret")
     #expect(try harness.legacyKeychain.readCredential(for: server.id) == "legacy-secret")
@@ -360,7 +372,7 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     try harness.sharedKeychain.saveCredential("partial-secret", for: server.id)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(try harness.sharedKeychain.readCredential(for: server.id) == nil)
     #expect(try harness.legacyKeychain.readCredential(for: server.id) == nil)
@@ -377,7 +389,7 @@ struct SharedStorageMigrationTests {
     try harness.sharedKeychain.saveCredential("stale-secret", for: server.id)
     harness.sharedKeychain.readErrorStub = URLError(.cannotDecodeContentData)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(harness.sharedKeychain.storedCredentials[server.id.uuidString] == nil)
     #expect(harness.sharedKeychain.readCallCount == 0)
@@ -398,7 +410,7 @@ struct SharedStorageMigrationTests {
     harness.sharedKeychain.deleteErrorStub = SharedStorageTestError()
 
     #expect(throws: SharedStorageTestError.self) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(harness.sharedKeychain.storedCredentials[server.id.uuidString] == "stale-secret")
@@ -411,7 +423,8 @@ struct SharedStorageMigrationTests {
   @Test func emptyConfigurationCompletesAndNeverResurrectsLaterLegacyServers() throws {
     let harness = makeHarness()
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
+    StorageLegacyStore.markActivated(in: harness.legacySuite)
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
     #expect(
@@ -423,8 +436,11 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [late]
     try harness.legacyKeychain.saveCredential("late-secret", for: late.id)
 
-    try harness.copy.migrate()
-
+    let result = try harness.migrator.runIfNeeded()
+    guard case .alreadyActive = result else {
+      Issue.record("Expected a positive activation to skip legacy import")
+      return
+    }
     #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
     #expect(try harness.sharedKeychain.readCredential(for: late.id) == nil)
     #expect(harness.legacyKeychain.readCallCount == 0)
@@ -437,7 +453,7 @@ struct SharedStorageMigrationTests {
     setRawDefaultsValue(malformed, for: key)
 
     #expect(throws: SharedStorageMigrationError.malformedLegacyConfiguration) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
@@ -449,7 +465,7 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [repaired]
     try harness.legacyKeychain.saveCredential("repaired-secret", for: repaired.id)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [repaired.id])
     #expect(try harness.sharedKeychain.readCredential(for: repaired.id) == "repaired-secret")
@@ -465,7 +481,7 @@ struct SharedStorageMigrationTests {
     let malformed: [String] = ["not-json"]
     setRawDefaultsValue(malformed, for: key)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [server.id])
     #expect(Defaults[.tempUnblocks(for: server.id, suite: harness.sharedSuite)].isEmpty)
@@ -483,7 +499,7 @@ struct SharedStorageMigrationTests {
     harness.legacyKeychain.readErrorStub = SharedStorageTestError()
 
     #expect(throws: SharedStorageTestError.self) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [server.id])
@@ -494,7 +510,7 @@ struct SharedStorageMigrationTests {
 
     harness.legacyKeychain.readErrorStub = nil
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(try harness.sharedKeychain.readCredential(for: server.id) == "legacy-secret")
     #expect(
@@ -511,7 +527,7 @@ struct SharedStorageMigrationTests {
     harness.sharedKeychain.saveErrorsByServerID[second.id] = SharedStorageTestError()
 
     #expect(throws: SharedStorageTestError.self) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [first.id, second.id])
@@ -524,7 +540,7 @@ struct SharedStorageMigrationTests {
 
     harness.sharedKeychain.saveErrorsByServerID.removeAll()
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(try harness.sharedKeychain.readCredential(for: first.id) == "first-secret")
     #expect(try harness.sharedKeychain.readCredential(for: second.id) == "second-secret")
@@ -540,7 +556,7 @@ struct SharedStorageMigrationTests {
     harness.sharedKeychain.saveErrorStub = SharedStorageTestError()
 
     #expect(throws: SharedStorageTestError.self) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
     #expect(Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == 0)
 
@@ -553,7 +569,7 @@ struct SharedStorageMigrationTests {
 
     harness.sharedKeychain.saveErrorStub = nil
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     let shared = Defaults[.servers(suite: harness.sharedSuite)]
     #expect(shared.count == 2)
@@ -582,7 +598,7 @@ struct SharedStorageMigrationTests {
     Defaults[.tempUnblocks(for: removed.id, suite: harness.sharedSuite)] = [staleRecord]
     try harness.sharedKeychain.saveCredential("stale-secret", for: removed.id)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     let shared = Defaults[.servers(suite: harness.sharedSuite)]
     try #require(shared.count == 1)
@@ -606,7 +622,7 @@ struct SharedStorageMigrationTests {
     try harness.sharedKeychain.saveCredential("stale-secret", for: removed.id)
 
     #expect(throws: SharedStorageReadinessError.malformedServerConfiguration) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(rawDefaultsValue(for: key) as? [String] == malformed)
@@ -615,7 +631,7 @@ struct SharedStorageMigrationTests {
     #expect(harness.legacyKeychain.readCallCount == 0)
 
     Defaults[key] = [removed]
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(Defaults[key].map(\.id) == [kept.id])
     #expect(try harness.sharedKeychain.readCredential(for: removed.id) == nil)
@@ -627,12 +643,16 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
+    StorageLegacyStore.markActivated(in: harness.legacySuite)
     let legacyReadsAfterMigration = harness.legacyKeychain.readCallCount
     harness.legacyKeychain.readErrorStub = SharedStorageTestError()
 
-    try harness.copy.migrate()
-
+    let result = try harness.migrator.runIfNeeded()
+    guard case .alreadyActive = result else {
+      Issue.record("Expected a positive activation to skip legacy reads")
+      return
+    }
     #expect(harness.legacyKeychain.readCallCount == legacyReadsAfterMigration)
     #expect(Defaults[.servers(suite: harness.sharedSuite)].count == 1)
     #expect(
@@ -646,8 +666,13 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [legacy]
     Defaults[.servers(suite: harness.sharedSuite)] = [shared]
     Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
+    StorageLegacyStore.markActivated(in: harness.legacySuite)
 
-    try harness.copy.migrate()
+    let result = try harness.migrator.runIfNeeded()
+    guard case .alreadyActive = result else {
+      Issue.record("Expected a positive activation to keep the existing shared configuration")
+      return
+    }
 
     let current = Defaults[.servers(suite: harness.sharedSuite)]
     try #require(current.count == 1)
@@ -674,7 +699,7 @@ struct SharedStorageMigrationTests {
     let sharedDefaultsBefore = shared.suite.persistentDomain(forName: shared.name) ?? [:]
 
     #expect(throws: SharedStorageReadinessError.unsupportedCompletionVersion(newer)) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(
@@ -751,7 +776,7 @@ struct SharedStorageMigrationTests {
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: harness.legacySuite)] = [server]
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(Defaults[.servers(suite: shared.suite)].map(\.id) == [server.id])
     #expect(
@@ -768,7 +793,7 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [server]
 
     #expect(throws: SharedStorageReadinessError.unsupportedCompletionVersion(-1)) {
-      try harness.copy.migrate()
+      try harness.copy.refreshBeforeActivation()
     }
 
     #expect(Defaults[markerKey] == -1)
@@ -784,7 +809,7 @@ struct SharedStorageMigrationTests {
       let harness = makeHarness(shared: shared)
 
       #expect(throws: SharedStorageReadinessError.malformedCompletionVersion) {
-        try harness.copy.migrate()
+        try harness.copy.refreshBeforeActivation()
       }
 
       #expect(Defaults[.servers(suite: shared.suite)].isEmpty)
@@ -796,7 +821,7 @@ struct SharedStorageMigrationTests {
     let harness = makeHarness()
     Defaults[.servers(suite: harness.legacySuite)] = []
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(Defaults[.servers(suite: harness.sharedSuite)].isEmpty)
     #expect(
@@ -809,7 +834,7 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] = []
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(Defaults[.tempUnblocks(for: server.id, suite: harness.sharedSuite)].isEmpty)
     #expect(
@@ -832,7 +857,7 @@ struct SharedStorageMigrationTests {
     Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] = records
     try harness.legacyKeychain.saveCredential("legacy-secret", for: server.id)
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     #expect(Defaults[.servers(suite: shared.suite)].map(\.id) == [server.id])
     #expect(Defaults[.tempUnblocks(for: server.id, suite: shared.suite)].isEmpty)
@@ -856,7 +881,7 @@ struct SharedStorageMigrationTests {
     Defaults[.servers(suite: harness.legacySuite)] = [server]
     Defaults[.tempUnblocks(for: server.id, suite: harness.legacySuite)] = records
 
-    try harness.copy.migrate()
+    try harness.copy.refreshBeforeActivation()
 
     let sharedKey = Defaults.Keys.tempUnblocks(for: server.id, suite: shared.suite).name
     #expect(shared.suite.persistentDomain(forName: shared.name)?[sharedKey] == nil)
@@ -866,6 +891,39 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: shared.suite)] == SharedStorageValidation.currentVersion)
   }
 
+  @Test func copyUsesTheValidatedLegacySnapshot() throws {
+    let first = ServerConfig(url: "http://first.local", version: .v6)
+    let second = ServerConfig(url: "http://second.local", version: .v5)
+    let legacy = try #require(
+      SequencedLegacyDomain(suiteName: "com.holeberry.tests.sequenced.\(UUID().uuidString)")
+    )
+    legacy.domains = [try serversDomain([first]), try serversDomain([second])]
+    let shared = TestDefaults.makeNamedSuite()
+    let engine = StorageLegacyCopyEngine(
+      legacySuite: legacy,
+      legacySuiteName: "sequenced-legacy",
+      sharedSuite: shared.suite,
+      sharedSuiteName: shared.name,
+      legacyKeychain: MockKeychainManager(),
+      sharedKeychain: MockKeychainManager()
+    )
+
+    try engine.refreshBeforeActivation()
+
+    #expect(Defaults[.servers(suite: shared.suite)].map(\.id) == [first.id])
+    #expect(
+      Defaults[.sharedStorageMigrationVersion(suite: shared.suite)]
+        == SharedStorageValidation.currentVersion)
+    #expect(legacy.persistentDomainCallCount == 1, "one strict legacy capture per copy")
+  }
+
+  /// One persisted domain holding just a server list, for changing-domain fixtures.
+  private func serversDomain(_ servers: [ServerConfig]) throws -> [String: Any] {
+    let named = TestDefaults.makeNamedSuite()
+    Defaults[.servers(suite: named.suite)] = servers
+    return try #require(named.suite.persistentDomain(forName: named.name))
+  }
+
   private struct Harness {
     let legacySuite: UserDefaults
     let sharedSuite: UserDefaults
@@ -873,6 +931,7 @@ struct SharedStorageMigrationTests {
     let legacyKeychain: MockKeychainManager
     let sharedKeychain: MockKeychainManager
     let copy: StorageLegacyCopyEngine
+    let migrator: StorageLegacyMigrator
   }
 
   private func makeHarness(
@@ -894,6 +953,15 @@ struct SharedStorageMigrationTests {
         sharedSuiteName: shared.name,
         legacyKeychain: legacyKeychain,
         sharedKeychain: sharedKeychain
+      ),
+      migrator: StorageLegacyMigrator(
+        legacySuite: legacy.suite,
+        legacySuiteName: legacy.name,
+        legacyKeychain: legacyKeychain,
+        shared: StubSharedStorage(
+          location: SharedStorageLocation(suite: shared.suite, suiteName: shared.name),
+          keychain: sharedKeychain
+        )
       )
     )
   }

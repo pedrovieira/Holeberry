@@ -58,7 +58,7 @@ struct StorageLegacyMigratorTests {
         sharedSuiteName: shared.name,
         legacyKeychain: legacyKeychain,
         sharedKeychain: sharedKeychain
-      ).migrate()
+      ).refreshBeforeActivation()
     }
 
     func publishCompletedCopy(_ servers: [ServerConfig], credentials: [UUID: String] = [:]) {
@@ -178,6 +178,8 @@ struct StorageLegacyMigratorTests {
     let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: harness.legacy.suite).name
     harness.legacy.suite.set("current", forKey: activationKey)
     harness.publishCompletedCopy([server], credentials: [server.id: "shared-secret"])
+    let legacyServer = harness.makeServer("Legacy")
+    harness.storeLegacy([legacyServer], credentials: [legacyServer.id: "legacy-secret"])
     harness.sharedStorage.keychainError = MigratorTestValueError()
 
     guard case .recoveryRequired(let cause)? = harness.failure(try harness.migrator.runIfNeeded()) else {
@@ -194,7 +196,8 @@ struct StorageLegacyMigratorTests {
       Issue.record("Expected a repaired activation")
       return
     }
-    #expect(storage.loadServers().map(\.id) == [server.id])
+    #expect(storage.loadServers().map(\.id) == [server.id], "repair keeps the existing shared copy")
+    #expect(Defaults[.servers(suite: harness.legacy.suite)].map(\.id) == [legacyServer.id])
     #expect(harness.activationRecord == SharedStorageValidation.currentVersion)
     #expect(harness.legacyKeychain.readCallCount == 0, "repair never imports legacy data")
   }

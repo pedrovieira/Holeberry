@@ -59,21 +59,21 @@ public final class ConcreteSharedStorageReader: SharedStorageReading {
 ///
 /// The list is a snapshot, so one open decodes it once. Capabilities stop here:
 /// this type reads no credentials and writes nothing.
-public struct SharedServerReader: ServerReading {
+struct SharedServerReader: ServerReading {
   private let servers: [ServerConfig]
 
   init(servers: [ServerConfig]) {
     self.servers = servers
   }
 
-  public func loadServers() -> [ServerConfig] { servers }
+  func loadServers() -> [ServerConfig] { servers }
 }
 
 /// A validated server list and the shared credential store from one open.
 ///
 /// Capabilities stop at reading: this type cannot write servers, credentials, or
 /// temporary-unblock records, and it holds no app-local or legacy defaults.
-public struct SharedConnectionReader: ConnectionReading {
+struct SharedConnectionReader: ConnectionReading {
   private let servers: [ServerConfig]
   private let keychain: any KeychainManaging
 
@@ -82,9 +82,9 @@ public struct SharedConnectionReader: ConnectionReading {
     self.keychain = keychain
   }
 
-  public func loadServers() -> [ServerConfig] { servers }
+  func loadServers() -> [ServerConfig] { servers }
 
-  public func readCredential(for serverID: UUID) throws -> String? {
+  func readCredential(for serverID: UUID) throws -> String? {
     try keychain.readCredential(for: serverID)
   }
 }

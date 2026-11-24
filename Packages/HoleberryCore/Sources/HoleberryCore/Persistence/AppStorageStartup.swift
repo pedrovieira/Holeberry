@@ -7,40 +7,6 @@ public enum AppStorageStartupStatus: Equatable {
   case recovery
 }
 
-/// App Group location shared with the widget.
-public struct SharedStorageLocation {
-  public let suite: UserDefaults
-  /// Persistent domain of `suite`. `UserDefaults` does not expose this name, and
-  /// strict startup reads must exclude registered defaults.
-  public let suiteName: String
-
-  public init(suite: UserDefaults, suiteName: String) {
-    self.suite = suite
-    self.suiteName = suiteName
-  }
-}
-
-/// The App Group store and the credential store that belongs to it.
-@MainActor
-public protocol SharedStorageProviding {
-  func location() throws -> SharedStorageLocation
-  func keychain() throws -> any KeychainManaging
-}
-
-public enum AppStorageStartupError: Error, Equatable, LocalizedError {
-  case completedStoreMarkerMissing
-  case migrationDidNotComplete
-
-  public var errorDescription: String? {
-    switch self {
-    case .completedStoreMarkerMissing:
-      return "Shared storage was activated on an earlier launch but reports no completion marker."
-    case .migrationDidNotComplete:
-      return "The copy to shared storage did not finish."
-    }
-  }
-}
-
 /// Chooses the storage for one launch.
 ///
 /// Migration belongs to `StorageLegacyMigrator`; this type only calls the injected
