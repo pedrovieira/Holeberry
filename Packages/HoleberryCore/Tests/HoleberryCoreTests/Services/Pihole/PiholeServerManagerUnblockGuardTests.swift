@@ -22,7 +22,8 @@ struct PiholeServerManagerUnblockGuardTests {
     return PiholeServerManager(
       storage: storage,
       serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
   }
 

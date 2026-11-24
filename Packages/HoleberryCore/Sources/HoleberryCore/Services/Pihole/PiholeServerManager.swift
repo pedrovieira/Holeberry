@@ -12,6 +12,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let storage: any AppStorageProviding
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
+  private let urlSessionFactory: any URLSessionFactory
   private let executionMode: ServiceExecutionMode
   private let allowsServerChanges: Bool
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
@@ -28,6 +29,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     storage: any AppStorageProviding,
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
+    urlSessionFactory: any URLSessionFactory,
     executionMode: ServiceExecutionMode = .application,
     allowsServerChanges: Bool = true,
     persistentChangeHandler: @escaping () -> Void = {}
@@ -35,6 +37,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
+    self.urlSessionFactory = urlSessionFactory
     self.executionMode = executionMode
     self.allowsServerChanges = allowsServerChanges
     self.persistentChangeHandler = persistentChangeHandler
@@ -250,10 +253,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
-  private func makeSession(trusting url: URL) -> URLSession {
+  private func makeSession(trusting url: URL) -> any HTTPRequestable {
     let hosts = Set(servers.compactMap { URL(string: $0.url)?.host } + [url.host].compactMap { $0 })
-    let delegate = CertificateTrustDelegate(trustedHosts: hosts)
-    return URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    return urlSessionFactory.makeSession(configuration: .ephemeral, trustedHosts: hosts)
   }
 
   private func detectVersion(url urlString: String) async throws -> ServerVersion {
@@ -262,7 +264,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
 
     let session = makeSession(trusting: url)
-    defer { session.finishTasksAndInvalidate() }
+    defer { session.invalidateAndCancel() }
 
     return try await versionDetector.detect(baseURL: url, session: session)
   }

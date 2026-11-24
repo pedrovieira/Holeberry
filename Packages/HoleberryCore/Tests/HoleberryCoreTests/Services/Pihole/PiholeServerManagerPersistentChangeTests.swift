@@ -24,7 +24,9 @@ struct PiholeServerManagerPersistentChangeTests {
         keychain: shared,
         legacyKeychain: legacy
       ),
-      serviceFactory: MockPiholeServiceFactory(), versionDetector: MockPiholeVersionDetector()
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     legacy.readErrorStub = PersistentChangeTestError()
     shared.readErrorStub = PersistentChangeTestError()
@@ -57,6 +59,7 @@ struct PiholeServerManagerPersistentChangeTests {
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
       versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory(),
       persistentChangeHandler: { changes += 1 }
     )
     let denied = failingStore == "legacy" ? legacy : shared
@@ -95,7 +98,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
 
     manager.deleteServer(id: server.id)
@@ -307,6 +311,7 @@ struct PiholeServerManagerPersistentChangeTests {
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
       versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory(),
       persistentChangeHandler: {
         snapshots.append(
           PersistentChangeSnapshot(
@@ -345,7 +350,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     // Simulate an authentication failure from before the credential edit.
     let inFlightConfigs = storage.loadServers()
@@ -390,7 +396,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
 
     manager.updateServer(
@@ -420,7 +427,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
 
     manager.updateServer(
@@ -451,7 +459,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
 
     manager.updateServer(
@@ -479,7 +488,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     let inFlightConfigs = storage.loadServers()
     // Deletion can succeed even when reading the credential fails.
@@ -512,7 +522,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     let readsAfterInitialization = keychain.readCredentialCallCount
 
@@ -546,7 +557,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     let inFlightConfigs = storage.loadServers()
 
@@ -578,7 +590,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     let previousRevision = storage.loadServers().first?.connectionRevision
 
@@ -610,7 +623,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
 
     manager.updateServer(
@@ -638,7 +652,8 @@ struct PiholeServerManagerPersistentChangeTests {
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     manager.updateServer(
       id: server.id,
@@ -675,6 +690,7 @@ struct PiholeServerManagerPersistentChangeTests {
         appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain),
       serviceFactory: MockPiholeServiceFactory(),
       versionDetector: versionDetector,
+      urlSessionFactory: MockURLSessionFactory(),
       allowsServerChanges: allowsServerChanges,
       persistentChangeHandler: persistentChangeHandler
     )

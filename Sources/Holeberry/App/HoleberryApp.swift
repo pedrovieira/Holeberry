@@ -48,12 +48,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     authSessionFactory: authFactory
   )
   private lazy var versionDetector = PiholeVersionDetector()
+  private lazy var urlSessionFactory = ConcreteURLSessionFactory()
   private lazy var serverManager: PiholeServerManager = {
     let writesSharedStore = appStorage.status == .shared
     return PiholeServerManager(
       storage: appStorage.storage,
       serviceFactory: serviceFactory,
       versionDetector: versionDetector,
+      urlSessionFactory: urlSessionFactory,
       allowsServerChanges: appStorage.allowsServerChanges
     ) {
       guard writesSharedStore else { return }
