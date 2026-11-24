@@ -57,7 +57,7 @@ public final class OnDemandQueryStatisticsClient: QueryStatisticsFetching {
 
   private let connections: any ConnectionReading
   private let serviceFactory: any PiholeServiceFactory
-  private let sessionProvider: any OnDemandSessionProviding
+  private let sessionFactory: any URLSessionFactory
   private let cleanupDeadline: CleanupDeadline
   private var builtServices: [any PiholeServiceProviding] = []
   private var builtSessions: [any HTTPRequestable] = []
@@ -65,14 +65,14 @@ public final class OnDemandQueryStatisticsClient: QueryStatisticsFetching {
   public init(
     connections: any ConnectionReading,
     serviceFactory: any PiholeServiceFactory,
-    sessionProvider: any OnDemandSessionProviding = EphemeralOnDemandSessionProvider(),
+    sessionFactory: any URLSessionFactory = ConcreteURLSessionFactory(),
     cleanupDeadline: @escaping CleanupDeadline = {
       try? await ContinuousClock().sleep(for: OnDemandQueryStatisticsClient.defaultCleanupBudget)
     }
   ) {
     self.connections = connections
     self.serviceFactory = serviceFactory
-    self.sessionProvider = sessionProvider
+    self.sessionFactory = sessionFactory
     self.cleanupDeadline = cleanupDeadline
   }
 
@@ -99,7 +99,7 @@ public final class OnDemandQueryStatisticsClient: QueryStatisticsFetching {
         continue
       }
 
-      let session = sessionProvider.makeSession(trustedHosts: trustedHosts)
+      let session = sessionFactory.makeSession(configuration: .ephemeral, trustedHosts: trustedHosts)
       do {
         let service = try serviceFactory.buildService(
           config: config,
@@ -118,22 +118,14 @@ public final class OnDemandQueryStatisticsClient: QueryStatisticsFetching {
       }
     }
 
-    let services = selectedServices
-    let fetched = await withTaskGroup(of: (UUID, Result<QuerySummary, PiholeError>).self) { group in
-      for (id, service) in services {
-        group.addTask {
-          do {
-            return (id, .success(try await service.getQuerySummary()))
-          } catch {
-            return (id, .failure(error as? PiholeError ?? .unknown(error.localizedDescription)))
-          }
-        }
-      }
-      var fetched: [UUID: Result<QuerySummary, PiholeError>] = [:]
-      for await (id, result) in group {
-        fetched[id] = result
-      }
-      return fetched
+    // Same concurrent execution and error mapping as the app manager; only
+    // successfully built services enter the batch, and credential/build
+    // failures recorded above are never overwritten.
+    let fetched = await performPiholeOperation(
+      serverIDs: Array(selectedServices.keys),
+      services: selectedServices
+    ) { service in
+      try await service.getQuerySummary()
     }
     results.merge(fetched) { current, _ in current }
 

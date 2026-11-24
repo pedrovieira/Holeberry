@@ -12,6 +12,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let storage: any ConnectionStoring
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
+  private let sessionFactory: any URLSessionFactory
   private let allowsServerChanges: Bool
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
   /// Called after a persisted server or credential change.
@@ -27,12 +28,14 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     storage: any ConnectionStoring,
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
+    sessionFactory: any URLSessionFactory = ConcreteURLSessionFactory(),
     allowsServerChanges: Bool = true,
     persistentChangeHandler: @escaping () -> Void = {}
   ) {
     self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
+    self.sessionFactory = sessionFactory
     self.allowsServerChanges = allowsServerChanges
     self.persistentChangeHandler = persistentChangeHandler
     self.servers = []
@@ -241,10 +244,11 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
   }
 
-  private func makeSession(trusting url: URL) -> URLSession {
+  /// Every manager path builds its transport here: the app chooses an ephemeral
+  /// session and trusts all saved hosts plus the probe or new target.
+  private func makeSession(trusting url: URL) -> any HTTPRequestable {
     let hosts = Set(servers.compactMap { URL(string: $0.url)?.host } + [url.host].compactMap { $0 })
-    let delegate = CertificateTrustDelegate(trustedHosts: hosts)
-    return URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    return sessionFactory.makeSession(configuration: .ephemeral, trustedHosts: hosts)
   }
 
   private func detectVersion(url urlString: String) async throws -> ServerVersion {
@@ -267,6 +271,9 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   /// Snapshots targets before awaiting, preserving failures for missing selected servers.
+  ///
+  /// Target selection is manager policy; the concurrent execution and result
+  /// mapping are shared with the widget's on-demand client.
   private func performOnServers<Value: Sendable>(
     scope: ServerScope,
     operation: @escaping @MainActor @Sendable (any PiholeServiceProviding) async throws -> Value
@@ -277,25 +284,13 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     case .all: ids = servers.map(\.id)
     case .server(let id): ids = [id]
     }
-    let clients = services
-    return await withTaskGroup(of: (UUID, Result<Value, PiholeError>).self) { group in
-      for id in ids {
-        let client = configuredIDs.contains(id) ? clients[id] : nil
-        group.addTask {
-          guard let client else { return (id, .failure(.unknown("Server not found"))) }
-          do {
-            return (id, .success(try await operation(client)))
-          } catch {
-            return (id, .failure(error as? PiholeError ?? .unknown(error.localizedDescription)))
-          }
-        }
-      }
-      var results: [UUID: Result<Value, PiholeError>] = [:]
-      for await (id, result) in group {
-        results[id] = result
-      }
-      return results
-    }
+    // A stale service entry for a no-longer-configured id must never be called.
+    let callableServices = services.filter { configuredIDs.contains($0.key) }
+    return await performPiholeOperation(
+      serverIDs: ids,
+      services: callableServices,
+      operation: operation
+    )
   }
 
   /// Single-server health check. Returns nil for an unknown server id.

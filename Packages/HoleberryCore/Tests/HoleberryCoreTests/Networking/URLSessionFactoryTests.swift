@@ -79,11 +79,15 @@ private func makeChallenge(host: String, trust: SecTrust) -> URLAuthenticationCh
 }
 
 @MainActor
-@Suite("EphemeralOnDemandSessionProvider")
-struct EphemeralOnDemandSessionProviderTests {
-  private func makeSession(trustedHosts: Set<String> = ["pihole.local"]) throws -> URLSession {
-    let provider = EphemeralOnDemandSessionProvider()
-    return try #require(provider.makeSession(trustedHosts: trustedHosts) as? URLSession)
+@Suite("ConcreteURLSessionFactory")
+struct ConcreteURLSessionFactoryTests {
+  private func makeSession(
+    configuration: URLSessionConfiguration = .ephemeral,
+    trustedHosts: Set<String> = ["pihole.local"]
+  ) throws -> URLSession {
+    let factory = ConcreteURLSessionFactory()
+    return try #require(
+      factory.makeSession(configuration: configuration, trustedHosts: trustedHosts) as? URLSession)
   }
 
   private func disposition(
@@ -105,7 +109,7 @@ struct EphemeralOnDemandSessionProviderTests {
   }
 
   @Test func createsAnEphemeralSessionWithTheTrustDelegate() throws {
-    let session = try makeSession()
+    let session = try makeSession(configuration: .ephemeral)
     defer { session.invalidateAndCancel() }
 
     #expect(session.delegate is CertificateTrustDelegate)
@@ -130,6 +134,16 @@ struct EphemeralOnDemandSessionProviderTests {
     let other = try disposition(delegate, session, makeChallenge(host: "other.local", trust: trust))
     #expect(other.0 == .performDefaultHandling)
     #expect(other.1 == nil)
+  }
+
+  @Test func honorsTheSuppliedConfiguration() throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.timeoutIntervalForRequest = 12
+    let session = try makeSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+
+    #expect(session.configuration.timeoutIntervalForRequest == 12)
+    #expect(session.delegate is CertificateTrustDelegate)
   }
 
   @Test func nonServerTrustChallengesUseDefaultHandling() throws {

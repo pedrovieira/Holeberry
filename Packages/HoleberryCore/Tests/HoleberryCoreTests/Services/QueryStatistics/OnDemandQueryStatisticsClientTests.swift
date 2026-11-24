@@ -6,6 +6,10 @@ import Testing
 
 private struct StatisticsReadFailure: Error {}
 
+private struct PlainFetchError: Error, LocalizedError {
+  var errorDescription: String? { "plain fetch failure" }
+}
+
 
 /// A v6 transport that holds the summary request until the test cancels it and
 /// records whether the session DELETE ran inside a cancelled task.
@@ -90,6 +94,9 @@ private final class CancellationAwareV6Transport: HTTPRequestable, @unchecked Se
     lock.unlock()
   }
 
+  func finishTasksAndInvalidate() {}
+
+
   private func response(for request: URLRequest, status: Int) -> HTTPURLResponse {
     HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
   }
@@ -121,7 +128,7 @@ struct OnDemandQueryStatisticsClientTests {
     let keychain = MockKeychainManager()
     let sharedStorage: StubSharedStorage
     let reader: ConcreteSharedStorageReader
-    let sessionProvider = MockOnDemandSessionProvider()
+    let sessionFactory = MockURLSessionFactory()
     let factory = MockPiholeServiceFactory()
 
     init() {
@@ -152,7 +159,7 @@ struct OnDemandQueryStatisticsClientTests {
       OnDemandQueryStatisticsClient(
         connections: connections,
         serviceFactory: factory,
-        sessionProvider: sessionProvider
+        sessionFactory: sessionFactory
       )
     }
 
@@ -198,13 +205,13 @@ struct OnDemandQueryStatisticsClientTests {
     let broken = ServerConfig(id: UUID(), label: "Broken", url: "http://[broken", version: .v6)
     let healthy = harness.makeServer("Healthy")
     harness.publish([broken, healthy], credentials: [broken.id: "a", healthy.id: "b"])
-    harness.sessionProvider.sessionFactory = { Harness.makeV6Session() }
+    harness.sessionFactory.sessionBuilder = { Harness.makeV6Session() }
     // The real production factory, not the mock, must not trap on an unparsable URL.
     let factory = ConcretePiholeServiceFactory(onDemand: ConcreteAuthSessionFactory())
     let client = OnDemandQueryStatisticsClient(
       connections: try harness.openConnections(),
       serviceFactory: factory,
-      sessionProvider: harness.sessionProvider
+      sessionFactory: harness.sessionFactory
     )
 
     let batch = await client.fetchStatistics(scope: .all)
@@ -216,7 +223,7 @@ struct OnDemandQueryStatisticsClientTests {
     #expect(batch.results[healthy.id] == .success(QuerySummary(totalQueries: 12, totalBlocked: 3)))
     // The broken server's transport was created before its build failed, so the
     // client releases it at once; the healthy one is released by logout.
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 0])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 0])
 
     await client.logout()
 
@@ -224,7 +231,7 @@ struct OnDemandQueryStatisticsClientTests {
     // The healthy v6 service invalidates its own session during logout, and the
     // client may release its owned reference again; a repeated
     // `invalidateAndCancel` is a no-op on a real URLSession.
-    let sessions = harness.sessionProvider.createdMockSessions
+    let sessions = harness.sessionFactory.createdMockSessions
     #expect(sessions.count == 2)
     #expect(sessions[0].invalidateAndCancelCallCount == 1, "a failed build releases its transport exactly once")
     #expect(sessions[1].invalidateAndCancelCallCount >= 1)
@@ -252,8 +259,8 @@ struct OnDemandQueryStatisticsClientTests {
     #expect(firstService.getQuerySummaryCallCount == 1)
     #expect(secondService.getQuerySummaryCallCount == 0)
     #expect(harness.factory.buildServiceCallCount == 1)
-    #expect(harness.sessionProvider.makeSessionCallCount == 1)
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
+    #expect(harness.sessionFactory.makeSessionCallCount == 1)
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
   }
 
   @Test func allScopeBuildsEverySavedServer() async throws {
@@ -274,7 +281,7 @@ struct OnDemandQueryStatisticsClientTests {
     #expect(firstService.getQuerySummaryCallCount == 1)
     #expect(secondService.getQuerySummaryCallCount == 1)
     #expect(harness.factory.buildServiceCallCount == 2)
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
   }
 
   @Test func missingSelectedServerFetchesNothing() async throws {
@@ -289,8 +296,8 @@ struct OnDemandQueryStatisticsClientTests {
     #expect(batch.servers.isEmpty)
     #expect(batch.results.isEmpty)
     #expect(harness.factory.buildServiceCallCount == 0)
-    #expect(harness.sessionProvider.makeSessionCallCount == 0)
-    #expect(harness.sessionProvider.createdSessions.isEmpty)
+    #expect(harness.sessionFactory.makeSessionCallCount == 0)
+    #expect(harness.sessionFactory.createdSessions.isEmpty)
     #expect(harness.keychain.readCredentialCallCount == 0)
   }
 
@@ -309,7 +316,7 @@ struct OnDemandQueryStatisticsClientTests {
 
     #expect(service.loginCallCount == 0)
     #expect(service.getQuerySummaryCallCount == 1)
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
   }
 
   @Test func sessionsTrustEveryConfiguredHost() async throws {
@@ -323,9 +330,12 @@ struct OnDemandQueryStatisticsClientTests {
     _ = await client.fetchStatistics(scope: .server(first.id))
     await client.logout()
 
-    #expect(harness.sessionProvider.makeSessionCallCount == 1)
-    #expect(harness.sessionProvider.makeSessionLastTrustedHosts == ["first.local", "second.local"])
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
+    #expect(harness.sessionFactory.makeSessionCallCount == 1)
+    #expect(harness.sessionFactory.makeSessionLastTrustedHosts == ["first.local", "second.local"])
+    #expect(
+      harness.sessionFactory.makeSessionConfigurations.allSatisfy { $0.urlCache?.diskCapacity == 0 },
+      "the widget explicitly requests an ephemeral configuration")
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
   }
 
   @Test func failedFetchKeepsPerServerResultsWithoutClientLevelRetries() async throws {
@@ -348,7 +358,7 @@ struct OnDemandQueryStatisticsClientTests {
     #expect(
       failingService.getQuerySummaryCallCount == 1,
       "the client adds no retries beyond the service's own semantics")
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
   }
 
   // MARK: - Credentials
@@ -409,6 +419,21 @@ struct OnDemandQueryStatisticsClientTests {
     #expect(harness.factory.buildServiceCallCount == 0)
   }
 
+  @Test func untypedFetchFailureMapsToUnknown() async throws {
+    let harness = Harness()
+    let server = harness.makeServer("Home")
+    harness.publish([server], credentials: [server.id: "secret"])
+    let service = MockPiholeService(id: server.id, url: server.url, version: server.version)
+    service.getQuerySummaryHandler = { throw PlainFetchError() }
+    harness.serve([server.id: service])
+    let client = harness.makeClient(connections: try harness.openConnections())
+
+    let batch = await client.fetchStatistics(scope: .all)
+    await client.logout()
+
+    #expect(batch.results[server.id] == .failure(.unknown("plain fetch failure")))
+  }
+
   @Test func failedServiceBuildKeepsThatServersFailure() async throws {
     let harness = Harness()
     let unbuildable = harness.makeServer("Unbuildable")
@@ -423,14 +448,14 @@ struct OnDemandQueryStatisticsClientTests {
 
     // The session created for the failed build has no service owner, so the
     // client releases it immediately; the healthy one lives until logout.
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 0])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 0])
     #expect(batch.results[unbuildable.id] == .failure(.unknown("bad configuration")))
     #expect(batch.results[healthy.id] == .success(QuerySummary(totalQueries: 0, totalBlocked: 0)))
     #expect(healthyService.getQuerySummaryCallCount == 1)
 
     await client.logout()
 
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
   }
 
   // MARK: - Cancellation and cleanup bounds
@@ -440,11 +465,11 @@ struct OnDemandQueryStatisticsClientTests {
     let server = harness.makeServer("Home")
     harness.publish([server], credentials: [server.id: "secret"])
     let transport = CancellationAwareV6Transport()
-    harness.sessionProvider.sessionFactory = { transport }
+    harness.sessionFactory.sessionBuilder = { transport }
     let client = OnDemandQueryStatisticsClient(
       connections: try harness.openConnections(),
       serviceFactory: ConcretePiholeServiceFactory(onDemand: ConcreteAuthSessionFactory()),
-      sessionProvider: harness.sessionProvider
+      sessionFactory: harness.sessionFactory
     )
 
     let refresh = Task { @MainActor in
@@ -479,13 +504,13 @@ struct OnDemandQueryStatisticsClientTests {
     }
     harness.serve([server.id: service])
     let session = MockURLSession()
-    harness.sessionProvider.sessionFactory = { session }
+    harness.sessionFactory.sessionBuilder = { session }
     var events: [String] = []
     session.invalidateAndCancelHandler = { events.append("invalidate") }
     let client = OnDemandQueryStatisticsClient(
       connections: try harness.openConnections(),
       serviceFactory: harness.factory,
-      sessionProvider: harness.sessionProvider,
+      sessionFactory: harness.sessionFactory,
       cleanupDeadline: {
         // Proves the bound without a real clock: let cleanup start, then elapse.
         await waitUntil { service.logoutCallCount == 1 }
@@ -522,7 +547,7 @@ struct OnDemandQueryStatisticsClientTests {
 
     #expect(failingService.logoutCallCount == 1)
     #expect(healthyService.logoutCallCount == 1)
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1, 1])
   }
 
   @Test func logoutEndsBuiltServicesAfterCancellation() async throws {
@@ -551,7 +576,7 @@ struct OnDemandQueryStatisticsClientTests {
     await client.logout()
 
     #expect(service.logoutCallCount == 1)
-    #expect(harness.sessionProvider.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
+    #expect(harness.sessionFactory.createdMockSessions.map(\.invalidateAndCancelCallCount) == [1])
   }
 
   @Test func logoutRequestsFinishBeforeTheirTransportIsInvalidated() async throws {
@@ -562,7 +587,7 @@ struct OnDemandQueryStatisticsClientTests {
     harness.serve([server.id: service])
     var events: [String] = []
     let session = MockURLSession()
-    harness.sessionProvider.sessionFactory = { session }
+    harness.sessionFactory.sessionBuilder = { session }
     session.invalidateAndCancelHandler = { events.append("invalidate") }
     service.logoutHandler = { events.append("logout") }
     let client = harness.makeClient(connections: try harness.openConnections())
@@ -582,6 +607,6 @@ struct OnDemandQueryStatisticsClientTests {
     await client.logout()
 
     #expect(harness.factory.buildServiceCallCount == 0)
-    #expect(harness.sessionProvider.createdSessions.isEmpty)
+    #expect(harness.sessionFactory.createdSessions.isEmpty)
   }
 }

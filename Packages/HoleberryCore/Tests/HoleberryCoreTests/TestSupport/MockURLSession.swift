@@ -20,6 +20,7 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
 
   /// Tracks how many times `invalidateAndCancel` was called.
   private(set) var invalidateAndCancelCallCount = 0
+  private(set) var finishTasksAndInvalidateCallCount = 0
   /// Runs when the session is invalidated, for ordering assertions.
   var invalidateAndCancelHandler: (() -> Void)?
 
@@ -58,5 +59,11 @@ final class MockURLSession: HTTPRequestable, @unchecked Sendable {
     invalidateAndCancelCallCount += 1
     lock.unlock()
     invalidateAndCancelHandler?()
+  }
+
+  func finishTasksAndInvalidate() {
+    lock.lock()
+    finishTasksAndInvalidateCallCount += 1
+    lock.unlock()
   }
 }

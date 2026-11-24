@@ -4,6 +4,10 @@ import Testing
 
 @testable import HoleberryCore
 
+private struct PlainOperationError: Error, LocalizedError {
+  var errorDescription: String? { "plain operation failure" }
+}
+
 @MainActor
 @Suite("PiholeServerManager CRUD")
 struct PiholeServerManagerCRUDTests {
@@ -829,6 +833,16 @@ struct PiholeServerManagerOperationsTests {
     }
   }
 
+  @Test("Untyped operation errors map to unknown with their description")
+  func untypedOperationError() async {
+    mockService1.getQuerySummaryStub = .failure(PlainOperationError())
+    let manager = makeManagerWithTwoServers()
+
+    let summaries = await manager.getQuerySummary(scope: .server(mockService1.id))
+
+    #expect(summaries[mockService1.id] == .failure(.unknown("plain operation failure")))
+  }
+
   @Test("Empty all-server requests return no results")
   func emptyServers() async {
     let manager = PiholeServerManager(
@@ -1013,5 +1027,89 @@ struct PiholeServerManagerStorageTests {
     #expect(relaunched.servers.last?.label == "B2")
     #expect(relaunched.servers.last?.icon == "moon")
     #expect(relaunched.servers.last?.url == "http://b2.local")
+  }
+}
+
+@MainActor
+@Suite("PiholeServerManager session factory")
+struct PiholeServerManagerSessionFactoryTests {
+  private let storage = MockConnectionStore()
+  private let serviceFactory = MockPiholeServiceFactory()
+  private let sessionFactory = MockURLSessionFactory()
+  private let detector = MockPiholeVersionDetector()
+
+  private func makeManager() -> PiholeServerManager {
+    PiholeServerManager(
+      storage: storage,
+      serviceFactory: serviceFactory,
+      versionDetector: detector,
+      sessionFactory: sessionFactory
+    )
+  }
+
+  private func expectEphemeral(_ configuration: URLSessionConfiguration?) {
+    #expect(configuration?.urlCache?.diskCapacity == 0, "the manager explicitly requests .ephemeral")
+  }
+
+  @Test func startupBuildsThroughTheInjectedFactory() throws {
+    let server = ServerConfig(label: "Home", url: "https://home.local", version: .v6)
+    storage.servers = [server]
+
+    let manager = makeManager()
+
+    #expect(manager.servers.map(\.id) == [server.id])
+    #expect(sessionFactory.makeSessionCallCount == 1)
+    #expect(sessionFactory.makeSessionLastTrustedHosts == ["home.local"])
+    expectEphemeral(sessionFactory.makeSessionConfigurations.first)
+    let session = try #require(serviceFactory.buildServiceLastSession as? MockURLSession)
+    #expect(session === sessionFactory.createdMockSessions.first)
+    #expect(session.finishTasksAndInvalidateCallCount == 0)
+  }
+
+  @Test func addServerProbeUsesTheFactoryAndFinishesGracefully() async throws {
+    let manager = makeManager()
+
+    try await manager.addServer(label: "New", url: "https://new.local", credential: "secret")
+
+    #expect(sessionFactory.makeSessionCallCount == 2, "version probe, then service build")
+    let sessions = sessionFactory.createdMockSessions
+    #expect(sessions.count == 2)
+    let probe = try #require(detector.detectLastSession as? MockURLSession)
+    #expect(probe === sessions[0])
+    let built = try #require(serviceFactory.buildServiceLastSession as? MockURLSession)
+    #expect(built === sessions[1])
+    #expect(sessionFactory.makeSessionTrustedHostsHistory == [["new.local"], ["new.local"]])
+    #expect(sessions[0].finishTasksAndInvalidateCallCount == 1)
+    #expect(sessions[0].invalidateAndCancelCallCount == 0)
+    #expect(sessions[1].finishTasksAndInvalidateCallCount == 0)
+  }
+
+  @Test func failedProbeStillFinishesGracefully() async {
+    let manager = makeManager()
+    detector.detectStub = .failure(PiholeError.network("offline"))
+
+    await #expect(throws: PiholeError.self) {
+      try await manager.addServer(label: "New", url: "https://new.local", credential: "secret")
+    }
+
+    #expect(sessionFactory.makeSessionCallCount == 1)
+    #expect(sessionFactory.createdMockSessions[0].finishTasksAndInvalidateCallCount == 1)
+    #expect(sessionFactory.createdMockSessions[0].invalidateAndCancelCallCount == 0)
+    #expect(serviceFactory.buildServiceCallCount == 0)
+  }
+
+  @Test func reconnectUsesTheFactoryWithAllSavedHosts() throws {
+    let existing = ServerConfig(label: "Home", url: "https://home.local", version: .v6)
+    storage.servers = [existing]
+    let manager = makeManager()
+    #expect(sessionFactory.makeSessionCallCount == 1)
+
+    manager.updateServer(id: existing.id, label: "Home", url: "https://moved.local", credential: "secret")
+
+    #expect(sessionFactory.makeSessionCallCount == 2)
+    #expect(sessionFactory.makeSessionLastTrustedHosts == ["home.local", "moved.local"])
+    expectEphemeral(sessionFactory.makeSessionConfigurations.last)
+    let rebuilt = try #require(serviceFactory.buildServiceLastSession as? MockURLSession)
+    #expect(rebuilt === sessionFactory.createdMockSessions.last)
   }
 }
