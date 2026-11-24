@@ -546,17 +546,12 @@ struct PiholeIntegrationTests {
     let config = ServerConfig(url: context.config.url, version: context.version)
 
     let service = try ConcretePiholeServiceFactory(
-      authSessionFactory: ConcreteAuthSessionFactory()
+      authSessionFactory: ConcreteAuthSessionFactory(),
+      tempUnblockStorage: ConcreteTempUnblockStore(suite: defaults)
     ).buildService(
       config: config,
       credential: "wrong-credential",
-      session: session,
-      storage: ConcreteAppStorage(
-        sharedDataSuite: defaults,
-        appLocalSuite: defaults,
-        keychain: IntegrationKeychain()
-      ),
-      executionMode: .application
+      session: session
     )
     try await operation(service)
   }

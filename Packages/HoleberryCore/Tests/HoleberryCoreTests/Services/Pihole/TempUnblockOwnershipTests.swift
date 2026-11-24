@@ -15,7 +15,7 @@ struct TempUnblockOwnershipTests {
     suite: UserDefaults = TestDefaults.makeSuite()
   ) -> TemporaryUnblockPiholeServiceDecorator {
     TemporaryUnblockPiholeServiceDecorator(
-      service: service, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in }, sleep: { _ in })
+      service: service, storage: makeTestTempUnblockStore(suite: suite), retrySleep: { _ in }, sleep: { _ in })
   }
 
   /// Like `makeDecorator`, but real-world durations (≥10s) park for the whole
@@ -25,7 +25,7 @@ struct TempUnblockOwnershipTests {
     suite: UserDefaults = TestDefaults.makeSuite()
   ) -> TemporaryUnblockPiholeServiceDecorator {
     TemporaryUnblockPiholeServiceDecorator(
-      service: service, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
+      service: service, storage: makeTestTempUnblockStore(suite: suite), retrySleep: { _ in },
       sleep: { duration in
         if duration < 10 { return }
         try await Task.sleep(nanoseconds: UInt64(60000 * 1_000_000))
@@ -186,7 +186,7 @@ struct TempUnblockOwnershipTests {
 
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      storage: makeTestStorage(appLocalSuite: suite),
+      storage: makeTestTempUnblockStore(suite: suite),
       notificationCenter: center, sleep: { _ in })
     _ = try await decorator.unblockDomain(
       "x.com", duration: 0.5)
@@ -218,7 +218,7 @@ struct TempUnblockOwnershipTests {
 
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()),
+      storage: makeTestTempUnblockStore(suite: TestDefaults.makeSuite()),
       notificationCenter: center, sleep: { _ in })
     _ = try await decorator.unblockDomain(
       "x.com", duration: 0.5)
@@ -236,7 +236,7 @@ struct TempUnblockOwnershipTests {
     let suite = TestDefaults.makeSuite()
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      storage: makeTestStorage(appLocalSuite: suite), sleep: { _ in })
+      storage: makeTestTempUnblockStore(suite: suite), sleep: { _ in })
     _ = try await decorator.unblockDomain(
       "x.com", duration: 0.5)
 
@@ -265,7 +265,7 @@ struct TempUnblockOwnershipTests {
 
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      storage: makeTestStorage(appLocalSuite: suite),
+      storage: makeTestTempUnblockStore(suite: suite),
       notificationCenter: center, sleep: { _ in })
     _ = try await decorator.unblockDomain(
       "x.com", duration: 0.5)
@@ -290,7 +290,7 @@ struct TempUnblockOwnershipTests {
 
     let decorator = TemporaryUnblockPiholeServiceDecorator(
       service: mock,
-      storage: makeTestStorage(appLocalSuite: suite), sleep: { _ in })
+      storage: makeTestTempUnblockStore(suite: suite), sleep: { _ in })
     _ = decorator
 
     #expect(

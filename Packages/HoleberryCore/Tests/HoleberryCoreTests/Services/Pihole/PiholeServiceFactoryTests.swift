@@ -12,11 +12,14 @@ struct PiholeServiceFactoryTests {
     let session = MockURLSession()
     let mockAuthFactory = MockAuthSessionFactory()
     mockAuthFactory.stubbedProvider = MockAuthSessionProvider()
-    let factory = ConcretePiholeServiceFactory(authSessionFactory: mockAuthFactory)
     let suite = TestDefaults.makeSuite()
     let config = ServerConfig(label: "Test", url: "http://test.local", version: version)
     let key = Defaults.Keys.tempUnblocks(for: config.id, suite: suite)
     defer { Defaults[key] = [] }
+    let appFactory = ConcretePiholeServiceFactory(
+      authSessionFactory: mockAuthFactory,
+      tempUnblockStorage: makeTestTempUnblockStore(suite: suite)
+    )
     var comment: String?
     session.asyncHandler = { request in
       let body: String
@@ -57,9 +60,8 @@ struct PiholeServiceFactoryTests {
         HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
       )
     }
-    let service: any PiholeServiceProviding = try factory.buildService(
-      config: config, credential: "api-token", session: session,
-      storage: makeTestStorage(appLocalSuite: suite), executionMode: .application
+    let service: any PiholeServiceProviding = try appFactory.buildService(
+      config: config, credential: "api-token", session: session
     )
     #expect(service.id == config.id)
     #expect(service.label == "Test")
@@ -96,15 +98,12 @@ struct PiholeServiceFactoryTests {
     let session = MockURLSession()
     let mockAuthFactory = MockAuthSessionFactory()
     mockAuthFactory.stubbedProvider = MockAuthSessionProvider()
-    let factory = ConcretePiholeServiceFactory(authSessionFactory: mockAuthFactory)
-    let sharedDataSuite = TestDefaults.makeSuite()
     let appLocalSuite = TestDefaults.makeSuite()
+    let factory = ConcretePiholeServiceFactory(
+      authSessionFactory: mockAuthFactory,
+      tempUnblockStorage: makeTestTempUnblockStore(suite: appLocalSuite)
+    )
     let config = ServerConfig(label: "Test", url: "http://restore.local", version: version)
-    // Configurations use a different suite from temporary records.
-    Defaults[.servers(suite: sharedDataSuite)] = [config]
-    Defaults[.servers(suite: appLocalSuite)] = [
-      ServerConfig(label: "Wrong Suite", url: "http://wrong.local", version: .v6)
-    ]
     // Started a minute ago with an hour duration, so the record is live: the
     // decorator schedules a far-future expiry instead of expiring during the test.
     let startDate = Date().addingTimeInterval(-60)
@@ -117,12 +116,10 @@ struct PiholeServiceFactoryTests {
       retryCount: 1
     )
     Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)] = [record]
-    let storage = makeTestStorage(
-      appLocalSuite: appLocalSuite, sharedData: sharedDataSuite)
 
     let service = try factory.buildService(
-      config: config, credential: "api-token", session: session, storage: storage,
-      executionMode: .application)
+      config: config, credential: "api-token", session: session
+    )
 
     #expect(
       service is TemporaryUnblockPiholeServiceDecorator,
@@ -130,7 +127,7 @@ struct PiholeServiceFactoryTests {
     #expect(service.id == config.id)
     #expect(service.version == version)
 
-    // Init restored the record through the injected storage, normalizing the
+    // Init restored the record through the factory's storage, normalizing the
     // domain and preserving every other field.
     let restored: [TempUnblockRecord] = Defaults[.tempUnblocks(for: config.id, suite: appLocalSuite)]
     #expect(restored.count == 1)
@@ -141,23 +138,31 @@ struct PiholeServiceFactoryTests {
     #expect(saved.durationSeconds == 3_600)
     #expect(saved.pendingRemoval == false)
     #expect(saved.retryCount == 1)
+  }
 
-    // The adapter's shared-data suite is the injected one, not the app-local suite.
-    let configs = storage.loadServers()
-    #expect(configs.count == 1)
-    #expect(configs.first?.id == config.id)
+  @Test("On-demand factory wraps the service", arguments: [ServerVersion.v5, .v6])
+  func onDemandFactoryWrapsService(version: ServerVersion) throws {
+    let session = MockURLSession()
+    let mockAuthFactory = MockAuthSessionFactory()
+    mockAuthFactory.stubbedProvider = MockAuthSessionProvider()
+    // On-demand construction accepts no temporary-unblock store at all, so a
+    // service cannot restore, save, or reconcile local records.
+    let factory = ConcretePiholeServiceFactory(onDemand: mockAuthFactory)
+    let config = ServerConfig(url: "http://test.local", version: version)
+
+    let service = try factory.buildService(config: config, credential: "secret", session: session)
+
+    #expect(
+      service is TemporaryUnblockPiholeServiceDecorator,
+      "on-demand construction must keep the temporary-unblock decorator")
+    #expect(service.id == config.id)
+    #expect(service.version == version)
   }
 
   @Test("Production factory on-demand clients authenticate only on requests", arguments: [ServerVersion.v5, .v6])
   func lazyAuthentication(version: ServerVersion) async throws {
-    let suite = TestDefaults.makeSuite()
     let session = MockURLSession()
     let config = ServerConfig(url: "http://test.local", version: version)
-    let storage = makeTestStorage(appLocalSuite: suite)
-    let record = TempUnblockRecord(
-      domain: "EXAMPLE.COM", uuid: "existing", startDateUTC: .distantPast, durationSeconds: 1
-    )
-    storage.saveTemporaryUnblocks([record], for: config.id)
     session.asyncHandler = { request in
       let body: String
       if request.url?.path == "/api/auth" {
@@ -176,17 +181,14 @@ struct PiholeServiceFactoryTests {
         Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
       )
     }
-    let factory = ConcretePiholeServiceFactory(authSessionFactory: ConcreteAuthSessionFactory())
+    let factory = ConcretePiholeServiceFactory(onDemand: ConcreteAuthSessionFactory())
     let service = try factory.buildService(
-      config: config, credential: "secret", session: session, storage: storage,
-      executionMode: .onDemand
+      config: config, credential: "secret", session: session
     )
     await settle()
     #expect(session.requests.isEmpty)
-    #expect(storage.loadTemporaryUnblocks(for: config.id) == [record])
     #expect(try await service.checkStatus() == .enabled)
     #expect(session.requests.count == (version == .v5 ? 1 : 2))
-    #expect(storage.loadTemporaryUnblocks(for: config.id) == [record])
   }
 
 }

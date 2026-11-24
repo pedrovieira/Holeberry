@@ -2,16 +2,15 @@ import Foundation
 
 @testable import HoleberryCore
 
-/// Configurable mock implementing `AppStorageProviding` with in-memory backing
+/// Configurable mock implementing `ConnectionStoring` with in-memory backing
 /// state, Result stubs for throwing operations, and call tracking.
 ///
 /// Nothing here touches real defaults or the real Keychain. A `nil` stub serves
 /// the in-memory state; a stub, when set, wins and lets a test inject a failure.
 @MainActor
-final class MockAppStorage: AppStorageProviding {
+final class MockConnectionStore: ConnectionStoring {
   var servers: [ServerConfig] = []
   var credentials: [UUID: String] = [:]
-  var temporaryUnblocks: [UUID: [TempUnblockRecord]] = [:]
 
   var readCredentialStub: Result<String?, any Error>?
   var saveCredentialStub: Result<Void, any Error>?
@@ -27,11 +26,6 @@ final class MockAppStorage: AppStorageProviding {
   private(set) var saveCredentialLastArgs: (credential: String, serverID: UUID)?
   private(set) var deleteCredentialCallCount = 0
   private(set) var deleteCredentialLastServerID: UUID?
-
-  private(set) var loadTemporaryUnblocksCallCount = 0
-  private(set) var loadTemporaryUnblocksLastServerID: UUID?
-  private(set) var saveTemporaryUnblocksCallCount = 0
-  private(set) var saveTemporaryUnblocksLastArgs: (records: [TempUnblockRecord], serverID: UUID)?
 
   // MARK: - Server configurations
 
@@ -78,19 +72,5 @@ final class MockAppStorage: AppStorageProviding {
       try stub.get()
     }
     credentials.removeValue(forKey: serverID)
-  }
-
-  // MARK: - Temporary unblock records
-
-  func loadTemporaryUnblocks(for serverID: UUID) -> [TempUnblockRecord] {
-    loadTemporaryUnblocksCallCount += 1
-    loadTemporaryUnblocksLastServerID = serverID
-    return temporaryUnblocks[serverID] ?? []
-  }
-
-  func saveTemporaryUnblocks(_ records: [TempUnblockRecord], for serverID: UUID) {
-    saveTemporaryUnblocksCallCount += 1
-    saveTemporaryUnblocksLastArgs = (records, serverID)
-    temporaryUnblocks[serverID] = records
   }
 }

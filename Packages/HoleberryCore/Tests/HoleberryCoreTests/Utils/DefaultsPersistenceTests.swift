@@ -72,14 +72,11 @@ struct DefaultsPersistenceTests {
     // so inject bad JSON directly via UserDefaults to test the error path.
     suite.set("<bad json>", forKey: "servers")
     let mockFactory = ConcretePiholeServiceFactory(
-      authSessionFactory: MockAuthSessionFactory()
+      authSessionFactory: MockAuthSessionFactory(),
+      tempUnblockStorage: ConcreteTempUnblockStore(suite: suite)
     )
     let manager = PiholeServerManager(
-      storage: ConcreteAppStorage(
-        sharedDataSuite: suite,
-        appLocalSuite: suite,
-        keychain: MockKeychainManager()
-      ),
+      storage: ConcreteConnectionStore(suite: suite, keychain: MockKeychainManager()),
       serviceFactory: mockFactory,
       versionDetector: PiholeVersionDetector()
     )

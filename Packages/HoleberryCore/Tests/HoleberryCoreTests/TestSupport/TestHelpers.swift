@@ -34,28 +34,27 @@ enum TestDefaults {
   }
 }
 
-/// Creates the production storage adapter over isolated defaults suites and a
-/// mock Keychain, so behavioral tests exercise persistence end to end without
+/// Creates the production connection store over an isolated defaults suite and
+/// a mock Keychain, so behavioral tests exercise persistence end to end without
 /// touching real storage.
 @MainActor
-func makeTestStorage(
-  appLocalSuite: UserDefaults,
+func makeTestConnectionStore(
   sharedData: UserDefaults = TestDefaults.makeSuite(),
-  keychain: MockKeychainManager = MockKeychainManager()
-) -> ConcreteAppStorage {
-  ConcreteAppStorage(
-    sharedDataSuite: sharedData,
-    appLocalSuite: appLocalSuite,
-    keychain: keychain
+  keychain: MockKeychainManager = MockKeychainManager(),
+  legacyKeychain: (any KeychainManaging)? = nil
+) -> ConcreteConnectionStore {
+  ConcreteConnectionStore(
+    suite: sharedData,
+    keychain: keychain,
+    legacyKeychain: legacyKeychain
   )
 }
 
-/// Identity comparison for `any` storage references: the protocol is not
-/// class-bound, so `===` cannot take the values directly.
+/// Creates the production app-local temporary-unblock store over an isolated
+/// defaults suite.
 @MainActor
-func isSameStorageInstance(_ lhs: (any AppStorageProviding)?, _ rhs: any AppStorageProviding) -> Bool {
-  guard let lhs else { return false }
-  return (lhs as AnyObject) === (rhs as AnyObject)
+func makeTestTempUnblockStore(suite: UserDefaults = TestDefaults.makeSuite()) -> ConcreteTempUnblockStore {
+  ConcreteTempUnblockStore(suite: suite)
 }
 
 /// Awaits until `condition` returns true, yielding the main actor between checks.

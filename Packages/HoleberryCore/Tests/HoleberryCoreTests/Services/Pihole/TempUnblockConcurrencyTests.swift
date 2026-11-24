@@ -71,7 +71,7 @@ struct TempUnblockConcurrencyTests {
       server.entries[domain] = nil
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, storage: makeTestStorage(appLocalSuite: suite), sleep: sleeps.sleep)
+      service: mock, storage: makeTestTempUnblockStore(suite: suite), sleep: sleeps.sleep)
     _ = try await decorator.unblockDomain("x.com", duration: 300)
     await waitUntil { sleeps.waiting.count == 1 }
     sleeps.releaseFirst()
@@ -125,7 +125,7 @@ struct TempUnblockConcurrencyTests {
     }
     mock.deleteDomainHandler = { _, _ in throw PiholeError.server(500, "Offline") }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, storage: makeTestStorage(appLocalSuite: suite), sleep: sleeps.sleep)
+      service: mock, storage: makeTestTempUnblockStore(suite: suite), sleep: sleeps.sleep)
     _ = try await decorator.unblockDomain("x.com", duration: 300)
     await waitUntil { sleeps.waiting.count == 1 }
     sleeps.releaseFirst()
@@ -165,7 +165,7 @@ struct TempUnblockConcurrencyTests {
     let sleeps = Sleeps()
     defer { sleeps.cancelAll() }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, storage: makeTestStorage(appLocalSuite: suite), sleep: sleeps.sleep)
+      service: mock, storage: makeTestTempUnblockStore(suite: suite), sleep: sleeps.sleep)
     _ = try await decorator.unblockDomain("x.com", duration: 300)
     await waitUntil { sleeps.waiting.count == 1 }
     if isRetry {
@@ -203,7 +203,7 @@ struct TempUnblockConcurrencyTests {
     }
     mock.deleteDomainHandler = { _, _ in entry = nil }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, storage: makeTestStorage(appLocalSuite: suite), sleep: sleeps.sleep)
+      service: mock, storage: makeTestTempUnblockStore(suite: suite), sleep: sleeps.sleep)
     let unblock = Task { try await decorator.unblockDomain("x.com", duration: 300) }
     await waitUntil { network != nil }
     var started = false
@@ -238,7 +238,7 @@ struct TempUnblockConcurrencyTests {
       return .alreadyPresent
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()), sleep: sleeps.sleep)
+      service: mock, storage: makeTestTempUnblockStore(suite: TestDefaults.makeSuite()), sleep: sleeps.sleep)
     let first = Task { try await decorator.unblockDomain("x.com", duration: 300) }
     await waitUntil { network != nil }
     var started = false
@@ -281,7 +281,7 @@ struct TempUnblockConcurrencyTests {
       try await withCheckedThrowingContinuation { network = $0 }
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, storage: makeTestStorage(appLocalSuite: suite), sleep: sleeps.sleep)
+      service: mock, storage: makeTestTempUnblockStore(suite: suite), sleep: sleeps.sleep)
     await waitUntil { network != nil }
     let outcome = try await decorator.unblockDomain(
       "x.com", duration: permanent ? nil : 3600)
@@ -324,7 +324,7 @@ struct TempUnblockConcurrencyTests {
       return .alreadyPresent
     }
     let decorator = TemporaryUnblockPiholeServiceDecorator(
-      service: mock, storage: makeTestStorage(appLocalSuite: suite), sleep: sleeps.sleep)
+      service: mock, storage: makeTestTempUnblockStore(suite: suite), sleep: sleeps.sleep)
     await waitUntil { listing != nil }
     let renewal = Task { try await decorator.unblockDomain("x.com", duration: 3600) }
     await waitUntil { addition != nil }

@@ -51,7 +51,7 @@ struct TempUnblockMutationRetryTests {
     let suite = TestDefaults.makeSuite()
     let backoff = Backoff()
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: suite),
+      service: raw, storage: makeTestTempUnblockStore(suite: suite),
       retrySleep: { duration in await backoff.record(duration) },
       sleep: { _ in Issue.record("Failed mutations must not schedule expiry") })
 
@@ -83,7 +83,7 @@ struct TempUnblockMutationRetryTests {
       return committed
     }
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
+      service: raw, storage: makeTestTempUnblockStore(suite: suite), retrySleep: { _ in },
       sleep: { _ in throw CancellationError() })
 
     #expect(try await service.unblockDomain("Example.COM", duration: 300) == .added)
@@ -113,7 +113,7 @@ struct TempUnblockMutationRetryTests {
     raw.addDomainStub = .failure(failure)
     let suite = TestDefaults.makeSuite()
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: suite),
+      service: raw, storage: makeTestTempUnblockStore(suite: suite),
       retrySleep: { _ in Issue.record("Nonretryable errors must not back off") },
       sleep: { _ in Issue.record("Failed mutations must not schedule expiry") })
 
@@ -130,7 +130,7 @@ struct TempUnblockMutationRetryTests {
     let suite = TestDefaults.makeSuite()
     let backoff = Backoff()
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { try await backoff.sleep($0) },
+      service: raw, storage: makeTestTempUnblockStore(suite: suite), retrySleep: { try await backoff.sleep($0) },
       sleep: { _ in Issue.record("Failed mutations must not schedule expiry") })
     let unblock = Task { try await service.unblockDomain("example.com", duration: 300) }
     await waitUntil { backoff.continuation != nil }
@@ -152,7 +152,7 @@ struct TempUnblockMutationRetryTests {
     raw.addDomainStub = .failure(PiholeError.network("offline"))
     let backoff = Backoff()
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()),
+      service: raw, storage: makeTestTempUnblockStore(suite: TestDefaults.makeSuite()),
       retrySleep: { try await backoff.sleepIgnoringCancellation($0) })
     let unblock = Task { try await service.unblockDomain("example.com", duration: nil) }
     await waitUntil { backoff.continuation != nil }
@@ -169,7 +169,7 @@ struct TempUnblockMutationRetryTests {
     raw.addDomainStubQueue = [.failure(PiholeError.network("offline")), .success(.added)]
     let backoff = Backoff()
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()),
+      service: raw, storage: makeTestTempUnblockStore(suite: TestDefaults.makeSuite()),
       retrySleep: { try await backoff.sleep($0) })
     let unblock = Task { try await service.unblockDomain("example.com", duration: nil) }
     await waitUntil { backoff.continuation != nil }
@@ -194,7 +194,7 @@ struct TempUnblockMutationRetryTests {
     let failure = PiholeError.network("offline")
     raw.addDomainStub = .failure(failure)
     let service = TemporaryUnblockPiholeServiceDecorator(
-      service: raw, storage: makeTestStorage(appLocalSuite: TestDefaults.makeSuite()),
+      service: raw, storage: makeTestTempUnblockStore(suite: TestDefaults.makeSuite()),
       retrySleep: { _ in Issue.record("General adds must not use managed retries") })
 
     await #expect(throws: failure) { try await service.addDomain("example.com", to: .allow, comment: "manual") }

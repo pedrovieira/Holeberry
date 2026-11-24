@@ -18,12 +18,7 @@ struct PiholeServerManagerPersistentChangeTests {
     try legacy.saveCredential("original-secret", for: server.id)
     try shared.saveCredential("shared-secret", for: server.id)
     let manager = PiholeServerManager(
-      storage: ConcreteAppStorage(
-        sharedDataSuite: suite,
-        appLocalSuite: TestDefaults.makeSuite(),
-        keychain: shared,
-        legacyKeychain: legacy
-      ),
+      storage: ConcreteConnectionStore(suite: suite, keychain: shared, legacyKeychain: legacy),
       serviceFactory: MockPiholeServiceFactory(), versionDetector: MockPiholeVersionDetector()
     )
     legacy.readErrorStub = PersistentChangeTestError()
@@ -46,12 +41,7 @@ struct PiholeServerManagerPersistentChangeTests {
     Defaults[.servers(suite: suite)] = [server]
     try legacy.saveCredential("original-secret", for: server.id)
     try shared.saveCredential("shared-secret", for: server.id)
-    let storage = ConcreteAppStorage(
-      sharedDataSuite: suite,
-      appLocalSuite: TestDefaults.makeSuite(),
-      keychain: shared,
-      legacyKeychain: legacy
-    )
+    let storage = ConcreteConnectionStore(suite: suite, keychain: shared, legacyKeychain: legacy)
     var changes = 0
     let manager = PiholeServerManager(
       storage: storage,
@@ -86,12 +76,7 @@ struct PiholeServerManagerPersistentChangeTests {
     Defaults[.servers(suite: suite)] = [server]
     try legacyKeychain.saveCredential("original-secret", for: server.id)
     try sharedKeychain.saveCredential("shared-secret", for: server.id)
-    let storage = ConcreteAppStorage(
-      sharedDataSuite: suite,
-      appLocalSuite: TestDefaults.makeSuite(),
-      keychain: sharedKeychain,
-      legacyKeychain: legacyKeychain
-    )
+    let storage = ConcreteConnectionStore(suite: suite, keychain: sharedKeychain, legacyKeychain: legacyKeychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -300,8 +285,7 @@ struct PiholeServerManagerPersistentChangeTests {
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
     let oldConfigs = Defaults[.servers(suite: suite)]
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     var snapshots: [PersistentChangeSnapshot] = []
     let manager = PiholeServerManager(
       storage: storage,
@@ -340,8 +324,7 @@ struct PiholeServerManagerPersistentChangeTests {
     let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("rejected-secret", for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -385,8 +368,7 @@ struct PiholeServerManagerPersistentChangeTests {
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -415,8 +397,7 @@ struct PiholeServerManagerPersistentChangeTests {
       id: UUID(), label: "Old", url: "http://pihole.local", version: .v6, connectionRevision: revision)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("secret", for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -446,8 +427,7 @@ struct PiholeServerManagerPersistentChangeTests {
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
     keychain.saveErrorStub = PersistentChangeTestError()
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -474,8 +454,7 @@ struct PiholeServerManagerPersistentChangeTests {
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -507,8 +486,7 @@ struct PiholeServerManagerPersistentChangeTests {
     let server = ServerConfig(id: UUID(), label: "Old", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -541,8 +519,7 @@ struct PiholeServerManagerPersistentChangeTests {
     #expect(precomposed == decomposed)
     #expect(!Array(precomposed.utf8).elementsEqual(decomposed.utf8))
     try keychain.saveCredential(precomposed, for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: factory,
@@ -573,8 +550,7 @@ struct PiholeServerManagerPersistentChangeTests {
     let server = ServerConfig(id: UUID(), url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("same-secret", for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -605,8 +581,7 @@ struct PiholeServerManagerPersistentChangeTests {
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
     keychain.deleteErrorStub = PersistentChangeTestError()
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -633,8 +608,7 @@ struct PiholeServerManagerPersistentChangeTests {
     let server = ServerConfig(id: UUID(), label: "Home", url: "http://pihole.local", version: .v6)
     Defaults[.servers(suite: suite)] = [server]
     try keychain.saveCredential("old-secret", for: server.id)
-    let storage = makeTestStorage(
-      appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain)
+    let storage = makeTestConnectionStore(sharedData: suite, keychain: keychain)
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: MockPiholeServiceFactory(),
@@ -671,8 +645,7 @@ struct PiholeServerManagerPersistentChangeTests {
     persistentChangeHandler: @escaping () -> Void = {}
   ) -> PiholeServerManager {
     PiholeServerManager(
-      storage: makeTestStorage(
-        appLocalSuite: TestDefaults.makeSuite(), sharedData: suite, keychain: keychain),
+      storage: makeTestConnectionStore(sharedData: suite, keychain: keychain),
       serviceFactory: MockPiholeServiceFactory(),
       versionDetector: versionDetector,
       allowsServerChanges: allowsServerChanges,
