@@ -57,7 +57,7 @@ swift-format lint --recursive --strict Sources/ Packages/HoleberryCore/Sources/
 ## Testing
 
 - Swift Testing (`@Suite` / `@Test` / `#expect`) — NOT XCTest. Suites are `@MainActor`.
-- Mocks live in `Tests/HoleberryCoreTests/TestSupport/`, pattern: `MockXxx` with `xxxStub` (`Result`), `xxxCallCount`, `xxxLastArgs` fields. Add a mock for every new protocol.
+- Test doubles live in `Tests/HoleberryCoreTests/TestSupport/`: `MockXxx` for configurable fakes (`xxxStub` as `Result`, `xxxCallCount`, `xxxLastArgs`, optional `xxxHandler`) and `StubXxx` for fixed ones. Add a mock for every new protocol.
 - Isolated defaults via `TestDefaults.makeSuite()`; async helpers `waitUntil` / `settle` (`Tests/.../Utils/TestHelpers.swift`).
 - Run: `cd Packages/HoleberryCore && swift test`. There is no app-target test bundle.
 
