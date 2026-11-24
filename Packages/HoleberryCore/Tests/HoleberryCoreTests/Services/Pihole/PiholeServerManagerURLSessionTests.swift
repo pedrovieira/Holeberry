@@ -108,6 +108,28 @@ struct PiholeServerManagerURLSessionTests {
     #expect(manager.servers.isEmpty)
   }
 
+  @Test("addServer logs the service out when credential persistence fails")
+  func addServerLogsOutWhenCredentialSaveFails() async throws {
+    let service = MockPiholeService()
+    serviceFactory.buildServiceStub = service
+    // Login succeeds, so a v6 session may already exist server-side when the save fails.
+    storage.saveCredentialStub = .failure(URLSessionFactoryTestError.saveFailed)
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: serviceFactory,
+      versionDetector: versionDetector,
+      urlSessionFactory: MockURLSessionFactory()
+    )
+
+    await #expect(throws: URLSessionFactoryTestError.self) {
+      try await manager.addServer(label: "Test", url: "https://test.local", credential: "secret")
+    }
+
+    #expect(service.loginCallCount == 1)
+    #expect(service.logoutCallCount == 1, "a half-added server must not keep a server-side session")
+    #expect(manager.servers.isEmpty)
+  }
+
   @Test("verifyCredential discards the probe session when construction fails")
   func verifyCredentialInvalidatesSessionWhenBuildFails() async throws {
     storage.servers = [ServerConfig(label: "A", url: "https://a.local", version: .v6)]
@@ -140,4 +162,5 @@ struct PiholeServerManagerURLSessionTests {
 private enum URLSessionFactoryTestError: Error {
   case buildFailed
   case loginFailed
+  case saveFailed
 }
