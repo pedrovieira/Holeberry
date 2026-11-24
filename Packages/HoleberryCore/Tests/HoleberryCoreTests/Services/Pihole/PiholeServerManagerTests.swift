@@ -87,11 +87,11 @@ struct PiholeServerManagerCRUDTests {
     manager.servers = [server1, server2]
     let buildsBefore = mockServiceFactory.buildServiceCallCount
 
-    let error = await #expect(throws: PiholeError.self) {
+    let error = await #expect(throws: HoleberryError.self) {
       try await manager.addServer(label: "C", url: "http://c.com", credential: "secret")
     }
 
-    #expect(error == .unknown("Maximum of 2 Pi-hole instances allowed"))
+    #expect(error == .maxServersReached(max: 2))
     #expect(manager.servers.map(\.id) == [server1.id, server2.id])
     #expect(
       mockServiceFactory.buildServiceCallCount == buildsBefore,
