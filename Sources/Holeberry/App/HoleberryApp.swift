@@ -228,14 +228,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func makeAppStorageContext() -> AppStorageContext {
-    let startup = AppStorageStartup(
-      legacySuite: .standard,
-      legacySuiteName: Bundle.main.bundleIdentifier ?? Bundle.appIdentifier,
+    // One set of legacy dependencies and one migration for this launch.
+    let legacySuite = UserDefaults.standard
+    let legacySuiteName = Bundle.main.bundleIdentifier ?? Bundle.appIdentifier
+    let legacyKeychain = KeychainManager()
+    let migrator = StorageLegacyMigrator(
+      legacySuite: legacySuite,
+      legacySuiteName: legacySuiteName,
       appLocalSuite: .standard,
-      legacyKeychain: KeychainManager(),
-      sharedStorage: BundleSharedStorage()
+      legacyKeychain: legacyKeychain,
+      shared: BundleSharedStorage()
     )
-    let outcome = startup.start()
+    let outcome = AppStorageStartup(
+      migrator: migrator,
+      legacySuite: legacySuite,
+      legacySuiteName: legacySuiteName,
+      appLocalSuite: .standard,
+      legacyKeychain: legacyKeychain
+    ).start()
     if let problem = outcome.problem {
       logger.error("Shared storage setup problem: \(problem.localizedDescription, privacy: .public)")
     }
