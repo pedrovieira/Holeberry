@@ -16,6 +16,7 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
   private(set) var buildServiceLastConfig: ServerConfig?
   private(set) var buildServiceLastCredential: String?
   private(set) var buildServiceLastStorage: (any AppStorageProviding)?
+  private(set) var buildServiceLastSession: (any HTTPRequestable)?
 
   func buildService(
     config: ServerConfig,
@@ -29,6 +30,7 @@ final class MockPiholeServiceFactory: PiholeServiceFactory {
     buildServiceLastConfig = config
     buildServiceLastCredential = credential
     buildServiceLastStorage = storage
+    buildServiceLastSession = session
     if let buildServiceError {
       throw buildServiceError
     }

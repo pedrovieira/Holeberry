@@ -83,6 +83,7 @@ struct QueryStatisticsProvider: TimelineProvider {
         authSessionFactory: ConcreteAuthSessionFactory()
       ),
       versionDetector: PiholeVersionDetector(),
+      urlSessionFactory: ConcreteURLSessionFactory(),
       executionMode: .onDemand,
       allowsServerChanges: false
     )

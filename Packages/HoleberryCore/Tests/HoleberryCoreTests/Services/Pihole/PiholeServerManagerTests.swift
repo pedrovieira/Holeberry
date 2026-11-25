@@ -15,7 +15,8 @@ struct PiholeServerManagerCRUDTests {
     PiholeServerManager(
       storage: storage,
       serviceFactory: mockServiceFactory,
-      versionDetector: mockVersionDetector
+      versionDetector: mockVersionDetector,
+      urlSessionFactory: MockURLSessionFactory()
     )
   }
 
@@ -228,7 +229,8 @@ struct PiholeServerManagerCRUDTests {
     return PiholeServerManager(
       storage: storage,
       serviceFactory: mockServiceFactory,
-      versionDetector: mockVersionDetector
+      versionDetector: mockVersionDetector,
+      urlSessionFactory: MockURLSessionFactory()
     )
   }
 
@@ -404,6 +406,7 @@ struct PiholeServerManagerCRUDTests {
       storage: storage,
       serviceFactory: mockServiceFactory,
       versionDetector: mockVersionDetector,
+      urlSessionFactory: MockURLSessionFactory(),
       executionMode: .onDemand,
       persistentChangeHandler: { changes += 1 }
     )
@@ -442,6 +445,7 @@ struct PiholeServerManagerCRUDTests {
       storage: storage,
       serviceFactory: mockServiceFactory,
       versionDetector: mockVersionDetector,
+      urlSessionFactory: MockURLSessionFactory(),
       persistentChangeHandler: { changes += 1 }
     )
     manager.servers = [config]
@@ -673,8 +677,11 @@ struct PiholeServerManagerCRUDTests {
     let factory = MockPiholeServiceFactory()
     factory.buildServiceStub = service
     let manager = PiholeServerManager(
-      storage: storage, serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector(), executionMode: .onDemand
+      storage: storage,
+      serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory(),
+      executionMode: .onDemand
     )
     manager.reloadServers()
     await settle()
@@ -694,8 +701,10 @@ struct PiholeServerManagerCRUDTests {
     let factory = MockPiholeServiceFactory()
     factory.buildServiceStub = service
     let manager = PiholeServerManager(
-      storage: storage, serviceFactory: factory,
-      versionDetector: MockPiholeVersionDetector()
+      storage: storage,
+      serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     await waitUntil { service.loginCallCount == 1 }
     #expect(factory.buildServiceExecutionModes == [.application])
@@ -718,7 +727,8 @@ struct PiholeServerManagerOperationsTests {
     PiholeServerManager(
       storage: storage,
       serviceFactory: mockServiceFactory,
-      versionDetector: MockPiholeVersionDetector()
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
   }
 
@@ -871,8 +881,10 @@ struct PiholeServerManagerOperationsTests {
   @Test("Empty all-server requests return no results")
   func emptyServers() async {
     let manager = PiholeServerManager(
-      storage: storage, serviceFactory: MockPiholeServiceFactory(),
-      versionDetector: MockPiholeVersionDetector()
+      storage: storage,
+      serviceFactory: MockPiholeServiceFactory(),
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     #expect(await manager.getBlockingStatus(scope: .all).isEmpty)
     #expect(await manager.getQuerySummary(scope: .all).isEmpty)
@@ -966,7 +978,12 @@ struct PiholeServerManagerStorageTests {
   }
 
   private func makeManager(_ storage: any AppStorageProviding) -> PiholeServerManager {
-    PiholeServerManager(storage: storage, serviceFactory: factory, versionDetector: detector)
+    PiholeServerManager(
+      storage: storage,
+      serviceFactory: factory,
+      versionDetector: detector,
+      urlSessionFactory: MockURLSessionFactory()
+    )
   }
 
   /// Preserves labels during sync, matching the real factory.
