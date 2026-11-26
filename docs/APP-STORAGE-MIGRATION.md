@@ -56,7 +56,7 @@ During legacy fallback, `ConcreteAppStorage` uses app-local defaults for servers
 | Account key | Server UUID string | Same server UUID string |
 | Authentication prompts | Allowed in the app | Allowed in the app; disabled in the widget |
 
-Both targets derive the shared service from `HoleberryContainingAppIdentifier`. The widget must use the containing app's identifier, rather than its own extension identifier. The defaults suite comes from `HoleberryAppGroupIdentifier`. Missing, invalid, or unexpanded metadata throws instead of silently selecting a different store.
+Both targets derive the shared service from `HoleberryContainingAppIdentifier`. The widget must use the containing app's identifier, rather than its own extension identifier. The defaults suite comes from `HoleberryAppGroupIdentifier`. Missing, blank, or unexpanded metadata throws instead of silently selecting a different store. The App Group identifier must also start with `group.` and have a nonempty suffix. Access-group and containing-app identifier syntax is not otherwise validated.
 
 Resolving a keychain handle does not prove that every credential can be read. During copying, an error reading or writing an individual credential fails the copy; absence returns `nil` and is handled as a passwordless server.
 
@@ -120,7 +120,7 @@ Before returning writable fallback, startup independently checks the fallback su
 | Final shared validation throws / reports pending | Throws: recovery. Pending: eligible for validated legacy fallback. |
 | Shared preparation fails with positive or unreadable activation history | Recovery; no legacy import or fallback. |
 
-Unexpected migrator errors also produce recovery. Startup unwraps typed migration failures so the original cause reaches logging and the setup notice. If fallback validation itself fails, startup reports that validation error.
+Unexpected migrator errors also produce recovery. Startup unwraps typed migration failures so the app can log the original cause. The setup notice shows a fixed message based on startup status. If fallback validation itself fails, the app logs that validation error instead.
 
 ## Migration order
 
@@ -179,4 +179,3 @@ Successful migration does not purge legacy originals. Clearing a saved password 
 | Widget reads | [QueryStatisticsProvider.swift](../Sources/HoleberryWidgets/QueryStatisticsProvider.swift) |
 
 Regression coverage lives in [AppStorageStartupTests.swift](../Packages/HoleberryCore/Tests/HoleberryCoreTests/AppStorageStartupTests.swift), [StorageLegacyMigratorTests.swift](../Packages/HoleberryCore/Tests/HoleberryCoreTests/Utils/StorageLegacyMigratorTests.swift), and [SharedStorageMigrationTests.swift](../Packages/HoleberryCore/Tests/HoleberryCoreTests/Utils/SharedStorageMigrationTests.swift). These cover fallback and recovery, activation write order, refresh after fallback, and use of the validated snapshots. They do not establish that every signed historical installation can import its keychain items without user interaction.
-
