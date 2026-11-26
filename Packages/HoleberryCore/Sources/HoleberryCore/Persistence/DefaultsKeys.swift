@@ -11,8 +11,7 @@ import Foundation
 // These replace all direct UserDefaults access and @AppStorage usage.
 // Defaults handles Codable types automatically.
 //
-// Strict raw persisted-domain reads for shared-store, startup, and migration
-// decisions live in `PersistedStartupValue.swift`; ordinary access uses these keys.
+// Strict domain capture lives here; decoding lives in `PersistedStartupValue.swift`.
 
 extension Defaults.Keys {
   /// List of configured Pi-hole instances.
@@ -136,5 +135,11 @@ extension UserDefaults {
       throw DefaultsSuiteError.unavailableGroupSuite(appGroupIdentifier)
     }
     return suite
+  }
+
+  /// Captures saved values only, excluding registered defaults and launch arguments.
+  /// Decode related values from this one snapshot.
+  func capturedPersistentDomain(named suiteName: String) -> [String: Any] {
+    persistentDomain(forName: suiteName) ?? [:]
   }
 }

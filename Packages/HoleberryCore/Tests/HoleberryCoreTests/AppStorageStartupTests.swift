@@ -655,8 +655,7 @@ struct AppStorageStartupMigrationMappingTests {
       return
     }
     #expect(!activatedNow)
-    // Hoisted out of #expect: Apple Swift 6.4.0 aborts in SILGen when the
-    // macro's autoclosure carries an existential-to-AnyObject conversion thunk.
+    // Keep the cast outside #expect to avoid a Swift 6.4.0 SILGen crash.
     let deliversWriter = (storage as AnyObject) === harness.writer
     #expect(deliversWriter)
     #expect(outcome.status == .shared)
@@ -693,13 +692,57 @@ struct AppStorageStartupMigrationMappingTests {
       Issue.record("Expected validated legacy fallback")
       return
     }
-    // Hoisted out of #expect for the same Apple Swift 6.4.0 SILGen abort as
-    // the writer comparisons above.
+    // Keep the cast outside #expect to avoid the same compiler crash.
     let problemIsCause = (problem as AnyObject) === cause
     #expect(problemIsCause)
     #expect(storage.loadServers().map(\.id) == [server.id])
     #expect(try storage.readCredential(for: server.id) == "legacy-secret")
     #expect(outcome.status == .legacy)
+    #expect(harness.migrator.runIfNeededCallCount == 1)
+    #expect(Defaults[.sharedStorageActivatedVersion(suite: harness.legacy.suite)] == 0)
+  }
+
+  @Test func beforeActivationRefusesFallbackForAnActivatedSuite() {
+    let harness = Harness()
+    harness.storeServer(
+      ServerConfig(label: "Home", url: "http://home.local", version: .v6), credential: "legacy-secret")
+    Defaults[.sharedStorageActivatedVersion(suite: harness.legacy.suite)] = SharedStorageValidation.currentVersion
+    let cause = StartupMappingError()
+    harness.migrator.resultStub = .failure(StorageLegacyMigrationFailure.beforeActivation(cause: cause))
+
+    let outcome = harness.startup.start()
+
+    guard case .setupFailure(let error) = outcome else {
+      Issue.record("Expected recovery instead of writable fallback for an activated suite")
+      return
+    }
+    let errorIsCause = (error as AnyObject) === cause
+    #expect(errorIsCause, "the original failure cause is retained")
+    #expect(outcome.status == .recovery)
+    #expect(outcome.storage == nil)
+    #expect(harness.keychain.readCallCount == 0)
+    #expect(harness.migrator.runIfNeededCallCount == 1)
+  }
+
+  @Test func beforeActivationRefusesFallbackWithUnreadableActivation() {
+    let harness = Harness()
+    let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: harness.legacy.suite).name
+    harness.legacy.suite.set("current", forKey: activationKey)
+    harness.migrator.resultStub = .failure(
+      StorageLegacyMigrationFailure.beforeActivation(cause: StartupMappingError())
+    )
+
+    let outcome = harness.startup.start()
+
+    guard case .setupFailure(let error) = outcome else {
+      Issue.record("Expected recovery for unreadable activation history")
+      return
+    }
+    #expect(error as? SharedStorageMigrationError == .malformedActivationRecord)
+    #expect(outcome.status == .recovery)
+    #expect(outcome.storage == nil)
+    #expect(harness.legacy.suite.string(forKey: activationKey) == "current", "the record stays as evidence")
+    #expect(harness.keychain.readCallCount == 0)
     #expect(harness.migrator.runIfNeededCallCount == 1)
   }
 

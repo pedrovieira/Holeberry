@@ -2,37 +2,29 @@ import CoreFoundation
 import Defaults
 import Foundation
 
-/// A raw saved value that cannot stand in for the typed value a strict
-/// shared-store, startup, or migration decision needs.
+/// A saved value that fails strict decoding.
 enum DefaultsValueValidationError: Error, Equatable {
   case malformedValue(String)
 }
 
-/// Strict reads for shared-store, startup, and migration decisions only.
-///
-/// Values come from one persistent domain, so registered defaults and the
-/// argument domain cannot stand in for saved data. Ordinary storage reads and
-/// writes must not opt into them; they use the typed keys in `DefaultsKeys.swift`.
+/// Strict persisted-value decoding for shared storage, startup, and migration.
+/// Ordinary access uses typed keys in `DefaultsKeys.swift`.
 enum PersistedStartupValue {
-  /// One captured persistent domain, with no key or value knowledge.
-  ///
-  /// A decision that reads the domain more than once can combine values from two
-  /// different writes: a marker from one state with a list from another. Capture
-  /// the dictionary once, then decode every value from that same snapshot.
+  /// One captured domain keeps related reads consistent across concurrent writes.
   struct Snapshot {
     private let values: [String: Any]
 
-    init(suite: UserDefaults, suiteName: String) {
-      values = suite.persistentDomain(forName: suiteName) ?? [:]
+    init(domain: [String: Any]) {
+      values = domain
     }
 
-    /// The saved value for a key name, or nil when the domain has no such key.
+    /// Returns the saved value, or nil if absent.
     func rawValue(forKey keyName: String) -> Any? {
       values[keyName]
     }
   }
 
-  /// Missing means nothing was saved. A partially decoded list or a repeated identifier is invalid.
+  /// Absent lists return nil; partial decoding or duplicate IDs throw.
   static func servers(
     _ key: Defaults.Key<[ServerConfig]>,
     in snapshot: Snapshot
@@ -49,9 +41,7 @@ enum PersistedStartupValue {
     return servers
   }
 
-  /// Missing means no recorded version. A Boolean or floating-point number cannot
-  /// become a version: accepting one could falsely report a completed migration,
-  /// and treating corruption as zero could allow another import of stale legacy data.
+  /// Absent versions return nil. Reject non-integers; treating corruption as zero could replay legacy data.
   static func version(_ key: Defaults.Key<Int>, in snapshot: Snapshot) throws -> Int? {
     guard let rawValue = snapshot.rawValue(forKey: key.name) else { return nil }
     guard
@@ -68,16 +58,16 @@ enum PersistedStartupValue {
     return value
   }
 
-  /// Captures one domain and decodes the saved list from that snapshot.
+  /// Decodes the saved list from one domain capture.
   static func servers(in suite: UserDefaults, suiteName: String) throws -> [ServerConfig]? {
     try servers(
       Defaults.Keys.servers(suite: suite),
-      in: Snapshot(suite: suite, suiteName: suiteName)
+      in: Snapshot(domain: suite.capturedPersistentDomain(named: suiteName))
     )
   }
 
-  /// Captures one domain and decodes the recorded version from that snapshot.
+  /// Decodes the saved version from one domain capture.
   static func version(_ key: Defaults.Key<Int>, suiteName: String) throws -> Int? {
-    try version(key, in: Snapshot(suite: key.suite, suiteName: suiteName))
+    try version(key, in: Snapshot(domain: key.suite.capturedPersistentDomain(named: suiteName)))
   }
 }

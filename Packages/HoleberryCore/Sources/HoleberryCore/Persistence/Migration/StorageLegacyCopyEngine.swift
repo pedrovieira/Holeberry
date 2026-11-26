@@ -1,12 +1,8 @@
 import Defaults
 import Foundation
 
-/// Copies legacy settings and credentials into the App Group.
-///
-/// Internal on purpose: production reaches the copy only through
-/// `StorageLegacyMigrator.runIfNeeded()`, which enforces activation history. Tests use
-/// this seam to publish intermediate states, such as a completed copy that was
-/// never activated.
+/// Copies legacy settings and credentials under `StorageLegacyMigrator`'s activation checks.
+/// Tests can use it to create completed, unactivated copies.
 @MainActor
 struct StorageLegacyCopyEngine {
   let legacySuite: UserDefaults
@@ -16,25 +12,30 @@ struct StorageLegacyCopyEngine {
   let legacyKeychain: any KeychainManaging
   let sharedKeychain: any KeychainManaging
 
-  /// Validates both stores, withdraws completion, copies the current legacy
-  /// state, and publishes completion last.
-  ///
-  /// Production calls this only when activation history is zero. Tests use it to
-  /// publish the copied-but-unactivated intermediate state.
+  /// Validates both stores, copies legacy data, and publishes completion last.
+  /// Requires zero activation in production.
   func refreshBeforeActivation() throws {
     let legacyServers = try StorageLegacyStore.servers(in: legacySuite, suiteName: legacySuiteName)
-    // Validate the compatible shared copy before any mutation.
-    _ = try SharedStorageValidation.readiness(in: sharedSuite, suiteName: sharedSuiteName)
-    // Withdraw readiness before any change. A failure below leaves the copy
-    // unpublished and retryable; legacy data stays intact.
+    // Retain the validated list for cleanup after withdrawing completion.
+    let previousSharedServers = try SharedStorageValidation.previousServersForCopy(
+      in: sharedSuite,
+      suiteName: sharedSuiteName
+    )
+    // Failed copies stay unpublished and retryable; legacy data stays intact.
     Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = 0
-    try importLegacyState(legacyServers)
+    try importLegacyState(legacyServers, previousSharedServers: previousSharedServers)
     Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = SharedStorageValidation.currentVersion
   }
 
   /// Clear stale credentials before replacing the previous server list.
-  private func importLegacyState(_ legacyServers: [ServerConfig]) throws {
-    try removeStaleSharedCredentials(legacyIDs: Set(legacyServers.map(\.id)))
+  private func importLegacyState(
+    _ legacyServers: [ServerConfig],
+    previousSharedServers: [ServerConfig]
+  ) throws {
+    try removeStaleSharedCredentials(
+      legacyIDs: Set(legacyServers.map(\.id)),
+      previousSharedServers: previousSharedServers
+    )
     Defaults[.servers(suite: sharedSuite)] = legacyServers
     for server in legacyServers {
       try copyCredential(for: server.id)
@@ -42,14 +43,10 @@ struct StorageLegacyCopyEngine {
   }
 
   /// Remove shared credentials orphaned by an earlier attempt.
-  private func removeStaleSharedCredentials(legacyIDs: Set<UUID>) throws {
-    let previousSharedServers: [ServerConfig]
-    do {
-      previousSharedServers = try PersistedStartupValue.servers(in: sharedSuite, suiteName: sharedSuiteName) ?? []
-    } catch {
-      guard error is DefaultsValueValidationError else { throw error }
-      throw SharedStorageReadinessError.malformedServerConfiguration
-    }
+  private func removeStaleSharedCredentials(
+    legacyIDs: Set<UUID>,
+    previousSharedServers: [ServerConfig]
+  ) throws {
     let previousSharedIDs = Set(previousSharedServers.map(\.id))
     for staleID in previousSharedIDs.subtracting(legacyIDs) {
       try sharedKeychain.deleteCredential(for: staleID)

@@ -9,6 +9,70 @@ private final class MigratorTestError: Error {}
 
 private struct MigratorTestValueError: Error, Equatable {}
 
+/// Tracks defaults write order.
+private final class WriteOrderLog {
+  private(set) var events: [String] = []
+
+  func record(_ event: String) {
+    events.append(event)
+  }
+
+  func lastIndex(of event: String) -> Int? {
+    events.lastIndex(of: event)
+  }
+
+  func firstIndex(of event: String) -> Int? {
+    events.firstIndex(of: event)
+  }
+
+  func count(of event: String) -> Int {
+    events.filter { $0 == event }.count
+  }
+}
+
+/// Labels writes by suite.
+private final class WriteOrderDefaults: UserDefaults {
+  private let label: String
+  private let log: WriteOrderLog
+
+  init?(suiteName: String, label: String, log: WriteOrderLog) {
+    self.label = label
+    self.log = log
+    super.init(suiteName: suiteName)
+  }
+
+  override func set(_ value: Any?, forKey defaultName: String) {
+    log.record("\(label).\(defaultName)")
+    super.set(value, forKey: defaultName)
+  }
+}
+
+/// Records activation during credential writes to detect early activation.
+private final class CredentialOrderKeychain: KeychainManaging, @unchecked Sendable {
+  private let base = MockKeychainManager()
+  private let legacySuite: UserDefaults
+  private let activationKeyName: String
+  private(set) var activationValuesAtWrites: [Int] = []
+
+  init(legacySuite: UserDefaults, activationKeyName: String) {
+    self.legacySuite = legacySuite
+    self.activationKeyName = activationKeyName
+  }
+
+  func saveCredential(_ credential: String, for serverID: UUID) throws {
+    activationValuesAtWrites.append(legacySuite.object(forKey: activationKeyName) as? Int ?? 0)
+    try base.saveCredential(credential, for: serverID)
+  }
+
+  func readCredential(for serverID: UUID) throws -> String? {
+    try base.readCredential(for: serverID)
+  }
+
+  func deleteCredential(for serverID: UUID) throws {
+    try base.deleteCredential(for: serverID)
+  }
+}
+
 @MainActor
 @Suite("StorageLegacyMigrator")
 struct StorageLegacyMigratorTests {
@@ -270,6 +334,45 @@ struct StorageLegacyMigratorTests {
     #expect(harness.sharedMarker == SharedStorageValidation.currentVersion)
     #expect(harness.activationRecord == SharedStorageValidation.currentVersion)
     #expect(try harness.legacyKeychain.readCredential(for: server.id) == "legacy-secret")
+  }
+
+  @Test func activationIsWrittenOnlyAfterCompletionPublishesAndCredentialsCopy() throws {
+    let log = WriteOrderLog()
+    let legacyName = "com.holeberry.tests.order.\(UUID().uuidString)"
+    let sharedName = "com.holeberry.tests.order.\(UUID().uuidString)"
+    let legacy = try #require(WriteOrderDefaults(suiteName: legacyName, label: "legacy", log: log))
+    let shared = try #require(WriteOrderDefaults(suiteName: sharedName, label: "shared", log: log))
+    let activationKeyName = Defaults.Keys.sharedStorageActivatedVersion(suite: legacy).name
+    let legacyKeychain = MockKeychainManager()
+    let sharedKeychain = CredentialOrderKeychain(legacySuite: legacy, activationKeyName: activationKeyName)
+    let server = ServerConfig(label: "Home", url: "http://home.local", version: .v6)
+    Defaults[.servers(suite: legacy)] = [server]
+    try legacyKeychain.saveCredential("legacy-secret", for: server.id)
+    let migrator = StorageLegacyMigrator(
+      legacySuite: legacy,
+      legacySuiteName: legacyName,
+      appLocalSuite: TestDefaults.makeSuite(),
+      legacyKeychain: legacyKeychain,
+      shared: StubSharedStorage(
+        location: SharedStorageLocation(suite: shared, suiteName: sharedName),
+        keychain: sharedKeychain
+      )
+    )
+
+    let result = try migrator.runIfNeeded()
+
+    guard case .activatedNow = result else {
+      Issue.record("Expected a first activation")
+      return
+    }
+    let publication = "shared.\(Defaults.Keys.sharedStorageMigrationVersion(suite: shared).name)"
+    let activation = "legacy.\(activationKeyName)"
+    let publicationIndex = try #require(log.lastIndex(of: publication))
+    let activationIndex = try #require(log.firstIndex(of: activation))
+    #expect(publicationIndex < activationIndex, "completion publishes before the activation write")
+    #expect(log.count(of: activation) == 1)
+    #expect(sharedKeychain.activationValuesAtWrites == [0], "activation stays zero while credentials copy")
+    #expect(Defaults[.sharedStorageActivatedVersion(suite: legacy)] == SharedStorageValidation.currentVersion)
   }
 
   @Test func completedCopyWithoutActivationRefreshesCurrentLegacyState() throws {

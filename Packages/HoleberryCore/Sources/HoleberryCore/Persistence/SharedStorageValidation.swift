@@ -1,7 +1,7 @@
 import Defaults
 import Foundation
 
-/// How much of the shared copy a consumer may read.
+/// Whether the shared copy is ready to read.
 public enum SharedStorageReadiness: Equatable {
   case pending
   case ready
@@ -28,28 +28,57 @@ public enum SharedStorageReadinessError: Error, Equatable, LocalizedError {
   }
 }
 
-/// Shared-copy validation with no migration or legacy responsibility.
-///
-/// App startup, the legacy migrator, and the widget all validate the same
-/// App Group copy here. The helper never reads the legacy suite or keychain and
-/// never writes.
+/// Read-only validation of the App Group copy for startup, migration, and widgets.
 public enum SharedStorageValidation {
-  /// The supported shared storage version. Only zero means not published.
+  /// Supported completion version; zero means pending.
   static let currentVersion = 1
 
-  /// Reads one shared open: the current completion marker and the persisted list.
-  ///
-  /// Returns `nil` while the copy is not published. Once the completion marker is
-  /// current, the copy must hold a valid list: a missing, partially decoded, or
-  /// duplicated list throws. An explicitly saved empty list is valid.
+  /// Returns the completed list, or `nil` while pending.
+  /// Missing or invalid completed lists throw; saved empty lists are valid.
   static func completedServers(
     in suite: UserDefaults,
     suiteName: String
   ) throws -> [ServerConfig]? {
-    // One capture for the whole decision: the marker and the list come from the
-    // same persistent-domain snapshot, so a concurrent rewrite cannot produce a
-    // result built from two different states.
-    let snapshot = PersistedStartupValue.Snapshot(suite: suite, suiteName: suiteName)
+    let (snapshot, version) = try capturedCopy(in: suite, suiteName: suiteName)
+    guard version != 0 else { return nil }
+    guard let savedServers = try savedServers(in: snapshot, suite: suite) else {
+      throw SharedStorageReadinessError.missingServerConfiguration
+    }
+    return savedServers
+  }
+
+  /// Captures the old list for stale-credential cleanup, including pending copies.
+  /// Malformed lists throw; absent lists are valid only while pending.
+  static func previousServersForCopy(
+    in suite: UserDefaults,
+    suiteName: String
+  ) throws -> [ServerConfig] {
+    let (snapshot, version) = try capturedCopy(in: suite, suiteName: suiteName)
+    let savedServers = try savedServers(in: snapshot, suite: suite)
+    guard version != 0 else { return savedServers ?? [] }
+    guard let savedServers else {
+      throw SharedStorageReadinessError.missingServerConfiguration
+    }
+    return savedServers
+  }
+
+  /// Ready requires a persisted completion marker and a valid list, which may be empty.
+  public static func readiness(
+    in suite: UserDefaults,
+    suiteName: String
+  ) throws -> SharedStorageReadiness {
+    try completedServers(in: suite, suiteName: suiteName) == nil ? .pending : .ready
+  }
+
+  /// Validates the marker first so marker errors take precedence over list errors.
+  private static func capturedCopy(
+    in suite: UserDefaults,
+    suiteName: String
+  ) throws -> (snapshot: PersistedStartupValue.Snapshot, version: Int) {
+    // One snapshot keeps the marker and list consistent across concurrent writes.
+    let snapshot = PersistedStartupValue.Snapshot(
+      domain: suite.capturedPersistentDomain(named: suiteName)
+    )
     let markerKey = Defaults.Keys.sharedStorageMigrationVersion(suite: suite)
     let version: Int
     do {
@@ -58,31 +87,21 @@ public enum SharedStorageValidation {
       guard error is DefaultsValueValidationError else { throw error }
       throw SharedStorageReadinessError.malformedCompletionVersion
     }
-
-    guard version != 0 else { return nil }
-    guard version == currentVersion else {
+    guard version == 0 || version == currentVersion else {
       throw SharedStorageReadinessError.unsupportedCompletionVersion(version)
     }
+    return (snapshot, version)
+  }
 
-    let savedServers: [ServerConfig]?
+  private static func savedServers(
+    in snapshot: PersistedStartupValue.Snapshot,
+    suite: UserDefaults
+  ) throws -> [ServerConfig]? {
     do {
-      savedServers = try PersistedStartupValue.servers(Defaults.Keys.servers(suite: suite), in: snapshot)
+      return try PersistedStartupValue.servers(Defaults.Keys.servers(suite: suite), in: snapshot)
     } catch {
       guard error is DefaultsValueValidationError else { throw error }
       throw SharedStorageReadinessError.malformedServerConfiguration
     }
-    guard let savedServers else {
-      throw SharedStorageReadinessError.missingServerConfiguration
-    }
-    return savedServers
-  }
-
-  /// Readiness requires a persisted completion marker and a valid saved server list.
-  /// An explicitly saved empty list is valid.
-  public static func readiness(
-    in suite: UserDefaults,
-    suiteName: String
-  ) throws -> SharedStorageReadiness {
-    try completedServers(in: suite, suiteName: suiteName) == nil ? .pending : .ready
   }
 }

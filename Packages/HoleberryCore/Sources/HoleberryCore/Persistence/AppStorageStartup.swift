@@ -10,8 +10,7 @@ public enum AppStorageStartupStatus: Equatable {
 /// App Group location shared with the widget.
 public struct SharedStorageLocation {
   public let suite: UserDefaults
-  /// Persistent domain of `suite`. `UserDefaults` does not expose this name, and
-  /// strict startup reads must exclude registered defaults.
+  /// Persistent domain name for reads that exclude registered defaults.
   public let suiteName: String
 
   public init(suite: UserDefaults, suiteName: String) {
@@ -27,13 +26,7 @@ public protocol SharedStorageProviding {
   func keychain() throws -> any KeychainManaging
 }
 
-/// Chooses the storage for one launch.
-///
-/// Migration belongs to `StorageLegacyMigrator`; this type only calls the injected
-/// migration once, maps its result to the existing outcome surface, and builds
-/// legacy fallback when the migrator reports that activation was zero and the
-/// copy did not complete. It never copies data, writes activation, or opens the
-/// shared store for a second activation decision.
+/// Calls migration once, then selects shared storage, validated legacy fallback, or recovery.
 @MainActor
 public final class AppStorageStartup {
   public enum Outcome {
@@ -113,8 +106,7 @@ public final class AppStorageStartup {
     do {
       result = try migrator.runIfNeeded()
     } catch let failure as StorageLegacyMigrationFailure {
-      // Only an established zero activation permits fallback. Everything else
-      // recovers with the original cause, never a wrapper.
+      // Preserve original causes; only pre-activation failures permit fallback.
       switch failure {
       case .beforeActivation(let cause):
         return legacyOutcome(cause: cause)
@@ -133,17 +125,23 @@ public final class AppStorageStartup {
     }
   }
 
-  /// Validates the current legacy list strictly. A malformed list never becomes
-  /// writable storage; a genuinely absent list is a valid fresh install.
+  /// Fallback requires zero activation in this suite and a valid or absent server list.
+  /// Check this suite independently because the migrator is injected separately.
   private func legacyOutcome(cause: any Error) -> Outcome {
+    do {
+      guard try StorageLegacyStore.activatedVersion(in: legacySuite, suiteName: legacySuiteName) == 0 else {
+        // Shared storage is authoritative; preserve the original failure.
+        return .setupFailure(cause)
+      }
+    } catch {
+      return .setupFailure(error)
+    }
     do {
       _ = try StorageLegacyStore.servers(in: legacySuite, suiteName: legacySuiteName)
     } catch {
       return .setupFailure(error)
     }
-    // Legacy fallback is writable: the legacy keychain is the active store, so a
-    // connection deletion touches that one keychain only. Temporary-unblock
-    // records stay in app-local defaults.
+    // Fallback deletes credentials only from the legacy keychain; unblock records stay local.
     return .legacy(
       ConcreteAppStorage(
         sharedDataSuite: legacySuite,

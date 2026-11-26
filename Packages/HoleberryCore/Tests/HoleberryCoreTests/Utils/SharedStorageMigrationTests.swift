@@ -6,9 +6,8 @@ import Testing
 
 private struct SharedStorageTestError: Error, Equatable {}
 
-/// A legacy domain that changes between snapshots, so a second decode would copy
-/// a different list than the one that was validated.
-private final class SequencedLegacyDomain: UserDefaults {
+/// Returns successive domains to expose reads that mix snapshots.
+private final class SequencedDomainDefaults: UserDefaults {
   var domains: [[String: Any]] = []
   private(set) var persistentDomainCallCount = 0
 
@@ -18,16 +17,14 @@ private final class SequencedLegacyDomain: UserDefaults {
   }
 }
 
-/// A shared domain that changes between snapshots. A validation that captures the
-/// domain more than once can pair a marker from one state with a list from another.
-private final class SequencedSharedDomain: UserDefaults {
-  var domains: [[String: Any]] = []
-  private(set) var persistentDomainCallCount = 0
-
-  override func persistentDomain(forName domainName: String) -> [String: Any]? {
-    persistentDomainCallCount += 1
-    return domains[min(persistentDomainCallCount - 1, domains.count - 1)]
+/// Builds a persisted server list with an optional completion marker.
+private func persistedServersDomain(_ servers: [ServerConfig], marker: Int? = nil) throws -> [String: Any] {
+  let named = TestDefaults.makeNamedSuite()
+  Defaults[.servers(suite: named.suite)] = servers
+  if let marker {
+    Defaults[.sharedStorageMigrationVersion(suite: named.suite)] = marker
   }
+  return try #require(named.suite.persistentDomain(forName: named.name))
 }
 
 @Suite("KeychainManager options")
@@ -239,12 +236,11 @@ struct SharedStorageReadinessTests {
   @Test func validationCapturesOnePersistentDomainSnapshot() throws {
     let first = ServerConfig(label: "First", url: "http://first.local", version: .v6)
     let replacement = ServerConfig(label: "Replacement", url: "http://replacement.local", version: .v5)
-    let ready = try rawDomain(servers: [first], marker: SharedStorageValidation.currentVersion)
-    // A second snapshot is the withdrawn copy: a non-atomic read would pair the
-    // first snapshot's ready marker with this list.
-    let withdrawn = try rawDomain(servers: [replacement], marker: 0)
+    let ready = try persistedServersDomain([first], marker: SharedStorageValidation.currentVersion)
+    // A second capture would pair the ready marker with a different list.
+    let withdrawn = try persistedServersDomain([replacement], marker: 0)
     let suite = try #require(
-      SequencedSharedDomain(suiteName: "com.holeberry.tests.sequenced.\(UUID().uuidString)")
+      SequencedDomainDefaults(suiteName: "com.holeberry.tests.sequenced.\(UUID().uuidString)")
     )
     suite.domains = [ready, withdrawn]
 
@@ -252,14 +248,6 @@ struct SharedStorageReadinessTests {
 
     #expect(servers?.map(\.id) == [first.id], "one validation must not mix two domain snapshots")
     #expect(suite.persistentDomainCallCount == 1)
-  }
-
-  /// One persisted domain holding a server list and a completion marker.
-  private func rawDomain(servers: [ServerConfig], marker: Int) throws -> [String: Any] {
-    let named = TestDefaults.makeNamedSuite()
-    Defaults[.servers(suite: named.suite)] = servers
-    Defaults[.sharedStorageMigrationVersion(suite: named.suite)] = marker
-    return try #require(named.suite.persistentDomain(forName: named.name))
   }
 }
 
@@ -654,6 +642,68 @@ struct SharedStorageMigrationTests {
       Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] == SharedStorageValidation.currentVersion)
   }
 
+  // MARK: - Shared snapshot reuse
+
+  @Test func completedRefreshCleansStaleCredentialsFromThePreCopySnapshot() throws {
+    let kept = ServerConfig(id: UUID(), url: "http://kept.local", version: .v6)
+    let removed = ServerConfig(id: UUID(), url: "http://removed.local", version: .v6)
+    let completed = try persistedServersDomain([kept, removed], marker: SharedStorageValidation.currentVersion)
+    let refreshed = try persistedServersDomain([kept], marker: SharedStorageValidation.currentVersion)
+    let shared = try makeSequencedSuite([completed, completed, refreshed, refreshed])
+    let harness = makeHarness(shared: ("sequenced", shared))
+    Defaults[.servers(suite: harness.legacySuite)] = [kept]
+    try harness.sharedKeychain.saveCredential("stale-secret", for: removed.id)
+
+    let result = try harness.migrator.runIfNeeded()
+
+    guard case .activatedNow = result else {
+      Issue.record("Expected the completed copy to refresh and activate")
+      return
+    }
+    #expect(try harness.sharedKeychain.readCredential(for: removed.id) == nil)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [kept.id])
+    #expect(shared.persistentDomainCallCount == 3, "initial, pre-copy, and final checks only")
+  }
+
+  @Test func pendingSharedListCleansStaleCredentialsFromThePreCopySnapshot() throws {
+    let kept = ServerConfig(id: UUID(), url: "http://kept.local", version: .v6)
+    let removed = ServerConfig(id: UUID(), url: "http://removed.local", version: .v6)
+    let pending = try persistedServersDomain([kept, removed], marker: 0)
+    let refreshed = try persistedServersDomain([kept], marker: SharedStorageValidation.currentVersion)
+    let shared = try makeSequencedSuite([pending, pending, refreshed, refreshed])
+    let harness = makeHarness(shared: ("sequenced", shared))
+    Defaults[.servers(suite: harness.legacySuite)] = [kept]
+    try harness.sharedKeychain.saveCredential("stale-secret", for: removed.id)
+
+    let result = try harness.migrator.runIfNeeded()
+
+    guard case .activatedNow = result else {
+      Issue.record("Expected the pending copy to import and activate")
+      return
+    }
+    #expect(try harness.sharedKeychain.readCredential(for: removed.id) == nil)
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [kept.id])
+    #expect(shared.persistentDomainCallCount == 3, "initial, pre-copy, and final checks only")
+  }
+
+  @Test func absentSharedListIsAValidEmptyCopy() throws {
+    let kept = ServerConfig(id: UUID(), url: "http://kept.local", version: .v6)
+    let refreshed = try persistedServersDomain([kept], marker: SharedStorageValidation.currentVersion)
+    let shared = try makeSequencedSuite([[:], [:], refreshed, refreshed])
+    let harness = makeHarness(shared: ("sequenced", shared))
+    Defaults[.servers(suite: harness.legacySuite)] = [kept]
+
+    let result = try harness.migrator.runIfNeeded()
+
+    guard case .activatedNow = result else {
+      Issue.record("Expected an absent shared list to be a valid empty copy")
+      return
+    }
+    #expect(Defaults[.servers(suite: harness.sharedSuite)].map(\.id) == [kept.id])
+    #expect(harness.sharedKeychain.storedCredentials.isEmpty)
+    #expect(shared.persistentDomainCallCount == 3, "initial, pre-copy, and final checks only")
+  }
+
   @Test func malformedPriorSharedServersBlockMigrationUntilRepaired() throws {
     let harness = makeHarness()
     let kept = ServerConfig(id: UUID(), url: "http://kept.local", version: .v6)
@@ -939,9 +989,9 @@ struct SharedStorageMigrationTests {
     let first = ServerConfig(url: "http://first.local", version: .v6)
     let second = ServerConfig(url: "http://second.local", version: .v5)
     let legacy = try #require(
-      SequencedLegacyDomain(suiteName: "com.holeberry.tests.sequenced.\(UUID().uuidString)")
+      SequencedDomainDefaults(suiteName: "com.holeberry.tests.sequenced.\(UUID().uuidString)")
     )
-    legacy.domains = [try serversDomain([first]), try serversDomain([second])]
+    legacy.domains = [try persistedServersDomain([first]), try persistedServersDomain([second])]
     let shared = TestDefaults.makeNamedSuite()
     let engine = StorageLegacyCopyEngine(
       legacySuite: legacy,
@@ -961,11 +1011,12 @@ struct SharedStorageMigrationTests {
     #expect(legacy.persistentDomainCallCount == 1, "one strict legacy capture per copy")
   }
 
-  /// One persisted domain holding just a server list, for changing-domain fixtures.
-  private func serversDomain(_ servers: [ServerConfig]) throws -> [String: Any] {
-    let named = TestDefaults.makeNamedSuite()
-    Defaults[.servers(suite: named.suite)] = servers
-    return try #require(named.suite.persistentDomain(forName: named.name))
+  private func makeSequencedSuite(_ domains: [[String: Any]]) throws -> SequencedDomainDefaults {
+    let suite = try #require(
+      SequencedDomainDefaults(suiteName: "com.holeberry.tests.sequenced.\(UUID().uuidString)")
+    )
+    suite.domains = domains
+    return suite
   }
 
   private struct Harness {
