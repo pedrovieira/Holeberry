@@ -1,8 +1,8 @@
 import Defaults
 import Foundation
 
-/// Copies legacy settings and credentials under `StorageLegacyMigrator`'s activation checks.
-/// Tests can use it to create completed, unactivated copies.
+/// Copies legacy settings and credentials; `StorageLegacyMigrator` checks activation.
+/// Tests can create completed copies without activation.
 @MainActor
 struct StorageLegacyCopyEngine {
   let legacySuite: UserDefaults
@@ -12,22 +12,22 @@ struct StorageLegacyCopyEngine {
   let legacyKeychain: any KeychainManaging
   let sharedKeychain: any KeychainManaging
 
-  /// Validates both stores, copies legacy data, and publishes completion last.
+  /// Validates both stores, copies legacy data, then publishes completion.
   /// Requires zero activation in production.
   func refreshBeforeActivation() throws {
     let legacyServers = try StorageLegacyStore.servers(in: legacySuite, suiteName: legacySuiteName)
-    // Retain the validated list for cleanup after withdrawing completion.
+    // Keep the validated list for cleanup after withdrawing completion.
     let previousSharedServers = try SharedStorageValidation.previousServersForCopy(
       in: sharedSuite,
       suiteName: sharedSuiteName
     )
-    // Failed copies stay unpublished and retryable; legacy data stays intact.
+    // Failed copies stay unpublished and retryable; preserve legacy data.
     Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = 0
     try importLegacyState(legacyServers, previousSharedServers: previousSharedServers)
     Defaults[.sharedStorageMigrationVersion(suite: sharedSuite)] = SharedStorageValidation.currentVersion
   }
 
-  /// Clear stale credentials before replacing the previous server list.
+  /// Clear stale credentials before replacing the server list.
   private func importLegacyState(
     _ legacyServers: [ServerConfig],
     previousSharedServers: [ServerConfig]
@@ -42,7 +42,7 @@ struct StorageLegacyCopyEngine {
     }
   }
 
-  /// Remove shared credentials orphaned by an earlier attempt.
+  /// Remove shared credentials orphaned by earlier attempts.
   private func removeStaleSharedCredentials(
     legacyIDs: Set<UUID>,
     previousSharedServers: [ServerConfig]
@@ -53,7 +53,7 @@ struct StorageLegacyCopyEngine {
     }
   }
 
-  /// Clear any earlier shared copy when the legacy credential is absent.
+  /// Clear the shared credential if absent in legacy.
   private func copyCredential(for serverID: UUID) throws {
     if let credential = try legacyKeychain.readCredential(for: serverID) {
       try sharedKeychain.saveCredential(credential, for: serverID)

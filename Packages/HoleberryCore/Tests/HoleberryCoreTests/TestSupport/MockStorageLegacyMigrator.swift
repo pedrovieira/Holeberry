@@ -2,7 +2,7 @@ import Foundation
 
 @testable import HoleberryCore
 
-/// Configurable mock implementing `StorageLegacyMigrating`, the app-only migration seam.
+/// Configurable app-only migration mock.
 @MainActor
 final class MockStorageLegacyMigrator: StorageLegacyMigrating {
   var resultStub: Result<StorageLegacyMigrationResult, any Error>?

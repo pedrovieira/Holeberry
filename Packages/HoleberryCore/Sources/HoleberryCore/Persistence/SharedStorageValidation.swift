@@ -47,8 +47,8 @@ public enum SharedStorageValidation {
     return savedServers
   }
 
-  /// Captures the old list for stale-credential cleanup, including pending copies.
-  /// Malformed lists throw; absent lists are valid only while pending.
+  /// Captures the list for stale-credential cleanup, even while pending.
+  /// Invalid lists throw; missing lists are allowed only while pending.
   static func previousServersForCopy(
     in suite: UserDefaults,
     suiteName: String
@@ -62,7 +62,7 @@ public enum SharedStorageValidation {
     return savedServers
   }
 
-  /// Ready requires a persisted completion marker and a valid list, which may be empty.
+  /// Ready requires a saved completion marker and valid, possibly empty list.
   public static func readiness(
     in suite: UserDefaults,
     suiteName: String
@@ -70,12 +70,12 @@ public enum SharedStorageValidation {
     try completedServers(in: suite, suiteName: suiteName) == nil ? .pending : .ready
   }
 
-  /// Validates the marker first so marker errors take precedence over list errors.
+  /// Marker errors take precedence over list errors.
   private static func capturedCopy(
     in suite: UserDefaults,
     suiteName: String
   ) throws -> (snapshot: PersistedStartupValue.Snapshot, version: Int) {
-    // One snapshot keeps the marker and list consistent across concurrent writes.
+    // One snapshot keeps marker and list consistent during concurrent writes.
     let snapshot = PersistedStartupValue.Snapshot(
       domain: suite.capturedPersistentDomain(named: suiteName)
     )

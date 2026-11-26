@@ -1,7 +1,7 @@
 import Defaults
 import Foundation
 
-/// Typed causes for activation history and legacy configuration failures.
+/// Activation history and legacy configuration errors.
 public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
   case malformedLegacyConfiguration
   case malformedActivationRecord
@@ -17,9 +17,7 @@ public enum SharedStorageMigrationError: Error, Equatable, LocalizedError {
 }
 
 /// Strict legacy reads shared by migration and startup fallback validation.
-///
-/// It owns no copy or activation decision; both callers need the same definition
-/// of a readable legacy list.
+/// Validates data without deciding whether to copy or activate.
 enum StorageLegacyStore {
   /// Validates the saved list for both import and writable fallback.
   static func servers(in suite: UserDefaults, suiteName: String) throws -> [ServerConfig] {
@@ -31,7 +29,7 @@ enum StorageLegacyStore {
     }
   }
 
-  /// Reads persisted activation history. Zero means no prior activation. Invalid values throw.
+  /// Reads saved activation: zero means never activated; invalid values throw.
   static func activatedVersion(in suite: UserDefaults, suiteName: String) throws -> Int {
     let key = Defaults.Keys.sharedStorageActivatedVersion(suite: suite)
     let version: Int

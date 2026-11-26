@@ -26,7 +26,7 @@ public protocol SharedStorageProviding {
   func keychain() throws -> any KeychainManaging
 }
 
-/// Calls migration once, then selects shared storage, validated legacy fallback, or recovery.
+/// Migrates once, then selects shared storage, validated legacy fallback, or recovery.
 @MainActor
 public final class AppStorageStartup {
   public enum Outcome {
@@ -125,8 +125,8 @@ public final class AppStorageStartup {
     }
   }
 
-  /// Fallback requires zero activation in this suite and a valid or absent server list.
-  /// Check this suite independently because the migrator is injected separately.
+  /// Rechecks this suite for zero activation and a valid or absent server list:
+  /// the injected migrator may use another suite.
   private func legacyOutcome(cause: any Error) -> Outcome {
     do {
       guard try StorageLegacyStore.activatedVersion(in: legacySuite, suiteName: legacySuiteName) == 0 else {
@@ -141,7 +141,7 @@ public final class AppStorageStartup {
     } catch {
       return .setupFailure(error)
     }
-    // Fallback deletes credentials only from the legacy keychain; unblock records stay local.
+    // Delete credentials only from legacy; keep unblock records app-local.
     return .legacy(
       ConcreteAppStorage(
         sharedDataSuite: legacySuite,

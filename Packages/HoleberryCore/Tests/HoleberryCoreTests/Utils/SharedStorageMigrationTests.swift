@@ -6,7 +6,7 @@ import Testing
 
 private struct SharedStorageTestError: Error, Equatable {}
 
-/// Returns successive domains to expose reads that mix snapshots.
+/// Returns successive domains to expose mixed snapshots.
 private final class SequencedDomainDefaults: UserDefaults {
   var domains: [[String: Any]] = []
   private(set) var persistentDomainCallCount = 0
@@ -237,7 +237,7 @@ struct SharedStorageReadinessTests {
     let first = ServerConfig(label: "First", url: "http://first.local", version: .v6)
     let replacement = ServerConfig(label: "Replacement", url: "http://replacement.local", version: .v5)
     let ready = try persistedServersDomain([first], marker: SharedStorageValidation.currentVersion)
-    // A second capture would pair the ready marker with a different list.
+    // A second capture would mix this list with the ready marker.
     let withdrawn = try persistedServersDomain([replacement], marker: 0)
     let suite = try #require(
       SequencedDomainDefaults(suiteName: "com.holeberry.tests.sequenced.\(UUID().uuidString)")

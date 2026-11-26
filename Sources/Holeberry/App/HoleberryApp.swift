@@ -228,7 +228,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func makeAppStorageContext() -> AppStorageContext {
-    // One set of legacy dependencies and one migration for this launch.
+    // Share legacy dependencies; migrate once per launch.
     let legacySuite = UserDefaults.standard
     let legacySuiteName = Bundle.main.bundleIdentifier ?? Bundle.appIdentifier
     let legacyKeychain = KeychainManager()

@@ -1,17 +1,17 @@
 import Defaults
 import Foundation
 
-/// What one migration step produced.
+/// Migration outcome and writable storage.
 public enum StorageLegacyMigrationResult {
-  /// Shared storage was already active. The writer is ready for this launch.
+  /// Shared storage was already active; the writer is ready.
   case alreadyActive(any AppStorageProviding)
-  /// Shared storage became active in this step. The writer is ready for this launch.
+  /// Shared storage became active; the writer is ready.
   case activatedNow(any AppStorageProviding)
 }
 
-/// Why `runIfNeeded` refused to prepare shared storage.
+/// Why `runIfNeeded` failed to prepare shared storage.
 public enum StorageLegacyMigrationFailure: Error {
-  /// Activation history was zero, so startup may validate legacy and fall back.
+  /// Zero activation permits startup to validate legacy fallback.
   case beforeActivation(cause: any Error)
   /// Shared corruption, prior cutover, or unreadable history prevents fallback.
   case recoveryRequired(cause: any Error)
@@ -31,22 +31,19 @@ public enum AppStorageStartupError: Error, Equatable, LocalizedError {
   }
 }
 
-/// The app-only migration seam. The widget never runs or references this.
+/// App-only migration; never used by the widget.
 @MainActor
 public protocol StorageLegacyMigrating {
   func runIfNeeded() throws -> StorageLegacyMigrationResult
 }
 
-/// Prepares the shared App Group copy for the app, once per launch.
+/// Prepares writable App Group storage before startup selects a store.
 ///
-/// The operation is app-only and explicitly called during startup before the
-/// launch chooses its store. It owns activation history, shared preparation,
-/// import/refresh, activation/repair, and the resulting writable storage. It
-/// throws typed failures instead of choosing fallback: only
-/// ``StorageLegacyMigrationFailure/beforeActivation(cause:)`` lets startup
-/// validate and use legacy storage.
+/// Owns activation history, import/refresh, and activation/repair. Only
+/// ``StorageLegacyMigrationFailure/beforeActivation(cause:)`` permits startup
+/// to validate legacy fallback.
 ///
-/// Repeat calls are idempotent: a positive activation record skips import.
+/// Idempotent: positive activation skips import on repeat calls.
 @MainActor
 public struct StorageLegacyMigrator: StorageLegacyMigrating {
   private let legacySuite: UserDefaults
@@ -56,11 +53,10 @@ public struct StorageLegacyMigrator: StorageLegacyMigrating {
   private let shared: any SharedStorageProviding
 
   /// - Parameters:
-  ///   - legacySuite: Backing store for the pre-App-Group legacy servers.
+  ///   - legacySuite: Pre-App-Group server store.
   ///   - legacySuiteName: Persistent domain of `legacySuite`.
-  ///   - appLocalSuite: Backing store for temporary-unblock records. The shared
-  ///     writer keeps those records app-local.
-  ///   - legacyKeychain: Original credential store for migrated connections.
+  ///   - appLocalSuite: Temporary-unblock records, kept app-local by the shared writer.
+  ///   - legacyKeychain: Original credentials for migrated connections.
   ///   - shared: App Group location and shared credential store.
   public init(
     legacySuite: UserDefaults,
@@ -90,11 +86,9 @@ public struct StorageLegacyMigrator: StorageLegacyMigrating {
     }
   }
 
-  /// Prepares the writer for an existing completed shared copy.
-  ///
-  /// Every failure is recovery: positive or unreadable activation history
-  /// forbids legacy fallback. A pending copy reports the supplied cause; other
-  /// failures report their own original cause.
+  /// Prepares a writer for a completed shared copy. Positive or unreadable activation
+  /// forbids fallback: all failures require recovery. Pending copies use `pendingCause`;
+  /// other failures retain their cause.
   private func prepareExistingSharedStore(pendingCause: any Error) throws -> any AppStorageProviding {
     let location: SharedStorageLocation
     let readiness: SharedStorageReadiness
@@ -116,16 +110,14 @@ public struct StorageLegacyMigrator: StorageLegacyMigrating {
     return makeStore(location: location, keychain: keychain)
   }
 
-  /// Positive activation: prepare the existing copy. No legacy server or
-  /// credential read happens; activation history was already read.
+  /// Positive activation reuses the shared copy without reading legacy servers or credentials.
   private func prepareAlreadyActive() throws -> StorageLegacyMigrationResult {
     let store = try prepareExistingSharedStore(
       pendingCause: AppStorageStartupError.completedStoreMarkerMissing)
     return .alreadyActive(store)
   }
 
-  /// Unreadable activation: prepare the existing copy and repair the record.
-  /// The repair happens only after the copy and its keychain resolve.
+  /// Repairs unreadable activation only after the shared copy and keychain resolve.
   private func repairUnreadableHistory(cause activationError: any Error) throws -> StorageLegacyMigrationResult {
     let store = try prepareExistingSharedStore(pendingCause: activationError)
     StorageLegacyStore.markActivated(in: legacySuite)
@@ -144,7 +136,7 @@ public struct StorageLegacyMigrator: StorageLegacyMigrating {
     do {
       _ = try SharedStorageValidation.readiness(in: location.suite, suiteName: location.suiteName)
     } catch {
-      // Invalid or unsupported shared evidence: never rewrite it.
+      // Never overwrite invalid or unsupported shared evidence.
       throw StorageLegacyMigrationFailure.recoveryRequired(cause: error)
     }
 
@@ -166,9 +158,8 @@ public struct StorageLegacyMigrator: StorageLegacyMigrating {
     do {
       try copy.refreshBeforeActivation()
     } catch {
-      // Refresh failures are import failures: startup validates legacy again
-      // and may use it writable. Only invalid completed evidence, checked
-      // above, is recovery.
+      // Import failures permit validated writable legacy fallback.
+      // Invalid completed copies require recovery (checked above).
       throw StorageLegacyMigrationFailure.beforeActivation(cause: error)
     }
 

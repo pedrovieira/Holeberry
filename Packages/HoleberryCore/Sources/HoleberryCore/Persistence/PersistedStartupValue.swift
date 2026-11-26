@@ -10,7 +10,7 @@ enum DefaultsValueValidationError: Error, Equatable {
 /// Strict persisted-value decoding for shared storage, startup, and migration.
 /// Ordinary access uses typed keys in `DefaultsKeys.swift`.
 enum PersistedStartupValue {
-  /// One captured domain keeps related reads consistent across concurrent writes.
+  /// One domain snapshot keeps related reads consistent during concurrent writes.
   struct Snapshot {
     private let values: [String: Any]
 
@@ -18,7 +18,7 @@ enum PersistedStartupValue {
       values = domain
     }
 
-    /// Returns the saved value, or nil if absent.
+    /// Saved value, or nil if absent.
     func rawValue(forKey keyName: String) -> Any? {
       values[keyName]
     }
@@ -41,8 +41,8 @@ enum PersistedStartupValue {
     return servers
   }
 
-  /// Absent versions return nil. Reject Booleans and floating-point values:
-  /// coercion could falsely mark migration complete; treating corruption as zero could replay legacy data.
+  /// Missing returns nil; Booleans and floats throw to prevent false completion.
+  /// Corruption must not become zero and replay legacy data.
   static func version(_ key: Defaults.Key<Int>, in snapshot: Snapshot) throws -> Int? {
     guard let rawValue = snapshot.rawValue(forKey: key.name) else { return nil }
     guard
@@ -59,7 +59,7 @@ enum PersistedStartupValue {
     return value
   }
 
-  /// Decodes the saved list from one domain capture.
+  /// Decodes the saved list from one snapshot.
   static func servers(in suite: UserDefaults, suiteName: String) throws -> [ServerConfig]? {
     try servers(
       Defaults.Keys.servers(suite: suite),
@@ -67,7 +67,7 @@ enum PersistedStartupValue {
     )
   }
 
-  /// Decodes the saved version from one domain capture.
+  /// Decodes the saved version from one snapshot.
   static func version(_ key: Defaults.Key<Int>, suiteName: String) throws -> Int? {
     try version(key, in: Snapshot(domain: key.suite.capturedPersistentDomain(named: suiteName)))
   }

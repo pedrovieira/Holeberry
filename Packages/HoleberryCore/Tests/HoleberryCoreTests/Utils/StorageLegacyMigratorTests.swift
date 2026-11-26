@@ -4,7 +4,7 @@ import Testing
 
 @testable import HoleberryCore
 
-/// Reference error used to prove cause identity survives the migration result.
+/// Reference error to check cause identity after migration.
 private final class MigratorTestError: Error {}
 
 private struct MigratorTestValueError: Error, Equatable {}
@@ -47,7 +47,7 @@ private final class WriteOrderDefaults: UserDefaults {
   }
 }
 
-/// Records activation during credential writes to detect early activation.
+/// Records activation at credential writes to detect early activation.
 private final class CredentialOrderKeychain: KeychainManaging, @unchecked Sendable {
   private let base = MockKeychainManager()
   private let legacySuite: UserDefaults
@@ -115,7 +115,7 @@ struct StorageLegacyMigratorTests {
       }
     }
 
-    /// Publishes a completed copy while activation stays zero.
+    /// Publishes a completed copy without activation.
     func completeCopyWithoutActivation() throws {
       try StorageLegacyCopyEngine(
         legacySuite: legacy.suite,

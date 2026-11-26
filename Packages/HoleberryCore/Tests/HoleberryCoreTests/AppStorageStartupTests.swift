@@ -612,7 +612,7 @@ private final class StartupHarness {
 
 // MARK: - Migration mapping
 
-/// Reference error used to prove cause identity survives startup mapping.
+/// Reference error to check cause identity after startup mapping.
 private final class StartupMappingError: Error {}
 
 @MainActor
@@ -655,7 +655,7 @@ struct AppStorageStartupMigrationMappingTests {
       return
     }
     #expect(!activatedNow)
-    // Keep the cast outside #expect to avoid a Swift 6.4.0 SILGen crash.
+    // Cast outside #expect to avoid a Swift 6.4.0 SILGen crash.
     let deliversWriter = (storage as AnyObject) === harness.writer
     #expect(deliversWriter)
     #expect(outcome.status == .shared)
@@ -692,7 +692,7 @@ struct AppStorageStartupMigrationMappingTests {
       Issue.record("Expected validated legacy fallback")
       return
     }
-    // Keep the cast outside #expect to avoid the same compiler crash.
+    // Cast outside #expect to avoid the same compiler crash.
     let problemIsCause = (problem as AnyObject) === cause
     #expect(problemIsCause)
     #expect(storage.loadServers().map(\.id) == [server.id])
