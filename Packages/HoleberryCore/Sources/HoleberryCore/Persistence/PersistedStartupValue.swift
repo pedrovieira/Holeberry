@@ -41,7 +41,8 @@ enum PersistedStartupValue {
     return servers
   }
 
-  /// Absent versions return nil. Reject non-integers; treating corruption as zero could replay legacy data.
+  /// Absent versions return nil. Reject Booleans and floating-point values:
+  /// coercion could falsely mark migration complete; treating corruption as zero could replay legacy data.
   static func version(_ key: Defaults.Key<Int>, in snapshot: Snapshot) throws -> Int? {
     guard let rawValue = snapshot.rawValue(forKey: key.name) else { return nil }
     guard
