@@ -156,9 +156,10 @@ struct ServerStatisticsServerQuery: EntityQuery {
     return server.url
   }
 
+  /// Lists saved servers from shared storage without network or Keychain access.
   @MainActor
   private static func savedServers() -> [ServerConfig]? {
-    AppStorageStartup(policy: .sharedOnly).start().storage?.loadServers()
+    AppStorageStartup(policy: .sharedOnly).sharedServers()
   }
 }
 

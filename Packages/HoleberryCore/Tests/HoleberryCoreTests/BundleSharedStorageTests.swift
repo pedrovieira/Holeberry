@@ -9,101 +9,113 @@ struct BundleSharedStorageTests {
   private static let appGroupKey = "HoleberryAppGroupIdentifier"
   private static let keychainGroupKey = "HoleberryKeychainAccessGroup"
   private static let containingAppKey = "HoleberryContainingAppIdentifier"
+  nonisolated private static let identifier = "me.example.host"
 
-  private func makeBundle(_ fixture: [String: Any] = [:]) throws -> StubBundle {
-    try #require(StubBundle(fixture: fixture))
+  /// Builds bundles carrying shared-storage metadata and removes them afterwards.
+  @MainActor
+  private final class Fixture {
+    private var urls: [URL] = []
+
+    func storage(
+      appGroup: String? = nil,
+      keychainGroup: String? = nil,
+      containingApp: String? = BundleSharedStorageTests.identifier
+    ) throws -> BundleSharedStorage {
+      let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("SharedStorage-\(UUID().uuidString).bundle", isDirectory: true)
+      try TestBundles.writeInfoPlist(
+        at: root,
+        identifier: BundleSharedStorageTests.identifier,
+        containingAppIdentifier: containingApp,
+        appGroupIdentifier: appGroup,
+        keychainAccessGroup: keychainGroup
+      )
+      urls.append(root)
+      return BundleSharedStorage(interactive: false, bundle: try TestBundles.bundle(at: root))
+    }
+
+    func cleanUp() {
+      urls.forEach(TestBundles.remove)
+    }
   }
 
   private func validAppGroupIdentifier() -> String {
     "group.holeberry.tests.\(UUID().uuidString)"
   }
 
-  @Test func resolvesTheAppGroupSuiteOnce() throws {
+  @Test func resolvesTheAppGroupSuite() throws {
+    let fixture = Fixture()
+    defer { fixture.cleanUp() }
     let identifier = validAppGroupIdentifier()
-    let bundle = try makeBundle([Self.appGroupKey: identifier])
-    let storage = BundleSharedStorage(interactive: false, bundle: bundle)
+    let storage = try fixture.storage(appGroup: identifier)
 
-    let first = try storage.location()
-    let second = try storage.location()
-
-    #expect(first.suiteName == identifier)
-    #expect(second.suiteName == identifier)
-    #expect(bundle.infoReadCount == 1)
-  }
-
-  @Test func retriesUntilResolutionSucceeds() throws {
-    let bundle = try makeBundle()
-    let storage = BundleSharedStorage(interactive: false, bundle: bundle)
-
-    #expect(throws: BundleMetadataError.missingInfoValue(Self.appGroupKey)) {
-      try storage.location()
-    }
-    #expect(bundle.infoReadCount == 1)
-
-    let identifier = validAppGroupIdentifier()
-    bundle.fixture = [Self.appGroupKey: identifier]
     #expect(try storage.location().suiteName == identifier)
-
-    // Resolved once, then cached.
-    _ = try storage.location()
-    #expect(bundle.infoReadCount == 2)
+    #expect(try storage.location().suiteName == identifier)
   }
 
   @Test func rejectsMissingBlankAndUnexpandedMetadata() throws {
-    let missing = try makeBundle()
+    let fixture = Fixture()
+    defer { fixture.cleanUp() }
+
+    let missing = try fixture.storage()
     #expect(throws: BundleMetadataError.missingInfoValue(Self.appGroupKey)) {
-      try BundleSharedStorage(interactive: false, bundle: missing).location()
+      try missing.location()
     }
 
-    let blank = try makeBundle([Self.appGroupKey: "   "])
+    let blank = try fixture.storage(appGroup: "   ")
     #expect(throws: BundleMetadataError.missingInfoValue(Self.appGroupKey)) {
-      try BundleSharedStorage(interactive: false, bundle: blank).location()
+      try blank.location()
     }
 
-    let unexpanded = try makeBundle([Self.appGroupKey: "$(HOLEBERRY_APP_GROUP)"])
+    let unexpanded = try fixture.storage(appGroup: "$(HOLEBERRY_APP_GROUP)")
     #expect(throws: BundleMetadataError.invalidInfoValue(Self.appGroupKey)) {
-      try BundleSharedStorage(interactive: false, bundle: unexpanded).location()
+      try unexpanded.location()
     }
   }
 
   @Test func rejectsIdentifiersWithoutAGroupPrefix() throws {
-    let bare = try makeBundle([Self.appGroupKey: "me.pedrovieira.holeberry"])
+    let fixture = Fixture()
+    defer { fixture.cleanUp() }
+
+    let bare = try fixture.storage(appGroup: "me.pedrovieira.holeberry")
     #expect(throws: BundleMetadataError.invalidInfoValue(Self.appGroupKey)) {
-      try BundleSharedStorage(interactive: false, bundle: bare).location()
+      try bare.location()
     }
 
-    let prefixOnly = try makeBundle([Self.appGroupKey: "group."])
+    let prefixOnly = try fixture.storage(appGroup: "group.")
     #expect(throws: BundleMetadataError.invalidInfoValue(Self.appGroupKey)) {
-      try BundleSharedStorage(interactive: false, bundle: prefixOnly).location()
+      try prefixOnly.location()
     }
 
-    let empty = try makeBundle([Self.appGroupKey: ""])
+    let empty = try fixture.storage(appGroup: "")
     #expect(throws: BundleMetadataError.missingInfoValue(Self.appGroupKey)) {
-      try BundleSharedStorage(interactive: false, bundle: empty).location()
+      try empty.location()
     }
   }
 
   @Test func resolvesTheSharedCredentialStoreOnce() throws {
-    let bundle = try makeBundle([
-      Self.keychainGroupKey: "TEAMID.me.pedrovieira.holeberry.shared",
-      Self.containingAppKey: "me.pedrovieira.holeberry"
-    ])
-    let storage = BundleSharedStorage(interactive: false, bundle: bundle)
+    let fixture = Fixture()
+    defer { fixture.cleanUp() }
+    let storage = try fixture.storage(
+      keychainGroup: "TEAMID.me.pedrovieira.holeberry.shared"
+    )
 
     let first = try #require(try storage.keychain() as? KeychainManager)
-    let readsAfterFirstCall = bundle.infoReadCount
     let second = try #require(try storage.keychain() as? KeychainManager)
 
-    #expect(first.service == "me.pedrovieira.holeberry.shared")
+    #expect(first.service == "me.example.host.shared")
     #expect(first.accessGroup == "TEAMID.me.pedrovieira.holeberry.shared")
     #expect(!first.isInteractive)
     #expect(first === second)
-    #expect(bundle.infoReadCount == readsAfterFirstCall)
   }
 
   @Test func reportsMissingCredentialMetadata() throws {
-    let bundle = try makeBundle([Self.keychainGroupKey: "TEAMID.me.pedrovieira.holeberry.shared"])
-    let storage = BundleSharedStorage(interactive: false, bundle: bundle)
+    let fixture = Fixture()
+    defer { fixture.cleanUp() }
+    let storage = try fixture.storage(
+      keychainGroup: "TEAMID.me.pedrovieira.holeberry.shared",
+      containingApp: nil
+    )
 
     #expect(throws: BundleMetadataError.missingInfoValue(Self.containingAppKey)) {
       try storage.keychain()

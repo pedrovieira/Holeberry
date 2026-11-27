@@ -12,6 +12,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   private let storage: any AppStorageProviding
   private let serviceFactory: any PiholeServiceFactory
   private let versionDetector: any PiholeVersionDetecting
+  private let urlSessionFactory: any URLSessionFactory
   private let executionMode: ServiceExecutionMode
   private let allowsServerChanges: Bool
   private let logger = Logger(subsystem: Logger.appSubsystem, category: "server-manager")
@@ -28,6 +29,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     storage: any AppStorageProviding,
     serviceFactory: any PiholeServiceFactory,
     versionDetector: any PiholeVersionDetecting,
+    urlSessionFactory: any URLSessionFactory,
     executionMode: ServiceExecutionMode = .application,
     allowsServerChanges: Bool = true,
     persistentChangeHandler: @escaping () -> Void = {}
@@ -35,6 +37,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     self.storage = storage
     self.serviceFactory = serviceFactory
     self.versionDetector = versionDetector
+    self.urlSessionFactory = urlSessionFactory
     self.executionMode = executionMode
     self.allowsServerChanges = allowsServerChanges
     self.persistentChangeHandler = persistentChangeHandler
@@ -59,7 +62,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
 
     guard servers.count < Self.maxServers else {
-      throw PiholeError.unknown("Maximum of \(Self.maxServers) Pi-hole instances allowed")
+      throw HoleberryError.maxServersReached(max: Self.maxServers)
     }
 
     guard let serverURL = URL(string: url) else {
@@ -75,20 +78,21 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       version: version
     )
     let session = makeSession(trusting: serverURL)
-    let service = try serviceFactory.buildService(
-      config: config,
-      credential: credential,
-      session: session,
-      storage: storage,
-      executionMode: executionMode
-    )
+    let service = try buildService(config: config, credential: credential, session: session)
 
-    try await service.login()
+    do {
+      try await service.login()
 
-    if await service.isPasswordless || credential.isEmpty {
-      try? storage.deleteCredential(for: config.id)
-    } else {
-      try storage.saveCredential(credential, for: config.id)
+      if await service.isPasswordless || credential.isEmpty {
+        try? storage.deleteCredential(for: config.id)
+      } else {
+        try storage.saveCredential(credential, for: config.id)
+      }
+    } catch {
+      // The service owns its transport; logout discards it, so a failed add
+      // leaves no session behind.
+      await service.logout()
+      throw error
     }
 
     servers.append(config)
@@ -164,13 +168,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       throw PiholeError.unknown("Invalid URL format")
     }
     let session = makeSession(trusting: serverURL)
-    let probe = try serviceFactory.buildService(
-      config: config,
-      credential: credential,
-      session: session,
-      storage: storage,
-      executionMode: executionMode
-    )
+    let probe = try buildService(config: config, credential: credential, session: session)
     do {
       try await probe.login()
       _ = try await probe.checkStatus()
@@ -235,21 +233,38 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     Task { await existingService.logout() }
     guard let serverURL = URL(string: url) else { return }
     let session = makeSession(trusting: serverURL)
-    if let rebuilt = try? serviceFactory.buildService(
-      config: config,
-      credential: currentCredential,
-      session: session,
-      storage: storage,
-      executionMode: executionMode
-    ) {
+    if let rebuilt = try? buildService(config: config, credential: currentCredential, session: session) {
       services[id] = rebuilt
     }
   }
 
-  private func makeSession(trusting url: URL) -> URLSession {
+  /// Builds a service for `config`, discarding `session` when construction fails.
+  ///
+  /// The transport is owned by whoever holds it: the returned service invalidates
+  /// it on `logout()`. No one else keeps the session, so a failed build must tear
+  /// it down here or the orphaned session outlives the attempt.
+  private func buildService(
+    config: ServerConfig,
+    credential: String,
+    session: any HTTPRequestable
+  ) throws -> any PiholeServiceProviding {
+    do {
+      return try serviceFactory.buildService(
+        config: config,
+        credential: credential,
+        session: session,
+        storage: storage,
+        executionMode: executionMode
+      )
+    } catch {
+      session.invalidateAndCancel()
+      throw error
+    }
+  }
+
+  private func makeSession(trusting url: URL) -> any HTTPRequestable {
     let hosts = Set(servers.compactMap { URL(string: $0.url)?.host } + [url.host].compactMap { $0 })
-    let delegate = CertificateTrustDelegate(trustedHosts: hosts)
-    return URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    return urlSessionFactory.makeSession(configuration: .ephemeral, trustedHosts: hosts)
   }
 
   private func detectVersion(url urlString: String) async throws -> ServerVersion {
@@ -258,7 +273,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     }
 
     let session = makeSession(trusting: url)
-    defer { session.finishTasksAndInvalidate() }
+    defer { session.invalidateAndCancel() }
 
     return try await versionDetector.detect(baseURL: url, session: session)
   }
@@ -563,13 +578,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
       let credential = (try? storage.readCredential(for: config.id)) ?? ""
       guard let serverURL = URL(string: config.url) else { continue }
       let session = makeSession(trusting: serverURL)
-      if let rebuilt = try? serviceFactory.buildService(
-        config: config,
-        credential: credential,
-        session: session,
-        storage: storage,
-        executionMode: executionMode
-      ) {
+      if let rebuilt = try? buildService(config: config, credential: credential, session: session) {
         services[config.id] = rebuilt
       }
     }

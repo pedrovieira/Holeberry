@@ -48,12 +48,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     authSessionFactory: authFactory
   )
   private lazy var versionDetector = PiholeVersionDetector()
+  private lazy var urlSessionFactory = ConcreteURLSessionFactory()
   private lazy var serverManager: PiholeServerManager = {
     let writesSharedStore = appStorage.status == .shared
     return PiholeServerManager(
       storage: appStorage.storage ?? UnavailableAppStorage(),
       serviceFactory: serviceFactory,
       versionDetector: versionDetector,
+      urlSessionFactory: urlSessionFactory,
       allowsServerChanges: appStorage.status != .recovery
     ) {
       guard writesSharedStore else { return }
@@ -226,7 +228,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func makeAppStorage() -> AppStorageStartup.Outcome {
-    let outcome = AppStorageStartup(policy: .application).start()
+    // Share legacy dependencies; migrate once per launch.
+    let legacySuite = UserDefaults.standard
+    let legacySuiteName = Bundle.main.bundleIdentifier ?? Bundle.appIdentifier
+    let legacyKeychain = KeychainManager()
+    let migrator = StorageLegacyMigrator(
+      legacySuite: legacySuite,
+      legacySuiteName: legacySuiteName,
+      appLocalSuite: .standard,
+      legacyKeychain: legacyKeychain,
+      shared: BundleSharedStorage.app
+    )
+    let outcome = AppStorageStartup(
+      migrator: migrator,
+      legacySuite: legacySuite,
+      legacySuiteName: legacySuiteName,
+      appLocalSuite: .standard,
+      legacyKeychain: legacyKeychain
+    ).start()
     if let problem = outcome.problem {
       logger.error("Shared storage setup problem: \(problem.localizedDescription, privacy: .public)")
     }

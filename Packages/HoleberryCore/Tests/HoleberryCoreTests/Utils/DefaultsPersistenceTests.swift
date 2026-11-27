@@ -81,7 +81,8 @@ struct DefaultsPersistenceTests {
         keychain: MockKeychainManager()
       ),
       serviceFactory: mockFactory,
-      versionDetector: PiholeVersionDetector()
+      versionDetector: PiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
     )
     #expect(manager.servers.isEmpty)
   }
