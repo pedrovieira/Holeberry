@@ -119,7 +119,7 @@ struct QueryStatisticsProvider: TimelineProvider {
   @MainActor
   private func isSharedStorageReady(in suite: UserDefaults, suiteName: String) -> Bool {
     do {
-      return try SharedStorageMigration.readiness(in: suite, suiteName: suiteName) == .ready
+      return try SharedStorageValidation.readiness(in: suite, suiteName: suiteName) == .ready
     } catch {
       Self.logger.error("Widget shared storage readiness failed: \(error.localizedDescription, privacy: .public)")
       return false
