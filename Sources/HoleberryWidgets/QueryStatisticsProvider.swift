@@ -51,11 +51,12 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
       allowsServerChanges: false
     )
     let snapshot = scopedServers(manager.servers, scope: scope)
-    guard !snapshot.isEmpty else {
-      return .empty(now: now, scope: scope)
+    // Fetch only when the scope matched, then close the transports this load
+    // created in one place, whatever the scope produced.
+    var results: [UUID: Result<QuerySummary, PiholeError>] = [:]
+    if !snapshot.isEmpty {
+      results = await manager.getQuerySummary(scope: scope)
     }
-
-    let results = await manager.getQuerySummary(scope: scope)
     // Stamp the response before awaiting logout: cleanup latency must not make
     // an older overlapping response look newer to the widget timeline.
     let observedAt = Date()
@@ -75,6 +76,9 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     let current = scopedServers(currentStorage.loadServers(), scope: scope)
     guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {
       return changedConfigurationEntry(servers: current, scope: scope)
+    }
+    guard !current.isEmpty else {
+      return .empty(now: now, scope: scope)
     }
 
     return completedEntry(

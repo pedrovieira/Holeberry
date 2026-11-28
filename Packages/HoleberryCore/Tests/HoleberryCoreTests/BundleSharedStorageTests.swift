@@ -50,7 +50,22 @@ struct BundleSharedStorageTests {
     let storage = try fixture.storage(appGroup: identifier)
 
     #expect(try storage.location().suiteName == identifier)
-    #expect(try storage.location().suiteName == identifier)
+  }
+
+  /// `UserDefaults(suiteName:)` returns a distinct instance per call, so a
+  /// matching handle identity proves the second call reused the resolution.
+  @Test func reusesTheResolvedAppGroupSuite() throws {
+    let fixture = Fixture()
+    defer { fixture.cleanUp() }
+    let identifier = validAppGroupIdentifier()
+    let storage = try fixture.storage(appGroup: identifier)
+
+    let first = try storage.location()
+    let second = try storage.location()
+    let uncachedSuite = try #require(UserDefaults(suiteName: identifier))
+
+    #expect(first.suite === second.suite)
+    #expect(first.suite !== uncachedSuite)
   }
 
   @Test func rejectsMissingBlankAndUnexpandedMetadata() throws {

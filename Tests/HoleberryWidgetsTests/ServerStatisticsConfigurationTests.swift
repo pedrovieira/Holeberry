@@ -63,11 +63,44 @@ struct ServerStatisticsConfigurationTests {
     #expect(ServerStatisticsServerEntity.allServers.displayRepresentation.title.key == "All servers")
   }
 
-  @Test func pickerWithoutSavedServersHasOnlyTheAggregateSection() async throws {
-    let suggestions = try await ServerStatisticsServerQuery().suggestedEntities()
+  @Test func pickerWithCompletedEmptyStorageHasOnlyTheAggregateSection() async throws {
+    let query = ServerStatisticsServerQuery { [] }
+
+    let suggestions = try await query.suggestedEntities()
 
     #expect(suggestions.sections.count == 1)
     #expect(suggestions.items == [.allServers])
+  }
+
+  @Test func pickerWithSavedServersAddsTheIndividualSection() async throws {
+    let first = ServerConfig(label: "Kitchen", url: "https://kitchen.example", version: .v6)
+    let second = ServerConfig(label: "Office", url: "https://office.example", version: .v5)
+    let query = ServerStatisticsServerQuery { [first, second] }
+
+    let suggestions = try await query.suggestedEntities()
+
+    #expect(suggestions.sections.count == 2)
+    #expect(suggestions.sections.first?.items.map(\.value) == [.allServers])
+    #expect(suggestions.sections.last?.description?.title.key == "Individual servers")
+    #expect(suggestions.sections.last?.items.map(\.value.name) == ["Kitchen", "Office"])
+  }
+
+  @Test func completedEmptyStorageResolvesAStaleIdentifierAsRemoved() async throws {
+    let removedID = UUID()
+    let query = ServerStatisticsServerQuery { [] }
+
+    let entities = try await query.entities(for: [removedID.uuidString])
+
+    #expect(entities.map(\.resolution) == [.missing])
+  }
+
+  @Test func unavailableStorageLeavesAStaleIdentifierUnclassified() async throws {
+    let removedID = UUID()
+    let query = ServerStatisticsServerQuery { nil }
+
+    let entities = try await query.entities(for: [removedID.uuidString])
+
+    #expect(entities.map(\.resolution) == [.unavailable])
   }
 
   @Test func namesUseTheLabelThenHostnameThenURL() {
@@ -103,13 +136,39 @@ struct ServerStatisticsConfigurationTests {
     #expect(choices.map(\.detail) == ["192.168.1.20", "kitchen.example"])
   }
 
-  @Test func duplicateLabelsWithTheSameHostnameUseTheSavedURL() {
+  @Test func duplicateLabelsWithTheSameHostnameShareASubtitle() {
     let first = ServerConfig(label: "Pi-hole", url: "http://pihole.local", version: .v6)
     let second = ServerConfig(label: "Pi-hole", url: "https://pihole.local", version: .v6)
 
     let choices = ServerStatisticsServerQuery.choices(for: [first, second])
 
-    #expect(choices.map(\.detail) == ["http://pihole.local", "https://pihole.local"])
+    #expect(choices.map(\.detail) == ["pihole.local", "pihole.local"])
+  }
+
+  @Test func credentialsNeverReachDuplicateLabelSubtitles() {
+    let first = ServerConfig(
+      label: "Kitchen",
+      url: "https://admin:s3cret@kitchen.example/admin?token=abc#logs",
+      version: .v6
+    )
+    let second = ServerConfig(label: "Kitchen", url: "https://kitchen.example:8080/", version: .v6)
+
+    let choices = ServerStatisticsServerQuery.choices(for: [first, second])
+
+    #expect(choices.map(\.detail) == ["kitchen.example", "kitchen.example"])
+    let subtitles = choices.compactMap(\.detail)
+    for secret in ["admin", "s3cret", "token", "abc", "logs", ":8080", "/", "?", "#"] {
+      #expect(subtitles.allSatisfy { !$0.contains(secret) })
+    }
+  }
+
+  @Test func duplicateLabelsWithUnreadableURLsShowNoSubtitle() {
+    let first = ServerConfig(label: "Kitchen", url: "not a url", version: .v6)
+    let second = ServerConfig(label: "Kitchen", url: "https:///admin", version: .v6)
+
+    let choices = ServerStatisticsServerQuery.choices(for: [first, second])
+
+    #expect(choices.map(\.detail) == [nil, nil])
   }
 
   @Test func duplicatedFallbackNamesAlsoGetSubtitles() {
@@ -119,7 +178,7 @@ struct ServerStatisticsConfigurationTests {
     let choices = ServerStatisticsServerQuery.choices(for: [first, second])
 
     #expect(choices.map(\.name) == ["pihole.local", "pihole.local"])
-    #expect(choices.allSatisfy { $0.detail != nil })
+    #expect(choices.map(\.detail) == ["pihole.local", "pihole.local"])
   }
 
   @Test func unknownServerUUIDStaysAServerSelection() {

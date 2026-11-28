@@ -57,7 +57,7 @@ struct ServerStatisticsServerEntity: AppEntity, Hashable {
   let id: String
   /// The current display name, resolved when the query runs.
   let name: String
-  /// A hostname or URL when saved names are duplicated.
+  /// A hostname when saved names are duplicated; nothing from the saved URL.
   let detail: String?
   /// The semantic state behind the display values.
   let resolution: Resolution
@@ -77,17 +77,31 @@ struct ServerStatisticsServerEntity: AppEntity, Hashable {
 
 /// Lists saved servers from shared storage without network or Keychain access.
 struct ServerStatisticsServerQuery: EntityQuery {
+  /// Reads saved servers. `nil` means saved metadata is unavailable.
+  typealias SavedServersReader = @MainActor () -> [ServerConfig]?
+
+  private let readSavedServers: SavedServersReader
+
+  init() {
+    self.init { AppStorageStartup(policy: .sharedOnly).sharedServers() }
+  }
+
+  /// Lets a caller supply the saved-server source, such as a completed store.
+  init(readSavedServers: @escaping SavedServersReader) {
+    self.readSavedServers = readSavedServers
+  }
+
   func defaultResult() async -> ServerStatisticsServerEntity? {
     .allServers
   }
 
   func entities(for identifiers: [String]) async throws -> [ServerStatisticsServerEntity] {
-    let saved = await Self.savedServers()
+    let saved = await readSavedServers()
     return identifiers.map { Self.entity(for: $0, saved: saved) }
   }
 
   func suggestedEntities() async throws -> IntentItemCollection<ServerStatisticsServerEntity> {
-    let servers = await Self.savedServers() ?? []
+    let servers = await readSavedServers() ?? []
     var sections = [
       IntentItemSection<ServerStatisticsServerEntity> {
         ServerStatisticsServerEntity.allServers
@@ -132,34 +146,20 @@ struct ServerStatisticsServerQuery: EntityQuery {
   }
 
   /// Maps saved configurations directly to picker choices, disambiguating names.
+  ///
+  /// Only the hostname may appear as a subtitle: the saved URL can carry a
+  /// username, password, path, query, or fragment. Equal hostnames stay
+  /// indistinguishable instead of falling back to any part of the saved URL.
   static func choices(for servers: [ServerConfig]) -> [ServerStatisticsServerEntity] {
-    let groups = Dictionary(grouping: servers, by: \.displayName)
+    let nameCounts = Dictionary(grouping: servers, by: \.displayName).mapValues(\.count)
     return servers.map { server in
-      let duplicates = groups[server.displayName] ?? []
-      return ServerStatisticsServerEntity(
+      ServerStatisticsServerEntity(
         id: server.id.uuidString,
         name: server.displayName,
-        detail: duplicates.count > 1 ? locator(for: server, among: duplicates) : nil,
+        detail: nameCounts[server.displayName, default: 0] > 1 ? server.url.hostname : nil,
         resolution: .saved
       )
     }
-  }
-
-  private static func locator(for server: ServerConfig, among duplicates: [ServerConfig]) -> String {
-    let hosts = duplicates.compactMap(\.url.hostname)
-    if let host = server.url.hostname,
-      hosts.count == duplicates.count,
-      Set(hosts).count == duplicates.count
-    {
-      return host
-    }
-    return server.url
-  }
-
-  /// Lists saved servers from shared storage without network or Keychain access.
-  @MainActor
-  private static func savedServers() -> [ServerConfig]? {
-    AppStorageStartup(policy: .sharedOnly).sharedServers()
   }
 }
 
