@@ -196,6 +196,60 @@ struct ServerStatisticsConfigurationTests {
     #expect(scope != .all)
   }
 
+  @Test func malformedIdentifierNeverTargetsTheSavedZeroUUIDServer() {
+    let zeroID = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    let saved = ServerConfig(id: zeroID, label: "Zero", url: "https://zero.example", version: .v6)
+    let selection = ServerStatisticsServerQuery.entity(for: "not-a-uuid", saved: [saved])
+
+    #expect(selection.resolution == .unreadable)
+    #expect(selection.scope == .noTarget)
+
+    let entry = QueryStatisticsEntry(
+      date: Date(timeIntervalSince1970: 2_000),
+      base: QueryStatisticsSnapshot(
+        scope: selection.scope,
+        setupRequired: false,
+        observations: ServerQueryObservation.make(
+          servers: [saved],
+          results: [zeroID: .success(QuerySummary(totalQueries: 900, totalBlocked: 300))],
+          checkedAt: Date(timeIntervalSince1970: 2_000)
+        )
+      )
+    )
+
+    #expect(entry.summary == nil)
+    #expect(entry.content == .editWidget)
+    #expect(entry.isScopedToServer == false)
+    #expect(entry.base.servers.isEmpty)
+  }
+
+  @Test func savedZeroUUIDServerRemainsASelectableServerSelection() throws {
+    let zeroID = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    let saved = ServerConfig(id: zeroID, label: "Zero", url: "https://zero.example", version: .v6)
+
+    let selection = ServerStatisticsServerQuery.entity(for: zeroID.uuidString, saved: [saved])
+    let entry = QueryStatisticsEntry.preview(for: selection)
+
+    #expect(selection.resolution == .saved)
+    #expect(selection.scope == .server(zeroID))
+    #expect(entry.base.scope == .server(zeroID))
+    #expect(entry.content == .statistics)
+    #expect(try #require(entry.summary).totalQueries == 184_200)
+  }
+
+  @Test func previewForAnUnreadableIdentifierShowsEditGuidanceWithoutCounts() {
+    let saved = ServerConfig(label: "Zero", url: "https://zero.example", version: .v6)
+    let selection = ServerStatisticsServerQuery.entity(for: "not-a-uuid", saved: [saved])
+
+    let entry = QueryStatisticsEntry.preview(for: selection)
+
+    #expect(entry.content == .editWidget)
+    #expect(entry.summary == nil)
+    #expect(entry.lastCheckedAt == nil)
+    #expect(entry.statusText == "No server selected")
+    #expect(entry.accessibilityText == "Edit widget to choose a server")
+  }
+
   @Test func previewForAggregateKeepsTheGallerySample() throws {
     let entry = QueryStatisticsEntry.preview(for: .allServers)
 
@@ -234,6 +288,17 @@ struct ServerStatisticsConfigurationTests {
     #expect(entry.content == .setupRequired)
     #expect(entry.summary == nil)
     #expect(entry.accessibilityText == "Open Holeberry to finish setup")
+  }
+
+  @Test func unreadableSelectionShowsEditGuidanceEvenWhenSetupIsRequired() {
+    let entry = QueryStatisticsEntry(
+      date: Date(timeIntervalSince1970: 2_000),
+      base: QueryStatisticsSnapshot(scope: .noTarget, setupRequired: true, observations: [])
+    )
+
+    #expect(entry.content == .editWidget)
+    #expect(entry.summary == nil)
+    #expect(entry.accessibilityText == "Edit widget to choose a server")
   }
 
   private func entity(

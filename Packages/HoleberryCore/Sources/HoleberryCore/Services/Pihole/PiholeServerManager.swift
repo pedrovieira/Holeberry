@@ -287,6 +287,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   /// Snapshots targets before awaiting, preserving failures for missing selected servers.
+  /// A no-target scope has no targets, so it starts no work and returns no result.
   private func performOnServers<Value: Sendable>(
     scope: ServerScope,
     operation: @escaping @MainActor @Sendable (any PiholeServiceProviding) async throws -> Value
@@ -296,6 +297,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     switch scope {
     case .all: ids = servers.map(\.id)
     case .server(let id): ids = [id]
+    case .noTarget: ids = []
     }
     let clients = services
     return await withTaskGroup(of: (UUID, Result<Value, PiholeError>).self) { group in

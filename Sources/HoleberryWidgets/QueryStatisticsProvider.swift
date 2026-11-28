@@ -92,6 +92,8 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     case .server(let id):
       guard let selected = servers.first(where: { $0.id == id }) else { return [] }
       return [selected]
+    case .noTarget:
+      return []
     }
   }
 

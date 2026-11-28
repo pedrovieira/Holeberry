@@ -10,6 +10,8 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
     case unavailable
     case statistics
     case serverRemoved
+    /// The stored selection cannot name a server; editing the widget fixes it.
+    case editWidget
   }
 
   let date: Date
@@ -42,7 +44,16 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
     return base.servers.first?.displayName
   }
 
+  /// Whether the stored selection cannot name any server, so no server may be
+  /// contacted or displayed for it.
+  var hasUnreadableSelection: Bool {
+    base.scope == .noTarget
+  }
+
   var content: Content {
+    // Editing the widget is the only remedy for an unreadable selection, so it
+    // outranks the setup guidance that storage alone would produce.
+    if hasUnreadableSelection { return .editWidget }
     if base.setupRequired { return .setupRequired }
     guard !base.observations.isEmpty else {
       return isScopedToServer ? .serverRemoved : .noServers
@@ -51,6 +62,7 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
   }
 
   var statusText: String {
+    if hasUnreadableSelection { return "No server selected" }
     if isScopedToServer {
       if let selectedServerName { return selectedServerName }
       return base.setupRequired ? "Server" : "Server removed"
@@ -86,6 +98,8 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
       return "Add a server in Holeberry"
     case .serverRemoved:
       return "Server removed. Edit widget to choose another server"
+    case .editWidget:
+      return "Edit widget to choose a server"
     case .statistics, .unavailable:
       break
     }
@@ -173,6 +187,7 @@ struct QueryStatisticsEntry: TimelineEntry, Sendable {
     switch scope {
     case .all: return UUID()
     case .server(let id): return id
+    case .noTarget: return UUID()
     }
   }
 }

@@ -48,6 +48,8 @@ struct ServerStatisticsGlanceWidgetEntryView: View {
       guidance("Add a server in Holeberry", scale: scale)
     case .serverRemoved:
       removedServerGuidance(scale: scale)
+    case .editWidget:
+      guidance("Edit widget to choose a server", scale: scale)
     case .unavailable:
       guidance(Self.unavailableText, scale: scale)
         .overlay(alignment: .topLeading) {

@@ -36,15 +36,14 @@ struct ServerStatisticsServerEntity: AppEntity, Hashable {
     case missing
     /// Saved metadata is unavailable, so the choice cannot be classified.
     case unavailable
+    /// The stored identifier is not the aggregate identifier or a UUID, so no
+    /// saved server can match it and it targets no server.
+    case unreadable
   }
 
   static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Pi-hole server")
   static let defaultQuery = ServerStatisticsServerQuery()
   static let allServersIdentifier = "all"
-
-  private static let unreadableServerID = UUID(
-    uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-  )
 
   /// The default choice, used when a widget has no explicit configuration.
   static let allServers = ServerStatisticsServerEntity(
@@ -62,9 +61,12 @@ struct ServerStatisticsServerEntity: AppEntity, Hashable {
   /// The semantic state behind the display values.
   let resolution: Resolution
 
+  /// The scope this choice targets. An unreadable identifier targets no server:
+  /// it must never fall back to the aggregate scope or to any real identifier.
   var scope: ServerScope {
     guard id != Self.allServersIdentifier else { return .all }
-    return .server(UUID(uuidString: id) ?? Self.unreadableServerID)
+    guard let serverID = UUID(uuidString: id) else { return .noTarget }
+    return .server(serverID)
   }
 
   var displayRepresentation: DisplayRepresentation {
@@ -124,6 +126,16 @@ struct ServerStatisticsServerQuery: EntityQuery {
     guard identifier != ServerStatisticsServerEntity.allServersIdentifier else {
       return .allServers
     }
+    // A malformed identifier cannot match a saved server, and the saved list's
+    // readability cannot make it readable, so its state is independent of storage.
+    guard UUID(uuidString: identifier) != nil else {
+      return ServerStatisticsServerEntity(
+        id: identifier,
+        name: "Server",
+        detail: nil,
+        resolution: .unreadable
+      )
+    }
     if let entity = choices(for: saved ?? []).first(where: {
       $0.id.caseInsensitiveCompare(identifier) == .orderedSame
     }) {
@@ -180,6 +192,9 @@ extension QueryStatisticsEntry {
       return .empty(now: now, scope: selection.scope)
     case .unavailable:
       return .setupRequired(now: now, scope: selection.scope)
+    case .unreadable:
+      // No sample statistics: an unreadable selection has no server to sample.
+      return .empty(now: now, scope: selection.scope)
     }
   }
 }
