@@ -337,4 +337,55 @@ struct TempUnblockConcurrencyTests {
     await settle()
     #expect(sleeps.waiting.count == 2)
   }
+
+  // MARK: - Retirement
+
+  /// Builds a connection with one parked expiry timer for `domain`.
+  private func parkedTimer(
+    domain: String, suite: UserDefaults, sleeps: Sleeps
+  ) async throws -> (MockPiholeAPI, TemporaryUnblockPiholeServiceDecorator) {
+    let mock = MockPiholeAPI()
+    Server().configure(mock)
+    let decorator = TemporaryUnblockPiholeServiceDecorator(
+      service: mock, storage: makeTestStorage(appLocalSuite: suite), retrySleep: { _ in },
+      sleep: { try await sleeps.sleep($0) })
+    _ = try await decorator.unblockDomain(domain, duration: 300)
+    await waitUntil { sleeps.waiting.count == 1 }
+    return (mock, decorator)
+  }
+
+  @Test("A retired connection issues no delete")
+  func retiredConnectionIssuesNoDelete() async throws {
+    let suite = TestDefaults.makeSuite()
+    let sleeps = Sleeps()
+    defer { sleeps.cancelAll() }
+    let (mock, decorator) = try await parkedTimer(domain: "x.com", suite: suite, sleeps: sleeps)
+
+    await decorator.logout()
+    sleeps.releaseFirst()
+    await settle()
+
+    #expect(mock.deleteDomainCallCount == 0, "A connection retired by an edit must send no further requests")
+  }
+
+  @Test("A retired connection does not overwrite its successor's records")
+  func retiredConnectionDoesNotClobberRecords() async throws {
+    let suite = TestDefaults.makeSuite()
+    let sleeps = Sleeps()
+    defer { sleeps.cancelAll() }
+    let (mock, decorator) = try await parkedTimer(domain: "x.com", suite: suite, sleeps: sleeps)
+
+    await decorator.logout()
+    // What the successor connection for the same server id saved meanwhile.
+    let successorRecord = TempUnblockRecord(
+      domain: "y.com", uuid: "successor-token", startDateUTC: Date(), durationSeconds: 600)
+    Defaults[.tempUnblocks(for: mock.id, suite: suite)] = [successorRecord]
+
+    sleeps.releaseFirst()
+    await settle()
+
+    #expect(
+      Defaults[.tempUnblocks(for: mock.id, suite: suite)] == [successorRecord],
+      "A retired connection must not write its stale record list over the successor's")
+  }
 }
