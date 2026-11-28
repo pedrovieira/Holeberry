@@ -51,11 +51,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   /// Empty and whitespace-only labels fall back to the hostname, or the URL if no nonempty host is available.
   public func displayLabel(for id: UUID) -> String? {
     guard let server = servers.first(where: { $0.id == id }) else { return nil }
-    if let label = server.label, !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return label
-    }
-    guard let host = URLComponents(string: server.url)?.host, !host.isEmpty else { return server.url }
-    return host
+    return server.displayName
   }
 
   // MARK: - Server CRUD
@@ -291,6 +287,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
   }
 
   /// Snapshots targets before awaiting, preserving failures for missing selected servers.
+  /// A no-target scope has no targets, so it starts no work and returns no result.
   private func performOnServers<Value: Sendable>(
     scope: ServerScope,
     operation: @escaping @MainActor @Sendable (any PiholeServiceProviding) async throws -> Value
@@ -300,6 +297,7 @@ public final class PiholeServerManager: PiholeServerManaging, ObservableObject {
     switch scope {
     case .all: ids = servers.map(\.id)
     case .server(let id): ids = [id]
+    case .noTarget: ids = []
     }
     let clients = services
     return await withTaskGroup(of: (UUID, Result<Value, PiholeError>).self) { group in

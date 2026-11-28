@@ -174,6 +174,27 @@ struct QueryStatisticsSnapshotTests {
     #expect(snapshot.availability(at: firstCheck) == .notChecked)
   }
 
+  @Test func noTargetScopeExcludesEveryObservationIncludingTheZeroUUID() {
+    let zeroID = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    let zero = ServerConfig(id: zeroID, label: "Zero", url: "http://zero.local", version: .v6)
+    let snapshot = QueryStatisticsSnapshot(
+      scope: .noTarget,
+      setupRequired: false,
+      observations: [
+        ServerQueryObservation(
+          server: zero,
+          state: .success(QuerySummary(totalQueries: 900, totalBlocked: 300), checkedAt: firstCheck)
+        )
+      ]
+    )
+
+    #expect(snapshot.scope == .noTarget)
+    #expect(snapshot.servers.isEmpty)
+    #expect(snapshot.summary == nil)
+    #expect(snapshot.lastCheckedAt == nil)
+    #expect(snapshot.availability(at: firstCheck) == .notChecked)
+  }
+
   @Test func duplicateServerKeepsFirstStateMetadataAndTimestamp() {
     let id = UUID()
     let first = ServerConfig(id: id, label: "First", url: "http://first.local", version: .v6)

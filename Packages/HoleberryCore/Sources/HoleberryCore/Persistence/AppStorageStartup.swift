@@ -7,26 +7,7 @@ public enum AppStorageStartupStatus: Equatable {
   case recovery
 }
 
-/// App Group location shared with the widget.
-public struct SharedStorageLocation {
-  public let suite: UserDefaults
-  /// Persistent domain name for reads that exclude registered defaults.
-  public let suiteName: String
-
-  public init(suite: UserDefaults, suiteName: String) {
-    self.suite = suite
-    self.suiteName = suiteName
-  }
-}
-
-/// The App Group store and the credential store that belongs to it.
-@MainActor
-public protocol SharedStorageProviding {
-  func location() throws -> SharedStorageLocation
-  func keychain() throws -> any KeychainManaging
-}
-
-/// Migrates once, then selects shared storage, validated legacy fallback, or recovery.
+/// Selects app storage after migration on each launch.
 @MainActor
 public final class AppStorageStartup {
   public enum Outcome {
@@ -101,6 +82,7 @@ public final class AppStorageStartup {
     self.legacyKeychain = legacyKeychain
   }
 
+  /// Revalidates the store on every call.
   public func start() -> Outcome {
     let result: StorageLegacyMigrationResult
     do {

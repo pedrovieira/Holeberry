@@ -600,13 +600,17 @@ private final class StartupHarness {
   }
 
   func start() -> AppStorageStartup.Outcome {
+    startup().start()
+  }
+
+  func startup() -> AppStorageStartup {
     AppStorageStartup(
       migrator: migrator,
       legacySuite: legacySuite,
       legacySuiteName: legacySuiteName,
       appLocalSuite: appLocalSuite,
       legacyKeychain: legacyKeychain
-    ).start()
+    )
   }
 }
 

@@ -43,7 +43,6 @@ targets:
       # The HOLEBERRY_APP_TARGET flag excludes the Widget configuration there.
       - path: Sources/HoleberryWidgets/ServerStatisticsGlanceWidget.swift
       - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
-      - path: Sources/HoleberryWidgets/ServerWidgetEntry.swift
       - path: Sources/HoleberryWidgets/WidgetFooter.swift
       - path: Sources/HoleberryWidgets/WidgetBrandColor.swift
     info:
@@ -150,9 +149,9 @@ targets:
     platform: macOS
     sources:
       - path: Tests/HoleberryWidgetsTests
-      # Test the same entry, contract, and footer sources without hosting the widget extension.
-      - path: Sources/HoleberryWidgets/ServerWidgetEntry.swift
+      # Test the entry, configuration, and footer without hosting the widget extension.
       - path: Sources/HoleberryWidgets/QueryStatisticsEntry.swift
+      - path: Sources/HoleberryWidgets/ServerStatisticsConfigurationIntent.swift
       - path: Sources/HoleberryWidgets/WidgetFooter.swift
     settings:
       base:
@@ -174,6 +173,17 @@ schemes:
           parallelizable: false
     run:
       config: Debug
+      preActions:
+        - name: Register development widget
+          settingsTarget: Holeberry
+          script: |
+            set -e
+            if [ "$CONFIGURATION" = "Debug" ] && [ "$CODE_SIGNING_ALLOWED" = "YES" ]; then
+              holeberry_app_path="${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}"
+              /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$holeberry_app_path"
+              /usr/bin/pluginkit -a "$holeberry_app_path/Contents/PlugIns/HoleberryWidgets.appex"
+              /usr/bin/pluginkit -e use -i "${PRODUCT_BUNDLE_IDENTIFIER}.widgets"
+            fi
     profile:
       config: Release
     analyze:

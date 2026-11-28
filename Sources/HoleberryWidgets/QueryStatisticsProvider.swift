@@ -3,80 +3,42 @@ import HoleberryCore
 import OSLog
 import WidgetKit
 
-/// Fetches live query summaries for one configured scope.
+/// Fetches live query summaries for the widget's configured scope.
 ///
-/// The current All servers widget uses `.all`; a future per-server widget can
-/// pass `.server(id)`.
-struct QueryStatisticsProvider: TimelineProvider {
+/// The configuration supplies `.all` or one saved server UUID. Every loading,
+/// placeholder, and timeline path uses that scope, so a widget instance never
+/// renders another instance's selection.
+struct QueryStatisticsProvider: AppIntentTimelineProvider {
+  typealias Intent = ServerStatisticsConfigurationIntent
+  typealias Entry = QueryStatisticsEntry
+
   private static let logger = Logger(subsystem: Logger.appSubsystem, category: "Widget")
 
-  private let scope: ServerScope
-
-  init(scope: ServerScope) {
-    self.scope = scope
-  }
-
   func placeholder(in context: Context) -> QueryStatisticsEntry {
-    .placeholder(scope: scope)
+    .placeholder()
   }
 
-  func getSnapshot(
-    in context: Context,
-    completion: @escaping @Sendable (QueryStatisticsEntry) -> Void
-  ) {
+  func snapshot(for configuration: Intent, in context: Context) async -> QueryStatisticsEntry {
     if context.isPreview {
-      completion(.placeholder(scope: scope))
-      return
+      return .preview(for: configuration.server)
     }
-
-    Task { @MainActor in
-      completion(await loadEntry(now: Date()))
-    }
+    return await loadEntry(now: Date(), scope: configuration.server.scope)
   }
 
-  func getTimeline(
-    in context: Context,
-    completion: @escaping @Sendable (Timeline<QueryStatisticsEntry>) -> Void
-  ) {
-    Task { @MainActor in
-      let entry = await loadEntry(now: Date())
-      completion(makeTimeline(from: entry, now: Date()))
-    }
+  func timeline(for configuration: Intent, in context: Context) async -> Timeline<QueryStatisticsEntry> {
+    let entry = await loadEntry(now: Date(), scope: configuration.server.scope)
+    return makeTimeline(from: entry, now: Date())
   }
 
   @MainActor
-  private func loadEntry(now: Date) async -> QueryStatisticsEntry {
-    let appGroupIdentifier: String
-    let keychainAccessGroup: String
-    let suite: UserDefaults
-    let sharedKeychain: KeychainManager
+  private func loadEntry(now: Date, scope: ServerScope) async -> QueryStatisticsEntry {
+    let reader = SharedStorageReader()
+    let storage: any AppStorageProviding
     do {
-      appGroupIdentifier = try Bundle.main.sharedAppGroupIdentifier()
-      keychainAccessGroup = try Bundle.main.sharedKeychainAccessGroup()
-      suite = try UserDefaults.sharedStorageSuite(
-        appGroupIdentifier: appGroupIdentifier
-      )
-      sharedKeychain = try KeychainManager.shared(
-        accessGroup: keychainAccessGroup,
-        interactive: false
-      )
+      storage = try reader.openStorage()
     } catch {
-      Self.logger.error(
-        "Widget shared storage setup failed: \(error.localizedDescription, privacy: .public)"
-      )
-      return .setupRequired(now: now, scope: scope)
+      return setupRequiredEntry(now: now, scope: scope, error: error)
     }
-    guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
-      return .setupRequired(now: now, scope: scope)
-    }
-
-    let storage = ConcreteAppStorage(
-      sharedDataSuite: suite,
-      // On-demand execution never stores app-local temporary-unblock records;
-      // the widget's own defaults keep any accidental write out of the app.
-      appLocalSuite: .standard,
-      keychain: sharedKeychain
-    )
     let manager = PiholeServerManager(
       storage: storage,
       serviceFactory: ConcretePiholeServiceFactory(
@@ -87,61 +49,73 @@ struct QueryStatisticsProvider: TimelineProvider {
       executionMode: .onDemand,
       allowsServerChanges: false
     )
-    let snapshot = scopedServers(manager.servers)
-    guard !snapshot.isEmpty else {
-      return noMatchingServerEntry(now: now)
+    let snapshot = scopedServers(manager.servers, scope: scope)
+    // Fetch only when the scope matched, then close the transports this load
+    // created in one place, whatever the scope produced.
+    var results: [UUID: Result<QuerySummary, PiholeError>] = [:]
+    if !snapshot.isEmpty {
+      results = await manager.getQuerySummary(scope: scope)
     }
-
-    let results = await manager.getQuerySummary(scope: scope)
     // Stamp the response before awaiting logout: cleanup latency must not make
     // an older overlapping response look newer to the widget timeline.
     let observedAt = Date()
-    logSummaryFailures(results, credentialService: sharedKeychain.service)
+    logSummaryFailures(results)
     await manager.logoutAll()
 
-    // Migration readiness can change during the fetch.
-    guard isSharedStorageReady(in: suite, suiteName: appGroupIdentifier) else {
-      return .setupRequired(now: now, scope: scope)
+    // Migration readiness can change during the fetch. Only the saved list is
+    // reread, so revalidation never opens the shared credential store again.
+    let current: [ServerConfig]
+    do {
+      current = scopedServers(try reader.servers(), scope: scope)
+    } catch {
+      return setupRequiredEntry(now: now, scope: scope, error: error, revalidating: true)
     }
-
-    let current = scopedServers(storage.loadServers())
     guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {
-      return changedConfigurationEntry(servers: current)
+      return changedConfigurationEntry(servers: current, scope: scope)
+    }
+    guard !current.isEmpty else {
+      return .empty(now: now, scope: scope)
     }
 
     return completedEntry(
-      servers: snapshot,
+      servers: current,
       results: results,
-      observedAt: observedAt
+      observedAt: observedAt,
+      scope: scope
     )
   }
 
-  @MainActor
-  private func isSharedStorageReady(in suite: UserDefaults, suiteName: String) -> Bool {
-    do {
-      return try SharedStorageValidation.readiness(in: suite, suiteName: suiteName) == .ready
-    } catch {
-      Self.logger.error("Widget shared storage readiness failed: \(error.localizedDescription, privacy: .public)")
-      return false
-    }
-  }
-
-  private func scopedServers(_ servers: [ServerConfig]) -> [ServerConfig] {
+  private func scopedServers(_ servers: [ServerConfig], scope: ServerScope) -> [ServerConfig] {
     switch scope {
     case .all:
       return servers
     case .server(let id):
       guard let selected = servers.first(where: { $0.id == id }) else { return [] }
       return [selected]
+    case .noTarget:
+      return []
     }
   }
 
-  /// Logs the coarse failure categories and the service used for credentials.
+  /// Logs the cause and shows guidance. Never logs credentials, response
+  /// bodies, server URLs, or server UUIDs.
+  @MainActor
+  private func setupRequiredEntry(
+    now: Date,
+    scope: ServerScope,
+    error: any Error,
+    revalidating: Bool = false
+  ) -> QueryStatisticsEntry {
+    let stage = revalidating ? "revalidation" : "setup"
+    Self.logger.error(
+      "Widget shared storage \(stage, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
+    )
+    return .setupRequired(now: now, scope: scope)
+  }
+
+  /// Logs the coarse failure categories.
   /// Never logs credentials, response bodies, server URLs, or server UUIDs.
-  private func logSummaryFailures(
-    _ results: [UUID: Result<QuerySummary, PiholeError>],
-    credentialService: String
-  ) {
+  private func logSummaryFailures(_ results: [UUID: Result<QuerySummary, PiholeError>]) {
     let failures = results.values.compactMap { result -> PiholeError? in
       guard case .failure(let error) = result else { return nil }
       return error
@@ -149,9 +123,7 @@ struct QueryStatisticsProvider: TimelineProvider {
     guard !failures.isEmpty else { return }
 
     let categories = Set(failures.map(Self.failureCategory)).sorted().joined(separator: ",")
-    let message =
-      "Summary fetch failed: failures=\(failures.count) categories=\(categories) "
-      + "credentialService=\(credentialService)"
+    let message = "Summary fetch failed: failures=\(failures.count) categories=\(categories)"
     Self.logger.error("\(message, privacy: .public)")
   }
 
@@ -176,15 +148,8 @@ struct QueryStatisticsProvider: TimelineProvider {
     }
   }
 
-  private func noMatchingServerEntry(now: Date) -> QueryStatisticsEntry {
-    QueryStatisticsEntry(
-      date: now,
-      base: QueryStatisticsSnapshot(scope: scope, setupRequired: false, observations: [])
-    )
-  }
-
   @MainActor
-  private func changedConfigurationEntry(servers: [ServerConfig]) -> QueryStatisticsEntry {
+  private func changedConfigurationEntry(servers: [ServerConfig], scope: ServerScope) -> QueryStatisticsEntry {
     QueryStatisticsEntry(
       date: Date(),
       base: QueryStatisticsSnapshot(
@@ -200,7 +165,8 @@ struct QueryStatisticsProvider: TimelineProvider {
   private func completedEntry(
     servers: [ServerConfig],
     results: [UUID: Result<QuerySummary, PiholeError>],
-    observedAt: Date
+    observedAt: Date,
+    scope: ServerScope
   ) -> QueryStatisticsEntry {
     QueryStatisticsEntry(
       date: observedAt,

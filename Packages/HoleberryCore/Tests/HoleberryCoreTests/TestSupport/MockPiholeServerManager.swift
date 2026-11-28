@@ -94,6 +94,8 @@ final class MockPiholeServerManager: PiholeServerManaging {
         return [id: .failure(.unknown("Server not found"))]
       }
       return [id: results[id] ?? .failure(.unknown("Server not found"))]
+    case .noTarget:
+      return [:]
     }
   }
 

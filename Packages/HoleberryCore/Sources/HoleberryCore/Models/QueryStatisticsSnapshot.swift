@@ -61,6 +61,8 @@ public struct QueryStatisticsSnapshot: Equatable, Sendable {
       scoped = observations
     case .server(let id):
       scoped = observations.filter { $0.server.id == id }
+    case .noTarget:
+      scoped = []
     }
 
     // The first occurrence supplies the configuration, result, and timestamp.

@@ -890,6 +890,18 @@ struct PiholeServerManagerOperationsTests {
     #expect(await manager.getQuerySummary(scope: .all).isEmpty)
   }
 
+  @Test("A no-target scope contacts no configured service")
+  func noTargetScope() async {
+    let manager = makeManagerWithTwoServers()
+
+    let statuses = await manager.getBlockingStatus(scope: .noTarget)
+    let summaries = await manager.getQuerySummary(scope: .noTarget)
+
+    #expect(statuses.isEmpty)
+    #expect(summaries.isEmpty)
+    #expect(mockService1.checkStatusCallCount + mockService2.checkStatusCallCount == 0)
+    #expect(mockService1.getQuerySummaryCallCount + mockService2.getQuerySummaryCallCount == 0)
+  }
 
   @Test("Real and mock readers honor the same scope contract", arguments: [false, true])
   func scopedReaderContract(queuedSummaries: Bool) async throws {
@@ -927,6 +939,11 @@ struct PiholeServerManagerOperationsTests {
       } else {
         Issue.record("Unknown summary target must fail")
       }
+
+      let noTargetStatus = await reader.getBlockingStatus(scope: .noTarget)
+      let noTargetSummary = await reader.getQuerySummary(scope: .noTarget)
+      #expect(noTargetStatus.isEmpty)
+      #expect(noTargetSummary.isEmpty)
 
       let allStatus = await reader.getBlockingStatus(scope: .all)
       let allSummary = await reader.getQuerySummary(scope: .all)
