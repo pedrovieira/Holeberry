@@ -32,13 +32,12 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
 
   @MainActor
   private func loadEntry(now: Date, scope: ServerScope) async -> QueryStatisticsEntry {
-    let startup = AppStorageStartup(policy: .sharedOnly)
-    let outcome = startup.start()
-    guard let storage = outcome.storage else {
-      if let problem = outcome.problem {
-        Self.logger.error("Widget shared storage setup failed: \(problem.localizedDescription, privacy: .public)")
-      }
-      return .setupRequired(now: now, scope: scope)
+    let reader = SharedStorageReader()
+    let storage: any AppStorageProviding
+    do {
+      storage = try reader.openStorage()
+    } catch {
+      return setupRequiredEntry(now: now, scope: scope, error: error)
     }
     let manager = PiholeServerManager(
       storage: storage,
@@ -63,17 +62,14 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
     logSummaryFailures(results)
     await manager.logoutAll()
 
-    // Migration readiness can change during the fetch.
-    let refreshed = startup.start()
-    guard let currentStorage = refreshed.storage else {
-      if let problem = refreshed.problem {
-        Self.logger.error(
-          "Widget shared storage revalidation failed: \(problem.localizedDescription, privacy: .public)"
-        )
-      }
-      return .setupRequired(now: now, scope: scope)
+    // Migration readiness can change during the fetch. Only the saved list is
+    // reread, so revalidation never opens the shared credential store again.
+    let current: [ServerConfig]
+    do {
+      current = scopedServers(try reader.servers(), scope: scope)
+    } catch {
+      return setupRequiredEntry(now: now, scope: scope, error: error, revalidating: true)
     }
-    let current = scopedServers(currentStorage.loadServers(), scope: scope)
     guard current.elementsEqual(snapshot, by: { $0.hasSameConnection(as: $1) }) else {
       return changedConfigurationEntry(servers: current, scope: scope)
     }
@@ -97,6 +93,22 @@ struct QueryStatisticsProvider: AppIntentTimelineProvider {
       guard let selected = servers.first(where: { $0.id == id }) else { return [] }
       return [selected]
     }
+  }
+
+  /// Logs the cause and shows guidance. Never logs credentials, response
+  /// bodies, server URLs, or server UUIDs.
+  @MainActor
+  private func setupRequiredEntry(
+    now: Date,
+    scope: ServerScope,
+    error: any Error,
+    revalidating: Bool = false
+  ) -> QueryStatisticsEntry {
+    let stage = revalidating ? "revalidation" : "setup"
+    Self.logger.error(
+      "Widget shared storage \(stage, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
+    )
+    return .setupRequired(now: now, scope: scope)
   }
 
   /// Logs the coarse failure categories.

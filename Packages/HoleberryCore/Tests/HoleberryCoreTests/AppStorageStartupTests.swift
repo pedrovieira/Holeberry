@@ -7,182 +7,6 @@ import Testing
 @Suite("AppStorageStartup")
 @MainActor
 struct AppStorageStartupTests {
-  // MARK: - Shared storage consumers
-
-  @Test func openingSharedStorageReadsOnlyTheSharedStoreWithoutActivationOrCredentialAccess() throws {
-    let harness = StartupHarness()
-    let legacy = ServerConfig(url: "http://legacy.local", version: .v5)
-    let shared = ServerConfig(label: "Shared", url: "http://shared.local", version: .v6)
-    Defaults[.servers(suite: harness.legacySuite)] = [legacy]
-    Defaults[.servers(suite: harness.sharedSuite)] = [shared]
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-
-    let outcome = harness.start(policy: .sharedOnly)
-    let storage = try #require(outcome.storage)
-
-    #expect(outcome.status == .shared)
-    #expect(!outcome.activatedNow)
-    #expect(storage.loadServers().map(\.id) == [shared.id])
-    #expect(harness.activationRecord == 0)
-    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [legacy.id])
-    #expect(harness.legacyKeychain.readCallCount == 0)
-    #expect(harness.sharedKeychain.readCallCount == 0)
-    #expect(harness.sharedKeychain.saveCallCount == 0)
-    #expect(harness.sharedKeychain.deleteCallCount == 0)
-    try harness.sharedKeychain.saveCredential("shared-secret", for: shared.id)
-    #expect(try storage.readCredential(for: shared.id) == "shared-secret")
-  }
-
-  @Test func openingPendingSharedStorageDoesNotMigrateOrFallBackToLegacy() throws {
-    let harness = StartupHarness()
-    let server = ServerConfig(url: "http://legacy.local", version: .v6)
-    Defaults[.servers(suite: harness.legacySuite)] = [server]
-
-    let outcome = harness.start(policy: .sharedOnly)
-
-    #expect(outcome.status == .recovery)
-    #expect(outcome.storage == nil)
-    #expect(outcome.problem as? AppStorageStartupError == .migrationDidNotComplete)
-    #expect(harness.sharedMarker == 0)
-    #expect(harness.activationRecord == 0)
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-    #expect(harness.legacyKeychain.readCallCount == 0)
-    #expect(Defaults[.servers(suite: harness.legacySuite)].map(\.id) == [server.id])
-  }
-
-  @Test func openingSharedStorageAcceptsAnExplicitEmptyListAndRevalidatesEachTime() throws {
-    let harness = StartupHarness()
-    Defaults[.servers(suite: harness.sharedSuite)] = []
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-
-    let storage = try #require(harness.start(policy: .sharedOnly).storage)
-    #expect(storage.loadServers().isEmpty)
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = 0
-
-    #expect(harness.start(policy: .sharedOnly).storage == nil)
-    #expect(harness.sharedStorage.keychainCallCount == 1)
-  }
-
-  @Test func openingSharedStorageRejectsUnsupportedVersionsBeforeCreatingTheKeychain() {
-    let harness = StartupHarness()
-    let version = SharedStorageValidation.currentVersion + 1
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = version
-
-    let outcome = harness.start(policy: .sharedOnly)
-
-    #expect(outcome.status == .recovery)
-    #expect(outcome.storage == nil)
-    #expect(outcome.problem as? SharedStorageReadinessError == .unsupportedCompletionVersion(version))
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-  }
-
-  @Test func openingSharedStorageRejectsMissingAndMalformedServerLists() {
-    let harness = StartupHarness()
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-
-    let missing = harness.start(policy: .sharedOnly)
-
-    #expect(missing.storage == nil)
-    #expect(missing.problem as? SharedStorageReadinessError == .missingServerConfiguration)
-    setRawDefaultsValue("not-an-array", for: Defaults.Keys.servers(suite: harness.sharedSuite))
-
-    let malformed = harness.start(policy: .sharedOnly)
-
-    #expect(malformed.storage == nil)
-    #expect(malformed.problem as? SharedStorageReadinessError == .malformedServerConfiguration)
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-  }
-
-  @Test func openingSharedStoragePropagatesUnavailableLocation() {
-    let harness = StartupHarness()
-    harness.sharedStorage.locationError = StartupTestError.sharedLocationUnavailable
-
-    let outcome = harness.start(policy: .sharedOnly)
-
-    #expect(outcome.status == .recovery)
-    #expect(outcome.storage == nil)
-    #expect(outcome.problem as? StartupTestError == .sharedLocationUnavailable)
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-  }
-
-  @Test func openingSharedStoragePropagatesUnavailableKeychain() {
-    let harness = StartupHarness()
-    Defaults[.servers(suite: harness.sharedSuite)] = []
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-    harness.sharedStorage.keychainError = StartupTestError.sharedKeychainUnavailable
-
-    let outcome = harness.start(policy: .sharedOnly)
-
-    #expect(outcome.status == .recovery)
-    #expect(outcome.storage == nil)
-    #expect(outcome.problem as? StartupTestError == .sharedKeychainUnavailable)
-    #expect(harness.activationRecord == 0)
-  }
-
-  @Test func sharedOnlyIgnoresMalformedLegacyConfigurationAndActivation() throws {
-    let harness = StartupHarness()
-    let server = ServerConfig(url: "http://shared.local", version: .v6)
-    Defaults[.servers(suite: harness.sharedSuite)] = [server]
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-    setRawDefaultsValue("not-an-array", for: Defaults.Keys.servers(suite: harness.legacySuite))
-    let activationKey = Defaults.Keys.sharedStorageActivatedVersion(suite: harness.legacySuite).name
-    harness.legacySuite.set("invalid", forKey: activationKey)
-
-    let outcome = harness.start(policy: .sharedOnly)
-    let storage = try #require(outcome.storage)
-
-    #expect(outcome.status == .shared)
-    #expect(!outcome.activatedNow)
-    #expect(storage.loadServers().map(\.id) == [server.id])
-    #expect(harness.legacySuite.string(forKey: activationKey) == "invalid")
-    #expect(harness.legacyKeychain.readCallCount == 0)
-  }
-
-  // MARK: - Server list without credentials
-
-  @Test func listsSharedServersWithoutResolvingCredentials() throws {
-    let harness = StartupHarness()
-    let server = ServerConfig(label: "Shared", url: "http://shared.local", version: .v6)
-    Defaults[.servers(suite: harness.sharedSuite)] = [server]
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-
-    let servers = try #require(harness.startup(policy: .sharedOnly).sharedServers())
-
-    #expect(servers.map(\.id) == [server.id])
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-    #expect(harness.sharedKeychain.readCallCount == 0)
-    #expect(harness.legacyKeychain.readCallCount == 0)
-  }
-
-  @Test func listsNoSharedServersUntilTheCopyIsComplete() {
-    let harness = StartupHarness()
-    Defaults[.servers(suite: harness.sharedSuite)] = [ServerConfig(url: "http://shared.local", version: .v6)]
-
-    #expect(harness.startup(policy: .sharedOnly).sharedServers() == nil)
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-    #expect(harness.activationRecord == 0)
-  }
-
-  @Test func listsNoSharedServersWhenTheCopyIsUnreadable() {
-    let harness = StartupHarness()
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-    setRawDefaultsValue("not-an-array", for: Defaults.Keys.servers(suite: harness.sharedSuite))
-
-    #expect(harness.startup(policy: .sharedOnly).sharedServers() == nil)
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-  }
-
-  @Test func listsNoSharedServersForAnApplicationLaunch() throws {
-    let harness = StartupHarness()
-    let server = ServerConfig(url: "http://shared.local", version: .v6)
-    Defaults[.servers(suite: harness.sharedSuite)] = [server]
-    Defaults[.sharedStorageMigrationVersion(suite: harness.sharedSuite)] = SharedStorageValidation.currentVersion
-
-    // Application launches read credentials for every connection, so they use `start()`.
-    #expect(harness.startup(policy: .application).sharedServers() == nil)
-    #expect(harness.sharedStorage.keychainCallCount == 0)
-  }
-
   // MARK: - First launches
 
   @Test func freshInstallStartsOnSharedStorage() throws {
@@ -775,18 +599,17 @@ private final class StartupHarness {
     ).refreshBeforeActivation()
   }
 
-  func start(policy: AppStorageStartup.Policy = .application) -> AppStorageStartup.Outcome {
-    startup(policy: policy).start()
+  func start() -> AppStorageStartup.Outcome {
+    startup().start()
   }
 
-  func startup(policy: AppStorageStartup.Policy = .application) -> AppStorageStartup {
+  func startup() -> AppStorageStartup {
     AppStorageStartup(
-      policy: policy,
+      migrator: migrator,
       legacySuite: legacySuite,
       legacySuiteName: legacySuiteName,
       appLocalSuite: appLocalSuite,
-      legacyKeychain: legacyKeychain,
-      sharedStorage: sharedStorage
+      legacyKeychain: legacyKeychain
     )
   }
 }

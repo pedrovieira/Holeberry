@@ -83,7 +83,7 @@ struct ServerStatisticsServerQuery: EntityQuery {
   private let readSavedServers: SavedServersReader
 
   init() {
-    self.init { AppStorageStartup(policy: .sharedOnly).sharedServers() }
+    self.init { try? SharedStorageReader().servers() }
   }
 
   /// Lets a caller supply the saved-server source, such as a completed store.
