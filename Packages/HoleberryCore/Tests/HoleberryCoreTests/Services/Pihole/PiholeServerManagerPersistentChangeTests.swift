@@ -673,6 +673,47 @@ struct PiholeServerManagerPersistentChangeTests {
     #expect(persisted.version == .v5)
   }
 
+  @Test("A URL edit keeps temp-unblock records with the server")
+  func urlEditKeepsTempUnblockRecords() async throws {
+    let shared = TestDefaults.makeSuite()
+    let appLocal = TestDefaults.makeSuite()
+    let storage = makeTestStorage(appLocalSuite: appLocal, sharedData: shared)
+    let server = ServerConfig(url: "http://old.local", version: .v6)
+    Defaults[.servers(suite: shared)] = [server]
+    let record = TempUnblockRecord(
+      domain: "x.com", uuid: "record-token", startDateUTC: Date(), durationSeconds: 3600)
+    storage.saveTemporaryUnblocks([record], for: server.id)
+
+    // Both hosts' allow lists carry the entry this record owns.
+    let entry = DomainEntry(id: 1, domain: "x.com", type: 0, comment: "record-token")
+    let oldHost = MockPiholeAPI(id: server.id, url: "http://old.local")
+    oldHost.getDomainsStub = .success([entry])
+    let newHost = MockPiholeAPI(id: server.id, url: "http://new.local")
+    newHost.getDomainsStub = .success([entry])
+
+    let factory = MockPiholeServiceFactory()
+    factory.buildServiceHandler = { config in
+      let host = config.url == "http://new.local" ? newHost : oldHost
+      return TemporaryUnblockPiholeServiceDecorator(service: host, storage: storage)
+    }
+    let manager = PiholeServerManager(
+      storage: storage,
+      serviceFactory: factory,
+      versionDetector: MockPiholeVersionDetector(),
+      urlSessionFactory: MockURLSessionFactory()
+    )
+
+    #expect(manager.updateServer(id: server.id, label: nil, url: "http://new.local", credential: nil))
+
+    // Records are keyed by server id, never by URL, so the replacement
+    // connection for the same id loads the same list and reconciles it.
+    await waitUntil { newHost.getDomainsCallCount == 1 }
+    #expect(factory.buildServiceCallCount == 2, "A URL edit rebuilds the connection")
+    #expect(
+      storage.loadTemporaryUnblocks(for: server.id) == [record],
+      "The record stays associated with the server across the URL edit")
+  }
+
   private struct PersistentChangeSnapshot {
     let credential: String?
     let servers: [ServerConfig]

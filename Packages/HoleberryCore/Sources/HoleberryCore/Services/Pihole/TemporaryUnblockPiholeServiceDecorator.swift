@@ -1,6 +1,8 @@
 import Foundation
 import OSLog
 
+// swiftlint:disable file_length
+
 @MainActor
 public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProviding {
   private let wrapped: any PiholeAPIProviding
@@ -27,6 +29,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   private var activeRecords: [TempUnblockRecord] = []
   private var expiryTasks: [String: Task<Void, Never>] = [:]
   private var retryTasks: [String: Task<Void, Never>] = [:]
+  private var isClosed = false
   // A present key holds the domain across network awaits, with FIFO waiters.
   private var domainWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
   private let backoffIntervals: [TimeInterval]
@@ -111,7 +114,16 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   public func logout() async {
+    isClosed = true
+    cancelAllTimers()
     await wrapped.logout()
+  }
+
+  private func cancelAllTimers() {
+    for task in expiryTasks.values { task.cancel() }
+    for task in retryTasks.values { task.cancel() }
+    expiryTasks.removeAll()
+    retryTasks.removeAll()
   }
 
   public func login() async throws {
@@ -209,6 +221,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   private func startRecord(domain: String, duration: TimeInterval, uuid: String) {
+    guard !isClosed else { return }
     cancelRecords(for: domain)
     let record = TempUnblockRecord(domain: domain, uuid: uuid, startDateUTC: Date(), durationSeconds: duration)
     activeRecords.append(record)
@@ -217,6 +230,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   private func renewRecord(_ record: TempUnblockRecord, duration: TimeInterval) {
+    guard !isClosed else { return }
     expiryTasks.removeValue(forKey: record.uuid)?.cancel()
     retryTasks.removeValue(forKey: record.uuid)?.cancel()
     guard let index = activeRecords.firstIndex(where: { $0.uuid == record.uuid }) else { return }
@@ -252,6 +266,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   private func saveRecords() {
+    guard !isClosed else { return }
     storage.saveTemporaryUnblocks(activeRecords, for: wrapped.id)
   }
 
@@ -341,6 +356,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   private func removeExpired(_ record: TempUnblockRecord) async {
+    guard !isClosed else { return }
     await acquireDomain(record.domain)
     defer { releaseDomain(record.domain) }
     guard !Task.isCancelled else { return }
@@ -363,6 +379,7 @@ public final class TemporaryUnblockPiholeServiceDecorator: PiholeServiceProvidin
   }
 
   private func scheduleRetry(for record: TempUnblockRecord) {
+    guard !isClosed else { return }
     retryTasks.removeValue(forKey: record.uuid)?.cancel()
     retryTasks[record.uuid] = Task { [weak self] in
       guard let self else { return }
