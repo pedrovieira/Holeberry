@@ -1,3 +1,4 @@
+import AppKit
 import Defaults
 import HoleberryCore
 import OSLog
@@ -55,6 +56,22 @@ final class NotificationCoordinator: NSObject {
   func schedule(_ kind: UserNotificationKind) {
     guard isEnabled(kind) else { return }
 
+    let content = notificationContent(for: kind)
+    let request = UNNotificationRequest(
+      identifier: Self.identifier(for: kind),
+      content: content,
+      trigger: nil
+    )
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error {
+        self.logger.warning(
+          "Failed to deliver notification: \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    }
+  }
+
+  func notificationContent(for kind: UserNotificationKind) -> UNMutableNotificationContent {
     let content = UNMutableNotificationContent()
     content.title = "Holeberry"
     content.categoryIdentifier = Self.category(for: kind)
@@ -79,22 +96,46 @@ final class NotificationCoordinator: NSObject {
       content.subtitle = "Check your servers' connectivity."
     case .unblockFailed, .domainAlreadyAllowlisted:
       Self.configureDomainUnblockContent(content, for: kind)
+    case .browserDomainUnblockFeedback(let body):
+      content.body = body
     case .updateAvailable(let version):
       content.body = "Version \(version) is available."
     }
 
-    let request = UNNotificationRequest(
-      identifier: Self.identifier(for: kind),
-      content: content,
-      trigger: nil
-    )
-    UNUserNotificationCenter.current().add(request) { error in
-      if let error {
-        self.logger.warning(
-          "Failed to deliver notification: \(error.localizedDescription, privacy: .public)"
-        )
+    return content
+  }
+
+  /// Browser actions must have visible feedback even when system notifications are unavailable.
+  func presentBrowserUnblockFeedback(_ kind: UserNotificationKind) async {
+    let content = notificationContent(for: kind)
+    let center = UNUserNotificationCenter.current()
+    var settings = await center.notificationSettings()
+    if settings.authorizationStatus == .notDetermined {
+      do {
+        _ = try await center.requestAuthorization(options: [.alert, .sound])
+        settings = await center.notificationSettings()
+      } catch {
+        logger.warning("Notification authorization failed: \(error.localizedDescription, privacy: .public)")
       }
     }
+    if settings.authorizationStatus == .authorized,
+      settings.alertSetting == .enabled,
+      settings.alertStyle != .none
+    {
+      do {
+        try await center.add(
+          UNNotificationRequest(identifier: Self.identifier(for: kind), content: content, trigger: nil))
+        return
+      } catch {
+        logger.warning("Failed to deliver browser feedback: \(error.localizedDescription, privacy: .public)")
+      }
+    }
+    NSApp.activate(ignoringOtherApps: true)
+    let alert = NSAlert()
+    alert.messageText = content.title
+    alert.informativeText = [content.subtitle, content.body].filter { !$0.isEmpty }.joined(separator: "\n")
+    alert.addButton(withTitle: "OK")
+    alert.runModal()
   }
 
   private static func configureDomainUnblockContent(
@@ -218,7 +259,7 @@ final class NotificationCoordinator: NSObject {
       return true
     case .gravityUpdateCompleted:
       return Defaults[.notifyGravityUpdateCompleted(suite: defaultsSuite)]
-    case .unblockFailed, .domainAlreadyAllowlisted:
+    case .unblockFailed, .domainAlreadyAllowlisted, .browserDomainUnblockFeedback:
       // Always on — explain when a user's request did not add an entry.
       return true
     case .updateAvailable:
@@ -236,7 +277,7 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdatePartiallyCompleted, .gravityUpdateFailedAll: return gravityErrorCategory
     case .gravityUpdateCompleted: return gravityCompletedCategory
     case .unblockFailed: return unblockFailureCategory
-    case .domainAlreadyAllowlisted: return domainUnblockNoOpCategory
+    case .domainAlreadyAllowlisted, .browserDomainUnblockFeedback: return domainUnblockNoOpCategory
     case .updateAvailable: return updateAvailableCategory
     }
   }
@@ -251,6 +292,7 @@ final class NotificationCoordinator: NSObject {
     case .gravityUpdateCompleted: return "gravity-completed-\(id)"
     case .unblockFailed: return "unblock-failed-\(id)"
     case .domainAlreadyAllowlisted: return "domain-unblock-no-op-\(id)"
+    case .browserDomainUnblockFeedback: return "browser-domain-unblock-\(id)"
     // Stable across reminders so a newer one replaces a stale banner
     // instead of stacking; `withdrawUpdateReminder()` reuses this id.
     case .updateAvailable: return updateAvailableIdentifier

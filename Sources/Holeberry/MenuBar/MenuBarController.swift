@@ -17,6 +17,8 @@ final class MenuBarController: NSObject {
   private let updater: SPUUpdater
   private let notificationCoordinator: NotificationCoordinator
   private let gravityOutcomeNotifier: GravityOutcomeNotifier
+  private let browserDomainUnblocker: any BrowserDomainUnblocking
+  private let browserDomainUnblockNotifier: BrowserDomainUnblockNotifier
   private let defaultsSuite: UserDefaults
   private let settingsWindowController: SettingsWindowController
   private let menuBuilder = MenuBuilder()
@@ -50,6 +52,8 @@ final class MenuBarController: NSObject {
     updater: SPUUpdater,
     notificationCoordinator: NotificationCoordinator,
     gravityOutcomeNotifier: GravityOutcomeNotifier,
+    browserDomainUnblocker: any BrowserDomainUnblocking,
+    browserDomainUnblockNotifier: BrowserDomainUnblockNotifier,
     defaultsSuite: UserDefaults = .standard,
     settingsWindowController: SettingsWindowController
   ) {
@@ -62,6 +66,8 @@ final class MenuBarController: NSObject {
     self.updater = updater
     self.notificationCoordinator = notificationCoordinator
     self.gravityOutcomeNotifier = gravityOutcomeNotifier
+    self.browserDomainUnblocker = browserDomainUnblocker
+    self.browserDomainUnblockNotifier = browserDomainUnblockNotifier
     self.defaultsSuite = defaultsSuite
     self.settingsWindowController = settingsWindowController
 
@@ -132,11 +138,11 @@ final class MenuBarController: NSObject {
             self?.handleGravityOutcomes(outcomes)
           }
         },
-        disableURL: { [weak self] domain, duration in
-          self?.performTempUnblock(domain: domain, duration: duration)
+        disableURL: { [weak self] domain, duration, source in
+          self?.unblockDomain(domain: domain, duration: duration, source: source)
         },
-        addToAllowlist: { [weak self] domain in
-          self?.addToAllowlist(domain: domain)
+        addToAllowlist: { [weak self] domain, source in
+          self?.unblockDomain(domain: domain, duration: nil, source: source)
         },
         enableBrowserPermission: { [weak self] in
           self?.handleEnableBrowserPermission()
@@ -273,6 +279,22 @@ final class MenuBarController: NSObject {
   }
 
   // MARK: - Temp Unblock
+
+  private func unblockDomain(domain: String, duration: TimeInterval?, source: DomainActionSource) {
+    switch source {
+    case .browserTab:
+      Task {
+        let result = await browserDomainUnblocker.unblock(domain: domain, duration: duration)
+        await browserDomainUnblockNotifier.notify(result)
+      }
+    case .recentlyBlocked:
+      if let duration {
+        performTempUnblock(domain: domain, duration: duration)
+      } else {
+        addToAllowlist(domain: domain)
+      }
+    }
+  }
 
   private func performTempUnblock(domain: String, duration: TimeInterval) {
     Task {

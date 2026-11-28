@@ -65,6 +65,34 @@ struct MockPiholeAPITests {
     #expect(mock.deleteDomainLastList == .deny)
   }
 
+  @Test func domainQueryHistoryStubsAndTracks() async throws {
+    let mock = MockPiholeAPI()
+    let interval = DateInterval(start: Date(timeIntervalSince1970: 1000), duration: 900)
+    let expected = DomainQueryHistory(entries: [], isComplete: false)
+    mock.getDomainQueryHistoryStub = .success(expected)
+    #expect(
+      try await mock.getDomainQueryHistory(
+        domain: "example.com", forClientIP: "192.168.1.50", interval: interval) == expected)
+    #expect(mock.getDomainQueryHistoryCallCount == 1)
+    #expect(mock.getDomainQueryHistoryLastDomain == "example.com")
+    #expect(mock.getDomainQueryHistoryLastClientIP == "192.168.1.50")
+    #expect(mock.getDomainQueryHistoryLastInterval == interval)
+    mock.getDomainQueryHistoryStub = .failure(PiholeError.unauthorized)
+    await #expect(throws: PiholeError.unauthorized) {
+      try await mock.getDomainQueryHistory(domain: "example.com", forClientIP: "192.168.1.50", interval: interval)
+    }
+    mock.getDomainQueryHistoryHandler = { domain, client, receivedInterval in
+      #expect(domain == "example.com")
+      #expect(client == "192.168.1.50")
+      #expect(receivedInterval == interval)
+      return expected
+    }
+    #expect(
+      try await mock.getDomainQueryHistory(
+        domain: "example.com", forClientIP: "192.168.1.50", interval: interval) == expected)
+    #expect(mock.getDomainQueryHistoryCallCount == 3)
+  }
+
   @Test func updateGravity() async throws {
     let mock = MockPiholeAPI()
     try await mock.updateGravity()

@@ -191,38 +191,39 @@ final class PiholeV5ServiceTests {
 
   // MARK: - getRecentBlocked
 
-  @Test("getRecentBlocked filters blocked queries")
+  @Test("getRecentBlocked decodes Unix timestamps and filters status and time")
   func getRecentBlocked() async throws {
-    let now = Date()
-    let interval = DateInterval(start: now.addingTimeInterval(-3600), end: now)
+    let interval = DateInterval(start: Date(timeIntervalSince1970: 1_700_000_000), duration: 3600)
 
     mockSession.handlers = [
       { request in
         let urlStr = request.url?.absoluteString ?? ""
         #expect(urlStr.contains("getAllQueries"))
-        let from = Int(now.addingTimeInterval(-3600).timeIntervalSince1970)
-        let until = Int(now.timeIntervalSince1970)
-        #expect(urlStr.contains("from=\(from)") || urlStr.contains("until=\(until)"))
+        #expect(urlStr.contains("from=1700000000"))
+        #expect(urlStr.contains("until=1700003600"))
         let response = try #require(v5Response())
-        let timestamp1 = now.addingTimeInterval(-1800).timeIntervalSince1970
-        let timestamp2 = now.addingTimeInterval(-900).timeIntervalSince1970
-        let timestamp3 = now.addingTimeInterval(-300).timeIntervalSince1970
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let ts1 = dateFormatter.string(from: Date(timeIntervalSince1970: timestamp1))
-        let ts2 = dateFormatter.string(from: Date(timeIntervalSince1970: timestamp2))
-        let ts3 = dateFormatter.string(from: Date(timeIntervalSince1970: timestamp3))
-        let json =
-          "{\"data\":[[\"\(ts1)\",\"A\",\"blocked.com\",\"192.168.1.5\"," + "\"1\",\"Blocked\",\"0\"],"
-          + "[\"\(ts2)\",\"A\",\"allowed.com\",\"192.168.1.5\"," + "\"2\",\"OK\",\"0\"],"
-          + "[\"\(ts3)\",\"A\",\"tracker.net\",\"192.168.1.10\"," + "\"1\",\"Blocked\",\"0\"]]}"
-        return (Data(json.utf8), response)
+        return (Data(V5QueryLogFixture.response.utf8), response)
       }
     ]
     let blocked = try await makeService().getRecentBlocked(forClientIp: nil, interval: interval)
-    #expect(blocked.count == 2)
+    try #require(blocked.count == 2)
     #expect(blocked[0].domain == "blocked.com")
     #expect(blocked[1].domain == "tracker.net")
+    #expect(blocked[0].timestamp == Date(timeIntervalSince1970: 1_700_001_800))
+    #expect(blocked[1].timestamp == Date(timeIntervalSince1970: 1_700_003_300))
+  }
+
+  @Test("Invalid query timestamps cannot become current queries", arguments: ["bad date", "NaN", "inf"])
+  func getRecentBlockedInvalidTimestamp(timestamp: String) async throws {
+    mockSession.handlers = [
+      { _ in
+        let json = "{\"data\":[[\"\(timestamp)\",\"A\",\"blocked.com\",\"192.168.1.5\",\"1\",\"0\",\"4\"]]}"
+        return (Data(json.utf8), try #require(v5Response()))
+      }
+    ]
+    let interval = DateInterval(start: Date().addingTimeInterval(-60), duration: 120)
+    let blocked = try await makeService().getRecentBlocked(forClientIp: nil, interval: interval)
+    #expect(blocked.isEmpty)
   }
 
   // MARK: - addDomain / deleteDomain

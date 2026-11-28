@@ -12,6 +12,8 @@ final class ShortcutController {
   private let browserTabCoordinator: BrowserTabCoordinator
   private let statusMonitor: ServerStatusPoller
   private let notificationCoordinator: NotificationCoordinator
+  private let browserDomainUnblocker: any BrowserDomainUnblocking
+  private let browserDomainUnblockNotifier: BrowserDomainUnblockNotifier
   private let defaultsSuite: UserDefaults
   private var registeredDurationNames = Set<KeyboardShortcuts.Name>()
   private var everRegisteredDurationNames = Set<KeyboardShortcuts.Name>()
@@ -22,12 +24,16 @@ final class ShortcutController {
     browserTabCoordinator: BrowserTabCoordinator,
     statusMonitor: ServerStatusPoller,
     notificationCoordinator: NotificationCoordinator,
+    browserDomainUnblocker: any BrowserDomainUnblocking,
+    browserDomainUnblockNotifier: BrowserDomainUnblockNotifier,
     defaultsSuite: UserDefaults = .standard
   ) {
     self.serverManager = serverManager
     self.browserTabCoordinator = browserTabCoordinator
     self.statusMonitor = statusMonitor
     self.notificationCoordinator = notificationCoordinator
+    self.browserDomainUnblocker = browserDomainUnblocker
+    self.browserDomainUnblockNotifier = browserDomainUnblockNotifier
     self.defaultsSuite = defaultsSuite
     registerShortcuts()
   }
@@ -166,34 +172,8 @@ final class ShortcutController {
   }
 
   private func unblockOnAllServers(domain: String, duration: TimeInterval?) async {
-    guard !serverManager.servers.isEmpty else {
-      logger.debug("Unblock shortcut fired but no servers configured — skipping")
-      return
-    }
-
-    if let duration {
-      do {
-        let outcomes = try await serverManager.unblock(domain: domain, duration: duration)
-        notificationCoordinator.scheduleDomainUnblockNoOps(
-          outcomes, domain: domain, labelFor: serverManager.displayLabel(for:)
-        )
-      } catch {
-        logger.warning(
-          """
-          Shortcut unblock failed: \
-          \(error.localizedDescription, privacy: .public)
-          """
-        )
-        postErrorNotification(action: "unblock", error: error.localizedDescription)
-      }
-    } else {
-      // Indefinite: the same non-expiring unblock the menu's "Add to
-      // allowlist" action performs (allowlist add, no record, no expiry task).
-      let outcomes = await serverManager.addToAllowlist(domain: domain)
-      notificationCoordinator.scheduleDomainUnblockNoOps(
-        outcomes, domain: domain, labelFor: serverManager.displayLabel(for:)
-      )
-    }
+    let result = await browserDomainUnblocker.unblock(domain: domain, duration: duration)
+    await browserDomainUnblockNotifier.notify(result)
   }
 
   // MARK: - Custom Duration

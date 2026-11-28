@@ -26,6 +26,14 @@ class MockPiholeAPI: PiholeAPIProviding {
   var getRecentBlockedStub: Result<[BlockedDomain], any Error> = .success([])
   private(set) var getRecentBlockedCallCount = 0
 
+  var getDomainQueryHistoryStub: Result<DomainQueryHistory, any Error> = .success(
+    DomainQueryHistory(entries: [], isComplete: true))
+  var getDomainQueryHistoryHandler: ((String, String, DateInterval) async throws -> DomainQueryHistory)?
+  private(set) var getDomainQueryHistoryCallCount = 0
+  private(set) var getDomainQueryHistoryLastDomain: String?
+  private(set) var getDomainQueryHistoryLastClientIP: String?
+  private(set) var getDomainQueryHistoryLastInterval: DateInterval?
+
   var getQuerySummaryStub: Result<QuerySummary, any Error> = .success(QuerySummary(totalQueries: 0, totalBlocked: 0))
   private(set) var getQuerySummaryCallCount = 0
 
@@ -86,6 +94,19 @@ class MockPiholeAPI: PiholeAPIProviding {
   func getRecentBlocked(forClientIp: String?, interval: DateInterval) async throws -> [BlockedDomain] {
     getRecentBlockedCallCount += 1
     return try getRecentBlockedStub.get()
+  }
+
+  func getDomainQueryHistory(
+    domain: String, forClientIP: String, interval: DateInterval
+  ) async throws -> DomainQueryHistory {
+    getDomainQueryHistoryCallCount += 1
+    getDomainQueryHistoryLastDomain = domain
+    getDomainQueryHistoryLastClientIP = forClientIP
+    getDomainQueryHistoryLastInterval = interval
+    if let getDomainQueryHistoryHandler {
+      return try await getDomainQueryHistoryHandler(domain, forClientIP, interval)
+    }
+    return try getDomainQueryHistoryStub.get()
   }
 
   func getQuerySummary() async throws -> QuerySummary {

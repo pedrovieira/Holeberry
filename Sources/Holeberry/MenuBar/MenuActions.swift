@@ -3,6 +3,17 @@ import HoleberryCore
 
 /// Pure-data contract between `MenuBarController` and `MenuBuilder`:
 /// every action the app menu can trigger, expressed as closures.
+enum DomainActionSource {
+  case browserTab
+  case recentlyBlocked
+}
+
+struct DomainMenuAction {
+  let domain: String
+  let duration: TimeInterval?
+  let source: DomainActionSource
+}
+
 struct MenuActions {
   var openAppSettings: () -> Void
   var checkForUpdates: () -> Void
@@ -12,8 +23,8 @@ struct MenuActions {
   var reEnableBlocking: () -> Void
   var triggerGravityUpdate: () -> Void
 
-  var disableURL: (String, TimeInterval) -> Void
-  var addToAllowlist: (String) -> Void
+  var disableURL: (String, TimeInterval, DomainActionSource) -> Void
+  var addToAllowlist: (String, DomainActionSource) -> Void
 
   var enableBrowserPermission: () -> Void
 
